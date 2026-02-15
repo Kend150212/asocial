@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
             case 'runware':
                 models = getRunwareModels()
                 break
+            case 'openrouter':
+                models = await fetchOpenRouterModels(apiKey)
+                break
             default:
                 return NextResponse.json({ models: [], message: 'Model listing not supported for this provider' })
         }
@@ -143,4 +146,34 @@ function getRunwareModels(): ModelInfo[] {
         { id: 'kling:video-1.6-standard', name: 'Kling Video 1.6', type: 'video', description: 'Kling — video generation' },
         { id: 'minimax:video-01', name: 'Minimax Hailuo', type: 'video', description: 'Minimax — video generation' },
     ]
+}
+
+function classifyOpenRouterModel(id: string): ModelInfo['type'] {
+    if (id.includes('dall-e') || id.includes('imagen') || id.includes('stable-diffusion') || id.includes('flux')) return 'image'
+    if (id.includes('sora') || id.includes('video') || id.includes('veo')) return 'video'
+    return 'text'
+}
+
+async function fetchOpenRouterModels(apiKey: string): Promise<ModelInfo[]> {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    })
+
+    if (!res.ok) {
+        throw new Error(`OpenRouter API error: ${res.status}`)
+    }
+
+    const data = await res.json()
+
+    const models: ModelInfo[] = (data.data || [])
+        .map((m: { id: string; name?: string; description?: string }) => ({
+            id: m.id,
+            name: m.name || m.id,
+            type: classifyOpenRouterModel(m.id),
+            description: m.description?.slice(0, 100),
+        }))
+        .filter((m: ModelInfo) => ['text', 'image', 'video'].includes(m.type))
+        .sort((a: ModelInfo, b: ModelInfo) => a.name.localeCompare(b.name))
+
+    return models
 }

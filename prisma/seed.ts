@@ -72,6 +72,15 @@ async function main() {
             baseUrl: 'https://api.runware.ai/v1',
         },
         {
+            category: IntegrationCategory.AI,
+            provider: 'openrouter',
+            name: 'OpenRouter',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+            baseUrl: 'https://openrouter.ai/api/v1',
+        },
+        {
             category: IntegrationCategory.STORAGE,
             provider: 'gdrive',
             name: 'Google Drive',
