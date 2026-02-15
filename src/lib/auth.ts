@@ -1,3 +1,7 @@
+// Force trust host for production behind reverse proxy (Nginx)
+// Must be set BEFORE NextAuth reads process.env
+if (!process.env.AUTH_TRUST_HOST) process.env.AUTH_TRUST_HOST = 'true'
+
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
