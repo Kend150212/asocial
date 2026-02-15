@@ -70,6 +70,9 @@
         "sslPort465": "SSL (Port 465)",
         "tlsPort587": "TLS/STARTTLS (Port 587)",
         "nonePort25": "None (Port 25)",
+        "gdriveClientId": "Client ID",
+        "gdriveClientSecret": "Client Secret",
+        "gdriveClientSecretPlaceholder": "Enter Client Secret",
         "categories": {
             "SOCIAL": "Social Media",
             "AI": "AI Providers",
@@ -119,14 +122,15 @@
             "urlLabel": "Open Runware Dashboard"
         },
         "gdrive": {
-            "title": "Google Drive API",
+            "title": "Google Drive OAuth2 Setup",
             "steps": [
                 "Go to Google Cloud Console",
                 "Create a new project or select existing",
                 "Enable Google Drive API in Library",
-                "Create Credentials → Service Account",
-                "Download JSON key file",
-                "Share Google Drive folder with the service account email"
+                "Go to Credentials → Create Credentials → OAuth Client ID",
+                "Select 'Web application' as application type",
+                "Add authorized redirect URI (your app URL + /api/auth/callback/google)",
+                "Copy the Client ID and Client Secret"
             ],
             "urlLabel": "Open Google Cloud Console"
         },

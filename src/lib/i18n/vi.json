@@ -70,6 +70,9 @@
         "sslPort465": "SSL (Port 465)",
         "tlsPort587": "TLS/STARTTLS (Port 587)",
         "nonePort25": "Không (Port 25)",
+        "gdriveClientId": "Client ID",
+        "gdriveClientSecret": "Client Secret",
+        "gdriveClientSecretPlaceholder": "Nhập Client Secret",
         "categories": {
             "SOCIAL": "Mạng xã hội",
             "AI": "AI Providers",
@@ -119,14 +122,15 @@
             "urlLabel": "Mở Runware Dashboard"
         },
         "gdrive": {
-            "title": "Google Drive API",
+            "title": "Cài đặt Google Drive OAuth2",
             "steps": [
                 "Truy cập Google Cloud Console",
-                "Tạo Project mới hoặc chọn project",
+                "Tạo Project mới hoặc chọn project có sẵn",
                 "Bật Google Drive API tại Library",
-                "Tạo Credentials → Service Account",
-                "Download JSON key file",
-                "Share folder Google Drive với email service account"
+                "Vào Credentials → Create Credentials → OAuth Client ID",
+                "Chọn 'Web application' làm loại ứng dụng",
+                "Thêm authorized redirect URI (URL app + /api/auth/callback/google)",
+                "Copy Client ID và Client Secret"
             ],
             "urlLabel": "Mở Google Cloud Console"
         },

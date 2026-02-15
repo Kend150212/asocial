@@ -100,6 +100,7 @@ export default function IntegrationsPage() {
     const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
     const [selectedModels, setSelectedModels] = useState<Record<string, Record<string, string>>>({})
     const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({})
+    const [gdriveConfigs, setGdriveConfigs] = useState<Record<string, GDriveConfig>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
 
     const fetchIntegrations = useCallback(async () => {
@@ -108,9 +109,10 @@ export default function IntegrationsPage() {
             const data = await res.json()
             setIntegrations(data)
 
-            // Initialize selected models and SMTP config from config
+            // Initialize selected models, SMTP config, and GDrive config from config
             const modelSelections: Record<string, Record<string, string>> = {}
             const smtpConfigMap: Record<string, SmtpConfig> = {}
+            const gdriveConfigMap: Record<string, GDriveConfig> = {}
             for (const i of data) {
                 const config = (i.config || {}) as Record<string, string>
                 modelSelections[i.id] = {
@@ -128,9 +130,16 @@ export default function IntegrationsPage() {
                         from: config.smtpFrom || '',
                     }
                 }
+                if (i.provider === 'gdrive') {
+                    gdriveConfigMap[i.id] = {
+                        clientId: config.gdriveClientId || '',
+                        clientSecret: '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
+            setGdriveConfigs(gdriveConfigMap)
         } catch {
             toast.error('Failed to load integrations')
         } finally {
@@ -165,6 +174,20 @@ export default function IntegrationsPage() {
                     // Use SMTP password as the "API key" for encrypted storage
                     if (smtp.password) {
                         body.apiKey = smtp.password
+                    }
+                }
+            }
+
+            // Google Drive OAuth2 config
+            if (integration.provider === 'gdrive') {
+                const gdrive = gdriveConfigs[integration.id]
+                if (gdrive) {
+                    body.config = {
+                        gdriveClientId: gdrive.clientId,
+                    }
+                    // Store Client Secret encrypted as the "API key"
+                    if (gdrive.clientSecret) {
+                        body.apiKey = gdrive.clientSecret
                     }
                 }
             }
@@ -304,6 +327,7 @@ export default function IntegrationsPage() {
                                 isLoadingModels={loadingModels[integration.id] || false}
                                 selectedModel={selectedModels[integration.id] || {}}
                                 smtpConfig={smtpConfigs[integration.id]}
+                                gdriveConfig={gdriveConfigs[integration.id]}
                                 showSetupGuide={showGuide[integration.id] || false}
                                 onApiKeyChange={(val: string) => setApiKeys((k) => ({ ...k, [integration.id]: val }))}
                                 onToggleShow={() => setShowKeys((s) => ({ ...s, [integration.id]: !s[integration.id] }))}
@@ -318,6 +342,12 @@ export default function IntegrationsPage() {
                                 }
                                 onSmtpChange={(field: string, value: string) =>
                                     setSmtpConfigs((s) => ({
+                                        ...s,
+                                        [integration.id]: { ...s[integration.id], [field]: value },
+                                    }))
+                                }
+                                onGdriveChange={(field: string, value: string) =>
+                                    setGdriveConfigs((s) => ({
                                         ...s,
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
@@ -343,6 +373,11 @@ interface SmtpConfig {
     from: string
 }
 
+interface GDriveConfig {
+    clientId: string
+    clientSecret: string
+}
+
 function IntegrationCard({
     integration,
     apiKey,
@@ -354,6 +389,7 @@ function IntegrationCard({
     isLoadingModels,
     selectedModel,
     smtpConfig,
+    gdriveConfig,
     showSetupGuide,
     onApiKeyChange,
     onToggleShow,
@@ -362,6 +398,7 @@ function IntegrationCard({
     onFetchModels,
     onModelSelect,
     onSmtpChange,
+    onGdriveChange,
     onToggleGuide,
 }: {
     integration: Integration
@@ -374,6 +411,7 @@ function IntegrationCard({
     isLoadingModels: boolean
     selectedModel: Record<string, string>
     smtpConfig?: SmtpConfig
+    gdriveConfig?: GDriveConfig
     showSetupGuide: boolean
     onApiKeyChange: (val: string) => void
     onToggleShow: () => void
@@ -382,11 +420,13 @@ function IntegrationCard({
     onFetchModels: () => void
     onModelSelect: (type: string, modelId: string) => void
     onSmtpChange: (field: string, value: string) => void
+    onGdriveChange: (field: string, value: string) => void
     onToggleGuide: () => void
 }) {
     const t = useTranslation()
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
+    const isGDrive = integration.provider === 'gdrive'
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -543,6 +583,39 @@ function IntegrationCard({
                                 className="h-8 text-xs"
                                 type="email"
                             />
+                        </div>
+                    </div>
+                ) : isGDrive && gdriveConfig ? (
+                    /* Google Drive OAuth2 Config */
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">{t('integrations.gdriveClientId')}</Label>
+                            <Input
+                                value={gdriveConfig.clientId}
+                                onChange={(e) => onGdriveChange('clientId', e.target.value)}
+                                placeholder="xxxxx.apps.googleusercontent.com"
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">{t('integrations.gdriveClientSecret')}</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={gdriveConfig.clientSecret}
+                                    onChange={(e) => onGdriveChange('clientSecret', e.target.value)}
+                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : t('integrations.gdriveClientSecretPlaceholder')}
+                                    className="pr-8 h-8 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ) : (
