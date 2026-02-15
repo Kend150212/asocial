@@ -1,0 +1,156 @@
+{
+    "common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search",
+        "loading": "Loading...",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "close": "Close",
+        "yes": "Yes",
+        "no": "No",
+        "or": "or",
+        "test": "Test",
+        "refresh": "Refresh",
+        "configured": "configured",
+        "notConfigured": "Not configured",
+        "signOut": "Sign out"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "channels": "Channels",
+        "posts": "Posts",
+        "calendar": "Calendar",
+        "media": "Media",
+        "email": "Email",
+        "reports": "Reports",
+        "administration": "Administration",
+        "users": "Users",
+        "apiHub": "API Hub",
+        "activity": "Activity",
+        "automation": "Automation",
+        "settings": "Settings"
+    },
+    "auth": {
+        "signIn": "Sign In",
+        "signInDescription": "Enter your credentials to access your account",
+        "email": "Email",
+        "password": "Password",
+        "emailPlaceholder": "admin@asocial.app",
+        "passwordPlaceholder": "Enter your password",
+        "forgotPassword": "Forgot password?",
+        "invalidCredentials": "Invalid email or password"
+    },
+    "integrations": {
+        "title": "API Hub",
+        "description": "Manage API integrations, keys, and default AI models",
+        "apiKey": "API Key",
+        "enterApiKey": "Enter API key...",
+        "setupGuide": "How to get API Key",
+        "hideGuide": "Hide guide",
+        "defaultModels": "Default Models",
+        "fetchModels": "Fetch Models",
+        "selectModel": "Select model...",
+        "textChat": "Text / Chat",
+        "image": "Image",
+        "video": "Video",
+        "clickFetchModels": "Click \"Fetch Models\" to load available models",
+        "testConnection": "Test connection",
+        "smtpHost": "SMTP Host",
+        "smtpPort": "Port",
+        "smtpSecurity": "Security",
+        "smtpUsername": "Username (Email)",
+        "smtpPassword": "Password / App Password",
+        "smtpFrom": "From Email",
+        "smtpAppPasswordPlaceholder": "App Password (16 characters)",
+        "sslPort465": "SSL (Port 465)",
+        "tlsPort587": "TLS/STARTTLS (Port 587)",
+        "nonePort25": "None (Port 25)",
+        "categories": {
+            "SOCIAL": "Social Media",
+            "AI": "AI Providers",
+            "STORAGE": "Cloud Storage",
+            "EMAIL": "Email Service",
+            "WEBHOOK": "Webhooks"
+        }
+    },
+    "guides": {
+        "vbout": {
+            "title": "VBOUT API Key",
+            "steps": [
+                "Login to your VBOUT account",
+                "Go to Settings → API Integrations",
+                "Copy your API Key"
+            ],
+            "urlLabel": "Open VBOUT Settings"
+        },
+        "openai": {
+            "title": "OpenAI API Key",
+            "steps": [
+                "Sign in at platform.openai.com",
+                "Go to API Keys → Create new secret key",
+                "Name your key and copy it",
+                "Note: Billing plan required for usage"
+            ],
+            "urlLabel": "Open OpenAI Dashboard"
+        },
+        "gemini": {
+            "title": "Google Gemini API Key",
+            "steps": [
+                "Visit Google AI Studio",
+                "Click \"Get API Key\" at the top",
+                "Create a new API key or select existing project",
+                "Copy API key — free with RPM limits"
+            ],
+            "urlLabel": "Open Google AI Studio"
+        },
+        "runware": {
+            "title": "Runware API Key",
+            "steps": [
+                "Sign up at runware.ai",
+                "Go to Dashboard → API Keys",
+                "Create new key and copy",
+                "Supports: FLUX, SDXL, DALL-E, Kling Video..."
+            ],
+            "urlLabel": "Open Runware Dashboard"
+        },
+        "gdrive": {
+            "title": "Google Drive API",
+            "steps": [
+                "Go to Google Cloud Console",
+                "Create a new project or select existing",
+                "Enable Google Drive API in Library",
+                "Create Credentials → Service Account",
+                "Download JSON key file",
+                "Share Google Drive folder with the service account email"
+            ],
+            "urlLabel": "Open Google Cloud Console"
+        },
+        "smtp": {
+            "title": "Gmail SMTP Setup",
+            "steps": [
+                "Enable 2-Factor Authentication on Google Account",
+                "Go to Google Account → Security → App passwords",
+                "Create a new App Password (select \"Mail\")",
+                "Copy the 16-character app password (no spaces)",
+                "Use your Gmail as Username and App Password as Password"
+            ],
+            "urlLabel": "Create App Password"
+        }
+    },
+    "forgotPassword": {
+        "title": "Reset Password",
+        "description": "Contact your administrator to reset your password.",
+        "adminContact": "Admin Contact",
+        "backToLogin": "Back to Login"
+    },
+    "language": {
+        "label": "Language",
+        "en": "English",
+        "vi": "Tiếng Việt"
+    }
+}

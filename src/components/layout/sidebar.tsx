@@ -5,7 +5,9 @@ import { usePathname } from 'next/navigation'
 import NextImage from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageSwitcher } from '@/components/language-switcher'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +42,7 @@ import {
 import { useState } from 'react'
 
 interface NavItem {
-    title: string
+    titleKey: string
     href: string
     icon: React.ComponentType<{ className?: string }>
     badge?: string
@@ -48,22 +50,22 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { title: 'Channels', href: '/dashboard/channels', icon: Megaphone },
-    { title: 'Posts', href: '/dashboard/posts', icon: PenSquare },
-    { title: 'Calendar', href: '/dashboard/calendar', icon: CalendarDays },
-    { title: 'Media', href: '/dashboard/media', icon: Image },
-    { title: 'Email', href: '/dashboard/email', icon: Mail },
-    { title: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+    { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
+    { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
+    { titleKey: 'nav.calendar', href: '/dashboard/calendar', icon: CalendarDays },
+    { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
+    { titleKey: 'nav.email', href: '/dashboard/email', icon: Mail },
+    { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
 ]
 
 const adminNav: NavItem[] = [
-    { title: 'Users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
-    { title: 'Channels', href: '/admin/channels', icon: Shield, roles: ['ADMIN'] },
-    { title: 'API Hub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
-    { title: 'Activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
-    { title: 'Automation', href: '/admin/automation', icon: Zap, roles: ['ADMIN'] },
-    { title: 'Settings', href: '/admin/settings', icon: Settings, roles: ['ADMIN'] },
+    { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
+    { titleKey: 'nav.channels', href: '/admin/channels', icon: Shield, roles: ['ADMIN'] },
+    { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
+    { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
+    { titleKey: 'nav.automation', href: '/admin/automation', icon: Zap, roles: ['ADMIN'] },
+    { titleKey: 'nav.settings', href: '/admin/settings', icon: Settings, roles: ['ADMIN'] },
 ]
 
 export function Sidebar() {
@@ -71,6 +73,7 @@ export function Sidebar() {
     const { data: session } = useSession()
     const [collapsed, setCollapsed] = useState(false)
     const isAdmin = session?.user?.role === 'ADMIN'
+    const t = useTranslation()
 
     const initials = session?.user?.name
         ?.split(' ')
@@ -123,7 +126,7 @@ export function Sidebar() {
                             )}
                         >
                             <item.icon className="h-4 w-4 shrink-0" />
-                            {!collapsed && <span>{item.title}</span>}
+                            {!collapsed && <span>{t(item.titleKey)}</span>}
                             {!collapsed && item.badge && (
                                 <Badge variant="secondary" className="ml-auto text-xs">
                                     {item.badge}
@@ -139,7 +142,7 @@ export function Sidebar() {
                         <div className="px-3">
                             {!collapsed && (
                                 <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Administration
+                                    {t('nav.administration')}
                                 </p>
                             )}
                             <nav className="space-y-1">
@@ -157,7 +160,7 @@ export function Sidebar() {
                                         )}
                                     >
                                         <item.icon className="h-4 w-4 shrink-0" />
-                                        {!collapsed && <span>{item.title}</span>}
+                                        {!collapsed && <span>{t(item.titleKey)}</span>}
                                     </Link>
                                 ))}
                             </nav>
@@ -172,6 +175,7 @@ export function Sidebar() {
             <div className={cn('p-3', collapsed && 'flex flex-col items-center gap-2')}>
                 <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
                     <ThemeToggle />
+                    <LanguageSwitcher />
                     <Button variant="ghost" size="icon" className="h-9 w-9 relative">
                         <Bell className="h-4 w-4" />
                         <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
@@ -212,7 +216,7 @@ export function Sidebar() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
                             <LogOut className="mr-2 h-4 w-4" />
-                            Sign out
+                            {t('common.signOut')}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

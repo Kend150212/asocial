@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,13 +67,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
     WEBHOOK: <Webhook className="h-5 w-5" />,
 }
 
-const categoryLabels: Record<string, string> = {
-    SOCIAL: 'Social Media',
-    AI: 'AI Providers',
-    STORAGE: 'Cloud Storage',
-    EMAIL: 'Email Service',
-    WEBHOOK: 'Webhooks',
-}
+// categoryLabels now driven by t() inside the component
 
 const providerColors: Record<string, string> = {
     vbout: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -83,85 +78,17 @@ const providerColors: Record<string, string> = {
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 }
 
-interface SetupGuide {
-    title: string
-    steps: string[]
-    url: string
-    urlLabel: string
-}
-
-const providerGuides: Record<string, SetupGuide> = {
-    vbout: {
-        title: 'VBOUT API Key',
-        steps: [
-            'Login vào tài khoản VBOUT',
-            'Vào Settings → API Integrations',
-            'Copy API Key',
-        ],
-        url: 'https://app.vbout.com/Settings#tab-api',
-        urlLabel: 'Mở VBOUT Settings',
-    },
-    openai: {
-        title: 'OpenAI API Key',
-        steps: [
-            'Đăng nhập tại platform.openai.com',
-            'Vào API Keys → Create new secret key',
-            'Đặt tên key và copy',
-            'Lưu ý: Cần có billing plan để sử dụng',
-        ],
-        url: 'https://platform.openai.com/api-keys',
-        urlLabel: 'Mở OpenAI Dashboard',
-    },
-    gemini: {
-        title: 'Google Gemini API Key',
-        steps: [
-            'Truy cập Google AI Studio',
-            'Click "Get API Key" ở góc trên',
-            'Tạo API key mới hoặc chọn project có sẵn',
-            'Copy API key — miễn phí với giới hạn RPM',
-        ],
-        url: 'https://aistudio.google.com/apikey',
-        urlLabel: 'Mở Google AI Studio',
-    },
-    runware: {
-        title: 'Runware API Key',
-        steps: [
-            'Đăng ký tại runware.ai',
-            'Vào Dashboard → API Keys',
-            'Tạo key mới và copy',
-            'Hỗ trợ: FLUX, SDXL, DALL-E, Kling Video...',
-        ],
-        url: 'https://my.runware.ai/keys',
-        urlLabel: 'Mở Runware Dashboard',
-    },
-    gdrive: {
-        title: 'Google Drive API',
-        steps: [
-            'Truy cập Google Cloud Console',
-            'Tạo Project mới hoặc chọn project',
-            'Bật Google Drive API tại Library',
-            'Tạo Credentials → Service Account',
-            'Download JSON key file',
-            'Share folder Google Drive với email service account',
-        ],
-        url: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
-        urlLabel: 'Mở Google Cloud Console',
-    },
-    smtp: {
-        title: 'Gmail SMTP Setup',
-        steps: [
-            'Bật 2-Factor Authentication cho Google Account',
-            'Vào Google Account → Security → App passwords',
-            'Tạo App Password mới (chọn "Mail")',
-            'Copy 16-ký tự app password (không có khoảng trắng)',
-            'Dùng email Gmail làm Username, App Password làm Password',
-        ],
-        url: 'https://myaccount.google.com/apppasswords',
-        urlLabel: 'Tạo App Password',
-    },
+const providerGuideUrls: Record<string, string> = {
+    vbout: 'https://app.vbout.com/Settings#tab-api',
+    openai: 'https://platform.openai.com/api-keys',
+    gemini: 'https://aistudio.google.com/apikey',
+    runware: 'https://my.runware.ai/keys',
+    gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
+    smtp: 'https://myaccount.google.com/apppasswords',
 }
 
 export default function IntegrationsPage() {
+    const t = useTranslation()
     const [integrations, setIntegrations] = useState<Integration[]>([])
     const [loading, setLoading] = useState(true)
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
@@ -339,14 +266,14 @@ export default function IntegrationsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">API Hub</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{t('integrations.title')}</h1>
                     <p className="text-muted-foreground mt-1">
-                        Manage API integrations, keys, and default AI models
+                        {t('integrations.description')}
                     </p>
                 </div>
                 <Badge variant="outline" className="gap-1">
                     <Plug className="h-3 w-3" />
-                    {integrations.filter((i) => i.hasApiKey).length}/{integrations.length} configured
+                    {integrations.filter((i) => i.hasApiKey).length}/{integrations.length} {t('common.configured')}
                 </Badge>
             </div>
 
@@ -356,7 +283,7 @@ export default function IntegrationsPage() {
                     <div className="flex items-center gap-2">
                         {categoryIcons[category]}
                         <h2 className="text-xl font-semibold">
-                            {categoryLabels[category] || category}
+                            {t(`integrations.categories.${category}`) || category}
                         </h2>
                         <Badge variant="secondary" className="ml-2">
                             {items.filter((i) => i.hasApiKey).length}/{items.length}
@@ -457,13 +384,15 @@ function IntegrationCard({
     onSmtpChange: (field: string, value: string) => void
     onToggleGuide: () => void
 }) {
+    const t = useTranslation()
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
     const hasModels = providerModels.length > 0
-    const guide = providerGuides[integration.provider]
+    const guideUrl = providerGuideUrls[integration.provider]
+    const guideKey = `guides.${integration.provider}`
 
     return (
         <Card className={`relative transition-all hover:shadow-md ${providerColors[integration.provider] || ''} border`}>
@@ -494,7 +423,7 @@ function IntegrationCard({
 
             <CardContent className="space-y-4">
                 {/* Setup Guide Toggle */}
-                {guide && (
+                {guideUrl && (
                     <div>
                         <button
                             type="button"
@@ -502,25 +431,31 @@ function IntegrationCard({
                             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
                         >
                             <Info className="h-3.5 w-3.5" />
-                            <span>{showSetupGuide ? 'Ẩn hướng dẫn' : 'Hướng dẫn lấy API Key'}</span>
+                            <span>{showSetupGuide ? t('integrations.hideGuide') : t('integrations.setupGuide')}</span>
                         </button>
 
                         {showSetupGuide && (
                             <div className="mt-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/30">
-                                <p className="text-xs font-medium">{guide.title}</p>
+                                <p className="text-xs font-medium">{t(`${guideKey}.title`)}</p>
                                 <ol className="text-[11px] text-muted-foreground space-y-1 pl-4 list-decimal">
-                                    {guide.steps.map((step, i) => (
-                                        <li key={i}>{step}</li>
-                                    ))}
+                                    {(function () {
+                                        const steps: string[] = []
+                                        for (let i = 0; i < 10; i++) {
+                                            const step = t(`${guideKey}.steps.${i}`)
+                                            if (step === `${guideKey}.steps.${i}`) break
+                                            steps.push(step)
+                                        }
+                                        return steps.map((step, i) => <li key={i}>{step}</li>)
+                                    })()}
                                 </ol>
                                 <a
-                                    href={guide.url}
+                                    href={guideUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
                                 >
                                     <ExternalLink className="h-3 w-3" />
-                                    {guide.urlLabel}
+                                    {t(`${guideKey}.urlLabel`)}
                                 </a>
                             </div>
                         )}
@@ -532,7 +467,7 @@ function IntegrationCard({
                     <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                                <Label className="text-[11px]">SMTP Host</Label>
+                                <Label className="text-[11px]">{t('integrations.smtpHost')}</Label>
                                 <Input
                                     value={smtpConfig.host}
                                     onChange={(e) => onSmtpChange('host', e.target.value)}
@@ -541,7 +476,7 @@ function IntegrationCard({
                                 />
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-[11px]">Port</Label>
+                                <Label className="text-[11px]">{t('integrations.smtpPort')}</Label>
                                 <Input
                                     value={smtpConfig.port}
                                     onChange={(e) => onSmtpChange('port', e.target.value)}
@@ -552,7 +487,7 @@ function IntegrationCard({
                         </div>
 
                         <div className="space-y-1">
-                            <Label className="text-[11px]">Security</Label>
+                            <Label className="text-[11px]">{t('integrations.smtpSecurity')}</Label>
                             <Select
                                 value={smtpConfig.secure}
                                 onValueChange={(v) => onSmtpChange('secure', v)}
@@ -561,15 +496,15 @@ function IntegrationCard({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="ssl">SSL (Port 465)</SelectItem>
-                                    <SelectItem value="tls">TLS/STARTTLS (Port 587)</SelectItem>
-                                    <SelectItem value="none">None (Port 25)</SelectItem>
+                                    <SelectItem value="ssl">{t('integrations.sslPort465')}</SelectItem>
+                                    <SelectItem value="tls">{t('integrations.tlsPort587')}</SelectItem>
+                                    <SelectItem value="none">{t('integrations.nonePort25')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="space-y-1">
-                            <Label className="text-[11px]">Username (Email)</Label>
+                            <Label className="text-[11px]">{t('integrations.smtpUsername')}</Label>
                             <Input
                                 value={smtpConfig.username}
                                 onChange={(e) => onSmtpChange('username', e.target.value)}
@@ -580,13 +515,13 @@ function IntegrationCard({
                         </div>
 
                         <div className="space-y-1">
-                            <Label className="text-[11px]">Password / App Password</Label>
+                            <Label className="text-[11px]">{t('integrations.smtpPassword')}</Label>
                             <div className="relative">
                                 <Input
                                     type={showKey ? 'text' : 'password'}
                                     value={smtpConfig.password}
                                     onChange={(e) => onSmtpChange('password', e.target.value)}
-                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : 'App Password 16 ký tự'}
+                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : t('integrations.smtpAppPasswordPlaceholder')}
                                     className="pr-8 h-8 text-xs"
                                 />
                                 <button
@@ -600,7 +535,7 @@ function IntegrationCard({
                         </div>
 
                         <div className="space-y-1">
-                            <Label className="text-[11px]">From Email</Label>
+                            <Label className="text-[11px]">{t('integrations.smtpFrom')}</Label>
                             <Input
                                 value={smtpConfig.from}
                                 onChange={(e) => onSmtpChange('from', e.target.value)}
@@ -613,14 +548,14 @@ function IntegrationCard({
                 ) : (
                     /* Standard API Key Input */
                     <div className="space-y-2">
-                        <Label className="text-xs font-medium">API Key</Label>
+                        <Label className="text-xs font-medium">{t('integrations.apiKey')}</Label>
                         <div className="flex gap-1.5">
                             <div className="relative flex-1">
                                 <Input
                                     type={showKey ? 'text' : 'password'}
                                     value={apiKey || ''}
                                     onChange={(e) => onApiKeyChange(e.target.value)}
-                                    placeholder={integration.apiKeyMasked || 'Enter API key...'}
+                                    placeholder={integration.apiKeyMasked || t('integrations.enterApiKey')}
                                     className="pr-8 text-xs h-9"
                                 />
                                 <button
@@ -639,7 +574,7 @@ function IntegrationCard({
                 {isAI && integration.hasApiKey && (
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label className="text-xs font-medium">Default Models</Label>
+                            <Label className="text-xs font-medium">{t('integrations.defaultModels')}</Label>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -652,7 +587,7 @@ function IntegrationCard({
                                 ) : (
                                     <RefreshCw className="h-3 w-3" />
                                 )}
-                                {hasModels ? 'Refresh' : 'Fetch Models'}
+                                {hasModels ? t('common.refresh') : t('integrations.fetchModels')}
                             </Button>
                         </div>
 
@@ -661,7 +596,7 @@ function IntegrationCard({
                                 <div className="space-y-2">
                                     {textModels.length > 0 && (
                                         <ModelSelect
-                                            label="Text / Chat"
+                                            label={t('integrations.textChat')}
                                             models={textModels}
                                             value={selectedModel?.text || ''}
                                             onChange={(v) => onModelSelect('text', v)}
@@ -669,7 +604,7 @@ function IntegrationCard({
                                     )}
                                     {imageModels.length > 0 && (
                                         <ModelSelect
-                                            label="Image"
+                                            label={t('integrations.image')}
                                             models={imageModels}
                                             value={selectedModel?.image || ''}
                                             onChange={(v) => onModelSelect('image', v)}
@@ -677,7 +612,7 @@ function IntegrationCard({
                                     )}
                                     {videoModels.length > 0 && (
                                         <ModelSelect
-                                            label="Video"
+                                            label={t('integrations.video')}
                                             models={videoModels}
                                             value={selectedModel?.video || ''}
                                             onChange={(v) => onModelSelect('video', v)}
@@ -689,7 +624,7 @@ function IntegrationCard({
 
                         {!hasModels && !isLoadingModels && (
                             <p className="text-[11px] text-muted-foreground text-center py-1">
-                                Click &quot;Fetch Models&quot; to load available models
+                                {t('integrations.clickFetchModels')}
                             </p>
                         )}
                     </div>
@@ -699,8 +634,8 @@ function IntegrationCard({
                 {testResult && (
                     <div
                         className={`rounded-md p-2 text-xs ${testResult.success
-                                ? 'bg-emerald-500/10 text-emerald-500'
-                                : 'bg-destructive/10 text-destructive'
+                            ? 'bg-emerald-500/10 text-emerald-500'
+                            : 'bg-destructive/10 text-destructive'
                             }`}
                     >
                         {testResult.success ? <Check className="h-3 w-3 inline mr-1" /> : <X className="h-3 w-3 inline mr-1" />}
@@ -717,7 +652,7 @@ function IntegrationCard({
                         disabled={isSaving}
                     >
                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                        Save
+                        {t('common.save')}
                     </Button>
                     <Button
                         variant="outline"
@@ -727,7 +662,7 @@ function IntegrationCard({
                         disabled={isTesting || !integration.hasApiKey}
                     >
                         {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                        Test
+                        {t('common.test')}
                     </Button>
                 </div>
             </CardContent>
@@ -736,10 +671,11 @@ function IntegrationCard({
 }
 
 function StatusBadge({ status, hasKey }: { status: string; hasKey: boolean }) {
+    const t = useTranslation()
     if (!hasKey) {
         return (
             <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">
-                Not configured
+                {t('common.notConfigured')}
             </Badge>
         )
     }
@@ -774,7 +710,7 @@ function ModelSelect({
             <span className="text-[11px] text-muted-foreground w-16 shrink-0">{label}</span>
             <Select value={value} onValueChange={onChange}>
                 <SelectTrigger className="h-7 text-xs flex-1">
-                    <SelectValue placeholder="Select model..." />
+                    <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
                     {models.map((m) => (

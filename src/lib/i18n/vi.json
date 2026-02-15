@@ -1,0 +1,156 @@
+{
+    "common": {
+        "save": "Lưu",
+        "cancel": "Hủy",
+        "delete": "Xóa",
+        "edit": "Sửa",
+        "create": "Tạo",
+        "search": "Tìm kiếm",
+        "loading": "Đang tải...",
+        "confirm": "Xác nhận",
+        "back": "Quay lại",
+        "next": "Tiếp theo",
+        "close": "Đóng",
+        "yes": "Có",
+        "no": "Không",
+        "or": "hoặc",
+        "test": "Kiểm tra",
+        "refresh": "Làm mới",
+        "configured": "đã cấu hình",
+        "notConfigured": "Chưa cấu hình",
+        "signOut": "Đăng xuất"
+    },
+    "nav": {
+        "dashboard": "Trang chủ",
+        "channels": "Kênh",
+        "posts": "Bài viết",
+        "calendar": "Lịch",
+        "media": "Phương tiện",
+        "email": "Email",
+        "reports": "Báo cáo",
+        "administration": "Quản trị",
+        "users": "Người dùng",
+        "apiHub": "API Hub",
+        "activity": "Hoạt động",
+        "automation": "Tự động hóa",
+        "settings": "Cài đặt"
+    },
+    "auth": {
+        "signIn": "Đăng nhập",
+        "signInDescription": "Nhập thông tin đăng nhập để truy cập tài khoản",
+        "email": "Email",
+        "password": "Mật khẩu",
+        "emailPlaceholder": "admin@asocial.app",
+        "passwordPlaceholder": "Nhập mật khẩu",
+        "forgotPassword": "Quên mật khẩu?",
+        "invalidCredentials": "Email hoặc mật khẩu không đúng"
+    },
+    "integrations": {
+        "title": "API Hub",
+        "description": "Quản lý API integrations, keys và default AI models",
+        "apiKey": "API Key",
+        "enterApiKey": "Nhập API key...",
+        "setupGuide": "Hướng dẫn lấy API Key",
+        "hideGuide": "Ẩn hướng dẫn",
+        "defaultModels": "Model mặc định",
+        "fetchModels": "Tải Models",
+        "selectModel": "Chọn model...",
+        "textChat": "Text / Chat",
+        "image": "Hình ảnh",
+        "video": "Video",
+        "clickFetchModels": "Nhấn \"Tải Models\" để xem models hiện có",
+        "testConnection": "Kiểm tra kết nối",
+        "smtpHost": "SMTP Host",
+        "smtpPort": "Port",
+        "smtpSecurity": "Bảo mật",
+        "smtpUsername": "Tên đăng nhập (Email)",
+        "smtpPassword": "Mật khẩu / App Password",
+        "smtpFrom": "Email gửi đi",
+        "smtpAppPasswordPlaceholder": "App Password (16 ký tự)",
+        "sslPort465": "SSL (Port 465)",
+        "tlsPort587": "TLS/STARTTLS (Port 587)",
+        "nonePort25": "Không (Port 25)",
+        "categories": {
+            "SOCIAL": "Mạng xã hội",
+            "AI": "AI Providers",
+            "STORAGE": "Lưu trữ đám mây",
+            "EMAIL": "Dịch vụ Email",
+            "WEBHOOK": "Webhooks"
+        }
+    },
+    "guides": {
+        "vbout": {
+            "title": "VBOUT API Key",
+            "steps": [
+                "Đăng nhập tài khoản VBOUT",
+                "Vào Settings → API Integrations",
+                "Copy API Key"
+            ],
+            "urlLabel": "Mở VBOUT Settings"
+        },
+        "openai": {
+            "title": "OpenAI API Key",
+            "steps": [
+                "Đăng nhập tại platform.openai.com",
+                "Vào API Keys → Create new secret key",
+                "Đặt tên key và copy",
+                "Lưu ý: Cần có billing plan để sử dụng"
+            ],
+            "urlLabel": "Mở OpenAI Dashboard"
+        },
+        "gemini": {
+            "title": "Google Gemini API Key",
+            "steps": [
+                "Truy cập Google AI Studio",
+                "Click \"Get API Key\" ở góc trên",
+                "Tạo API key mới hoặc chọn project có sẵn",
+                "Copy API key — miễn phí với giới hạn RPM"
+            ],
+            "urlLabel": "Mở Google AI Studio"
+        },
+        "runware": {
+            "title": "Runware API Key",
+            "steps": [
+                "Đăng ký tại runware.ai",
+                "Vào Dashboard → API Keys",
+                "Tạo key mới và copy",
+                "Hỗ trợ: FLUX, SDXL, DALL-E, Kling Video..."
+            ],
+            "urlLabel": "Mở Runware Dashboard"
+        },
+        "gdrive": {
+            "title": "Google Drive API",
+            "steps": [
+                "Truy cập Google Cloud Console",
+                "Tạo Project mới hoặc chọn project",
+                "Bật Google Drive API tại Library",
+                "Tạo Credentials → Service Account",
+                "Download JSON key file",
+                "Share folder Google Drive với email service account"
+            ],
+            "urlLabel": "Mở Google Cloud Console"
+        },
+        "smtp": {
+            "title": "Gmail SMTP Setup",
+            "steps": [
+                "Bật 2-Factor Authentication cho Google Account",
+                "Vào Google Account → Security → App passwords",
+                "Tạo App Password mới (chọn \"Mail\")",
+                "Copy 16-ký tự app password (không có khoảng trắng)",
+                "Dùng email Gmail làm Username, App Password làm Password"
+            ],
+            "urlLabel": "Tạo App Password"
+        }
+    },
+    "forgotPassword": {
+        "title": "Đặt lại mật khẩu",
+        "description": "Liên hệ quản trị viên để đặt lại mật khẩu.",
+        "adminContact": "Liên hệ Admin",
+        "backToLogin": "Quay lại đăng nhập"
+    },
+    "language": {
+        "label": "Ngôn ngữ",
+        "en": "English",
+        "vi": "Tiếng Việt"
+    }
+}

@@ -7,10 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/language-switcher'
 import { authenticate } from './actions'
 
 export default function LoginPage() {
     const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined)
+    const t = useTranslation()
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -18,6 +21,11 @@ export default function LoginPage() {
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
                 <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
                 <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
+            </div>
+
+            {/* Language switcher */}
+            <div className="fixed top-4 right-4 z-10">
+                <LanguageSwitcher />
             </div>
 
             <Card className="w-full max-w-md relative">
@@ -32,18 +40,18 @@ export default function LoginPage() {
                     <form action={formAction} className="space-y-4">
                         <input type="hidden" name="redirectTo" value="/dashboard" />
                         <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="email">{t('auth.email')}</Label>
                             <Input
                                 id="email"
                                 name="email"
                                 type="email"
-                                placeholder="admin@asocial.app"
+                                placeholder={t('auth.emailPlaceholder')}
                                 required
                                 autoComplete="email"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">{t('auth.password')}</Label>
                             <Input
                                 id="password"
                                 name="password"
@@ -60,7 +68,7 @@ export default function LoginPage() {
 
                         <Button type="submit" className="w-full" disabled={isPending} size="lg">
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Sign In
+                            {t('auth.signIn')}
                         </Button>
 
                         <div className="text-center">
@@ -68,7 +76,7 @@ export default function LoginPage() {
                                 href="/forgot-password"
                                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
                             >
-                                Forgot password?
+                                {t('auth.forgotPassword')}
                             </a>
                         </div>
                     </form>

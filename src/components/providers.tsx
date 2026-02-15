@@ -4,6 +4,7 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { SessionProvider } from 'next-auth/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { I18nProvider } from '@/lib/i18n'
 import { useState } from 'react'
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -28,11 +29,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
                     enableSystem
                     disableTransitionOnChange
                 >
-                    <TooltipProvider delayDuration={0}>
-                        {children}
-                    </TooltipProvider>
+                    <I18nProvider>
+                        <TooltipProvider delayDuration={0}>
+                            {children}
+                        </TooltipProvider>
+                    </I18nProvider>
                 </NextThemesProvider>
             </QueryClientProvider>
         </SessionProvider>
     )
 }
+
