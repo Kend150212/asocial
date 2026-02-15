@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import nodemailer from 'nodemailer'
 
 // POST /api/admin/integrations/test — test connection for a provider
 export async function POST(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await req.json()
+    const { id, testEmail } = await req.json()
 
     const integration = await prisma.apiIntegration.findUnique({ where: { id } })
     if (!integration) {
@@ -41,7 +42,11 @@ export async function POST(req: NextRequest) {
                 result = await testRunware(apiKey)
                 break
             case 'smtp':
-                result = await testSmtp(integration.config as Record<string, string> | null)
+                result = await testSmtp(
+                    integration.config as Record<string, string> | null,
+                    apiKey,
+                    testEmail
+                )
                 break
             case 'gdrive':
                 result = await testGoogleDrive(apiKey, integration.config as Record<string, string> | null)
@@ -149,39 +154,80 @@ async function testRunware(apiKey: string) {
     }
 }
 
-async function testSmtp(config: Record<string, string> | null) {
+async function testSmtp(
+    config: Record<string, string> | null,
+    password: string,
+    testEmail?: string
+) {
     const host = config?.smtpHost || 'smtp.gmail.com'
-    const port = config?.smtpPort || '465'
+    const port = parseInt(config?.smtpPort || '465', 10)
+    const secure = config?.smtpSecure || 'ssl'
     const username = config?.smtpUsername
+    const from = config?.smtpFrom || username
 
     if (!username) {
         return { success: false, message: 'SMTP username not configured' }
     }
 
-    // Basic connectivity check — verify the SMTP host resolves
-    // Full SMTP test requires nodemailer which we'll add later
-    try {
-        // Try to connect via DNS lookup (basic check)
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 5000)
+    if (!password) {
+        return { success: false, message: 'SMTP password not configured — please save first' }
+    }
 
-        await fetch(`https://${host}`, {
-            method: 'HEAD',
-            signal: controller.signal,
-        }).catch(() => {
-            // Expected to fail — we just want DNS resolution
+    if (!testEmail) {
+        return { success: false, message: 'Please enter a test email address' }
+    }
+
+    try {
+        const transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure: secure === 'ssl',
+            auth: {
+                user: username,
+                pass: password,
+            },
+            ...(secure === 'tls' ? { requireTLS: true } : {}),
         })
 
-        clearTimeout(timeout)
+        // Verify connection first
+        await transporter.verify()
+
+        // Send a test email
+        const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+        await transporter.sendMail({
+            from: `"ASocial" <${from}>`,
+            to: testEmail,
+            subject: '✅ ASocial — SMTP Test Successful',
+            html: `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8fafc; border-radius: 12px;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h1 style="font-size: 24px; color: #10b981; margin: 0;">✅ SMTP Test OK</h1>
+                    </div>
+                    <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #e2e8f0;">
+                        <p style="font-size: 14px; color: #334155; margin: 0 0 12px;">Your SMTP configuration is working correctly!</p>
+                        <table style="width: 100%; font-size: 13px; color: #64748b;">
+                            <tr><td style="padding: 4px 0;"><strong>Host:</strong></td><td>${host}:${port}</td></tr>
+                            <tr><td style="padding: 4px 0;"><strong>Security:</strong></td><td>${secure.toUpperCase()}</td></tr>
+                            <tr><td style="padding: 4px 0;"><strong>From:</strong></td><td>${from}</td></tr>
+                            <tr><td style="padding: 4px 0;"><strong>Time:</strong></td><td>${now}</td></tr>
+                        </table>
+                    </div>
+                    <p style="font-size: 11px; color: #94a3b8; margin-top: 16px; text-align: center;">
+                        Sent by ASocial Email System
+                    </p>
+                </div>
+            `,
+        })
 
         return {
             success: true,
-            message: `SMTP configured: ${username} → ${host}:${port} (${config?.smtpSecure?.toUpperCase() || 'SSL'})`,
+            message: `Test email sent to ${testEmail}`,
         }
-    } catch {
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : 'SMTP connection failed'
         return {
             success: false,
-            message: `Cannot reach SMTP host: ${host}`,
+            message: `SMTP error: ${msg}`,
         }
     }
 }

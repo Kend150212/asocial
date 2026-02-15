@@ -73,6 +73,9 @@
         "gdriveClientId": "Client ID",
         "gdriveClientSecret": "Client Secret",
         "gdriveClientSecretPlaceholder": "Enter Client Secret",
+        "testEmailLabel": "Send test email to",
+        "testEmailPlaceholder": "your@email.com",
+        "sendTest": "Send Test",
         "categories": {
             "SOCIAL": "Social Media",
             "AI": "AI Providers",

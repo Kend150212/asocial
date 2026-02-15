@@ -73,6 +73,9 @@
         "gdriveClientId": "Client ID",
         "gdriveClientSecret": "Client Secret",
         "gdriveClientSecretPlaceholder": "Nhập Client Secret",
+        "testEmailLabel": "Gửi email test đến",
+        "testEmailPlaceholder": "your@email.com",
+        "sendTest": "Gửi Test",
         "categories": {
             "SOCIAL": "Mạng xã hội",
             "AI": "AI Providers",

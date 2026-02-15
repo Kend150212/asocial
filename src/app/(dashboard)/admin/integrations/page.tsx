@@ -101,6 +101,7 @@ export default function IntegrationsPage() {
     const [selectedModels, setSelectedModels] = useState<Record<string, Record<string, string>>>({})
     const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({})
     const [gdriveConfigs, setGdriveConfigs] = useState<Record<string, GDriveConfig>>({})
+    const [testEmails, setTestEmails] = useState<Record<string, string>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
 
     const fetchIntegrations = useCallback(async () => {
@@ -230,7 +231,10 @@ export default function IntegrationsPage() {
             const res = await fetch('/api/admin/integrations/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: integration.id }),
+                body: JSON.stringify({
+                    id: integration.id,
+                    ...(integration.provider === 'smtp' && { testEmail: testEmails[integration.id] || '' }),
+                }),
             })
             const result = await res.json()
             setTestResults((r) => ({ ...r, [integration.id]: result }))
@@ -333,6 +337,8 @@ export default function IntegrationsPage() {
                                 onToggleShow={() => setShowKeys((s) => ({ ...s, [integration.id]: !s[integration.id] }))}
                                 onSave={() => handleSave(integration)}
                                 onTest={() => handleTest(integration)}
+                                testEmail={testEmails[integration.id] || ''}
+                                onTestEmailChange={(val: string) => setTestEmails((e) => ({ ...e, [integration.id]: val }))}
                                 onFetchModels={() => handleFetchModels(integration)}
                                 onModelSelect={(type: string, modelId: string) =>
                                     setSelectedModels((s) => ({
@@ -395,6 +401,8 @@ function IntegrationCard({
     onToggleShow,
     onSave,
     onTest,
+    testEmail,
+    onTestEmailChange,
     onFetchModels,
     onModelSelect,
     onSmtpChange,
@@ -417,6 +425,8 @@ function IntegrationCard({
     onToggleShow: () => void
     onSave: () => void
     onTest: () => void
+    testEmail: string
+    onTestEmailChange: (value: string) => void
     onFetchModels: () => void
     onModelSelect: (type: string, modelId: string) => void
     onSmtpChange: (field: string, value: string) => void
@@ -716,6 +726,20 @@ function IntegrationCard({
                     </div>
                 )}
 
+                {/* SMTP Test Email */}
+                {isSMTP && (
+                    <div className="space-y-1">
+                        <Label className="text-[11px]">{t('integrations.testEmailLabel')}</Label>
+                        <Input
+                            type="email"
+                            value={testEmail}
+                            onChange={(e) => onTestEmailChange(e.target.value)}
+                            placeholder={t('integrations.testEmailPlaceholder')}
+                            className="h-8 text-xs"
+                        />
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-2 pt-1">
                     <Button
@@ -732,10 +756,10 @@ function IntegrationCard({
                         size="sm"
                         className="h-8 text-xs gap-1"
                         onClick={onTest}
-                        disabled={isTesting || !integration.hasApiKey}
+                        disabled={isTesting || (!integration.hasApiKey && !isSMTP)}
                     >
-                        {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                        {t('common.test')}
+                        {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : isSMTP ? <Mail className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                        {isSMTP ? t('integrations.sendTest') : t('common.test')}
                     </Button>
                 </div>
             </CardContent>
