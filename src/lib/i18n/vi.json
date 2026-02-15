@@ -194,6 +194,9 @@
         "noChannels": "Chưa có kênh nào",
         "selectRole": "Chọn vai trò",
         "userInfo": "Thông tin",
+        "sendInviteEmail": "Gửi email mời kèm thông tin đăng nhập",
+        "inviteSent": "Đã gửi email mời!",
+        "inviteFailed": "Không gửi được email (SMTP chưa cấu hình)",
         "roles": {
             "ADMIN": "Quản trị viên",
             "MANAGER": "Quản lý",

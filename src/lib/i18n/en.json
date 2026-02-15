@@ -194,6 +194,9 @@
         "noChannels": "No channels available",
         "selectRole": "Select role",
         "userInfo": "User Info",
+        "sendInviteEmail": "Send invitation email with credentials",
+        "inviteSent": "Invitation email sent!",
+        "inviteFailed": "Could not send invitation email (SMTP not configured)",
         "roles": {
             "ADMIN": "Admin",
             "MANAGER": "Manager",

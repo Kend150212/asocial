@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { sendInvitationEmail } from '@/lib/email'
 
 // GET /api/admin/users — list all users
 export async function GET() {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, email, password, role } = body
+    const { name, email, password, role, sendInvite } = body
 
     if (!email || !password || !name) {
         return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })
@@ -67,5 +68,22 @@ export async function POST(req: NextRequest) {
         },
     })
 
-    return NextResponse.json(user, { status: 201 })
+    // Send invitation email if requested
+    let emailSent = false
+    if (sendInvite) {
+        const protocol = req.headers.get('x-forwarded-proto') || 'https'
+        const host = req.headers.get('host') || 'localhost:3000'
+        const appUrl = `${protocol}://${host}`
+
+        const result = await sendInvitationEmail({
+            toEmail: email,
+            toName: name,
+            password, // Send the plain password before it was hashed
+            role: role || 'MANAGER',
+            appUrl,
+        })
+        emailSent = result.success
+    }
+
+    return NextResponse.json({ ...user, emailSent }, { status: 201 })
 }

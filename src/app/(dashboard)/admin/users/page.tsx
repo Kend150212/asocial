@@ -15,6 +15,7 @@ import {
     ChevronDown,
     Check,
     X,
+    Mail,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -196,6 +197,7 @@ export default function UsersPage() {
     const [formActive, setFormActive] = useState(true)
     const [showPassword, setShowPassword] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [sendInvite, setSendInvite] = useState(true)
 
     // Channel assignments
     const [channelAssignments, setChannelAssignments] = useState<ChannelAssignment[]>([])
@@ -248,6 +250,7 @@ export default function UsersPage() {
         setFormRole('MANAGER')
         setFormActive(true)
         setShowPassword(false)
+        setSendInvite(true)
         setShowAddDialog(true)
     }
 
@@ -262,6 +265,7 @@ export default function UsersPage() {
                     email: formEmail,
                     password: formPassword,
                     role: formRole,
+                    sendInvite,
                 }),
             })
             if (!res.ok) {
@@ -271,7 +275,15 @@ export default function UsersPage() {
                     : t('users.error.createFailed'))
                 return
             }
-            toast.success(t('users.success.created'))
+            const data = await res.json()
+            if (sendInvite && data.emailSent) {
+                toast.success(t('users.success.created') + ' — ' + t('users.inviteSent'))
+            } else if (sendInvite && !data.emailSent) {
+                toast.success(t('users.success.created'))
+                toast.warning(t('users.inviteFailed'))
+            } else {
+                toast.success(t('users.success.created'))
+            }
             setShowAddDialog(false)
             fetchUsers()
         } catch {
@@ -618,6 +630,17 @@ export default function UsersPage() {
                                     <SelectItem value="CUSTOMER">{t('users.roles.CUSTOMER')}</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="flex items-center gap-3 pt-2">
+                            <Checkbox
+                                id="sendInvite"
+                                checked={sendInvite}
+                                onCheckedChange={(checked) => setSendInvite(!!checked)}
+                            />
+                            <label htmlFor="sendInvite" className="flex items-center gap-2 text-sm cursor-pointer">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                {t('users.sendInviteEmail')}
+                            </label>
                         </div>
                     </div>
                     <DialogFooter>
