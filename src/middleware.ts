@@ -1,37 +1,29 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
+
+    // Allow all requests to pass through
+    // Auth is handled by the dashboard layout (server component)
+    // This avoids edge runtime cookie issues with server actions
+
+    // Only handle: redirect logged-in users away from login page
     const isLoginPage = pathname === '/login'
-    const isApiRoute = pathname.startsWith('/api')
+    if (isLoginPage) {
+        // Check for session cookie existence (simple check, no JWT verification)
+        const hasSession = req.cookies.has('__Secure-authjs.session-token') ||
+            req.cookies.has('authjs.session-token') ||
+            req.cookies.has('next-auth.session-token')
 
-    // Allow API routes and static assets
-    if (isApiRoute) return NextResponse.next()
-
-    // Get JWT token (doesn't need Prisma/crypto)
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET })
-    const isLoggedIn = !!token
-
-    // Redirect logged-in users away from login
-    if (isLoginPage && isLoggedIn) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-    }
-
-    // Redirect unauthenticated users to login
-    if (!isLoginPage && !isLoggedIn) {
-        return NextResponse.redirect(new URL('/login', req.url))
-    }
-
-    // Admin-only routes
-    if (pathname.startsWith('/admin') && token?.role !== 'ADMIN') {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
+        if (hasSession) {
+            return NextResponse.redirect(new URL('/dashboard', req.url))
+        }
     }
 
     return NextResponse.next()
 }
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'],
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|public|api).*)'],
 }
