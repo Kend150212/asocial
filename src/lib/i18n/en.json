@@ -166,5 +166,64 @@
         "label": "Language",
         "en": "English",
         "vi": "Tiếng Việt"
+    },
+    "users": {
+        "title": "User Management",
+        "description": "Manage users, roles and channel permissions",
+        "addUser": "Add User",
+        "editUser": "Edit User",
+        "deleteUser": "Delete User",
+        "deleteConfirm": "Are you sure you want to delete this user? This action cannot be undone.",
+        "name": "Name",
+        "email": "Email",
+        "password": "Password",
+        "passwordHelp": "Leave empty to keep current password",
+        "role": "Role",
+        "status": "Status",
+        "active": "Active",
+        "inactive": "Inactive",
+        "channels": "Channels",
+        "lastLogin": "Last Login",
+        "never": "Never",
+        "actions": "Actions",
+        "noUsers": "No users found",
+        "searchPlaceholder": "Search by name or email...",
+        "allRoles": "All Roles",
+        "channelPermissions": "Channel Permissions",
+        "assignChannels": "Assign Channels",
+        "noChannels": "No channels available",
+        "selectRole": "Select role",
+        "userInfo": "User Info",
+        "roles": {
+            "ADMIN": "Admin",
+            "MANAGER": "Manager",
+            "CUSTOMER": "Customer"
+        },
+        "permissions": {
+            "canCreatePost": "Create Posts",
+            "canEditPost": "Edit Posts",
+            "canDeletePost": "Delete Posts",
+            "canApprovePost": "Approve Posts",
+            "canSchedulePost": "Schedule Posts",
+            "canUploadMedia": "Upload Media",
+            "canDeleteMedia": "Delete Media",
+            "canViewMedia": "View Media",
+            "canCreateEmail": "Create Emails",
+            "canManageContacts": "Manage Contacts",
+            "canViewReports": "View Reports",
+            "canEditSettings": "Edit Settings"
+        },
+        "success": {
+            "created": "User created successfully",
+            "updated": "User updated successfully",
+            "deleted": "User deleted successfully",
+            "channelsUpdated": "Channel permissions updated"
+        },
+        "error": {
+            "emailExists": "Email already exists",
+            "createFailed": "Failed to create user",
+            "updateFailed": "Failed to update user",
+            "deleteFailed": "Failed to delete user"
+        }
     }
 }

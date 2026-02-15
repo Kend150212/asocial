@@ -166,5 +166,64 @@
         "label": "Ngôn ngữ",
         "en": "English",
         "vi": "Tiếng Việt"
+    },
+    "users": {
+        "title": "Quản lý người dùng",
+        "description": "Quản lý người dùng, vai trò và quyền truy cập kênh",
+        "addUser": "Thêm người dùng",
+        "editUser": "Sửa người dùng",
+        "deleteUser": "Xóa người dùng",
+        "deleteConfirm": "Bạn có chắc muốn xóa người dùng này? Hành động này không thể hoàn tác.",
+        "name": "Họ tên",
+        "email": "Email",
+        "password": "Mật khẩu",
+        "passwordHelp": "Để trống nếu không thay đổi mật khẩu",
+        "role": "Vai trò",
+        "status": "Trạng thái",
+        "active": "Hoạt động",
+        "inactive": "Ngừng",
+        "channels": "Kênh",
+        "lastLogin": "Đăng nhập cuối",
+        "never": "Chưa bao giờ",
+        "actions": "Thao tác",
+        "noUsers": "Không tìm thấy người dùng",
+        "searchPlaceholder": "Tìm theo tên hoặc email...",
+        "allRoles": "Tất cả vai trò",
+        "channelPermissions": "Quyền truy cập kênh",
+        "assignChannels": "Gán kênh",
+        "noChannels": "Chưa có kênh nào",
+        "selectRole": "Chọn vai trò",
+        "userInfo": "Thông tin",
+        "roles": {
+            "ADMIN": "Quản trị viên",
+            "MANAGER": "Quản lý",
+            "CUSTOMER": "Khách hàng"
+        },
+        "permissions": {
+            "canCreatePost": "Tạo bài đăng",
+            "canEditPost": "Sửa bài đăng",
+            "canDeletePost": "Xóa bài đăng",
+            "canApprovePost": "Duyệt bài đăng",
+            "canSchedulePost": "Lên lịch đăng",
+            "canUploadMedia": "Upload media",
+            "canDeleteMedia": "Xóa media",
+            "canViewMedia": "Xem media",
+            "canCreateEmail": "Tạo email",
+            "canManageContacts": "Quản lý liên hệ",
+            "canViewReports": "Xem báo cáo",
+            "canEditSettings": "Sửa cài đặt"
+        },
+        "success": {
+            "created": "Tạo người dùng thành công",
+            "updated": "Cập nhật người dùng thành công",
+            "deleted": "Xóa người dùng thành công",
+            "channelsUpdated": "Đã cập nhật quyền kênh"
+        },
+        "error": {
+            "emailExists": "Email đã tồn tại",
+            "createFailed": "Tạo người dùng thất bại",
+            "updateFailed": "Cập nhật thất bại",
+            "deleteFailed": "Xóa thất bại"
+        }
     }
 }
