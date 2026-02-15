@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -9,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { loginAction } from './actions'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -22,17 +22,18 @@ export default function LoginPage() {
         setError('')
         setLoading(true)
 
-        const result = await signIn('credentials', {
-            email,
-            password,
-            redirect: false,
-        })
-
-        if (result?.error) {
-            setError('Invalid email or password')
-            setLoading(false)
-        } else {
-            router.push('/dashboard')
+        try {
+            const result = await loginAction(email, password)
+            // If we get here with a result, it means error occurred
+            // (successful login throws NEXT_REDIRECT which doesn't reach here)
+            if (result?.error) {
+                setError(result.error)
+                setLoading(false)
+            }
+        } catch {
+            // NEXT_REDIRECT throws an error — this is expected on success
+            // The redirect will happen automatically
+            router.refresh()
         }
     }
 
