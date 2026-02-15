@@ -35,17 +35,17 @@ export default function LoginPage() {
                     email,
                     password,
                 }),
-                redirect: 'follow',
+                redirect: 'manual',
             })
 
             // Step 3: Check result
-            const url = new URL(res.url)
-            if (url.searchParams.has('error')) {
+            // redirect: 'manual' returns opaqueredirect on 302 (success)
+            if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 0) {
+                // Login successful — hard redirect to dashboard
+                window.location.href = '/dashboard'
+            } else {
                 setError('Invalid email or password')
                 setLoading(false)
-            } else {
-                // Login successful — redirect to dashboard
-                window.location.href = '/dashboard'
             }
         } catch {
             setError('Connection error. Please try again.')
