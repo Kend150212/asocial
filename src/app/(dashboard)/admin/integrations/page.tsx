@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,8 @@ import {
     Save,
     ExternalLink,
     Info,
+    FolderPlus,
+    Link,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -89,6 +92,8 @@ const providerGuideUrls: Record<string, string> = {
 
 export default function IntegrationsPage() {
     const t = useTranslation()
+    const router = useRouter()
+    const searchParams = useSearchParams()
     const [integrations, setIntegrations] = useState<Integration[]>([])
     const [loading, setLoading] = useState(true)
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
@@ -103,6 +108,22 @@ export default function IntegrationsPage() {
     const [gdriveConfigs, setGdriveConfigs] = useState<Record<string, GDriveConfig>>({})
     const [testEmails, setTestEmails] = useState<Record<string, string>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
+    const [folderName, setFolderName] = useState('')
+    const [creatingFolder, setCreatingFolder] = useState(false)
+
+    // Handle Google Drive OAuth callback
+    useEffect(() => {
+        const gdriveStatus = searchParams.get('gdrive')
+        if (gdriveStatus === 'connected') {
+            toast.success('Google Drive connected successfully!')
+            router.replace('/admin/integrations')
+            fetchIntegrations()
+        } else if (gdriveStatus === 'error') {
+            const message = searchParams.get('message') || 'Connection failed'
+            toast.error(`Google Drive: ${message}`)
+            router.replace('/admin/integrations')
+        }
+    }, [searchParams, router])
 
     const fetchIntegrations = useCallback(async () => {
         try {
@@ -274,6 +295,30 @@ export default function IntegrationsPage() {
         }
     }
 
+    // ---------- Handle creating a Google Drive folder ----------
+    const handleCreateFolder = async () => {
+        setCreatingFolder(true)
+        try {
+            const res = await fetch('/api/admin/gdrive/folder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: folderName }),
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success(`Folder "${data.folder.name}" created!`)
+                setFolderName('')
+                fetchIntegrations()
+            } else {
+                toast.error(data.error || 'Failed to create folder')
+            }
+        } catch {
+            toast.error('Failed to create folder')
+        } finally {
+            setCreatingFolder(false)
+        }
+    }
+
     const grouped = integrations.reduce<Record<string, Integration[]>>((acc, i) => {
         acc[i.category] = acc[i.category] || []
         acc[i.category].push(i)
@@ -358,6 +403,10 @@ export default function IntegrationsPage() {
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
                                 }
+                                folderName={folderName}
+                                onFolderNameChange={(val: string) => setFolderName(val)}
+                                onCreateFolder={handleCreateFolder}
+                                isCreatingFolder={creatingFolder}
                                 onToggleGuide={() => setShowGuide((s) => ({ ...s, [integration.id]: !s[integration.id] }))}
                             />
                         ))}
@@ -407,6 +456,10 @@ function IntegrationCard({
     onModelSelect,
     onSmtpChange,
     onGdriveChange,
+    folderName,
+    onFolderNameChange,
+    onCreateFolder,
+    isCreatingFolder,
     onToggleGuide,
 }: {
     integration: Integration
@@ -431,6 +484,10 @@ function IntegrationCard({
     onModelSelect: (type: string, modelId: string) => void
     onSmtpChange: (field: string, value: string) => void
     onGdriveChange: (field: string, value: string) => void
+    folderName: string
+    onFolderNameChange: (value: string) => void
+    onCreateFolder: () => void
+    isCreatingFolder: boolean
     onToggleGuide: () => void
 }) {
     const t = useTranslation()
@@ -627,6 +684,95 @@ function IntegrationCard({
                                 </button>
                             </div>
                         </div>
+
+                        {/* Connection Status & Folder Management */}
+                        {(() => {
+                            const config = integration.config as Record<string, string> | null
+                            const isConnected = !!config?.gdriveEmail
+                            const hasFolder = !!config?.parentFolderId
+
+                            return (
+                                <div className="space-y-3 pt-2 border-t border-dashed">
+                                    {/* Connect Button or Connected Status */}
+                                    {isConnected ? (
+                                        <div className="flex items-center gap-2 text-xs">
+                                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                            <span className="text-emerald-600 font-medium">
+                                                {t('integrations.gdriveConnected')}
+                                            </span>
+                                            <span className="text-muted-foreground truncate">
+                                                ({config?.gdriveEmail})
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="w-full h-8 text-xs gap-1"
+                                            onClick={() => {
+                                                window.location.href = '/api/admin/gdrive/auth'
+                                            }}
+                                            disabled={!gdriveConfig?.clientId || !gdriveConfig?.clientSecret}
+                                        >
+                                            <Link className="h-3 w-3" />
+                                            {t('integrations.gdriveConnect')}
+                                        </Button>
+                                    )}
+
+                                    {/* Parent Folder Section */}
+                                    {isConnected && (
+                                        <div className="space-y-2">
+                                            {hasFolder ? (
+                                                <div className="rounded-md bg-emerald-500/10 p-2 text-xs">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <FolderPlus className="h-3.5 w-3.5 text-emerald-500" />
+                                                        <span className="font-medium text-emerald-600">
+                                                            {config?.parentFolderName || 'Parent Folder'}
+                                                        </span>
+                                                    </div>
+                                                    <a
+                                                        href={`https://drive.google.com/drive/folders/${config?.parentFolderId}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline mt-1"
+                                                    >
+                                                        <ExternalLink className="h-3 w-3" />
+                                                        {t('integrations.gdriveOpenFolder')}
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px]">
+                                                        {t('integrations.gdriveFolderName')}
+                                                    </Label>
+                                                    <div className="flex gap-1.5">
+                                                        <Input
+                                                            value={folderName}
+                                                            onChange={(e) => onFolderNameChange(e.target.value)}
+                                                            placeholder={t('integrations.gdriveFolderPlaceholder')}
+                                                            className="h-8 text-xs flex-1"
+                                                        />
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-8 text-xs gap-1 whitespace-nowrap"
+                                                            onClick={onCreateFolder}
+                                                            disabled={isCreatingFolder || !folderName}
+                                                        >
+                                                            {isCreatingFolder ? (
+                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                            ) : (
+                                                                <FolderPlus className="h-3 w-3" />
+                                                            )}
+                                                            {t('integrations.gdriveCreateFolder')}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })()}
                     </div>
                 ) : (
                     /* Standard API Key Input */
@@ -763,7 +909,7 @@ function IntegrationCard({
                     </Button>
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     )
 }
 
