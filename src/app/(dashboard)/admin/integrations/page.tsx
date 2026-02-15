@@ -35,6 +35,7 @@ import {
     Info,
     FolderPlus,
     Link,
+    Palette,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -68,6 +69,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
     STORAGE: <HardDrive className="h-5 w-5" />,
     EMAIL: <Mail className="h-5 w-5" />,
     WEBHOOK: <Webhook className="h-5 w-5" />,
+    DESIGN: <Palette className="h-5 w-5" />,
 }
 
 // categoryLabels now driven by t() inside the component

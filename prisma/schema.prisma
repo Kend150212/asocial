@@ -99,6 +99,7 @@ enum IntegrationCategory {
   STORAGE
   EMAIL
   WEBHOOK
+  DESIGN
 }
 
 enum IntegrationStatus {

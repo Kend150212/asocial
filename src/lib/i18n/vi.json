@@ -87,7 +87,8 @@
             "AI": "AI Providers",
             "STORAGE": "Lưu trữ đám mây",
             "EMAIL": "Dịch vụ Email",
-            "WEBHOOK": "Webhooks"
+            "WEBHOOK": "Webhooks",
+            "DESIGN": "Công cụ thiết kế"
         }
     },
     "guides": {

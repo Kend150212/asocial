@@ -90,7 +90,7 @@ async function main() {
             baseUrl: 'https://api.synthetic.new/openai/v1',
         },
         {
-            category: IntegrationCategory.AI,
+            category: IntegrationCategory.DESIGN,
             provider: 'robolly',
             name: 'Robolly',
             isActive: false,

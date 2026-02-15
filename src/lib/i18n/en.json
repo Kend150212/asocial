@@ -87,7 +87,8 @@
             "AI": "AI Providers",
             "STORAGE": "Cloud Storage",
             "EMAIL": "Email Service",
-            "WEBHOOK": "Webhooks"
+            "WEBHOOK": "Webhooks",
+            "DESIGN": "Design Tools"
         }
     },
     "guides": {
