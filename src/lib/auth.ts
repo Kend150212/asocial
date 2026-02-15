@@ -1,6 +1,8 @@
 // Force trust host for production behind reverse proxy (Nginx)
-// Must be set BEFORE NextAuth reads process.env
-if (!process.env.AUTH_TRUST_HOST) process.env.AUTH_TRUST_HOST = 'true'
+// Use bracket notation to prevent Turbopack from inlining process.env at build time
+const _env = process.env
+const _trustKey = 'AUTH_TRUST_HOST'
+_env[_trustKey] = 'true'
 
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
