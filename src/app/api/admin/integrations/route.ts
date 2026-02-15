@@ -47,9 +47,11 @@ export async function PUT(req: NextRequest) {
     // Build update data
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {}
+    const existingConfig = (integration.config as Record<string, unknown>) || {}
 
-    if (apiKey !== undefined) {
-        updateData.apiKeyEncrypted = apiKey ? encrypt(apiKey) : null
+    // Only update API key if a non-empty value is explicitly provided
+    if (apiKey && apiKey.trim() !== '') {
+        updateData.apiKeyEncrypted = encrypt(apiKey)
     }
 
     if (isActive !== undefined) {
@@ -57,15 +59,19 @@ export async function PUT(req: NextRequest) {
         updateData.status = isActive ? 'ACTIVE' : 'INACTIVE'
     }
 
+    // Merge config — never overwrite existing config, always merge
     if (config !== undefined) {
-        updateData.config = config
-    }
-
-    // Store default models in config
-    if (defaultTextModel || defaultImageModel || defaultVideoModel) {
-        const existingConfig = (integration.config as Record<string, unknown>) || {}
         updateData.config = {
             ...existingConfig,
+            ...config,
+        }
+    }
+
+    // Store default models in config (merge with existing)
+    if (defaultTextModel || defaultImageModel || defaultVideoModel) {
+        updateData.config = {
+            ...existingConfig,
+            ...(updateData.config || {}),
             ...(defaultTextModel !== undefined && { defaultTextModel }),
             ...(defaultImageModel !== undefined && { defaultImageModel }),
             ...(defaultVideoModel !== undefined && { defaultVideoModel }),
