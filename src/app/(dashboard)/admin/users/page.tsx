@@ -601,23 +601,25 @@ export default function UsersPage() {
                             <Label>{t('users.email')}</Label>
                             <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="user@example.com" />
                         </div>
-                        <div className="grid gap-2">
-                            <Label>{t('users.password')}</Label>
-                            <div className="relative">
-                                <Input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={formPassword}
-                                    onChange={(e) => setFormPassword(e.target.value)}
-                                />
-                                <button
-                                    type="button"
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
+                        {!sendInvite && (
+                            <div className="grid gap-2">
+                                <Label>{t('users.password')}</Label>
+                                <div className="relative">
+                                    <Input
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={formPassword}
+                                        onChange={(e) => setFormPassword(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <div className="grid gap-2">
                             <Label>{t('users.role')}</Label>
                             <Select value={formRole} onValueChange={setFormRole}>
@@ -645,7 +647,7 @@ export default function UsersPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowAddDialog(false)}>{t('common.cancel')}</Button>
-                        <Button onClick={handleCreateUser} disabled={saving || !formName || !formEmail || !formPassword}>
+                        <Button onClick={handleCreateUser} disabled={saving || !formName || !formEmail || (!sendInvite && !formPassword)}>
                             {saving ? t('common.loading') : t('common.create')}
                         </Button>
                     </DialogFooter>

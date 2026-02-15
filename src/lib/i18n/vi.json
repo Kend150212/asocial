@@ -228,5 +228,24 @@
             "updateFailed": "Cập nhật thất bại",
             "deleteFailed": "Xóa thất bại"
         }
+    },
+    "setupPassword": {
+        "title": "Tạo mật khẩu",
+        "description": "Tạo mật khẩu để kích hoạt tài khoản ASocial",
+        "newPassword": "Mật khẩu mới",
+        "confirmPassword": "Xác nhận mật khẩu",
+        "passwordPlaceholder": "Nhập ít nhất 6 ký tự",
+        "confirmPlaceholder": "Nhập lại mật khẩu",
+        "minLength": "Mật khẩu phải có ít nhất 6 ký tự",
+        "passwordMismatch": "Mật khẩu không khớp",
+        "setPassword": "Tạo mật khẩu & Kích hoạt tài khoản",
+        "invalidToken": "Link mời không hợp lệ hoặc đã được sử dụng.",
+        "tokenExpired": "Link mời đã hết hạn. Vui lòng liên hệ quản trị viên.",
+        "invalidTitle": "Lời mời không hợp lệ",
+        "successTitle": "Kích hoạt thành công!",
+        "successDesc": "Mật khẩu đã được tạo. Đang chuyển đến trang đăng nhập...",
+        "backToLogin": "Quay lại đăng nhập",
+        "goToLogin": "Đến trang đăng nhập",
+        "error": "Đã xảy ra lỗi. Vui lòng thử lại."
     }
 }

@@ -60,6 +60,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                 if (!user || !user.isActive) return null
 
+                // User hasn't set password yet (invited but hasn't completed setup)
+                if (!user.passwordHash) return null
+
                 const isValid = await bcrypt.compare(
                     credentials.password as string,
                     user.passwordHash

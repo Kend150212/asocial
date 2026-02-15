@@ -228,5 +228,24 @@
             "updateFailed": "Failed to update user",
             "deleteFailed": "Failed to delete user"
         }
+    },
+    "setupPassword": {
+        "title": "Set Up Your Password",
+        "description": "Create a password to activate your ASocial account",
+        "newPassword": "New Password",
+        "confirmPassword": "Confirm Password",
+        "passwordPlaceholder": "Enter at least 6 characters",
+        "confirmPlaceholder": "Re-enter your password",
+        "minLength": "Password must be at least 6 characters",
+        "passwordMismatch": "Passwords do not match",
+        "setPassword": "Set Password & Activate Account",
+        "invalidToken": "This invitation link is invalid or has already been used.",
+        "tokenExpired": "This invitation link has expired. Please contact your administrator.",
+        "invalidTitle": "Invalid Invitation",
+        "successTitle": "Account Activated!",
+        "successDesc": "Your password has been set. Redirecting to login...",
+        "backToLogin": "Back to Login",
+        "goToLogin": "Go to Login",
+        "error": "Something went wrong. Please try again."
     }
 }

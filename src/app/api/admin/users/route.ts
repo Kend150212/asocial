@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { sendInvitationEmail } from '@/lib/email'
 
 // GET /api/admin/users — list all users
@@ -22,6 +23,7 @@ export async function GET() {
             image: true,
             lastLoginAt: true,
             createdAt: true,
+            inviteToken: true,
             _count: { select: { channelMembers: true } },
         },
     })
@@ -39,8 +41,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, email, password, role, sendInvite } = body
 
-    if (!email || !password || !name) {
-        return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })
+    if (!email || !name) {
+        return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+    }
+
+    // If not sending invite, password is required
+    if (!sendInvite && !password) {
+        return NextResponse.json({ error: 'Password is required when not sending invite' }, { status: 400 })
     }
 
     // Check if email exists
@@ -49,7 +56,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
     }
 
-    const passwordHash = await bcrypt.hash(password, 12)
+    // Generate invite token (valid for 7 days)
+    const inviteToken = crypto.randomBytes(32).toString('hex')
+    const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    // If password provided, hash it; otherwise leave null (invite flow)
+    const passwordHash = password ? await bcrypt.hash(password, 12) : null
 
     const user = await prisma.user.create({
         data: {
@@ -57,6 +69,8 @@ export async function POST(req: NextRequest) {
             email,
             passwordHash,
             role: role || 'MANAGER',
+            inviteToken: sendInvite ? inviteToken : null,
+            inviteExpiresAt: sendInvite ? inviteExpiresAt : null,
         },
         select: {
             id: true,
@@ -78,9 +92,9 @@ export async function POST(req: NextRequest) {
         const result = await sendInvitationEmail({
             toEmail: email,
             toName: name,
-            password, // Send the plain password before it was hashed
             role: role || 'MANAGER',
             appUrl,
+            inviteToken,
         })
         emailSent = result.success
     }

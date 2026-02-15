@@ -21,16 +21,18 @@ enum UserRole {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String    @map("password_hash")
-  role          UserRole  @default(MANAGER)
-  isActive      Boolean   @default(true) @map("is_active")
-  image         String?
-  lastLoginAt   DateTime? @map("last_login_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  passwordHash    String?   @map("password_hash")
+  role            UserRole  @default(MANAGER)
+  isActive        Boolean   @default(true) @map("is_active")
+  image           String?
+  lastLoginAt     DateTime? @map("last_login_at")
+  inviteToken     String?   @unique @map("invite_token")
+  inviteExpiresAt DateTime? @map("invite_expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   // Relations
   preference     UserPreference?
