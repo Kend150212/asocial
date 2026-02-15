@@ -954,7 +954,7 @@ function ModelSelect({
 }) {
     const [search, setSearch] = useState('')
     const showSearch = models.length > 10
-    const filtered = showSearch
+    const displayModels = search.trim()
         ? models.filter(
             (m) =>
                 m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -969,9 +969,9 @@ function ModelSelect({
                 <SelectTrigger className="h-7 text-xs flex-1">
                     <SelectValue placeholder="Select..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={showSearch ? 'max-h-[300px]' : ''}>
                     {showSearch && (
-                        <div className="px-2 pb-1.5">
+                        <div className="sticky top-0 z-10 bg-popover px-2 pb-1.5 pt-1">
                             <input
                                 className="w-full h-7 px-2 text-xs rounded-md border border-border bg-transparent outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
                                 placeholder="Search models..."
@@ -981,21 +981,19 @@ function ModelSelect({
                             />
                         </div>
                     )}
-                    <ScrollArea className={showSearch ? 'max-h-[200px]' : ''}>
-                        {filtered.map((m) => (
-                            <SelectItem key={m.id} value={m.id} className="text-xs">
-                                <span>{m.name}</span>
-                                {m.description && (
-                                    <span className="ml-2 text-muted-foreground">— {m.description}</span>
-                                )}
-                            </SelectItem>
-                        ))}
-                        {filtered.length === 0 && (
-                            <div className="py-2 text-center text-xs text-muted-foreground">
-                                No models found
-                            </div>
-                        )}
-                    </ScrollArea>
+                    {displayModels.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-xs">
+                            <span>{m.name}</span>
+                            {m.description && (
+                                <span className="ml-2 text-muted-foreground">— {m.description}</span>
+                            )}
+                        </SelectItem>
+                    ))}
+                    {displayModels.length === 0 && (
+                        <div className="py-2 text-center text-xs text-muted-foreground">
+                            No models found
+                        </div>
+                    )}
                 </SelectContent>
             </Select>
         </div>
