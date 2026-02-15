@@ -1,0 +1,473 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// ==========================================
+// AUTH & USERS
+// ==========================================
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  CUSTOMER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(MANAGER)
+  isActive      Boolean   @default(true) @map("is_active")
+  image         String?
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  preference     UserPreference?
+  channelMembers ChannelMember[]
+  posts          Post[]           @relation("PostAuthor")
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+
+  // NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  theme  String @default("dark")
+  locale String @default("vi")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ==========================================
+// API INTEGRATIONS HUB
+// ==========================================
+
+enum IntegrationCategory {
+  AI
+  SOCIAL
+  STORAGE
+  EMAIL
+  WEBHOOK
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  ERROR
+  INACTIVE
+}
+
+model ApiIntegration {
+  id              String              @id @default(cuid())
+  category        IntegrationCategory
+  provider        String              // openai, gemini, runware, vbout, gdrive, smtp, slack, discord, telegram
+  name            String
+  apiKeyEncrypted String?             @map("api_key_encrypted") @db.Text
+  baseUrl         String?             @map("base_url")
+  config          Json?               @default("{}")
+  isActive        Boolean             @default(true) @map("is_active")
+  isDefault       Boolean             @default(false) @map("is_default")
+  status          IntegrationStatus   @default(ACTIVE)
+  lastTestedAt    DateTime?           @map("last_tested_at")
+  usageCount      Int                 @default(0) @map("usage_count")
+  rateLimitPerSec Int?                @map("rate_limit_per_sec")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  channelOverrides ChannelIntegrationOverride[]
+
+  @@unique([category, provider])
+  @@map("api_integrations")
+}
+
+model ChannelIntegrationOverride {
+  id              String  @id @default(cuid())
+  channelId       String  @map("channel_id")
+  integrationId   String  @map("integration_id")
+  apiKeyEncrypted String? @map("api_key_encrypted") @db.Text
+  config          Json?   @default("{}")
+
+  channel     Channel        @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  integration ApiIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, integrationId])
+  @@map("channel_integration_overrides")
+}
+
+// ==========================================
+// CHANNELS
+// ==========================================
+
+model Channel {
+  id                      String   @id @default(cuid())
+  name                    String   @unique
+  displayName             String   @map("display_name")
+  isActive                Boolean  @default(true) @map("is_active")
+  language                String   @default("vi")
+  descriptionsPerPlatform Json?    @map("descriptions_per_platform") @default("{}")
+  vibeTone                Json?    @map("vibe_tone") @default("{}")
+  seoTags                 Json?    @map("seo_tags") @default("[]")
+  colorPalette            Json?    @map("color_palette") @default("[]")
+  logoPrompts             Json?    @map("logo_prompts") @default("{}")
+  bannerPrompts           Json?    @map("banner_prompts") @default("{}")
+  notificationEmail       String?  @map("notification_email")
+  requireApproval         Boolean  @default(false) @map("require_approval")
+
+  // Storage
+  storageProvider    String?  @map("storage_provider") // gdrive, s3, wasabi, r2
+  storageConfig      Json?    @map("storage_config") @default("{}")
+  useDefaultStorage  Boolean  @default(true) @map("use_default_storage")
+
+  // Webhooks
+  webhookDiscord  Json? @map("webhook_discord") @default("{}")
+  webhookTelegram Json? @map("webhook_telegram") @default("{}")
+  webhookSlack    Json? @map("webhook_slack") @default("{}")
+  webhookCustom   Json? @map("webhook_custom") @default("{}")
+  webhookEvents   Json? @map("webhook_events") @default("[]")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  members              ChannelMember[]
+  integrationOverrides ChannelIntegrationOverride[]
+  knowledgeBase        KnowledgeBase[]
+  contentTemplates     ContentTemplate[]
+  hashtagGroups        HashtagGroup[]
+  platforms            ChannelPlatform[]
+  posts                Post[]
+  mediaItems           MediaItem[]
+
+  @@map("channels")
+}
+
+model ChannelMember {
+  id        String @id @default(cuid())
+  userId    String @map("user_id")
+  channelId String @map("channel_id")
+  role      UserRole @default(MANAGER)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  permission ChannelPermission?
+
+  @@unique([userId, channelId])
+  @@map("channel_members")
+}
+
+model ChannelPermission {
+  id              String  @id @default(cuid())
+  channelMemberId String  @unique @map("channel_member_id")
+
+  canCreatePost    Boolean @default(true) @map("can_create_post")
+  canEditPost      Boolean @default(true) @map("can_edit_post")
+  canDeletePost    Boolean @default(false) @map("can_delete_post")
+  canApprovePost   Boolean @default(false) @map("can_approve_post")
+  canSchedulePost  Boolean @default(true) @map("can_schedule_post")
+  canUploadMedia   Boolean @default(true) @map("can_upload_media")
+  canDeleteMedia   Boolean @default(false) @map("can_delete_media")
+  canViewMedia     Boolean @default(true) @map("can_view_media")
+  canCreateEmail   Boolean @default(false) @map("can_create_email")
+  canManageContacts Boolean @default(false) @map("can_manage_contacts")
+  canViewReports   Boolean @default(true) @map("can_view_reports")
+  canEditSettings  Boolean @default(false) @map("can_edit_settings")
+
+  channelMember ChannelMember @relation(fields: [channelMemberId], references: [id], onDelete: Cascade)
+
+  @@map("channel_permissions")
+}
+
+model ChannelPlatform {
+  id         String @id @default(cuid())
+  channelId  String @map("channel_id")
+  platform   String // facebook, instagram, x, linkedin, tiktok, youtube, pinterest, gbp, wistia, vimeo
+  accountId  String @map("account_id")
+  accountName String @map("account_name")
+  config     Json?  @default("{}")
+  isActive   Boolean @default(true) @map("is_active")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, platform, accountId])
+  @@map("channel_platforms")
+}
+
+model KnowledgeBase {
+  id        String   @id @default(cuid())
+  channelId String   @map("channel_id")
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("knowledge_bases")
+}
+
+model ContentTemplate {
+  id              String  @id @default(cuid())
+  channelId       String? @map("channel_id")
+  platform        String? // null = all platforms
+  name            String
+  templateContent String  @map("template_content") @db.Text
+  variables       Json?   @default("[]")
+  isGlobal        Boolean @default(false) @map("is_global")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  channel Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("content_templates")
+}
+
+model HashtagGroup {
+  id        String @id @default(cuid())
+  channelId String @map("channel_id")
+  name      String
+  hashtags  Json   @default("[]")
+  usageCount Int   @default(0) @map("usage_count")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("hashtag_groups")
+}
+
+// ==========================================
+// POSTS
+// ==========================================
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model Post {
+  id                 String     @id @default(cuid())
+  channelId          String     @map("channel_id")
+  authorId           String     @map("author_id")
+  content            String?    @db.Text
+  contentPerPlatform Json?      @map("content_per_platform") @default("{}")
+  status             PostStatus @default(DRAFT)
+  scheduledAt        DateTime?  @map("scheduled_at")
+  publishedAt        DateTime?  @map("published_at")
+  isRepeat           Boolean    @default(false) @map("is_repeat")
+  repeatCount        Int?       @map("repeat_count")
+  repeatIntervalDays Int?       @map("repeat_interval_days")
+  bulkGroupId        String?    @map("bulk_group_id")
+  contentHash        String?    @map("content_hash") // duplicate detection
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  channel  Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author   User    @relation("PostAuthor", fields: [authorId], references: [id])
+
+  media           PostMedia[]
+  approvals       PostApproval[]
+  platformStatuses PostPlatformStatus[]
+
+  @@index([channelId, status])
+  @@index([scheduledAt])
+  @@map("posts")
+}
+
+model PostMedia {
+  id          String @id @default(cuid())
+  postId      String @map("post_id")
+  mediaItemId String @map("media_item_id")
+  sortOrder   Int    @default(0) @map("sort_order")
+
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaItem MediaItem @relation(fields: [mediaItemId], references: [id])
+
+  @@map("post_media")
+}
+
+model PostApproval {
+  id        String   @id @default(cuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  action    String   // approved, rejected
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("post_approvals")
+}
+
+model PostPlatformStatus {
+  id         String   @id @default(cuid())
+  postId     String   @map("post_id")
+  platform   String
+  accountId  String   @map("account_id")
+  externalId String?  @map("external_id") // Vbout post ID
+  status     String   @default("pending") // pending, published, failed
+  errorMsg   String?  @map("error_msg")
+  publishedAt DateTime? @map("published_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, platform, accountId])
+  @@map("post_platform_statuses")
+}
+
+// ==========================================
+// MEDIA
+// ==========================================
+
+model MediaItem {
+  id            String   @id @default(cuid())
+  channelId     String   @map("channel_id")
+  url           String
+  thumbnailUrl  String?  @map("thumbnail_url")
+  storageFileId String?  @map("storage_file_id")
+  type          String   // image, video
+  source        String   // upload, ai_generated, post
+  originalName  String?  @map("original_name")
+  fileSize      Int?     @map("file_size")
+  mimeType      String?  @map("mime_type")
+  tags          Json?    @default("[]")
+  aiMetadata    Json?    @map("ai_metadata") @default("{}") // provider, model, ratio, prompt
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  channel Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  posts   PostMedia[]
+
+  @@index([channelId, type])
+  @@map("media_items")
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String   // post_published, post_failed, approval_needed, approval_approved, approval_rejected
+  title     String
+  message   String?  @db.Text
+  data      Json?    @default("{}")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ==========================================
+// ACTIVITY LOG
+// ==========================================
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  channelId String?  @map("channel_id")
+  action    String   // user_login, post_created, post_approved, settings_changed, etc.
+  details   Json?    @default("{}")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([channelId])
+  @@map("activity_logs")
+}
+
+// ==========================================
+// WEBHOOKS
+// ==========================================
+
+model Webhook {
+  id       String  @id @default(cuid())
+  name     String
+  url      String
+  platform String  // slack, discord, telegram, custom
+  events   Json    @default("[]")
+  secret   String?
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("webhooks")
+}
+
+// ==========================================
+// BACKUP
+// ==========================================
+
+enum BackupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Backup {
+  id        String       @id @default(cuid())
+  type      String       // full, channels, posts
+  fileUrl   String?      @map("file_url")
+  fileSize  Int?         @map("file_size")
+  status    BackupStatus @default(PENDING)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@map("backups")
+}
