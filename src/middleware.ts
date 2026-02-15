@@ -1,32 +1,36 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
-export default auth((req) => {
-    const { nextUrl, auth: session } = req
-    const isLoggedIn = !!session?.user
-    const isLoginPage = nextUrl.pathname === '/login'
-    const isApiRoute = nextUrl.pathname.startsWith('/api')
+export async function middleware(req: NextRequest) {
+    const { pathname } = req.nextUrl
+    const isLoginPage = pathname === '/login'
+    const isApiRoute = pathname.startsWith('/api')
 
-    // Allow API routes
+    // Allow API routes and static assets
     if (isApiRoute) return NextResponse.next()
+
+    // Get JWT token (doesn't need Prisma/crypto)
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET })
+    const isLoggedIn = !!token
 
     // Redirect logged-in users away from login
     if (isLoginPage && isLoggedIn) {
-        return NextResponse.redirect(new URL('/dashboard', nextUrl))
+        return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
     // Redirect unauthenticated users to login
     if (!isLoginPage && !isLoggedIn) {
-        return NextResponse.redirect(new URL('/login', nextUrl))
+        return NextResponse.redirect(new URL('/login', req.url))
     }
 
     // Admin-only routes
-    if (nextUrl.pathname.startsWith('/admin') && session?.user?.role !== 'ADMIN') {
-        return NextResponse.redirect(new URL('/dashboard', nextUrl))
+    if (pathname.startsWith('/admin') && token?.role !== 'ADMIN') {
+        return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
     return NextResponse.next()
-})
+}
 
 export const config = {
     matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'],
