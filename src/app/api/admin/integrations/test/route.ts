@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
             data: {
                 lastTestedAt: new Date(),
                 status: result.success ? 'ACTIVE' : 'ERROR',
+                isActive: result.success,
             },
         })
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         await prisma.apiIntegration.update({
             where: { id },
-            data: { lastTestedAt: new Date(), status: 'ERROR' },
+            data: { lastTestedAt: new Date(), status: 'ERROR', isActive: false },
         })
         return NextResponse.json({
             success: false,
