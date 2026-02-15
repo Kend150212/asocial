@@ -28,6 +28,15 @@ export async function POST() {
             status: 'INACTIVE' as const,
             baseUrl: 'https://api.synthetic.new/openai/v1',
         },
+        {
+            category: 'AI' as const,
+            provider: 'robolly',
+            name: 'Robolly',
+            isActive: false,
+            isDefault: false,
+            status: 'INACTIVE' as const,
+            baseUrl: 'https://api.robolly.com',
+        },
     ]
 
     const results = []
