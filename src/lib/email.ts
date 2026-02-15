@@ -4,11 +4,22 @@ import { decrypt } from '@/lib/encryption'
 
 // ─── Get SMTP transporter from ApiIntegration ───────
 async function getTransporter() {
-    const smtp = await prisma.apiIntegration.findFirst({
+    // Try both query approaches for robustness
+    let smtp = await prisma.apiIntegration.findFirst({
         where: { provider: 'smtp', isActive: true },
     })
 
-    if (!smtp) return null
+    // Fallback: search by category if provider query fails
+    if (!smtp) {
+        smtp = await prisma.apiIntegration.findFirst({
+            where: { category: 'EMAIL', isActive: true },
+        })
+    }
+
+    if (!smtp) {
+        console.warn('[Email] No active SMTP integration found in database')
+        return null
+    }
 
     const config = (smtp.config as Record<string, string>) || {}
     const host = config.smtpHost || 'smtp.gmail.com'
@@ -18,7 +29,10 @@ async function getTransporter() {
     const password = smtp.apiKeyEncrypted ? decrypt(smtp.apiKeyEncrypted) : null
     const from = config.smtpFrom || username
 
-    if (!username || !password) return null
+    if (!username || !password) {
+        console.warn('[Email] SMTP username or password missing', { hasUsername: !!username, hasPassword: !!password })
+        return null
+    }
 
     const transporter = nodemailer.createTransport({
         host,
