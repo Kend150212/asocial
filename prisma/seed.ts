@@ -81,6 +81,15 @@ async function main() {
             baseUrl: 'https://openrouter.ai/api/v1',
         },
         {
+            category: IntegrationCategory.AI,
+            provider: 'synthetic',
+            name: 'Synthetic',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+            baseUrl: 'https://api.glhf.chat/v1',
+        },
+        {
             category: IntegrationCategory.STORAGE,
             provider: 'gdrive',
             name: 'Google Drive',

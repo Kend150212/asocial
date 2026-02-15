@@ -78,6 +78,7 @@ const providerColors: Record<string, string> = {
     gemini: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
     runware: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     openrouter: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+    synthetic: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     gdrive: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 }
@@ -88,6 +89,7 @@ const providerGuideUrls: Record<string, string> = {
     gemini: 'https://aistudio.google.com/apikey',
     runware: 'https://my.runware.ai/keys',
     openrouter: 'https://openrouter.ai/settings/keys',
+    synthetic: 'https://synthetic.new/api-keys',
     gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
     smtp: 'https://myaccount.google.com/apppasswords',
 }

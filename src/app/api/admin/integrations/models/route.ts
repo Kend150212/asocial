@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
             case 'openrouter':
                 models = await fetchOpenRouterModels(apiKey)
                 break
+            case 'synthetic':
+                models = await fetchSyntheticModels(apiKey)
+                break
             default:
                 return NextResponse.json({ models: [], message: 'Model listing not supported for this provider' })
         }
@@ -172,6 +175,35 @@ async function fetchOpenRouterModels(apiKey: string): Promise<ModelInfo[]> {
             type: classifyOpenRouterModel(m.id),
             description: m.description?.slice(0, 100),
         }))
+        .filter((m: ModelInfo) => ['text', 'image', 'video'].includes(m.type))
+        .sort((a: ModelInfo, b: ModelInfo) => a.name.localeCompare(b.name))
+
+    return models
+}
+
+async function fetchSyntheticModels(apiKey: string): Promise<ModelInfo[]> {
+    const res = await fetch('https://api.glhf.chat/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    })
+
+    if (!res.ok) {
+        throw new Error(`Synthetic API error: ${res.status}`)
+    }
+
+    const data = await res.json()
+
+    const models: ModelInfo[] = (data.data || [])
+        .map((m: { id: string; owned_by?: string }) => {
+            const name = m.id.replace(/^hf:/, '').split('/').pop() || m.id
+            let type: ModelInfo['type'] = 'text'
+            if (m.id.includes('embed')) type = 'embedding'
+            return {
+                id: m.id,
+                name,
+                type,
+                description: `by ${m.owned_by || 'synthetic'}`,
+            }
+        })
         .filter((m: ModelInfo) => ['text', 'image', 'video'].includes(m.type))
         .sort((a: ModelInfo, b: ModelInfo) => a.name.localeCompare(b.name))
 
