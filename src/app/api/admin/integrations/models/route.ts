@@ -193,15 +193,15 @@ async function fetchSyntheticModels(apiKey: string): Promise<ModelInfo[]> {
     const data = await res.json()
 
     const models: ModelInfo[] = (data.data || [])
-        .map((m: { id: string; owned_by?: string }) => {
-            const name = m.id.replace(/^hf:/, '').split('/').pop() || m.id
+        .map((m: { id: string; name?: string; provider?: string; context_length?: number }) => {
+            const displayName = m.name || m.id.replace(/^hf:/, '')
             let type: ModelInfo['type'] = 'text'
             if (m.id.includes('embed')) type = 'embedding'
             return {
                 id: m.id,
-                name,
+                name: displayName,
                 type,
-                description: `by ${m.owned_by || 'synthetic'}`,
+                description: `${m.provider || 'synthetic'} · ${m.context_length ? Math.round(m.context_length / 1024) + 'K ctx' : ''}`,
             }
         })
         .filter((m: ModelInfo) => ['text', 'image', 'video'].includes(m.type))
@@ -209,3 +209,4 @@ async function fetchSyntheticModels(apiKey: string): Promise<ModelInfo[]> {
 
     return models
 }
+
