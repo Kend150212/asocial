@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import NextImage from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -89,9 +90,7 @@ export function Sidebar() {
             <div className="flex h-16 items-center justify-between px-4">
                 {!collapsed && (
                     <Link href="/dashboard" className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-sm font-bold text-primary-foreground">A</span>
-                        </div>
+                        <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" />
                         <span className="text-lg font-bold tracking-tight">ASocial</span>
                     </Link>
                 )}

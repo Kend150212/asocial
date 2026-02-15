@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -45,8 +46,8 @@ export default function LoginPage() {
 
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-                        <span className="text-lg font-bold text-primary-foreground">A</span>
+                    <div className="mx-auto">
+                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" />
                     </div>
                     <CardTitle className="text-2xl font-bold">ASocial</CardTitle>
                     <CardDescription>Social Media Management Platform</CardDescription>
