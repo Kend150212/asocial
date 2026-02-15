@@ -29,6 +29,8 @@ import {
     Mail,
     Webhook,
     Save,
+    ExternalLink,
+    Info,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -81,6 +83,84 @@ const providerColors: Record<string, string> = {
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 }
 
+interface SetupGuide {
+    title: string
+    steps: string[]
+    url: string
+    urlLabel: string
+}
+
+const providerGuides: Record<string, SetupGuide> = {
+    vbout: {
+        title: 'VBOUT API Key',
+        steps: [
+            'Login vào tài khoản VBOUT',
+            'Vào Settings → API Integrations',
+            'Copy API Key',
+        ],
+        url: 'https://app.vbout.com/Settings#tab-api',
+        urlLabel: 'Mở VBOUT Settings',
+    },
+    openai: {
+        title: 'OpenAI API Key',
+        steps: [
+            'Đăng nhập tại platform.openai.com',
+            'Vào API Keys → Create new secret key',
+            'Đặt tên key và copy',
+            'Lưu ý: Cần có billing plan để sử dụng',
+        ],
+        url: 'https://platform.openai.com/api-keys',
+        urlLabel: 'Mở OpenAI Dashboard',
+    },
+    gemini: {
+        title: 'Google Gemini API Key',
+        steps: [
+            'Truy cập Google AI Studio',
+            'Click "Get API Key" ở góc trên',
+            'Tạo API key mới hoặc chọn project có sẵn',
+            'Copy API key — miễn phí với giới hạn RPM',
+        ],
+        url: 'https://aistudio.google.com/apikey',
+        urlLabel: 'Mở Google AI Studio',
+    },
+    runware: {
+        title: 'Runware API Key',
+        steps: [
+            'Đăng ký tại runware.ai',
+            'Vào Dashboard → API Keys',
+            'Tạo key mới và copy',
+            'Hỗ trợ: FLUX, SDXL, DALL-E, Kling Video...',
+        ],
+        url: 'https://my.runware.ai/keys',
+        urlLabel: 'Mở Runware Dashboard',
+    },
+    gdrive: {
+        title: 'Google Drive API',
+        steps: [
+            'Truy cập Google Cloud Console',
+            'Tạo Project mới hoặc chọn project',
+            'Bật Google Drive API tại Library',
+            'Tạo Credentials → Service Account',
+            'Download JSON key file',
+            'Share folder Google Drive với email service account',
+        ],
+        url: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
+        urlLabel: 'Mở Google Cloud Console',
+    },
+    smtp: {
+        title: 'Gmail SMTP Setup',
+        steps: [
+            'Bật 2-Factor Authentication cho Google Account',
+            'Vào Google Account → Security → App passwords',
+            'Tạo App Password mới (chọn "Mail")',
+            'Copy 16-ký tự app password (không có khoảng trắng)',
+            'Dùng email Gmail làm Username, App Password làm Password',
+        ],
+        url: 'https://myaccount.google.com/apppasswords',
+        urlLabel: 'Tạo App Password',
+    },
+}
+
 export default function IntegrationsPage() {
     const [integrations, setIntegrations] = useState<Integration[]>([])
     const [loading, setLoading] = useState(true)
@@ -92,6 +172,8 @@ export default function IntegrationsPage() {
     const [models, setModels] = useState<Record<string, ModelInfo[]>>({})
     const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
     const [selectedModels, setSelectedModels] = useState<Record<string, Record<string, string>>>({})
+    const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({})
+    const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
 
     const fetchIntegrations = useCallback(async () => {
         try {
@@ -99,8 +181,9 @@ export default function IntegrationsPage() {
             const data = await res.json()
             setIntegrations(data)
 
-            // Initialize selected models from config
+            // Initialize selected models and SMTP config from config
             const modelSelections: Record<string, Record<string, string>> = {}
+            const smtpConfigMap: Record<string, SmtpConfig> = {}
             for (const i of data) {
                 const config = (i.config || {}) as Record<string, string>
                 modelSelections[i.id] = {
@@ -108,8 +191,19 @@ export default function IntegrationsPage() {
                     image: config.defaultImageModel || '',
                     video: config.defaultVideoModel || '',
                 }
+                if (i.provider === 'smtp') {
+                    smtpConfigMap[i.id] = {
+                        host: config.smtpHost || 'smtp.gmail.com',
+                        port: config.smtpPort || '465',
+                        secure: config.smtpSecure || 'ssl',
+                        username: config.smtpUsername || '',
+                        password: '',
+                        from: config.smtpFrom || '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
+            setSmtpConfigs(smtpConfigMap)
         } catch {
             toast.error('Failed to load integrations')
         } finally {
@@ -126,10 +220,29 @@ export default function IntegrationsPage() {
         try {
             const body: Record<string, unknown> = { id: integration.id }
 
-            if (apiKeys[integration.id] !== undefined) {
+            if (apiKeys[integration.id] !== undefined && apiKeys[integration.id] !== '') {
                 body.apiKey = apiKeys[integration.id]
             }
 
+            // SMTP config
+            if (integration.provider === 'smtp') {
+                const smtp = smtpConfigs[integration.id]
+                if (smtp) {
+                    body.config = {
+                        smtpHost: smtp.host,
+                        smtpPort: smtp.port,
+                        smtpSecure: smtp.secure,
+                        smtpUsername: smtp.username,
+                        smtpFrom: smtp.from || smtp.username,
+                    }
+                    // Use SMTP password as the "API key" for encrypted storage
+                    if (smtp.password) {
+                        body.apiKey = smtp.password
+                    }
+                }
+            }
+
+            // AI model selections
             const ms = selectedModels[integration.id]
             if (ms?.text) body.defaultTextModel = ms.text
             if (ms?.image) body.defaultImageModel = ms.image
@@ -158,7 +271,11 @@ export default function IntegrationsPage() {
 
     const handleTest = async (integration: Integration) => {
         setTesting((t) => ({ ...t, [integration.id]: true }))
-        setTestResults((r) => ({ ...r, [integration.id]: undefined as unknown as { success: boolean; message: string } }))
+        setTestResults((r) => {
+            const copy = { ...r }
+            delete copy[integration.id]
+            return copy
+        })
         try {
             const res = await fetch('/api/admin/integrations/test', {
                 method: 'POST',
@@ -259,17 +376,26 @@ export default function IntegrationsPage() {
                                 providerModels={models[integration.id] || []}
                                 isLoadingModels={loadingModels[integration.id] || false}
                                 selectedModel={selectedModels[integration.id] || {}}
-                                onApiKeyChange={(val) => setApiKeys((k) => ({ ...k, [integration.id]: val }))}
+                                smtpConfig={smtpConfigs[integration.id]}
+                                showSetupGuide={showGuide[integration.id] || false}
+                                onApiKeyChange={(val: string) => setApiKeys((k) => ({ ...k, [integration.id]: val }))}
                                 onToggleShow={() => setShowKeys((s) => ({ ...s, [integration.id]: !s[integration.id] }))}
                                 onSave={() => handleSave(integration)}
                                 onTest={() => handleTest(integration)}
                                 onFetchModels={() => handleFetchModels(integration)}
-                                onModelSelect={(type, modelId) =>
+                                onModelSelect={(type: string, modelId: string) =>
                                     setSelectedModels((s) => ({
                                         ...s,
                                         [integration.id]: { ...s[integration.id], [type]: modelId },
                                     }))
                                 }
+                                onSmtpChange={(field: string, value: string) =>
+                                    setSmtpConfigs((s) => ({
+                                        ...s,
+                                        [integration.id]: { ...s[integration.id], [field]: value },
+                                    }))
+                                }
+                                onToggleGuide={() => setShowGuide((s) => ({ ...s, [integration.id]: !s[integration.id] }))}
                             />
                         ))}
                     </div>
@@ -279,6 +405,15 @@ export default function IntegrationsPage() {
             ))}
         </div>
     )
+}
+
+interface SmtpConfig {
+    host: string
+    port: string
+    secure: string
+    username: string
+    password: string
+    from: string
 }
 
 function IntegrationCard({
@@ -291,12 +426,16 @@ function IntegrationCard({
     providerModels,
     isLoadingModels,
     selectedModel,
+    smtpConfig,
+    showSetupGuide,
     onApiKeyChange,
     onToggleShow,
     onSave,
     onTest,
     onFetchModels,
     onModelSelect,
+    onSmtpChange,
+    onToggleGuide,
 }: {
     integration: Integration
     apiKey: string
@@ -307,18 +446,24 @@ function IntegrationCard({
     providerModels: ModelInfo[]
     isLoadingModels: boolean
     selectedModel: Record<string, string>
+    smtpConfig?: SmtpConfig
+    showSetupGuide: boolean
     onApiKeyChange: (val: string) => void
     onToggleShow: () => void
     onSave: () => void
     onTest: () => void
     onFetchModels: () => void
     onModelSelect: (type: string, modelId: string) => void
+    onSmtpChange: (field: string, value: string) => void
+    onToggleGuide: () => void
 }) {
     const isAI = integration.category === 'AI'
+    const isSMTP = integration.provider === 'smtp'
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
     const hasModels = providerModels.length > 0
+    const guide = providerGuides[integration.provider]
 
     return (
         <Card className={`relative transition-all hover:shadow-md ${providerColors[integration.provider] || ''} border`}>
@@ -348,28 +493,147 @@ function IntegrationCard({
             </CardHeader>
 
             <CardContent className="space-y-4">
-                {/* API Key Input */}
-                <div className="space-y-2">
-                    <Label className="text-xs font-medium">API Key</Label>
-                    <div className="flex gap-1.5">
-                        <div className="relative flex-1">
-                            <Input
-                                type={showKey ? 'text' : 'password'}
-                                value={apiKey || ''}
-                                onChange={(e) => onApiKeyChange(e.target.value)}
-                                placeholder={integration.apiKeyMasked || 'Enter API key...'}
-                                className="pr-8 text-xs h-9"
-                            />
-                            <button
-                                type="button"
-                                onClick={onToggleShow}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                {/* Setup Guide Toggle */}
+                {guide && (
+                    <div>
+                        <button
+                            type="button"
+                            onClick={onToggleGuide}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            <Info className="h-3.5 w-3.5" />
+                            <span>{showSetupGuide ? 'Ẩn hướng dẫn' : 'Hướng dẫn lấy API Key'}</span>
+                        </button>
+
+                        {showSetupGuide && (
+                            <div className="mt-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/30">
+                                <p className="text-xs font-medium">{guide.title}</p>
+                                <ol className="text-[11px] text-muted-foreground space-y-1 pl-4 list-decimal">
+                                    {guide.steps.map((step, i) => (
+                                        <li key={i}>{step}</li>
+                                    ))}
+                                </ol>
+                                <a
+                                    href={guide.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                                >
+                                    <ExternalLink className="h-3 w-3" />
+                                    {guide.urlLabel}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* SMTP Config */}
+                {isSMTP && smtpConfig ? (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label className="text-[11px]">SMTP Host</Label>
+                                <Input
+                                    value={smtpConfig.host}
+                                    onChange={(e) => onSmtpChange('host', e.target.value)}
+                                    placeholder="smtp.gmail.com"
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-[11px]">Port</Label>
+                                <Input
+                                    value={smtpConfig.port}
+                                    onChange={(e) => onSmtpChange('port', e.target.value)}
+                                    placeholder="465"
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Security</Label>
+                            <Select
+                                value={smtpConfig.secure}
+                                onValueChange={(v) => onSmtpChange('secure', v)}
                             >
-                                {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                            </button>
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ssl">SSL (Port 465)</SelectItem>
+                                    <SelectItem value="tls">TLS/STARTTLS (Port 587)</SelectItem>
+                                    <SelectItem value="none">None (Port 25)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Username (Email)</Label>
+                            <Input
+                                value={smtpConfig.username}
+                                onChange={(e) => onSmtpChange('username', e.target.value)}
+                                placeholder="your@gmail.com"
+                                className="h-8 text-xs"
+                                type="email"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Password / App Password</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={smtpConfig.password}
+                                    onChange={(e) => onSmtpChange('password', e.target.value)}
+                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : 'App Password 16 ký tự'}
+                                    className="pr-8 h-8 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">From Email</Label>
+                            <Input
+                                value={smtpConfig.from}
+                                onChange={(e) => onSmtpChange('from', e.target.value)}
+                                placeholder="noreply@asocial.app"
+                                className="h-8 text-xs"
+                                type="email"
+                            />
                         </div>
                     </div>
-                </div>
+                ) : (
+                    /* Standard API Key Input */
+                    <div className="space-y-2">
+                        <Label className="text-xs font-medium">API Key</Label>
+                        <div className="flex gap-1.5">
+                            <div className="relative flex-1">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={apiKey || ''}
+                                    onChange={(e) => onApiKeyChange(e.target.value)}
+                                    placeholder={integration.apiKeyMasked || 'Enter API key...'}
+                                    className="pr-8 text-xs h-9"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* AI Model Selection */}
                 {isAI && integration.hasApiKey && (
