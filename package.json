@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "npx prisma generate && next build",
+    "postinstall": "node scripts/patch-auth.js",
+    "build": "node scripts/patch-auth.js && npx prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "db:up": "docker compose up -d",
