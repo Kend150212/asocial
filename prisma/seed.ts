@@ -87,7 +87,7 @@ async function main() {
             isActive: false,
             isDefault: false,
             status: IntegrationStatus.INACTIVE,
-            baseUrl: 'https://api.glhf.chat/v1',
+            baseUrl: 'https://api.synthetic.new/openai/v1',
         },
         {
             category: IntegrationCategory.STORAGE,

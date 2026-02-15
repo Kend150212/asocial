@@ -182,7 +182,7 @@ async function fetchOpenRouterModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 async function fetchSyntheticModels(apiKey: string): Promise<ModelInfo[]> {
-    const res = await fetch('https://api.glhf.chat/v1/models', {
+    const res = await fetch('https://api.synthetic.new/openai/v1/models', {
         headers: { Authorization: `Bearer ${apiKey}` },
     })
 

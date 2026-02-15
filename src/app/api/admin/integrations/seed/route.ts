@@ -26,7 +26,7 @@ export async function POST() {
             isActive: false,
             isDefault: false,
             status: 'INACTIVE' as const,
-            baseUrl: 'https://api.glhf.chat/v1',
+            baseUrl: 'https://api.synthetic.new/openai/v1',
         },
     ]
 
@@ -40,7 +40,7 @@ export async function POST() {
                     provider: p.provider,
                 },
             },
-            update: {},
+            update: { baseUrl: p.baseUrl },
             create: p,
         })
         results.push({ provider: result.provider, id: result.id, created: true })
