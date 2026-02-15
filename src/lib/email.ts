@@ -60,87 +60,97 @@ export async function sendInvitationEmail({
 
         const { transporter, from } = smtp
         const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
+        const logoUrl = `${appUrl}/logo.png`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
+        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
 
         await transporter.sendMail({
             from: `"ASocial" <${from}>`,
             to: toEmail,
-            subject: `You've been invited to ASocial`,
+            subject: `You've been invited to join ASocial`,
             html: `
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin: 0; padding: 0; background-color: #111111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #111111; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 48px 16px;">
         <tr><td align="center">
             <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width: 520px; width: 100%;">
 
-                <!-- Logo & Header -->
-                <tr><td style="padding: 32px 40px 24px; text-align: center;">
-                    <div style="display: inline-block; width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7); border-radius: 12px; line-height: 48px; font-size: 20px; font-weight: 700; color: white; letter-spacing: -1px;">A</div>
-                    <p style="margin: 12px 0 0; font-size: 13px; color: #525252; letter-spacing: 2px; text-transform: uppercase;">ASocial</p>
+                <!-- Logo -->
+                <tr><td style="padding: 0 0 32px; text-align: center;">
+                    <img src="${logoUrl}" alt="ASocial" width="52" height="52" style="border-radius: 14px; display: inline-block;" />
                 </td></tr>
 
                 <!-- Main Card -->
                 <tr><td>
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; overflow: hidden;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04); overflow: hidden;">
 
-                        <!-- Accent Bar -->
-                        <tr><td style="height: 3px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #ec4899);"></td></tr>
+                        <!-- Gradient Accent Bar -->
+                        <tr><td style="height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #ec4899);"></td></tr>
 
-                        <!-- Content -->
-                        <tr><td style="padding: 40px 36px 32px;">
-
-                            <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #f5f5f5; letter-spacing: -0.3px;">You're invited</h1>
-                            <p style="margin: 0 0 28px; font-size: 14px; color: #737373; line-height: 1.6;">
-                                You've been added as <strong style="color: #a78bfa;">${roleLabel}</strong> on ASocial. Set up your password to activate your account.
+                        <!-- Header -->
+                        <tr><td style="padding: 36px 36px 0;">
+                            <h1 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: #18181b; letter-spacing: -0.3px;">You're invited!</h1>
+                            <p style="margin: 0; font-size: 14px; color: #71717a; line-height: 1.6;">
+                                You've been added to <strong style="color: #18181b;">ASocial</strong> as a team member. Set up your password below to get started.
                             </p>
+                        </td></tr>
 
-                            <!-- Credentials Card -->
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #141414; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 28px;">
+                        <!-- Info Card -->
+                        <tr><td style="padding: 24px 36px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafafa; border: 1px solid #e4e4e7; border-radius: 12px;">
                                 <tr>
-                                    <td style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Email</p>
-                                        <p style="margin: 0; font-size: 14px; color: #e5e5e5; font-family: 'SF Mono', 'Fira Code', monospace;">${toEmail}</p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Name</p>
-                                        <p style="margin: 0; font-size: 14px; color: #e5e5e5;">${toName}</p>
+                                    <td style="padding: 16px 20px; border-bottom: 1px solid #f4f4f5;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td>
+                                                    <p style="margin: 0 0 2px; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Name</p>
+                                                    <p style="margin: 0; font-size: 15px; color: #18181b; font-weight: 500;">${toName}</p>
+                                                </td>
+                                                <td align="right" valign="top">
+                                                    <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: #ffffff; background-color: ${roleBg}; letter-spacing: 0.3px;">${roleLabel}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 16px 20px;">
-                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Role</p>
-                                        <p style="margin: 0; font-size: 14px; color: #a78bfa; font-weight: 600;">${roleLabel}</p>
+                                        <p style="margin: 0 0 2px; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Email</p>
+                                        <p style="margin: 0; font-size: 15px; color: #18181b; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;">${toEmail}</p>
                                     </td>
                                 </tr>
                             </table>
+                        </td></tr>
 
-                            <!-- CTA Button -->
+                        <!-- CTA Button -->
+                        <tr><td style="padding: 0 36px 36px;">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                                 <tr><td align="center">
-                                    <a href="${setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); color: white; padding: 14px 36px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;">
-                                        Set Up Password
+                                    <a href="${setupUrl}" style="display: inline-block; width: 100%; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); color: #ffffff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; box-sizing: border-box;">
+                                        Set Up Your Password →
                                     </a>
                                 </td></tr>
                             </table>
-
+                            <p style="margin: 12px 0 0; font-size: 12px; color: #a1a1aa; text-align: center;">
+                                This link expires in 7 days
+                            </p>
                         </td></tr>
+
                     </table>
                 </td></tr>
 
                 <!-- Footer -->
-                <tr><td style="padding: 28px 40px; text-align: center;">
-                    <p style="margin: 0 0 8px; font-size: 12px; color: #404040;">
-                        This invitation expires in 7 days.
+                <tr><td style="padding: 28px 36px; text-align: center;">
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #a1a1aa;">
+                        If the button doesn't work, copy this link:
                     </p>
-                    <p style="margin: 0 0 16px; font-size: 11px; color: #333333; word-break: break-all;">
+                    <p style="margin: 0 0 20px; font-size: 11px; word-break: break-all;">
                         <a href="${setupUrl}" style="color: #6366f1; text-decoration: none;">${setupUrl}</a>
                     </p>
-                    <p style="margin: 0; font-size: 11px; color: #333333;">
-                        &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management
+                    <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
+                        &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
                     </p>
                 </td></tr>
 
