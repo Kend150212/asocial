@@ -60,61 +60,95 @@ export async function sendInvitationEmail({
 
         const { transporter, from } = smtp
         const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
-        const roleLabel = role === 'ADMIN' ? 'Admin' : role === 'MANAGER' ? 'Manager' : 'Customer'
+        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
 
         await transporter.sendMail({
             from: `"ASocial" <${from}>`,
             to: toEmail,
-            subject: '🎉 Bạn đã được mời tham gia ASocial!',
+            subject: `You've been invited to ASocial`,
             html: `
-                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 0; background: #0f172a;">
-                    <!-- Header -->
-                    <div style="background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); padding: 32px; text-align: center; border-radius: 12px 12px 0 0;">
-                        <h1 style="font-size: 28px; color: white; margin: 0; letter-spacing: -0.5px;">ASocial</h1>
-                        <p style="color: rgba(255,255,255,0.85); font-size: 14px; margin: 8px 0 0;">Social Media Management</p>
-                    </div>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; background-color: #111111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #111111; padding: 40px 16px;">
+        <tr><td align="center">
+            <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width: 520px; width: 100%;">
 
-                    <!-- Body -->
-                    <div style="background: #1e293b; padding: 32px; border: 1px solid #334155; border-top: none;">
-                        <h2 style="font-size: 20px; color: #f1f5f9; margin: 0 0 8px;">Xin chào ${toName}! 👋</h2>
-                        <p style="font-size: 14px; color: #94a3b8; margin: 0 0 24px; line-height: 1.6;">
-                            Bạn đã được mời làm <strong style="color: #c084fc;">${roleLabel}</strong> trên nền tảng ASocial.
-                            Vui lòng nhấn nút bên dưới để tạo mật khẩu và kích hoạt tài khoản.
-                        </p>
+                <!-- Logo & Header -->
+                <tr><td style="padding: 32px 40px 24px; text-align: center;">
+                    <div style="display: inline-block; width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7); border-radius: 12px; line-height: 48px; font-size: 20px; font-weight: 700; color: white; letter-spacing: -1px;">A</div>
+                    <p style="margin: 12px 0 0; font-size: 13px; color: #525252; letter-spacing: 2px; text-transform: uppercase;">ASocial</p>
+                </td></tr>
 
-                        <!-- Info Card -->
-                        <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                <!-- Main Card -->
+                <tr><td>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #1a1a1a; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; overflow: hidden;">
+
+                        <!-- Accent Bar -->
+                        <tr><td style="height: 3px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #ec4899);"></td></tr>
+
+                        <!-- Content -->
+                        <tr><td style="padding: 40px 36px 32px;">
+
+                            <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #f5f5f5; letter-spacing: -0.3px;">You're invited</h1>
+                            <p style="margin: 0 0 28px; font-size: 14px; color: #737373; line-height: 1.6;">
+                                You've been added as <strong style="color: #a78bfa;">${roleLabel}</strong> on ASocial. Set up your password to activate your account.
+                            </p>
+
+                            <!-- Credentials Card -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #141414; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 28px;">
                                 <tr>
-                                    <td style="padding: 8px 0; color: #64748b; width: 90px;">Email:</td>
-                                    <td style="padding: 8px 0; color: #f1f5f9; font-family: monospace; font-weight: 600;">${toEmail}</td>
+                                    <td style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Email</p>
+                                        <p style="margin: 0; font-size: 14px; color: #e5e5e5; font-family: 'SF Mono', 'Fira Code', monospace;">${toEmail}</p>
+                                    </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 8px 0; color: #64748b; border-top: 1px solid #1e293b;">Vai trò:</td>
-                                    <td style="padding: 8px 0; color: #c084fc; font-weight: 600; border-top: 1px solid #1e293b;">${roleLabel}</td>
+                                    <td style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Name</p>
+                                        <p style="margin: 0; font-size: 14px; color: #e5e5e5;">${toName}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 16px 20px;">
+                                        <p style="margin: 0 0 2px; font-size: 11px; color: #525252; text-transform: uppercase; letter-spacing: 1px;">Role</p>
+                                        <p style="margin: 0; font-size: 14px; color: #a78bfa; font-weight: 600;">${roleLabel}</p>
+                                    </td>
                                 </tr>
                             </table>
-                        </div>
 
-                        <!-- CTA Button -->
-                        <div style="text-align: center; margin-bottom: 24px;">
-                            <a href="${setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
-                                🔐 Tạo mật khẩu →
-                            </a>
-                        </div>
+                            <!-- CTA Button -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr><td align="center">
+                                    <a href="${setupUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); color: white; padding: 14px 36px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;">
+                                        Set Up Password
+                                    </a>
+                                </td></tr>
+                            </table>
 
-                        <p style="font-size: 12px; color: #64748b; margin: 0; text-align: center; line-height: 1.5;">
-                            Hoặc copy link: <a href="${setupUrl}" style="color: #7c3aed; word-break: break-all;">${setupUrl}</a>
-                        </p>
-                    </div>
+                        </td></tr>
+                    </table>
+                </td></tr>
 
-                    <!-- Footer -->
-                    <div style="background: #0f172a; padding: 16px 32px; text-align: center; border-radius: 0 0 12px 12px; border: 1px solid #334155; border-top: none;">
-                        <p style="font-size: 11px; color: #475569; margin: 0;">
-                            ⏰ Link này có hiệu lực trong 7 ngày. Nếu hết hạn, vui lòng liên hệ Admin.
-                        </p>
-                    </div>
-                </div>
+                <!-- Footer -->
+                <tr><td style="padding: 28px 40px; text-align: center;">
+                    <p style="margin: 0 0 8px; font-size: 12px; color: #404040;">
+                        This invitation expires in 7 days.
+                    </p>
+                    <p style="margin: 0 0 16px; font-size: 11px; color: #333333; word-break: break-all;">
+                        <a href="${setupUrl}" style="color: #6366f1; text-decoration: none;">${setupUrl}</a>
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #333333;">
+                        &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management
+                    </p>
+                </td></tr>
+
+            </table>
+        </td></tr>
+    </table>
+</body>
+</html>
             `,
         })
 
