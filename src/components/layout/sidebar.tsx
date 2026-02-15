@@ -90,7 +90,7 @@ export function Sidebar() {
             <div className="flex h-16 items-center justify-between px-4">
                 {!collapsed && (
                     <Link href="/dashboard" className="flex items-center gap-2">
-                        <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" />
+                        <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
                         <span className="text-lg font-bold tracking-tight">ASocial</span>
                     </Link>
                 )}

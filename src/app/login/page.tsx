@@ -47,7 +47,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" />
+                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
                     </div>
                     <CardTitle className="text-2xl font-bold">ASocial</CardTitle>
                     <CardDescription>Social Media Management Platform</CardDescription>
