@@ -670,9 +670,9 @@ function IntegrationCard({
                             <div className="relative">
                                 <Input
                                     type={showKey ? 'text' : 'password'}
-                                    value={gdriveConfig.clientSecret}
+                                    value={gdriveConfig.clientSecret || (showKey ? '' : (integration.apiKeyMasked || ''))}
                                     onChange={(e) => onGdriveChange('clientSecret', e.target.value)}
-                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : t('integrations.gdriveClientSecretPlaceholder')}
+                                    placeholder={integration.hasApiKey ? '' : t('integrations.gdriveClientSecretPlaceholder')}
                                     className="pr-8 h-8 text-xs"
                                 />
                                 <button
