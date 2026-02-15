@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { encrypt, decrypt, maskApiKey } from '@/lib/encryption'
 
 // GET /api/admin/integrations — list all integrations

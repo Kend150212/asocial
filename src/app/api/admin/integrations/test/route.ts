@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
 // POST /api/admin/integrations/test — test connection for a provider
