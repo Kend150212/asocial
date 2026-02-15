@@ -49,9 +49,19 @@ export async function POST(req: NextRequest) {
             case 'synthetic':
                 models = await fetchSyntheticModels(apiKey)
                 break
-            case 'robolly':
-                models = await fetchRobollyTemplates(apiKey)
+            case 'robolly': {
+                const tplRes = await fetch('https://api.robolly.com/v1/templates', {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                })
+                if (!tplRes.ok) throw new Error('Robolly API error')
+                const templates = await tplRes.json()
+                models = templates.map((t: { id: string; name: string; width?: number; height?: number }) => ({
+                    id: t.id,
+                    name: `${t.name} (${t.width || 0}×${t.height || 0})`,
+                    type: 'image' as const,
+                }))
                 break
+            }
             default:
                 return NextResponse.json({ models: [], message: 'Model listing not supported for this provider' })
         }
@@ -213,22 +223,3 @@ async function fetchSyntheticModels(apiKey: string): Promise<ModelInfo[]> {
     return models
 }
 
-async function fetchRobollyTemplates(apiKey: string): Promise<ModelInfo[]> {
-    const res = await fetch('https://api.robolly.com/v1/templates', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-    })
-
-    if (!res.ok) {
-        throw new Error(`Robolly API error: ${res.status}`)
-    }
-
-    const data = await res.json()
-    const templates = Array.isArray(data) ? data : data.data || []
-
-    return templates.map((t: { _id?: string; id?: string; name?: string; width?: number; height?: number }) => ({
-        id: t._id || t.id || '',
-        name: t.name || 'Untitled Template',
-        type: 'image' as const,
-        description: t.width && t.height ? `${t.width}×${t.height}px` : 'template',
-    }))
-}
