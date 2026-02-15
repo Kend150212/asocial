@@ -4,17 +4,9 @@ import { decrypt } from '@/lib/encryption'
 
 // ─── Get SMTP transporter from ApiIntegration ───────
 async function getTransporter() {
-    // Try both query approaches for robustness
-    let smtp = await prisma.apiIntegration.findFirst({
-        where: { provider: 'smtp', isActive: true },
+    const smtp = await prisma.apiIntegration.findFirst({
+        where: { provider: 'smtp', status: 'ACTIVE' },
     })
-
-    // Fallback: search by category if provider query fails
-    if (!smtp) {
-        smtp = await prisma.apiIntegration.findFirst({
-            where: { category: 'EMAIL', isActive: true },
-        })
-    }
 
     if (!smtp) {
         console.warn('[Email] No active SMTP integration found in database')
