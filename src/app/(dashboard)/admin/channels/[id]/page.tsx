@@ -82,6 +82,21 @@ interface HashtagGroup {
     usageCount: number
 }
 
+interface AiProviderInfo {
+    id: string
+    provider: string
+    name: string
+    status: string
+    hasApiKey: boolean
+}
+
+interface AiModelInfo {
+    id: string
+    name: string
+    type: string
+    description?: string
+}
+
 interface ChannelDetail {
     id: string
     name: string
@@ -171,6 +186,9 @@ export default function ChannelDetailPage({
     const [aiProvider, setAiProvider] = useState('')
     const [aiModel, setAiModel] = useState('')
     const [generatingDesc, setGeneratingDesc] = useState(false)
+    const [availableProviders, setAvailableProviders] = useState<AiProviderInfo[]>([])
+    const [availableModels, setAvailableModels] = useState<AiModelInfo[]>([])
+    const [loadingModels, setLoadingModels] = useState(false)
 
     // Webhook state
     const [webhookDiscordUrl, setWebhookDiscordUrl] = useState('')
@@ -219,6 +237,53 @@ export default function ChannelDetailPage({
     useEffect(() => {
         fetchChannel()
     }, [fetchChannel])
+
+    // Fetch AI providers from API Hub
+    useEffect(() => {
+        const fetchProviders = async () => {
+            try {
+                const res = await fetch('/api/admin/integrations')
+                if (res.ok) {
+                    const data = await res.json()
+                    const aiProviders = data.filter(
+                        (i: AiProviderInfo & { category: string }) => i.category === 'AI' && i.status === 'ACTIVE' && i.hasApiKey
+                    )
+                    setAvailableProviders(aiProviders)
+                }
+            } catch { /* silently ignore */ }
+        }
+        fetchProviders()
+    }, [])
+
+    // Fetch models when provider changes
+    useEffect(() => {
+        if (!aiProvider) {
+            setAvailableModels([])
+            return
+        }
+        const provider = availableProviders.find(p => p.provider === aiProvider)
+        if (!provider) return
+
+        const fetchModels = async () => {
+            setLoadingModels(true)
+            try {
+                const res = await fetch('/api/admin/integrations/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: provider.id }),
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    // Filter to text models only for content generation
+                    setAvailableModels(
+                        (data.models || []).filter((m: AiModelInfo) => m.type === 'text')
+                    )
+                }
+            } catch { /* silently ignore */ }
+            setLoadingModels(false)
+        }
+        fetchModels()
+    }, [aiProvider, availableProviders])
 
     // ─── Save General Settings ──────────────────────
     const handleSave = async () => {
@@ -697,41 +762,31 @@ export default function ChannelDetailPage({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                            <SelectItem value="gemini">Google Gemini</SelectItem>
-                                            <SelectItem value="openai">OpenAI</SelectItem>
+                                            {availableProviders.map((p) => (
+                                                <SelectItem key={p.provider} value={p.provider}>
+                                                    {p.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-muted-foreground">{t('channels.ai.providerDesc')}</p>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>{t('channels.ai.model')}</Label>
-                                    <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)}>
+                                    <Label className="flex items-center gap-2">
+                                        {t('channels.ai.model')}
+                                        {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                    </Label>
+                                    <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('channels.ai.useGlobal')} />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                            {aiProvider === 'openai' ? (
-                                                <>
-                                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                                                    <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
-                                                    <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
-                                                </>
-                                            ) : aiProvider === 'gemini' ? (
-                                                <>
-                                                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-                                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-                                                    <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                                                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-                                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-                                                </>
-                                            )}
+                                            {availableModels.map((m) => (
+                                                <SelectItem key={m.id} value={m.id}>
+                                                    {m.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
