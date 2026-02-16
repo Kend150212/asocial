@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // GET /api/admin/channels/[id]/platforms/vbout — fetch connected social accounts from Vbout
 export async function GET(
@@ -28,8 +29,9 @@ export async function GET(
 
     try {
         const baseUrl = vbout.baseUrl || 'https://api.vbout.com/1'
+        const apiKey = decrypt(vbout.apiKeyEncrypted)
         const res = await fetch(
-            `${baseUrl}/socialmedia/channels.json?key=${vbout.apiKeyEncrypted}`,
+            `${baseUrl}/socialmedia/channels.json?key=${apiKey}`,
             { method: 'GET', headers: { 'Accept': 'application/json' } }
         )
 
