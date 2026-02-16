@@ -18,7 +18,9 @@
         "refresh": "Refresh",
         "configured": "configured",
         "notConfigured": "Not configured",
-        "signOut": "Sign out"
+        "signOut": "Sign out",
+        "saving": "Saving...",
+        "creating": "Creating..."
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -247,5 +249,35 @@
         "backToLogin": "Back to Login",
         "goToLogin": "Go to Login",
         "error": "Something went wrong. Please try again."
+    },
+    "channels": {
+        "title": "Channel Management",
+        "description": "Manage channels, settings, and content configuration",
+        "addChannel": "Add Channel",
+        "addChannelDesc": "Create a new channel to organize your content",
+        "searchPlaceholder": "Search channels...",
+        "noChannels": "No channels yet",
+        "noChannelsDesc": "Create your first channel to get started",
+        "createFirst": "Create First Channel",
+        "noResults": "No channels found",
+        "noResultsDesc": "Try a different search term",
+        "displayName": "Display Name",
+        "slug": "Channel Slug",
+        "slugHint": "URL-friendly identifier. Only lowercase letters, numbers, and hyphens.",
+        "language": "Language",
+        "editSettings": "Edit Settings",
+        "delete": "Delete",
+        "deleteConfirm": "Delete Channel?",
+        "deleteConfirmDesc": "Are you sure you want to delete {{name}}? All posts, media, and settings will be permanently removed.",
+        "created": "Channel created successfully",
+        "deleted": "Channel deleted successfully",
+        "saved": "Channel settings saved",
+        "generalSettings": "General Settings",
+        "generalSettingsDesc": "Basic channel configuration",
+        "notificationEmail": "Notification Email",
+        "active": "Active",
+        "activeDesc": "When disabled, no posts can be created or published",
+        "requireApproval": "Require Approval",
+        "requireApprovalDesc": "Posts must be approved before publishing"
     }
 }

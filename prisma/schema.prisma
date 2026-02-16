@@ -247,12 +247,14 @@ model ChannelPlatform {
 }
 
 model KnowledgeBase {
-  id        String   @id @default(cuid())
-  channelId String   @map("channel_id")
-  title     String
-  content   String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  channelId  String   @map("channel_id")
+  title      String
+  sourceType String   @default("text") @map("source_type") // text, url, google_sheet, file
+  sourceUrl  String?  @map("source_url")
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 

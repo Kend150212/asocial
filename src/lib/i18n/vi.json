@@ -18,7 +18,9 @@
         "refresh": "Làm mới",
         "configured": "đã cấu hình",
         "notConfigured": "Chưa cấu hình",
-        "signOut": "Đăng xuất"
+        "signOut": "Đăng xuất",
+        "saving": "Đang lưu...",
+        "creating": "Đang tạo..."
     },
     "nav": {
         "dashboard": "Trang chủ",
@@ -247,5 +249,35 @@
         "backToLogin": "Quay lại đăng nhập",
         "goToLogin": "Đến trang đăng nhập",
         "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+    },
+    "channels": {
+        "title": "Quản lý kênh",
+        "description": "Quản lý kênh, cài đặt và cấu hình nội dung",
+        "addChannel": "Thêm kênh",
+        "addChannelDesc": "Tạo kênh mới để tổ chức nội dung",
+        "searchPlaceholder": "Tìm kiếm kênh...",
+        "noChannels": "Chưa có kênh nào",
+        "noChannelsDesc": "Tạo kênh đầu tiên để bắt đầu",
+        "createFirst": "Tạo kênh đầu tiên",
+        "noResults": "Không tìm thấy kênh",
+        "noResultsDesc": "Thử từ khóa khác",
+        "displayName": "Tên hiển thị",
+        "slug": "Slug kênh",
+        "slugHint": "Định danh URL. Chỉ chữ thường, số và dấu gạch ngang.",
+        "language": "Ngôn ngữ",
+        "editSettings": "Sửa cài đặt",
+        "delete": "Xóa",
+        "deleteConfirm": "Xóa kênh?",
+        "deleteConfirmDesc": "Bạn có chắc muốn xóa {{name}}? Tất cả bài viết, media và cài đặt sẽ bị xóa vĩnh viễn.",
+        "created": "Tạo kênh thành công",
+        "deleted": "Xóa kênh thành công",
+        "saved": "Đã lưu cài đặt kênh",
+        "generalSettings": "Cài đặt chung",
+        "generalSettingsDesc": "Cấu hình cơ bản của kênh",
+        "notificationEmail": "Email thông báo",
+        "active": "Hoạt động",
+        "activeDesc": "Khi tắt, không thể tạo hoặc đăng bài",
+        "requireApproval": "Yêu cầu duyệt",
+        "requireApprovalDesc": "Bài viết cần được duyệt trước khi đăng"
     }
 }
