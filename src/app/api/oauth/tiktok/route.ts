@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('client_key', clientKey)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', 'user.info.basic,video.list')
+    authUrl.searchParams.set('scope', 'user.info.basic')
     authUrl.searchParams.set('state', state)
     authUrl.searchParams.set('code_challenge', codeChallenge)
     authUrl.searchParams.set('code_challenge_method', 'S256')
