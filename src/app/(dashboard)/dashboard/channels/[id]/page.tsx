@@ -1298,8 +1298,8 @@ export default function ChannelDetailPage({
                             ) : (
                                 <div className="space-y-4">
                                     {(() => {
-                                        // Non-admin users only see enabled accounts
-                                        const visiblePlatforms = isAdmin ? platforms : platforms.filter(p => p.isActive)
+                                        // Only show enabled accounts
+                                        const visiblePlatforms = platforms.filter(p => p.isActive)
                                         const searchLower = platformSearch.toLowerCase()
                                         const filtered = searchLower
                                             ? visiblePlatforms.filter(p =>

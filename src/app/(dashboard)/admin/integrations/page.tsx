@@ -78,6 +78,11 @@ const providerColors: Record<string, string> = {
     vbout: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     youtube: 'bg-red-500/10 text-red-500 border-red-500/20',
     tiktok: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
+    facebook: 'bg-blue-600/10 text-blue-600 border-blue-600/20',
+    instagram: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
+    linkedin: 'bg-sky-600/10 text-sky-600 border-sky-600/20',
+    x: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
+    pinterest: 'bg-red-600/10 text-red-600 border-red-600/20',
     openai: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     gemini: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
     runware: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
@@ -92,6 +97,11 @@ const providerGuideUrls: Record<string, string> = {
     vbout: 'https://app.vbout.com/Settings#tab-api',
     youtube: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
     tiktok: 'https://developers.tiktok.com/',
+    facebook: 'https://developers.facebook.com/apps/',
+    instagram: 'https://developers.facebook.com/apps/',
+    linkedin: 'https://www.linkedin.com/developers/apps',
+    x: 'https://developer.twitter.com/en/portal/dashboard',
+    pinterest: 'https://developers.pinterest.com/apps/',
     openai: 'https://platform.openai.com/api-keys',
     gemini: 'https://aistudio.google.com/apikey',
     runware: 'https://my.runware.ai/keys',
@@ -184,6 +194,36 @@ export default function IntegrationsPage() {
                         clientSecret: '',
                     }
                 }
+                if (i.provider === 'facebook') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.facebookClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'instagram') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.instagramClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'linkedin') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.linkedinClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'x') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.xClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'pinterest') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.pinterestClientId || '',
+                        clientSecret: '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
@@ -258,12 +298,53 @@ export default function IntegrationsPage() {
             if (integration.provider === 'tiktok') {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
-                    body.config = {
-                        tiktokClientKey: oauth.clientId,
-                    }
-                    if (oauth.clientSecret) {
-                        body.apiKey = oauth.clientSecret
-                    }
+                    body.config = { tiktokClientKey: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Facebook OAuth config
+            if (integration.provider === 'facebook') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { facebookClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Instagram OAuth config
+            if (integration.provider === 'instagram') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { instagramClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // LinkedIn OAuth config
+            if (integration.provider === 'linkedin') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { linkedinClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // X (Twitter) OAuth config
+            if (integration.provider === 'x') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { xClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Pinterest OAuth config
+            if (integration.provider === 'pinterest') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { pinterestClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
 
@@ -563,7 +644,7 @@ function IntegrationCard({
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
-    const isOAuth = integration.provider === 'youtube' || integration.provider === 'tiktok'
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -849,19 +930,29 @@ function IntegrationCard({
                     <div className="space-y-3">
                         <div className="space-y-1">
                             <Label className="text-[11px]">
-                                {integration.provider === 'youtube' ? 'Google Client ID' : 'TikTok Client Key'}
+                                {{
+                                    youtube: 'Google Client ID', tiktok: 'TikTok Client Key',
+                                    facebook: 'Facebook App ID', instagram: 'Instagram App ID',
+                                    linkedin: 'LinkedIn Client ID', x: 'X Client ID',
+                                    pinterest: 'Pinterest App ID',
+                                }[integration.provider] || 'Client ID'}
                             </Label>
                             <Input
                                 value={oauthConfig.clientId}
                                 onChange={(e) => onOauthChange('clientId', e.target.value)}
-                                placeholder={integration.provider === 'youtube' ? 'xxxxx.apps.googleusercontent.com' : 'your-tiktok-client-key'}
+                                placeholder={'Enter Client ID / App ID'}
                                 className="h-8 text-xs"
                             />
                         </div>
 
                         <div className="space-y-1">
                             <Label className="text-[11px]">
-                                {integration.provider === 'youtube' ? 'Google Client Secret' : 'TikTok Client Secret'}
+                                {{
+                                    youtube: 'Google Client Secret', tiktok: 'TikTok Client Secret',
+                                    facebook: 'Facebook App Secret', instagram: 'Instagram App Secret',
+                                    linkedin: 'LinkedIn Client Secret', x: 'X Client Secret',
+                                    pinterest: 'Pinterest App Secret',
+                                }[integration.provider] || 'Client Secret'}
                             </Label>
                             <div className="relative">
                                 <Input
