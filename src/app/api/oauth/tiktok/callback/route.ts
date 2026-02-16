@@ -1,0 +1,122 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+// GET /api/oauth/tiktok/callback — Handle TikTok OAuth callback
+export async function GET(req: NextRequest) {
+    const code = req.nextUrl.searchParams.get('code')
+    const stateParam = req.nextUrl.searchParams.get('state')
+    const error = req.nextUrl.searchParams.get('error')
+
+    if (error) {
+        return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
+    }
+
+    if (!code || !stateParam) {
+        return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
+    }
+
+    // Decode state
+    let state: { channelId: string; userId: string }
+    try {
+        state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
+    } catch {
+        return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin))
+    }
+
+    const clientKey = process.env.TIKTOK_CLIENT_KEY
+    const clientSecret = process.env.TIKTOK_CLIENT_SECRET
+
+    if (!clientKey || !clientSecret) {
+        return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+    }
+
+    const host = req.nextUrl.origin
+    const redirectUri = `${host}/api/oauth/tiktok/callback`
+
+    try {
+        // Exchange code for tokens
+        const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_key: clientKey,
+                client_secret: clientSecret,
+                code,
+                grant_type: 'authorization_code',
+                redirect_uri: redirectUri,
+            }),
+        })
+
+        if (!tokenRes.ok) {
+            const err = await tokenRes.text()
+            console.error('TikTok token exchange failed:', err)
+            return NextResponse.redirect(
+                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin)
+            )
+        }
+
+        const tokens = await tokenRes.json()
+        const accessToken = tokens.access_token
+        const refreshToken = tokens.refresh_token
+        const expiresIn = tokens.expires_in
+        const openId = tokens.open_id
+
+        // Fetch TikTok user info
+        const userRes = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+
+        let displayName = 'TikTok Account'
+        if (userRes.ok) {
+            const userData = await userRes.json()
+            displayName = userData?.data?.user?.display_name || displayName
+        }
+
+        // Upsert the TikTok channel platform entry
+        await prisma.channelPlatform.upsert({
+            where: {
+                channelId_platform_accountId: {
+                    channelId: state.channelId,
+                    platform: 'tiktok',
+                    accountId: openId,
+                },
+            },
+            update: {
+                accountName: displayName,
+                accessToken,
+                refreshToken: refreshToken || undefined,
+                tokenExpiresAt: expiresIn
+                    ? new Date(Date.now() + expiresIn * 1000)
+                    : null,
+                connectedBy: state.userId,
+                isActive: true,
+            },
+            create: {
+                channelId: state.channelId,
+                platform: 'tiktok',
+                accountId: openId,
+                accountName: displayName,
+                accessToken,
+                refreshToken: refreshToken || undefined,
+                tokenExpiresAt: expiresIn
+                    ? new Date(Date.now() + expiresIn * 1000)
+                    : null,
+                connectedBy: state.userId,
+                isActive: true,
+                config: { source: 'oauth' },
+            },
+        })
+
+        return NextResponse.redirect(
+            new URL(
+                `/dashboard/channels/${state.channelId}?tab=platforms&oauth=tiktok&imported=1`,
+                req.nextUrl.origin
+            )
+        )
+    } catch (err) {
+        console.error('TikTok OAuth callback error:', err)
+        return NextResponse.redirect(
+            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin)
+        )
+    }
+}

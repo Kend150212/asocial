@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { use } from 'react'
 import {
@@ -313,6 +313,34 @@ export default function ChannelDetailPage({
             .then(data => setPlatforms(data))
             .catch(() => { })
     }, [fetchChannel, id])
+
+    // Handle OAuth redirect success
+    const searchParams = useSearchParams()
+    useEffect(() => {
+        const oauthPlatform = searchParams.get('oauth')
+        const imported = searchParams.get('imported')
+        const oauthError = searchParams.get('error')
+        const tab = searchParams.get('tab')
+
+        if (tab === 'platforms') {
+            setActiveTab('platforms')
+        }
+
+        if (oauthPlatform && imported) {
+            const name = oauthPlatform.charAt(0).toUpperCase() + oauthPlatform.slice(1)
+            toast.success(`${name} connected! ${imported} account(s) imported.`)
+            // Refresh platform list
+            fetch(`/api/admin/channels/${id}/platforms`)
+                .then(r => r.ok ? r.json() : [])
+                .then(data => setPlatforms(data))
+                .catch(() => { })
+            // Clean URL params
+            router.replace(`/dashboard/channels/${id}`, { scroll: false })
+        } else if (oauthError) {
+            toast.error(`OAuth error: ${oauthError}`)
+            router.replace(`/dashboard/channels/${id}`, { scroll: false })
+        }
+    }, [searchParams, id, router])
 
     // Fetch AI providers from API Hub
     useEffect(() => {
@@ -1145,9 +1173,46 @@ export default function ChannelDetailPage({
                                 </div>
                             )}
 
-                            {/* Add Platform Form — All users */}
+                            {/* Add Platform — OAuth + Manual */}
                             {addingPlatform && (
-                                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                                <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                                    {/* OAuth Connect Buttons */}
+                                    <div>
+                                        <p className="text-xs font-medium text-muted-foreground mb-2">Connect via OAuth</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="gap-2 border-red-500/30 hover:bg-red-500/10"
+                                                onClick={() => {
+                                                    window.location.href = `/api/oauth/youtube?channelId=${id}`
+                                                }}
+                                            >
+                                                {platformIcons.youtube}
+                                                <span className="text-sm">YouTube</span>
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="gap-2 border-neutral-500/30 hover:bg-neutral-500/10"
+                                                onClick={() => {
+                                                    window.location.href = `/api/oauth/tiktok?channelId=${id}`
+                                                }}
+                                            >
+                                                {platformIcons.tiktok}
+                                                <span className="text-sm">TikTok</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 border-t" />
+                                        <span className="text-xs text-muted-foreground">or add manually</span>
+                                        <div className="flex-1 border-t" />
+                                    </div>
+
+                                    {/* Manual Form */}
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="space-y-1.5">
                                             <Label className="text-xs">{t('channels.platforms.platform')}</Label>
@@ -1159,10 +1224,12 @@ export default function ChannelDetailPage({
                                                     {platformOptions.map((p) => (
                                                         <SelectItem key={p.value} value={p.value}>
                                                             <span className="flex items-center gap-2">
-                                                                <span
-                                                                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                                                                    style={{ backgroundColor: p.color }}
-                                                                />
+                                                                {platformIcons[p.value] || (
+                                                                    <span
+                                                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                                        style={{ backgroundColor: p.color }}
+                                                                    />
+                                                                )}
                                                                 {p.label}
                                                             </span>
                                                         </SelectItem>
