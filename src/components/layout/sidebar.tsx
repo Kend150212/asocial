@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import NextImage from 'next/image'
-import { useSession, signOut } from 'next-auth/react'
+import { signOut } from 'next-auth/react'
+import type { Session } from 'next-auth'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -66,9 +67,8 @@ const adminNav: NavItem[] = [
     { titleKey: 'nav.settings', href: '/admin/settings', icon: Settings, roles: ['ADMIN'] },
 ]
 
-export function Sidebar() {
+export function Sidebar({ session }: { session: Session }) {
     const pathname = usePathname()
-    const { data: session } = useSession()
     const [collapsed, setCollapsed] = useState(false)
     const isAdmin = session?.user?.role === 'ADMIN'
     const t = useTranslation()
