@@ -1185,7 +1185,26 @@ export default function ChannelDetailPage({
                                                 size="sm"
                                                 className="gap-2 border-red-500/30 hover:bg-red-500/10"
                                                 onClick={() => {
-                                                    window.location.href = `/api/oauth/youtube?channelId=${id}`
+                                                    const w = 500, h = 700
+                                                    const left = window.screenX + (window.outerWidth - w) / 2
+                                                    const top = window.screenY + (window.outerHeight - h) / 2
+                                                    const popup = window.open(
+                                                        `/api/oauth/youtube?channelId=${id}`,
+                                                        'youtube-oauth',
+                                                        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                    )
+                                                    const handler = (e: MessageEvent) => {
+                                                        if (e.data?.type === 'oauth-success' && e.data?.platform === 'youtube') {
+                                                            window.removeEventListener('message', handler)
+                                                            toast.success('YouTube connected successfully!')
+                                                            fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                                        }
+                                                    }
+                                                    window.addEventListener('message', handler)
+                                                    // Fallback: clean up if popup closed without success
+                                                    const check = setInterval(() => {
+                                                        if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
+                                                    }, 1000)
                                                 }}
                                             >
                                                 {platformIcons.youtube}
@@ -1196,7 +1215,25 @@ export default function ChannelDetailPage({
                                                 size="sm"
                                                 className="gap-2 border-neutral-500/30 hover:bg-neutral-500/10"
                                                 onClick={() => {
-                                                    window.location.href = `/api/oauth/tiktok?channelId=${id}`
+                                                    const w = 500, h = 700
+                                                    const left = window.screenX + (window.outerWidth - w) / 2
+                                                    const top = window.screenY + (window.outerHeight - h) / 2
+                                                    const popup = window.open(
+                                                        `/api/oauth/tiktok?channelId=${id}`,
+                                                        'tiktok-oauth',
+                                                        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                    )
+                                                    const handler = (e: MessageEvent) => {
+                                                        if (e.data?.type === 'oauth-success' && e.data?.platform === 'tiktok') {
+                                                            window.removeEventListener('message', handler)
+                                                            toast.success('TikTok connected successfully!')
+                                                            fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                                        }
+                                                    }
+                                                    window.addEventListener('message', handler)
+                                                    const check = setInterval(() => {
+                                                        if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
+                                                    }, 1000)
                                                 }}
                                             >
                                                 {platformIcons.tiktok}

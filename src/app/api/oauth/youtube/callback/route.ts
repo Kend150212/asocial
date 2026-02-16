@@ -135,11 +135,24 @@ export async function GET(req: NextRequest) {
             imported++
         }
 
-        return NextResponse.redirect(
-            new URL(
-                `/dashboard/channels/${state.channelId}?tab=platforms&oauth=youtube&imported=${imported}`,
-                req.nextUrl.origin
-            )
+        // Redirect — close popup or redirect to channel page
+        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=youtube&imported=${imported}`
+
+        return new NextResponse(
+            `<!DOCTYPE html>
+            <html><head><title>YouTube Connected</title></head>
+            <body>
+                <script>
+                    if (window.opener) {
+                        window.opener.postMessage({ type: 'oauth-success', platform: 'youtube' }, '*');
+                        window.close();
+                    } else {
+                        window.location.href = '${successUrl}';
+                    }
+                </script>
+                <p>YouTube connected! Redirecting...</p>
+            </body></html>`,
+            { headers: { 'Content-Type': 'text/html' } }
         )
     } catch (err) {
         console.error('YouTube OAuth callback error:', err)

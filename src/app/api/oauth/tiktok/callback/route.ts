@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
-// GET /api/oauth/tiktok/callback — Handle TikTok OAuth callback
+// GET /api/oauth/tiktok/callback — Handle TikTok OAuth callback with PKCE
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
     }
 
-    // Decode state
-    let state: { channelId: string; userId: string }
+    // Decode state (includes codeVerifier for PKCE)
+    let state: { channelId: string; userId: string; codeVerifier: string }
     try {
         state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
     } catch {
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     const redirectUri = `${host}/api/oauth/tiktok/callback`
 
     try {
-        // Exchange code for tokens
+        // Exchange code for tokens (with PKCE code_verifier)
         const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
                 code,
                 grant_type: 'authorization_code',
                 redirect_uri: redirectUri,
+                code_verifier: state.codeVerifier,
             }),
         })
 
@@ -123,11 +124,25 @@ export async function GET(req: NextRequest) {
             },
         })
 
-        return NextResponse.redirect(
-            new URL(
-                `/dashboard/channels/${state.channelId}?tab=platforms&oauth=tiktok&imported=1`,
-                req.nextUrl.origin
-            )
+        // Redirect — close popup or redirect to channel page
+        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=tiktok&imported=1`
+
+        // Return HTML that closes popup and notifies parent window
+        return new NextResponse(
+            `<!DOCTYPE html>
+            <html><head><title>TikTok Connected</title></head>
+            <body>
+                <script>
+                    if (window.opener) {
+                        window.opener.postMessage({ type: 'oauth-success', platform: 'tiktok' }, '*');
+                        window.close();
+                    } else {
+                        window.location.href = '${successUrl}';
+                    }
+                </script>
+                <p>TikTok connected! Redirecting...</p>
+            </body></html>`,
+            { headers: { 'Content-Type': 'text/html' } }
         )
     } catch (err) {
         console.error('TikTok OAuth callback error:', err)
