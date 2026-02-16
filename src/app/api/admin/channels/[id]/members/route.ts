@@ -26,7 +26,7 @@ export async function GET(
     return NextResponse.json(members)
 }
 
-// POST /api/admin/channels/[id]/members — add a member to channel
+// POST /api/admin/channels/[id]/members — add member (admin: userId or email, others: email only)
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -38,15 +38,89 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { userId, role } = body
+    const { userId, email, role } = body
+    const isAdmin = session.user.role === 'ADMIN'
 
-    if (!userId) {
-        return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    // Non-admin can only invite by email
+    if (!isAdmin && userId) {
+        return NextResponse.json({ error: 'Only admins can add users directly' }, { status: 403 })
+    }
+
+    if (!userId && !email) {
+        return NextResponse.json({ error: 'Either userId or email is required' }, { status: 400 })
+    }
+
+    // Get channel info for the invite email
+    const channel = await prisma.channel.findUnique({ where: { id }, select: { displayName: true } })
+    if (!channel) {
+        return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+    }
+
+    let targetUserId = userId
+
+    // If inviting by email, find or create user
+    if (email && !userId) {
+        let user = await prisma.user.findUnique({ where: { email } })
+
+        if (!user) {
+            // Create new user with invite token
+            const crypto = await import('crypto')
+            const inviteToken = crypto.randomBytes(32).toString('hex')
+            user = await prisma.user.create({
+                data: {
+                    email,
+                    name: email.split('@')[0],
+                    role: role || 'MANAGER',
+                    isActive: true,
+                    inviteToken,
+                    inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                },
+            })
+
+            // Send invitation email
+            const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+            const { sendChannelInviteEmail } = await import('@/lib/email')
+            await sendChannelInviteEmail({
+                toEmail: email,
+                toName: user.name || email,
+                channelName: channel.displayName,
+                inviterName: session.user.name || session.user.email,
+                role: role || 'MANAGER',
+                appUrl,
+                inviteToken,
+            })
+        } else {
+            // Existing user — if they don't have a password yet, refresh invite token
+            if (!user.passwordHash) {
+                const crypto = await import('crypto')
+                const inviteToken = crypto.randomBytes(32).toString('hex')
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        inviteToken,
+                        inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    },
+                })
+
+                const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+                const { sendChannelInviteEmail } = await import('@/lib/email')
+                await sendChannelInviteEmail({
+                    toEmail: email,
+                    toName: user.name || email,
+                    channelName: channel.displayName,
+                    inviterName: session.user.name || session.user.email,
+                    role: role || 'MANAGER',
+                    appUrl,
+                    inviteToken,
+                })
+            }
+        }
+        targetUserId = user.id
     }
 
     // Check if already a member
     const existing = await prisma.channelMember.findUnique({
-        where: { userId_channelId: { userId, channelId: id } },
+        where: { userId_channelId: { userId: targetUserId, channelId: id } },
     })
     if (existing) {
         return NextResponse.json({ error: 'User is already a member of this channel' }, { status: 409 })
@@ -55,7 +129,7 @@ export async function POST(
     // Create member with default permissions
     const member = await prisma.channelMember.create({
         data: {
-            userId,
+            userId: targetUserId,
             channelId: id,
             role: role || 'MANAGER',
             permission: {

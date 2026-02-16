@@ -438,6 +438,13 @@
             "noUsersAvailable": "Tất cả người dùng đã được gán",
             "confirmRemove": "Xóa thành viên này?",
             "editPermissions": "Chỉnh sửa quyền",
+            "inviteByEmail": "Mời qua Email",
+            "emailPlaceholder": "Nhập địa chỉ email...",
+            "sendInvite": "Gửi lời mời",
+            "inviteSent": "Đã gửi lời mời thành công",
+            "inviteFailed": "Không thể gửi lời mời",
+            "sending": "Đang gửi...",
+            "orInviteByEmail": "hoặc mời qua email",
             "permissionLabels": {
                 "canCreatePost": "Tạo bài viết",
                 "canEditPost": "Sửa bài viết",

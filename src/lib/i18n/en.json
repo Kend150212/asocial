@@ -438,6 +438,13 @@
             "noUsersAvailable": "All users are already assigned",
             "confirmRemove": "Remove this member?",
             "editPermissions": "Edit Permissions",
+            "inviteByEmail": "Invite by Email",
+            "emailPlaceholder": "Enter email address...",
+            "sendInvite": "Send Invite",
+            "inviteSent": "Invitation sent successfully",
+            "inviteFailed": "Failed to send invitation",
+            "sending": "Sending...",
+            "orInviteByEmail": "or invite by email",
             "permissionLabels": {
                 "canCreatePost": "Create Posts",
                 "canEditPost": "Edit Posts",
