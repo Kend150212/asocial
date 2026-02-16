@@ -108,7 +108,6 @@ export default function AdminChannelsPage() {
     const [newDisplayName, setNewDisplayName] = useState('')
     const [newLanguage, setNewLanguage] = useState('en')
     const [creating, setCreating] = useState(false)
-    const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
 
     const fetchChannels = useCallback(async () => {
         try {
@@ -333,7 +332,7 @@ export default function AdminChannelsPage() {
             )}
 
             {/* Create Channel Dialog */}
-            <Dialog open={showCreateDialog} onOpenChange={(v) => { setShowCreateDialog(v); if (v) setSlugManuallyEdited(false) }}>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
@@ -347,11 +346,7 @@ export default function AdminChannelsPage() {
                                 value={newDisplayName}
                                 onChange={(e) => {
                                     setNewDisplayName(e.target.value)
-                                    // Auto-generate slug from display name (unless manually edited)
-                                    const autoSlug = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-                                    if (!slugManuallyEdited) {
-                                        setNewName(autoSlug)
-                                    }
+                                    setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
                                 }}
                             />
                         </div>
@@ -362,11 +357,8 @@ export default function AdminChannelsPage() {
                                 <Input
                                     placeholder="my-brand"
                                     value={newName}
-                                    onChange={(e) => {
-                                        setSlugManuallyEdited(true)
-                                        setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
-                                    }}
-                                    className="font-mono text-sm"
+                                    readOnly
+                                    className="font-mono text-sm bg-muted/50"
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground">{t('channels.slugHint')}</p>
