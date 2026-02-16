@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Eye, EyeOff, Check, AlertTriangle, ArrowLeft } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { signOut } from 'next-auth/react'
 
 function SetupPasswordForm() {
     const searchParams = useSearchParams()
@@ -74,7 +75,8 @@ function SetupPasswordForm() {
             }
 
             setSuccess(true)
-            // Redirect to login after 3 seconds
+            // Sign out current session first, then redirect to login
+            await signOut({ redirect: false })
             setTimeout(() => router.push('/login'), 3000)
         } catch {
             setError(t('setupPassword.error'))
