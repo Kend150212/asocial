@@ -3,6 +3,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -111,6 +117,196 @@ const providerGuideUrls: Record<string, string> = {
     gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
     smtp: 'https://myaccount.google.com/apppasswords',
 }
+
+interface PlatformGuide {
+    title: string
+    description: string
+    steps: { title: string; detail: string }[]
+    tips?: string[]
+    url: string
+    urlLabel: string
+}
+
+const platformGuides: Record<string, PlatformGuide> = {
+    facebook: {
+        title: '🔵 Facebook App Setup Guide',
+        description: 'Connect your Facebook Pages to publish posts and manage engagement.',
+        steps: [
+            { title: 'Go to Facebook Developers', detail: 'Visit developers.facebook.com and log in with your Facebook account.' },
+            { title: 'Create a New App', detail: 'Click "My Apps" → "Create App". Select "Business" as app type. Enter your app name.' },
+            { title: 'Add Facebook Login Product', detail: 'In the App Dashboard, click "Add Product" → find "Facebook Login" → click "Set Up". Choose "Web".' },
+            { title: 'Configure OAuth Redirect URI', detail: 'Go to Facebook Login → Settings. Add your redirect URI: https://yourdomain.com/api/oauth/facebook/callback' },
+            { title: 'Get App ID & Secret', detail: 'Go to Settings → Basic. Copy your "App ID" and "App Secret". Paste them into the fields below.' },
+            { title: 'Request Permissions', detail: 'Go to App Review → Permissions. Request: pages_manage_posts, pages_read_engagement, pages_show_list, pages_read_user_content.' },
+            { title: 'Set App to Live Mode', detail: 'Toggle the app from "Development" to "Live" mode in the top bar. Complete any required verification steps.' },
+        ],
+        tips: [
+            'Your Facebook account must be an admin of the Pages you want to manage.',
+            'In Development mode, only app admins/developers/testers can use the app.',
+            'You need a verified Business account for some advanced permissions.',
+        ],
+        url: 'https://developers.facebook.com/apps/',
+        urlLabel: 'Open Facebook Developers Portal',
+    },
+    instagram: {
+        title: '📸 Instagram API Setup Guide',
+        description: 'Publish content and manage your Instagram Business account.',
+        steps: [
+            { title: 'Use Your Facebook App', detail: 'Instagram API uses the same Facebook App. If you haven\'t created one, follow the Facebook guide first.' },
+            { title: 'Add Instagram Graph API', detail: 'In your Facebook App Dashboard → Add Product → find "Instagram Graph API" → click "Set Up".' },
+            { title: 'Link Instagram Business Account', detail: 'Your Instagram account must be a Business or Creator account, linked to a Facebook Page.' },
+            { title: 'Configure OAuth Redirect URI', detail: 'In Facebook Login → Settings, add: https://yourdomain.com/api/oauth/instagram/callback' },
+            { title: 'Copy App Credentials', detail: 'Use the same App ID and App Secret from your Facebook App (Settings → Basic).' },
+            { title: 'Request Instagram Permissions', detail: 'Go to App Review → Permissions. Request: instagram_basic, instagram_content_publish, instagram_manage_insights.' },
+        ],
+        tips: [
+            'Personal Instagram accounts won\'t work. Switch to Business or Creator in Instagram settings.',
+            'The Instagram account must be linked to a Facebook Page.',
+            'Uses the same Facebook App — no need to create a separate app.',
+        ],
+        url: 'https://developers.facebook.com/apps/',
+        urlLabel: 'Open Facebook Developers Portal',
+    },
+    youtube: {
+        title: '🔴 YouTube API Setup Guide',
+        description: 'Upload videos and manage your YouTube channel.',
+        steps: [
+            { title: 'Open Google Cloud Console', detail: 'Visit console.cloud.google.com and sign in with your Google account.' },
+            { title: 'Create or Select a Project', detail: 'Click the project dropdown at the top → "New Project". Give it a name and create it.' },
+            { title: 'Enable YouTube Data API v3', detail: 'Go to APIs & Services → Library. Search for "YouTube Data API v3" and click "Enable".' },
+            { title: 'Configure OAuth Consent Screen', detail: 'Go to APIs & Services → OAuth consent screen. Select "External", fill in app name, email, and save.' },
+            { title: 'Add Scopes', detail: 'In the OAuth consent screen, add scopes: youtube.upload, youtube.readonly, youtube.force-ssl.' },
+            { title: 'Create OAuth Credentials', detail: 'Go to APIs & Services → Credentials → Create Credentials → OAuth client ID. Select "Web application".' },
+            { title: 'Set Redirect URI', detail: 'Add authorized redirect URI: https://yourdomain.com/api/oauth/youtube/callback' },
+            { title: 'Copy Client ID & Secret', detail: 'Copy the "Client ID" and "Client Secret" from the created credential. Paste them below.' },
+        ],
+        tips: [
+            'Add test users in the OAuth consent screen while the app is in "Testing" status.',
+            'Publishing requires Google\'s verification — submit for review when ready.',
+            'Make sure the YouTube channel is linked to the Google account you\'re using.',
+        ],
+        url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
+        urlLabel: 'Open Google Cloud Console',
+    },
+    tiktok: {
+        title: '🎵 TikTok API Setup Guide',
+        description: 'Publish videos to TikTok directly from the platform.',
+        steps: [
+            { title: 'Go to TikTok Developer Portal', detail: 'Visit developers.tiktok.com and log in with your TikTok account.' },
+            { title: 'Create a New App', detail: 'Click "Manage apps" → "Create app". Fill in your app name and description.' },
+            { title: 'Enable Login Kit', detail: 'In your app settings, find "Login Kit" and enable it. Add your redirect URI: https://yourdomain.com/api/oauth/tiktok/callback' },
+            { title: 'Enable Content Posting API', detail: 'Find "Content Posting API" in the products list and enable it. This allows posting videos.' },
+            { title: 'Copy Client Key & Secret', detail: 'Go to your app\'s basic info. Copy the "Client Key" and "Client Secret". Paste them below.' },
+            { title: 'Submit for Review', detail: 'Your app needs TikTok\'s approval. Submit for review and wait for approval.' },
+        ],
+        tips: [
+            'TikTok review can take 1-3 business days.',
+            'In sandbox mode, you can only post to your own account for testing.',
+            'Videos must meet TikTok\'s content guidelines.',
+        ],
+        url: 'https://developers.tiktok.com/',
+        urlLabel: 'Open TikTok Developer Portal',
+    },
+    linkedin: {
+        title: '🔗 LinkedIn API Setup Guide',
+        description: 'Share posts and articles to LinkedIn company pages and profiles.',
+        steps: [
+            { title: 'Go to LinkedIn Developer Portal', detail: 'Visit linkedin.com/developers and sign in with your LinkedIn account.' },
+            { title: 'Create a New App', detail: 'Click "Create App". Fill in app name, LinkedIn Page (required), logo, and accept terms.' },
+            { title: 'Request Products', detail: 'Go to the "Products" tab. Request "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect".' },
+            { title: 'Configure OAuth 2.0', detail: 'Go to the "Auth" tab. Add your redirect URI: https://yourdomain.com/api/oauth/linkedin/callback' },
+            { title: 'Copy Client ID & Secret', detail: 'In the "Auth" tab, copy your "Client ID" and "Client Secret". Paste them below.' },
+            { title: 'Verify App', detail: 'You may need to verify your app URL. LinkedIn will provide verification steps.' },
+        ],
+        tips: [
+            'You must associate a LinkedIn Company Page with your app.',
+            'Product access requests may take a few days for approval.',
+            'For posting to a Company Page, ensure your account is an admin of that page.',
+        ],
+        url: 'https://www.linkedin.com/developers/apps',
+        urlLabel: 'Open LinkedIn Developer Portal',
+    },
+    x: {
+        title: '𝕏 X (Twitter) API Setup Guide',
+        description: 'Post tweets and manage your X account.',
+        steps: [
+            { title: 'Go to X Developer Portal', detail: 'Visit developer.x.com and sign in. Apply for a developer account if you haven\'t already.' },
+            { title: 'Create a Project & App', detail: 'Create a new Project, then create an App within it. Give it a name and description.' },
+            { title: 'Set App Permissions', detail: 'In App Settings → User authentication settings. Set app permissions to "Read and Write".' },
+            { title: 'Enable OAuth 2.0', detail: 'Enable OAuth 2.0. Select type: "Web App". Add redirect URI: https://yourdomain.com/api/oauth/x/callback' },
+            { title: 'Copy Client ID & Secret', detail: 'Go to "Keys and tokens" tab. Copy your "Client ID" and "Client Secret" (OAuth 2.0). Paste them below.' },
+        ],
+        tips: [
+            'Free tier has limited API access (1,500 tweets/month for posting).',
+            'Basic tier ($100/month) provides more generous limits.',
+            'Make sure to use OAuth 2.0 Client ID, not the API Key (OAuth 1.0a).',
+        ],
+        url: 'https://developer.twitter.com/en/portal/dashboard',
+        urlLabel: 'Open X Developer Portal',
+    },
+    pinterest: {
+        title: '📌 Pinterest API Setup Guide',
+        description: 'Create and manage Pins on your Pinterest boards.',
+        steps: [
+            { title: 'Go to Pinterest Developer Portal', detail: 'Visit developers.pinterest.com and log in with your Pinterest account.' },
+            { title: 'Create a New App', detail: 'Click "My Apps" → "Create" → fill in app name, description.' },
+            { title: 'Set Redirect URI', detail: 'Add your redirect URI: https://yourdomain.com/api/oauth/pinterest/callback' },
+            { title: 'Request API Access', detail: 'Request access to the scopes: pins:read, pins:write, boards:read, boards:write.' },
+            { title: 'Copy App ID & Secret', detail: 'Copy your "App ID" and "App Secret" from the app details page. Paste them below.' },
+            { title: 'Submit for Review', detail: 'Submit your app for Pinterest\'s review to get production access.' },
+        ],
+        tips: [
+            'Pinterest account must be a Business account.',
+            'In sandbox mode, API use is limited to app collaborators.',
+            'Review process may take several business days.',
+        ],
+        url: 'https://developers.pinterest.com/apps/',
+        urlLabel: 'Open Pinterest Developer Portal',
+    },
+    vbout: {
+        title: '🟦 Vbout API Setup Guide',
+        description: 'Connect to Vbout for social media management and email marketing.',
+        steps: [
+            { title: 'Log in to Vbout', detail: 'Go to app.vbout.com and sign in with your account.' },
+            { title: 'Go to API Settings', detail: 'Navigate to Settings → API. You\'ll find your API key here.' },
+            { title: 'Copy API Key', detail: 'Copy the API key and paste it into the field below.' },
+        ],
+        url: 'https://app.vbout.com/Settings#tab-api',
+        urlLabel: 'Open Vbout Settings',
+    },
+    openai: {
+        title: '🤖 OpenAI API Setup Guide',
+        description: 'Connect to GPT models for AI-powered content generation.',
+        steps: [
+            { title: 'Go to OpenAI Platform', detail: 'Visit platform.openai.com and sign in or create an account.' },
+            { title: 'Navigate to API Keys', detail: 'Go to Settings → API Keys (or visit platform.openai.com/api-keys directly).' },
+            { title: 'Create a new API Key', detail: 'Click "Create new secret key", name it, and copy the key immediately (it won\'t be shown again).' },
+            { title: 'Add billing', detail: 'Go to Settings → Billing and add a payment method. API usage is pay-as-you-go.' },
+        ],
+        tips: [
+            'Store your API key securely — it grants access to your account.',
+            'Set usage limits in Settings → Limits to control spending.',
+        ],
+        url: 'https://platform.openai.com/api-keys',
+        urlLabel: 'Open OpenAI Platform',
+    },
+    gemini: {
+        title: '✨ Google Gemini API Setup Guide',
+        description: 'Connect to Gemini models for AI-powered content generation.',
+        steps: [
+            { title: 'Go to Google AI Studio', detail: 'Visit aistudio.google.com and sign in with your Google account.' },
+            { title: 'Create an API Key', detail: 'Click "Get API Key" → "Create API Key in new project" (or select existing).' },
+            { title: 'Copy the Key', detail: 'Copy the generated API key and paste it below.' },
+        ],
+        tips: [
+            'Gemini API has a free tier with generous limits.',
+            'For production use, enable billing on your Google Cloud project.',
+        ],
+        url: 'https://aistudio.google.com/apikey',
+        urlLabel: 'Open Google AI Studio',
+    },
+}
+
 
 export default function IntegrationsPage() {
     const t = useTranslation()
@@ -680,7 +876,7 @@ function IntegrationCard({
             </CardHeader>
 
             <CardContent className="space-y-4">
-                {/* Setup Guide Toggle */}
+                {/* Setup Guide Modal */}
                 {guideUrl && (
                     <div>
                         <button
@@ -692,31 +888,66 @@ function IntegrationCard({
                             <span>{showSetupGuide ? t('integrations.hideGuide') : t('integrations.setupGuide')}</span>
                         </button>
 
-                        {showSetupGuide && (
-                            <div className="mt-2 rounded-lg border border-dashed p-3 space-y-2 bg-muted/30">
-                                <p className="text-xs font-medium">{t(`${guideKey}.title`)}</p>
-                                <ol className="text-[11px] text-muted-foreground space-y-1 pl-4 list-decimal">
-                                    {(function () {
-                                        const steps: string[] = []
-                                        for (let i = 0; i < 10; i++) {
-                                            const step = t(`${guideKey}.steps.${i}`)
-                                            if (step === `${guideKey}.steps.${i}`) break
-                                            steps.push(step)
-                                        }
-                                        return steps.map((step, i) => <li key={i}>{step}</li>)
-                                    })()}
-                                </ol>
-                                <a
-                                    href={guideUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                                >
-                                    <ExternalLink className="h-3 w-3" />
-                                    {t(`${guideKey}.urlLabel`)}
-                                </a>
-                            </div>
-                        )}
+                        {(() => {
+                            const guide = platformGuides[integration.provider]
+                            if (!guide) return null
+                            return (
+                                <Dialog open={showSetupGuide} onOpenChange={onToggleGuide}>
+                                    <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-xl">{guide.title}</DialogTitle>
+                                            <p className="text-sm text-muted-foreground mt-1">{guide.description}</p>
+                                        </DialogHeader>
+
+                                        <div className="space-y-3 mt-4">
+                                            {guide.steps.map((step, i) => (
+                                                <div key={i} className="flex gap-3">
+                                                    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                                        {i + 1}
+                                                    </div>
+                                                    <div className="flex-1 pt-0.5">
+                                                        <p className="text-sm font-medium">{step.title}</p>
+                                                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.detail}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {guide.tips && guide.tips.length > 0 && (
+                                            <div className="mt-5 rounded-lg border border-dashed p-3 bg-muted/30">
+                                                <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
+                                                    <Zap className="h-3.5 w-3.5 text-yellow-500" />
+                                                    Pro Tips
+                                                </p>
+                                                <ul className="space-y-1.5">
+                                                    {guide.tips.map((tip, i) => (
+                                                        <li key={i} className="text-[11px] text-muted-foreground flex gap-2">
+                                                            <span className="text-yellow-500 mt-0.5">•</span>
+                                                            <span>{tip}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        <div className="mt-4 flex justify-between items-center">
+                                            <a
+                                                href={guide.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                                            >
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                                {guide.urlLabel}
+                                            </a>
+                                            <Button variant="outline" size="sm" onClick={onToggleGuide}>
+                                                {t('common.close') || 'Close'}
+                                            </Button>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            )
+                        })()}
                     </div>
                 )}
 
