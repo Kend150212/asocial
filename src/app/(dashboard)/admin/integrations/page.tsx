@@ -132,18 +132,22 @@ const platformGuides: Record<string, PlatformGuide> = {
         title: '🔵 Facebook App Setup Guide',
         description: 'Connect your Facebook Pages to publish posts and manage engagement.',
         steps: [
-            { title: 'Go to Facebook Developers', detail: 'Visit developers.facebook.com and log in with your Facebook account.' },
-            { title: 'Create a New App', detail: 'Click "My Apps" → "Create App". Select "Business" as app type. Enter your app name.' },
-            { title: 'Add Facebook Login Product', detail: 'In the App Dashboard, click "Add Product" → find "Facebook Login" → click "Set Up". Choose "Web".' },
-            { title: 'Configure OAuth Redirect URI', detail: 'Go to Facebook Login → Settings. Add your redirect URI: https://yourdomain.com/api/oauth/facebook/callback' },
-            { title: 'Get App ID & Secret', detail: 'Go to Settings → Basic. Copy your "App ID" and "App Secret". Paste them into the fields below.' },
-            { title: 'Request Permissions', detail: 'Go to App Review → Permissions. Request: pages_manage_posts, pages_read_engagement, pages_show_list, pages_read_user_content.' },
-            { title: 'Set App to Live Mode', detail: 'Toggle the app from "Development" to "Live" mode in the top bar. Complete any required verification steps.' },
+            { title: 'Go to Meta for Developers', detail: 'Visit developers.facebook.com → click "My Apps" → "Create App".' },
+            { title: 'Enter App Details', detail: 'Enter App name (e.g. "ASocial") and your contact email. Click "Next".' },
+            { title: 'Select Use Case', detail: 'Choose "Authenticate and request data from users with Facebook Login". Click "Next".' },
+            { title: 'Select App Type', detail: 'Choose "Business" — this gives access to Pages, Events, Groups, and Instagram. Click "Next" and then "Create app".' },
+            { title: 'Get App ID & Secret', detail: 'In the sidebar go to App settings → Basic. Copy your "App ID" and "App Secret". Paste them into the fields below.' },
+            { title: 'Add Facebook Login for Business', detail: 'In the sidebar under Products, click "Add Product" → find "Facebook Login for Business" → click "Set up".' },
+            { title: 'Configure OAuth Redirect URI', detail: 'Go to Facebook Login → Settings → "Valid OAuth Redirect URIs". Add your callback URL:\n{YOUR_DOMAIN}/api/oauth/facebook/callback\n(Replace {YOUR_DOMAIN} with your actual domain, e.g. https://app.asocial.vn)' },
+            { title: 'Add Privacy Policy URL', detail: 'Go to App settings → Basic → add your Privacy Policy URL (required to go Live). Example: https://yourdomain.com/privacy' },
+            { title: 'Set App to Live Mode', detail: 'Toggle the app from "Development" to "Live" in the top bar. You may need to complete Data Use Checkup first.' },
         ],
         tips: [
-            'Your Facebook account must be an admin of the Pages you want to manage.',
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/facebook/callback',
+            'Required scopes: pages_show_list, pages_read_engagement, pages_manage_posts',
             'In Development mode, only app admins/developers/testers can use the app.',
-            'You need a verified Business account for some advanced permissions.',
+            'Your Facebook account must be an admin of the Pages you want to manage.',
+            'A Privacy Policy URL is required before you can switch to Live mode.',
         ],
         url: 'https://developers.facebook.com/apps/',
         urlLabel: 'Open Facebook Developers Portal',
@@ -153,15 +157,15 @@ const platformGuides: Record<string, PlatformGuide> = {
         description: 'Publish content and manage your Instagram Business account.',
         steps: [
             { title: 'Use Your Facebook App', detail: 'Instagram API uses the same Facebook App. If you haven\'t created one, follow the Facebook guide first.' },
-            { title: 'Add Instagram Graph API', detail: 'In your Facebook App Dashboard → Add Product → find "Instagram Graph API" → click "Set Up".' },
-            { title: 'Link Instagram Business Account', detail: 'Your Instagram account must be a Business or Creator account, linked to a Facebook Page.' },
-            { title: 'Configure OAuth Redirect URI', detail: 'In Facebook Login → Settings, add: https://yourdomain.com/api/oauth/instagram/callback' },
-            { title: 'Copy App Credentials', detail: 'Use the same App ID and App Secret from your Facebook App (Settings → Basic).' },
-            { title: 'Request Instagram Permissions', detail: 'Go to App Review → Permissions. Request: instagram_basic, instagram_content_publish, instagram_manage_insights.' },
+            { title: 'Add Instagram Product', detail: 'In your Facebook App Dashboard → Products → "Add Product" → find "Instagram" → click "Set Up".' },
+            { title: 'Link Instagram Business Account', detail: 'Your Instagram account must be a Business or Creator account. Go to Instagram → Settings → Account → Switch to Professional account. Then link it to a Facebook Page.' },
+            { title: 'Configure OAuth Redirect URI', detail: 'Go to Facebook Login → Settings → "Valid OAuth Redirect URIs". Add:\n{YOUR_DOMAIN}/api/oauth/instagram/callback' },
+            { title: 'Copy App Credentials', detail: 'Use the same App ID and App Secret from your Facebook App (App settings → Basic).' },
         ],
         tips: [
-            'Personal Instagram accounts won\'t work. Switch to Business or Creator in Instagram settings.',
-            'The Instagram account must be linked to a Facebook Page.',
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/instagram/callback',
+            'Required scopes: instagram_basic, instagram_content_publish, pages_show_list, pages_read_engagement',
+            'Personal Instagram accounts won\'t work — switch to Business or Creator.',
             'Uses the same Facebook App — no need to create a separate app.',
         ],
         url: 'https://developers.facebook.com/apps/',
@@ -175,14 +179,14 @@ const platformGuides: Record<string, PlatformGuide> = {
             { title: 'Create or Select a Project', detail: 'Click the project dropdown at the top → "New Project". Give it a name and create it.' },
             { title: 'Enable YouTube Data API v3', detail: 'Go to APIs & Services → Library. Search for "YouTube Data API v3" and click "Enable".' },
             { title: 'Configure OAuth Consent Screen', detail: 'Go to APIs & Services → OAuth consent screen. Select "External", fill in app name, email, and save.' },
-            { title: 'Add Scopes', detail: 'In the OAuth consent screen, add scopes: youtube.upload, youtube.readonly, youtube.force-ssl.' },
             { title: 'Create OAuth Credentials', detail: 'Go to APIs & Services → Credentials → Create Credentials → OAuth client ID. Select "Web application".' },
-            { title: 'Set Redirect URI', detail: 'Add authorized redirect URI: https://yourdomain.com/api/oauth/youtube/callback' },
+            { title: 'Set Redirect URI', detail: 'Add authorized redirect URI:\n{YOUR_DOMAIN}/api/oauth/youtube/callback' },
             { title: 'Copy Client ID & Secret', detail: 'Copy the "Client ID" and "Client Secret" from the created credential. Paste them below.' },
         ],
         tips: [
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/youtube/callback',
+            'Required scopes: youtube.readonly, youtube.upload, youtube.force-ssl, youtubepartner',
             'Add test users in the OAuth consent screen while the app is in "Testing" status.',
-            'Publishing requires Google\'s verification — submit for review when ready.',
             'Make sure the YouTube channel is linked to the Google account you\'re using.',
         ],
         url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
@@ -192,17 +196,17 @@ const platformGuides: Record<string, PlatformGuide> = {
         title: '🎵 TikTok API Setup Guide',
         description: 'Publish videos to TikTok directly from the platform.',
         steps: [
-            { title: 'Go to TikTok Developer Portal', detail: 'Visit developers.tiktok.com and log in with your TikTok account.' },
-            { title: 'Create a New App', detail: 'Click "Manage apps" → "Create app". Fill in your app name and description.' },
-            { title: 'Enable Login Kit', detail: 'In your app settings, find "Login Kit" and enable it. Add your redirect URI: https://yourdomain.com/api/oauth/tiktok/callback' },
-            { title: 'Enable Content Posting API', detail: 'Find "Content Posting API" in the products list and enable it. This allows posting videos.' },
+            { title: 'Go to TikTok Developer Portal', detail: 'Visit developers.tiktok.com → log in → click "Manage apps" → "Create app".' },
+            { title: 'Fill App Details', detail: 'Enter app name, description, and icon. Select the platform as "Web".' },
+            { title: 'Enable Login Kit', detail: 'In your app settings, find "Login Kit" and enable it. Add redirect URI:\n{YOUR_DOMAIN}/api/oauth/tiktok/callback' },
+            { title: 'Enable Content Posting API', detail: 'Find "Content Posting API" in the products list and enable it.' },
             { title: 'Copy Client Key & Secret', detail: 'Go to your app\'s basic info. Copy the "Client Key" and "Client Secret". Paste them below.' },
-            { title: 'Submit for Review', detail: 'Your app needs TikTok\'s approval. Submit for review and wait for approval.' },
+            { title: 'Submit for Review', detail: 'Your app needs TikTok\'s approval. Submit for review and wait for approval (1-3 business days).' },
         ],
         tips: [
-            'TikTok review can take 1-3 business days.',
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/tiktok/callback',
+            'Required scope: user.info.basic',
             'In sandbox mode, you can only post to your own account for testing.',
-            'Videos must meet TikTok\'s content guidelines.',
         ],
         url: 'https://developers.tiktok.com/',
         urlLabel: 'Open TikTok Developer Portal',
@@ -214,14 +218,14 @@ const platformGuides: Record<string, PlatformGuide> = {
             { title: 'Go to LinkedIn Developer Portal', detail: 'Visit linkedin.com/developers and sign in with your LinkedIn account.' },
             { title: 'Create a New App', detail: 'Click "Create App". Fill in app name, LinkedIn Page (required), logo, and accept terms.' },
             { title: 'Request Products', detail: 'Go to the "Products" tab. Request "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect".' },
-            { title: 'Configure OAuth 2.0', detail: 'Go to the "Auth" tab. Add your redirect URI: https://yourdomain.com/api/oauth/linkedin/callback' },
+            { title: 'Configure OAuth 2.0', detail: 'Go to the "Auth" tab. Add your redirect URI:\n{YOUR_DOMAIN}/api/oauth/linkedin/callback' },
             { title: 'Copy Client ID & Secret', detail: 'In the "Auth" tab, copy your "Client ID" and "Client Secret". Paste them below.' },
-            { title: 'Verify App', detail: 'You may need to verify your app URL. LinkedIn will provide verification steps.' },
         ],
         tips: [
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/linkedin/callback',
+            'Required scopes: openid, profile, w_member_social',
             'You must associate a LinkedIn Company Page with your app.',
             'Product access requests may take a few days for approval.',
-            'For posting to a Company Page, ensure your account is an admin of that page.',
         ],
         url: 'https://www.linkedin.com/developers/apps',
         urlLabel: 'Open LinkedIn Developer Portal',
@@ -230,16 +234,17 @@ const platformGuides: Record<string, PlatformGuide> = {
         title: '𝕏 X (Twitter) API Setup Guide',
         description: 'Post tweets and manage your X account.',
         steps: [
-            { title: 'Go to X Developer Portal', detail: 'Visit developer.x.com and sign in. Apply for a developer account if you haven\'t already.' },
-            { title: 'Create a Project & App', detail: 'Create a new Project, then create an App within it. Give it a name and description.' },
-            { title: 'Set App Permissions', detail: 'In App Settings → User authentication settings. Set app permissions to "Read and Write".' },
-            { title: 'Enable OAuth 2.0', detail: 'Enable OAuth 2.0. Select type: "Web App". Add redirect URI: https://yourdomain.com/api/oauth/x/callback' },
+            { title: 'Go to X Developer Portal', detail: 'Visit developer.x.com and sign in. Apply for a developer account if needed.' },
+            { title: 'Create a Project & App', detail: 'Create a new Project, then create an App within it.' },
+            { title: 'Set App Permissions', detail: 'In App Settings → User authentication settings → set permissions to "Read and Write".' },
+            { title: 'Enable OAuth 2.0', detail: 'Enable OAuth 2.0. Select type: "Web App". Add redirect URI:\n{YOUR_DOMAIN}/api/oauth/x/callback' },
             { title: 'Copy Client ID & Secret', detail: 'Go to "Keys and tokens" tab. Copy your "Client ID" and "Client Secret" (OAuth 2.0). Paste them below.' },
         ],
         tips: [
-            'Free tier has limited API access (1,500 tweets/month for posting).',
-            'Basic tier ($100/month) provides more generous limits.',
-            'Make sure to use OAuth 2.0 Client ID, not the API Key (OAuth 1.0a).',
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/x/callback',
+            'Required scopes: tweet.read, tweet.write, users.read, offline.access',
+            'Free tier: 1,500 tweets/month. Basic tier ($100/month) has more generous limits.',
+            'Use OAuth 2.0 Client ID — not the API Key (OAuth 1.0a).',
         ],
         url: 'https://developer.twitter.com/en/portal/dashboard',
         urlLabel: 'Open X Developer Portal',
@@ -248,17 +253,17 @@ const platformGuides: Record<string, PlatformGuide> = {
         title: '📌 Pinterest API Setup Guide',
         description: 'Create and manage Pins on your Pinterest boards.',
         steps: [
-            { title: 'Go to Pinterest Developer Portal', detail: 'Visit developers.pinterest.com and log in with your Pinterest account.' },
-            { title: 'Create a New App', detail: 'Click "My Apps" → "Create" → fill in app name, description.' },
-            { title: 'Set Redirect URI', detail: 'Add your redirect URI: https://yourdomain.com/api/oauth/pinterest/callback' },
-            { title: 'Request API Access', detail: 'Request access to the scopes: pins:read, pins:write, boards:read, boards:write.' },
+            { title: 'Go to Pinterest Developer Portal', detail: 'Visit developers.pinterest.com and log in with your Pinterest Business account.' },
+            { title: 'Create a New App', detail: 'Click "My Apps" → "Create" → fill in app name and description.' },
+            { title: 'Set Redirect URI', detail: 'Add your redirect URI:\n{YOUR_DOMAIN}/api/oauth/pinterest/callback' },
             { title: 'Copy App ID & Secret', detail: 'Copy your "App ID" and "App Secret" from the app details page. Paste them below.' },
             { title: 'Submit for Review', detail: 'Submit your app for Pinterest\'s review to get production access.' },
         ],
         tips: [
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/pinterest/callback',
+            'Required scopes: boards:read, pins:read, pins:write, user_accounts:read',
             'Pinterest account must be a Business account.',
             'In sandbox mode, API use is limited to app collaborators.',
-            'Review process may take several business days.',
         ],
         url: 'https://developers.pinterest.com/apps/',
         urlLabel: 'Open Pinterest Developer Portal',
@@ -891,6 +896,8 @@ function IntegrationCard({
                         {(() => {
                             const guide = platformGuides[integration.provider]
                             if (!guide) return null
+                            const domain = typeof window !== 'undefined' ? window.location.origin : '{YOUR_DOMAIN}'
+                            const resolveText = (text: string) => text.replace(/\{YOUR_DOMAIN\}/g, domain)
                             return (
                                 <Dialog open={showSetupGuide} onOpenChange={onToggleGuide}>
                                     <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -907,7 +914,7 @@ function IntegrationCard({
                                                     </div>
                                                     <div className="flex-1 pt-0.5">
                                                         <p className="text-sm font-medium">{step.title}</p>
-                                                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.detail}</p>
+                                                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed whitespace-pre-line">{resolveText(step.detail)}</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -923,7 +930,7 @@ function IntegrationCard({
                                                     {guide.tips.map((tip, i) => (
                                                         <li key={i} className="text-[11px] text-muted-foreground flex gap-2">
                                                             <span className="text-yellow-500 mt-0.5">•</span>
-                                                            <span>{tip}</span>
+                                                            <span>{resolveText(tip)}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
