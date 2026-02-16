@@ -247,7 +247,7 @@ export default function ChannelDetailPage({
                 if (res.ok) {
                     const data = await res.json()
                     const aiProviders = data.filter(
-                        (i: AiProviderInfo & { category: string }) => i.category === 'AI' && i.status === 'ACTIVE' && i.hasApiKey
+                        (i: AiProviderInfo & { category: string }) => i.category === 'AI'
                     )
                     setAvailableProviders(aiProviders)
                 }
