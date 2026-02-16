@@ -108,6 +108,7 @@ export default function AdminChannelsPage() {
     const [newDisplayName, setNewDisplayName] = useState('')
     const [newLanguage, setNewLanguage] = useState('en')
     const [creating, setCreating] = useState(false)
+    const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
 
     const fetchChannels = useCallback(async () => {
         try {
@@ -332,7 +333,7 @@ export default function AdminChannelsPage() {
             )}
 
             {/* Create Channel Dialog */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <Dialog open={showCreateDialog} onOpenChange={(v) => { setShowCreateDialog(v); if (v) setSlugManuallyEdited(false) }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
@@ -346,9 +347,10 @@ export default function AdminChannelsPage() {
                                 value={newDisplayName}
                                 onChange={(e) => {
                                     setNewDisplayName(e.target.value)
-                                    // Auto-generate slug from display name
-                                    if (!newName || newName === newDisplayName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, -1) || newName === e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, -1)) {
-                                        setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
+                                    // Auto-generate slug from display name (unless manually edited)
+                                    const autoSlug = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                                    if (!slugManuallyEdited) {
+                                        setNewName(autoSlug)
                                     }
                                 }}
                             />
@@ -360,7 +362,10 @@ export default function AdminChannelsPage() {
                                 <Input
                                     placeholder="my-brand"
                                     value={newName}
-                                    onChange={(e) => setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+                                    onChange={(e) => {
+                                        setSlugManuallyEdited(true)
+                                        setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
+                                    }}
                                     className="font-mono text-sm"
                                 />
                             </div>
