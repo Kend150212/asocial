@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/youtube/callback — Handle Google OAuth callback
 export async function GET(req: NextRequest) {
@@ -8,7 +9,6 @@ export async function GET(req: NextRequest) {
     const error = req.nextUrl.searchParams.get('error')
 
     if (error) {
-        // User denied the request
         return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
     }
 
@@ -24,8 +24,23 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin))
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Read credentials from database (API Hub)
+    const integration = await prisma.apiIntegration.findFirst({
+        where: { provider: 'youtube' },
+    })
+
+    const config = (integration?.config || {}) as Record<string, string>
+    const clientId = config.youtubeClientId || process.env.GOOGLE_CLIENT_ID
+    let clientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
+
+    // Client secret is stored encrypted as apiKeyEncrypted
+    if (integration?.apiKeyEncrypted) {
+        try {
+            clientSecret = decrypt(integration.apiKeyEncrypted)
+        } catch {
+            clientSecret = integration.apiKeyEncrypted
+        }
+    }
 
     if (!clientId || !clientSecret) {
         return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
@@ -59,7 +74,7 @@ export async function GET(req: NextRequest) {
         const tokens = await tokenRes.json()
         const accessToken = tokens.access_token
         const refreshToken = tokens.refresh_token
-        const expiresIn = tokens.expires_in // seconds
+        const expiresIn = tokens.expires_in
 
         // Fetch YouTube channels for this user
         const ytRes = await fetch(
@@ -81,16 +96,15 @@ export async function GET(req: NextRequest) {
 
         let imported = 0
         for (const ch of channels) {
-            const channelId = ch.id
+            const channelIdYT = ch.id
             const channelTitle = ch.snippet?.title || 'YouTube Channel'
 
-            // Upsert — update tokens if already exists, create if not
             await prisma.channelPlatform.upsert({
                 where: {
                     channelId_platform_accountId: {
                         channelId: state.channelId,
                         platform: 'youtube',
-                        accountId: channelId,
+                        accountId: channelIdYT,
                     },
                 },
                 update: {
@@ -106,7 +120,7 @@ export async function GET(req: NextRequest) {
                 create: {
                     channelId: state.channelId,
                     platform: 'youtube',
-                    accountId: channelId,
+                    accountId: channelIdYT,
                     accountName: channelTitle,
                     accessToken,
                     refreshToken: refreshToken || undefined,
@@ -121,7 +135,6 @@ export async function GET(req: NextRequest) {
             imported++
         }
 
-        // Redirect back to channel page with success
         return NextResponse.redirect(
             new URL(
                 `/dashboard/channels/${state.channelId}?tab=platforms&oauth=youtube&imported=${imported}`,

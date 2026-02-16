@@ -76,6 +76,8 @@ const categoryIcons: Record<string, React.ReactNode> = {
 
 const providerColors: Record<string, string> = {
     vbout: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    youtube: 'bg-red-500/10 text-red-500 border-red-500/20',
+    tiktok: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
     openai: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     gemini: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
     runware: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
@@ -88,6 +90,8 @@ const providerColors: Record<string, string> = {
 
 const providerGuideUrls: Record<string, string> = {
     vbout: 'https://app.vbout.com/Settings#tab-api',
+    youtube: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
+    tiktok: 'https://developers.tiktok.com/',
     openai: 'https://platform.openai.com/api-keys',
     gemini: 'https://aistudio.google.com/apikey',
     runware: 'https://my.runware.ai/keys',
@@ -114,6 +118,7 @@ export default function IntegrationsPage() {
     const [selectedModels, setSelectedModels] = useState<Record<string, Record<string, string>>>({})
     const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({})
     const [gdriveConfigs, setGdriveConfigs] = useState<Record<string, GDriveConfig>>({})
+    const [oauthConfigs, setOauthConfigs] = useState<Record<string, OAuthConfig>>({})
     const [testEmails, setTestEmails] = useState<Record<string, string>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
     const [folderName, setFolderName] = useState('')
@@ -143,6 +148,7 @@ export default function IntegrationsPage() {
             const modelSelections: Record<string, Record<string, string>> = {}
             const smtpConfigMap: Record<string, SmtpConfig> = {}
             const gdriveConfigMap: Record<string, GDriveConfig> = {}
+            const oauthConfigMap: Record<string, OAuthConfig> = {}
             for (const i of data) {
                 const config = (i.config || {}) as Record<string, string>
                 modelSelections[i.id] = {
@@ -166,10 +172,23 @@ export default function IntegrationsPage() {
                         clientSecret: '',
                     }
                 }
+                if (i.provider === 'youtube') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.youtubeClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'tiktok') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.tiktokClientKey || '',
+                        clientSecret: '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
             setGdriveConfigs(gdriveConfigMap)
+            setOauthConfigs(oauthConfigMap)
         } catch {
             toast.error('Failed to load integrations')
         } finally {
@@ -218,6 +237,32 @@ export default function IntegrationsPage() {
                     // Store Client Secret encrypted as the "API key"
                     if (gdrive.clientSecret) {
                         body.apiKey = gdrive.clientSecret
+                    }
+                }
+            }
+
+            // YouTube OAuth config
+            if (integration.provider === 'youtube') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = {
+                        youtubeClientId: oauth.clientId,
+                    }
+                    if (oauth.clientSecret) {
+                        body.apiKey = oauth.clientSecret
+                    }
+                }
+            }
+
+            // TikTok OAuth config
+            if (integration.provider === 'tiktok') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = {
+                        tiktokClientKey: oauth.clientId,
+                    }
+                    if (oauth.clientSecret) {
+                        body.apiKey = oauth.clientSecret
                     }
                 }
             }
@@ -411,6 +456,13 @@ export default function IntegrationsPage() {
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
                                 }
+                                oauthConfig={oauthConfigs[integration.id]}
+                                onOauthChange={(field: string, value: string) =>
+                                    setOauthConfigs((s) => ({
+                                        ...s,
+                                        [integration.id]: { ...s[integration.id], [field]: value },
+                                    }))
+                                }
                                 folderName={folderName}
                                 onFolderNameChange={(val: string) => setFolderName(val)}
                                 onCreateFolder={handleCreateFolder}
@@ -441,6 +493,11 @@ interface GDriveConfig {
     clientSecret: string
 }
 
+interface OAuthConfig {
+    clientId: string
+    clientSecret: string
+}
+
 function IntegrationCard({
     integration,
     apiKey,
@@ -464,6 +521,8 @@ function IntegrationCard({
     onModelSelect,
     onSmtpChange,
     onGdriveChange,
+    oauthConfig,
+    onOauthChange,
     folderName,
     onFolderNameChange,
     onCreateFolder,
@@ -492,6 +551,8 @@ function IntegrationCard({
     onModelSelect: (type: string, modelId: string) => void
     onSmtpChange: (field: string, value: string) => void
     onGdriveChange: (field: string, value: string) => void
+    oauthConfig?: OAuthConfig
+    onOauthChange: (field: string, value: string) => void
     folderName: string
     onFolderNameChange: (value: string) => void
     onCreateFolder: () => void
@@ -502,6 +563,7 @@ function IntegrationCard({
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
+    const isOAuth = integration.provider === 'youtube' || integration.provider === 'tiktok'
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -781,6 +843,51 @@ function IntegrationCard({
                                 </div>
                             )
                         })()}
+                    </div>
+                ) : isOAuth && oauthConfig ? (
+                    /* YouTube / TikTok OAuth2 Config */
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">
+                                {integration.provider === 'youtube' ? 'Google Client ID' : 'TikTok Client Key'}
+                            </Label>
+                            <Input
+                                value={oauthConfig.clientId}
+                                onChange={(e) => onOauthChange('clientId', e.target.value)}
+                                placeholder={integration.provider === 'youtube' ? 'xxxxx.apps.googleusercontent.com' : 'your-tiktok-client-key'}
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">
+                                {integration.provider === 'youtube' ? 'Google Client Secret' : 'TikTok Client Secret'}
+                            </Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={oauthConfig.clientSecret || (showKey ? '' : (integration.apiKeyMasked || ''))}
+                                    onChange={(e) => onOauthChange('clientSecret', e.target.value)}
+                                    placeholder={integration.hasApiKey ? '' : 'Enter client secret...'}
+                                    className="pr-8 h-8 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-dashed">
+                            <p className="text-[11px] text-muted-foreground">
+                                {integration.provider === 'youtube'
+                                    ? 'Create credentials at Google Cloud Console → APIs & Services → Credentials. Enable "YouTube Data API v3".'
+                                    : 'Create an app at TikTok Developer Portal. Enable "Login Kit" and "Content Posting API".'}
+                            </p>
+                        </div>
                     </div>
                 ) : (
                     /* Standard API Key Input */

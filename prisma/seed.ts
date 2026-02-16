@@ -45,6 +45,22 @@ async function main() {
             baseUrl: 'https://api.vbout.com/1',
         },
         {
+            category: IntegrationCategory.SOCIAL,
+            provider: 'youtube',
+            name: 'YouTube (Google)',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+        },
+        {
+            category: IntegrationCategory.SOCIAL,
+            provider: 'tiktok',
+            name: 'TikTok',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+        },
+        {
             category: IntegrationCategory.AI,
             provider: 'openai',
             name: 'OpenAI',

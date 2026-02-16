@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/youtube — Initiate YouTube OAuth flow
 export async function GET(req: NextRequest) {
@@ -13,10 +15,17 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID
+    // Read credentials from database (API Hub)
+    const integration = await prisma.apiIntegration.findFirst({
+        where: { provider: 'youtube' },
+    })
+
+    const config = (integration?.config || {}) as Record<string, string>
+    const clientId = config.youtubeClientId || process.env.GOOGLE_CLIENT_ID
+
     if (!clientId) {
         return NextResponse.json(
-            { error: 'YouTube OAuth is not configured. Please add GOOGLE_CLIENT_ID to environment.' },
+            { error: 'YouTube OAuth is not configured. Please add Google Client ID in API Hub → Social Media → YouTube.' },
             { status: 400 }
         )
     }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/tiktok — Initiate TikTok OAuth flow
 export async function GET(req: NextRequest) {
@@ -13,10 +15,17 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    const clientKey = process.env.TIKTOK_CLIENT_KEY
+    // Read credentials from database (API Hub)
+    const integration = await prisma.apiIntegration.findFirst({
+        where: { provider: 'tiktok' },
+    })
+
+    const config = (integration?.config || {}) as Record<string, string>
+    const clientKey = config.tiktokClientKey || process.env.TIKTOK_CLIENT_KEY
+
     if (!clientKey) {
         return NextResponse.json(
-            { error: 'TikTok OAuth is not configured. Please add TIKTOK_CLIENT_KEY to environment.' },
+            { error: 'TikTok OAuth is not configured. Please add TikTok Client Key in API Hub → Social Media → TikTok.' },
             { status: 400 }
         )
     }

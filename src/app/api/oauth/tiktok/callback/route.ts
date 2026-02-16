@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/tiktok/callback — Handle TikTok OAuth callback
 export async function GET(req: NextRequest) {
@@ -23,8 +24,23 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin))
     }
 
-    const clientKey = process.env.TIKTOK_CLIENT_KEY
-    const clientSecret = process.env.TIKTOK_CLIENT_SECRET
+    // Read credentials from database (API Hub)
+    const integration = await prisma.apiIntegration.findFirst({
+        where: { provider: 'tiktok' },
+    })
+
+    const config = (integration?.config || {}) as Record<string, string>
+    const clientKey = config.tiktokClientKey || process.env.TIKTOK_CLIENT_KEY
+    let clientSecret = process.env.TIKTOK_CLIENT_SECRET || ''
+
+    // Client secret is stored encrypted as apiKeyEncrypted
+    if (integration?.apiKeyEncrypted) {
+        try {
+            clientSecret = decrypt(integration.apiKeyEncrypted)
+        } catch {
+            clientSecret = integration.apiKeyEncrypted
+        }
+    }
 
     if (!clientKey || !clientSecret) {
         return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
