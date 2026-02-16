@@ -974,9 +974,15 @@ function IntegrationCard({
 
                         <div className="pt-2 border-t border-dashed">
                             <p className="text-[11px] text-muted-foreground">
-                                {integration.provider === 'youtube'
-                                    ? 'Create credentials at Google Cloud Console → APIs & Services → Credentials. Enable "YouTube Data API v3".'
-                                    : 'Create an app at TikTok Developer Portal. Enable "Login Kit" and "Content Posting API".'}
+                                {{
+                                    youtube: 'Create credentials at Google Cloud Console → APIs & Services → Credentials. Enable "YouTube Data API v3".',
+                                    facebook: 'Go to developers.facebook.com → Create App → Business type. Add "Facebook Login" product. In Facebook Login → Settings, add your OAuth redirect URI. Under App Review, request permissions: pages_manage_posts, pages_read_engagement, pages_show_list.',
+                                    instagram: 'Use the same Facebook App. Add "Instagram Graph API" product. Request permissions: instagram_basic, instagram_content_publish, instagram_manage_insights. Link your Instagram Business account to a Facebook Page.',
+                                    tiktok: 'Go to developers.tiktok.com → Create App. Enable "Login Kit" and "Content Posting API". Add your redirect URI under Login Kit settings. Submit for review.',
+                                    linkedin: 'Go to linkedin.com/developers → Create App. Under Products tab, request "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect". Add your redirect URI under Auth settings.',
+                                    x: 'Go to developer.x.com → Create Project & App. Set App permissions to "Read and Write". Enable OAuth 2.0, add your redirect URI. Note your Client ID and Client Secret from the "Keys and tokens" tab.',
+                                    pinterest: 'Go to developers.pinterest.com → Create App. Request access to "pins:read", "pins:write", "boards:read", "boards:write" scopes. Add your redirect URI under App settings.',
+                                }[integration.provider] || 'Configure OAuth credentials for this platform.'}
                             </p>
                         </div>
                     </div>
