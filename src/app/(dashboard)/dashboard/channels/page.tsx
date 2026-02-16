@@ -249,7 +249,7 @@ export default function AdminChannelsPage() {
                         <Card
                             key={channel.id}
                             className="group cursor-pointer hover:border-primary/30 transition-all duration-200"
-                            onClick={() => router.push(`/admin/channels/${channel.id}`)}
+                            onClick={() => router.push(`/dashboard/channels/${channel.id}`)}
                         >
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between">
@@ -271,7 +271,7 @@ export default function AdminChannelsPage() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/admin/channels/${channel.id}`) }}>
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/channels/${channel.id}`) }}>
                                                 <Pencil className="h-4 w-4 mr-2" />
                                                 {t('channels.editSettings')}
                                             </DropdownMenuItem>

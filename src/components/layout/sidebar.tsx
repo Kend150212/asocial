@@ -30,7 +30,6 @@ import {
     BarChart3,
     Users,
     Settings,
-    Shield,
     Plug,
     Activity,
     Bell,
@@ -61,7 +60,6 @@ const mainNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
     { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
-    { titleKey: 'nav.channels', href: '/admin/channels', icon: Shield, roles: ['ADMIN'] },
     { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
     { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
     { titleKey: 'nav.automation', href: '/admin/automation', icon: Zap, roles: ['ADMIN'] },

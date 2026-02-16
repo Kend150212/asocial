@@ -228,7 +228,7 @@ export default function ChannelDetailPage({
                 setWebhookCustomUrl(data.webhookCustom?.url || '')
             } else {
                 toast.error(t('channels.notFound'))
-                router.push('/admin/channels')
+                router.push('/dashboard/channels')
             }
         } catch {
             toast.error(t('channels.loadFailed'))
@@ -655,7 +655,7 @@ export default function ChannelDetailPage({
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/admin/channels')}>
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/channels')}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
