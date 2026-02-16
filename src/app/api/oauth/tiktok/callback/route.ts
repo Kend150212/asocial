@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
     }
 
-    const host = req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/tiktok/callback`
 
     try {

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         .update(codeVerifier)
         .digest('base64url')
 
-    const host = req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/tiktok/callback`
 
     // state encodes channelId + userId + codeVerifier for the callback

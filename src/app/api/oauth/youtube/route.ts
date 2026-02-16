@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build the redirect URI based on the current host
-    const host = req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/youtube/callback`
 
     // state encodes channelId + userId for the callback
