@@ -691,12 +691,12 @@ export default function ChannelDetailPage({
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>{t('channels.ai.provider')}</Label>
-                                    <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); setAiModel('') }}>
+                                    <Select value={aiProvider || '__default__'} onValueChange={(v) => { setAiProvider(v === '__default__' ? '' : v); setAiModel('') }}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('channels.ai.useGlobal')} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">{t('channels.ai.useGlobal')}</SelectItem>
+                                            <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
                                             <SelectItem value="gemini">Google Gemini</SelectItem>
                                             <SelectItem value="openai">OpenAI</SelectItem>
                                         </SelectContent>
@@ -705,12 +705,12 @@ export default function ChannelDetailPage({
                                 </div>
                                 <div className="space-y-2">
                                     <Label>{t('channels.ai.model')}</Label>
-                                    <Select value={aiModel} onValueChange={setAiModel}>
+                                    <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)}>
                                         <SelectTrigger>
                                             <SelectValue placeholder={t('channels.ai.useGlobal')} />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">{t('channels.ai.useGlobal')}</SelectItem>
+                                            <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
                                             {aiProvider === 'openai' ? (
                                                 <>
                                                     <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
