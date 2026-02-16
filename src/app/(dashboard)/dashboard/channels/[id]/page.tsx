@@ -97,6 +97,26 @@ interface AiModelInfo {
     description?: string
 }
 
+interface ChannelPlatformEntry {
+    id: string
+    platform: string
+    accountId: string
+    accountName: string
+    isActive: boolean
+}
+
+const platformOptions = [
+    { value: 'facebook', label: 'Facebook', color: '#1877F2' },
+    { value: 'instagram', label: 'Instagram', color: '#E4405F' },
+    { value: 'youtube', label: 'YouTube', color: '#FF0000' },
+    { value: 'tiktok', label: 'TikTok', color: '#00F2EA' },
+    { value: 'x', label: 'X / Twitter', color: '#000000' },
+    { value: 'linkedin', label: 'LinkedIn', color: '#0A66C2' },
+    { value: 'pinterest', label: 'Pinterest', color: '#E60023' },
+    { value: 'gbp', label: 'Google Business', color: '#4285F4' },
+    { value: 'threads', label: 'Threads', color: '#000000' },
+]
+
 interface ChannelDetail {
     id: string
     name: string
@@ -201,6 +221,14 @@ export default function ChannelDetailPage({
     const [webhookCustomUrl, setWebhookCustomUrl] = useState('')
     const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
 
+    // Platform state
+    const [platforms, setPlatforms] = useState<ChannelPlatformEntry[]>([])
+    const [addingPlatform, setAddingPlatform] = useState(false)
+    const [newPlatform, setNewPlatform] = useState('')
+    const [newPlatformAccountId, setNewPlatformAccountId] = useState('')
+    const [newPlatformAccountName, setNewPlatformAccountName] = useState('')
+    const [savingPlatform, setSavingPlatform] = useState(false)
+
     const fetchChannel = useCallback(async () => {
         try {
             const res = await fetch(`/api/admin/channels/${id}`)
@@ -239,7 +267,12 @@ export default function ChannelDetailPage({
 
     useEffect(() => {
         fetchChannel()
-    }, [fetchChannel])
+        // Fetch platforms
+        fetch(`/api/admin/channels/${id}/platforms`)
+            .then(r => r.ok ? r.json() : [])
+            .then(data => setPlatforms(data))
+            .catch(() => { })
+    }, [fetchChannel, id])
 
     // Fetch AI providers from API Hub
     useEffect(() => {
@@ -638,6 +671,62 @@ export default function ChannelDetailPage({
         }
     }
 
+    // ─── Platform CRUD ───────────────────────────────
+    const addPlatformConnection = async () => {
+        if (!newPlatform || !newPlatformAccountId || !newPlatformAccountName) return
+        setSavingPlatform(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/platforms`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: newPlatform,
+                    accountId: newPlatformAccountId,
+                    accountName: newPlatformAccountName,
+                }),
+            })
+            if (res.ok) {
+                const entry = await res.json()
+                setPlatforms([...platforms, entry])
+                setNewPlatform('')
+                setNewPlatformAccountId('')
+                setNewPlatformAccountName('')
+                setAddingPlatform(false)
+                toast.success(t('channels.platforms.connected'))
+            } else {
+                const err = await res.json()
+                toast.error(err.error || t('channels.platforms.connectFailed'))
+            }
+        } catch {
+            toast.error(t('channels.platforms.connectFailed'))
+        } finally {
+            setSavingPlatform(false)
+        }
+    }
+
+    const togglePlatformActive = async (platformId: string, isActive: boolean) => {
+        try {
+            await fetch(`/api/admin/channels/${id}/platforms`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platformId, isActive }),
+            })
+            setPlatforms(platforms.map(p => p.id === platformId ? { ...p, isActive } : p))
+        } catch {
+            toast.error(t('channels.platforms.connectFailed'))
+        }
+    }
+
+    const deletePlatformConnection = async (platformId: string) => {
+        try {
+            await fetch(`/api/admin/channels/${id}/platforms?platformId=${platformId}`, { method: 'DELETE' })
+            setPlatforms(platforms.filter(p => p.id !== platformId))
+            toast.success(t('channels.platforms.disconnected'))
+        } catch {
+            toast.error(t('channels.platforms.disconnectFailed'))
+        }
+    }
+
     // ─── Loading state ──────────────────────────────
     if (loading) {
         return (
@@ -677,10 +766,14 @@ export default function ChannelDetailPage({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="grid grid-cols-6 w-full">
+                <TabsList className="grid grid-cols-7 w-full">
                     <TabsTrigger value="general" className="gap-1.5 text-xs">
                         <Settings className="h-3.5 w-3.5" />
                         {t('channels.tabs.general')}
+                    </TabsTrigger>
+                    <TabsTrigger value="platforms" className="gap-1.5 text-xs">
+                        <Globe className="h-3.5 w-3.5" />
+                        {t('channels.tabs.platforms')}
                     </TabsTrigger>
                     <TabsTrigger value="vibe" className="gap-1.5 text-xs">
                         <Palette className="h-3.5 w-3.5" />
@@ -876,6 +969,134 @@ export default function ChannelDetailPage({
                             </Card>
                         ))}
                     </div>
+                </TabsContent>
+
+                {/* ─── Platforms Tab ───────────────── */}
+                <TabsContent value="platforms" className="space-y-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="text-base">{t('channels.platforms.title')}</CardTitle>
+                                <CardDescription>{t('channels.platforms.desc')}</CardDescription>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAddingPlatform(!addingPlatform)}
+                                className="gap-1.5"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                {t('channels.platforms.addPlatform')}
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Add Platform Form */}
+                            {addingPlatform && (
+                                <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs">{t('channels.platforms.platform')}</Label>
+                                            <Select value={newPlatform} onValueChange={setNewPlatform}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={t('channels.platforms.selectPlatform')} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {platformOptions.map((p) => (
+                                                        <SelectItem key={p.value} value={p.value}>
+                                                            <span className="flex items-center gap-2">
+                                                                <span
+                                                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                                    style={{ backgroundColor: p.color }}
+                                                                />
+                                                                {p.label}
+                                                            </span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs">{t('channels.platforms.accountId')}</Label>
+                                            <Input
+                                                placeholder={t('channels.platforms.accountIdPlaceholder')}
+                                                value={newPlatformAccountId}
+                                                onChange={(e) => setNewPlatformAccountId(e.target.value)}
+                                                className="font-mono text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs">{t('channels.platforms.accountName')}</Label>
+                                            <Input
+                                                placeholder={t('channels.platforms.accountNamePlaceholder')}
+                                                value={newPlatformAccountName}
+                                                onChange={(e) => setNewPlatformAccountName(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="ghost" size="sm" onClick={() => setAddingPlatform(false)}>
+                                            {t('common.cancel')}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={addPlatformConnection}
+                                            disabled={!newPlatform || !newPlatformAccountId || !newPlatformAccountName || savingPlatform}
+                                        >
+                                            {savingPlatform ? t('common.saving') : t('channels.platforms.addPlatform')}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Platform List */}
+                            {platforms.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <Globe className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                                    <p className="text-sm font-medium">{t('channels.platforms.noPlatforms')}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{t('channels.platforms.noPlatformsDesc')}</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {platforms.map((p) => {
+                                        const info = platformOptions.find(o => o.value === p.platform)
+                                        return (
+                                            <div
+                                                key={p.id}
+                                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span
+                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                        style={{ backgroundColor: info?.color || '#888' }}
+                                                    />
+                                                    <div>
+                                                        <p className="text-sm font-medium">{p.accountName}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {info?.label || p.platform} · <span className="font-mono">{p.accountId}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <Switch
+                                                        checked={p.isActive}
+                                                        onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
+                                                    />
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => deletePlatformConnection(p.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* ─── Vibe & Tone Tab ───────────────── */}
