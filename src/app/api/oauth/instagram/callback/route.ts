@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/instagram/callback
+// Instagram Business accounts are linked to Facebook Pages
+// Flow: User token → me/accounts → check each page for instagram_business_account → get IG details
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
@@ -15,20 +17,39 @@ export async function GET(req: NextRequest) {
     try { state = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) }
     catch { return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin)) }
 
-    const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'instagram' } })
-    const config = (integration?.config || {}) as Record<string, string>
-    const clientId = config.instagramClientId || process.env.INSTAGRAM_CLIENT_ID
-    let clientSecret = process.env.INSTAGRAM_CLIENT_SECRET || ''
-    if (integration?.apiKeyEncrypted) {
-        try { clientSecret = decrypt(integration.apiKeyEncrypted) } catch { clientSecret = integration.apiKeyEncrypted }
+    // Get client credentials — try instagram integration first, then fallback to facebook
+    let clientId = ''
+    let clientSecret = ''
+
+    const igIntegration = await prisma.apiIntegration.findFirst({ where: { provider: 'instagram' } })
+    if (igIntegration) {
+        const igConfig = (igIntegration.config || {}) as Record<string, string>
+        clientId = igConfig.instagramClientId || ''
+        if (igIntegration.apiKeyEncrypted) {
+            try { clientSecret = decrypt(igIntegration.apiKeyEncrypted) } catch { clientSecret = igIntegration.apiKeyEncrypted }
+        }
     }
-    if (!clientId || !clientSecret) return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+
+    // Fallback to Facebook App credentials (Instagram uses the same app)
+    if (!clientId || !clientSecret) {
+        const fbIntegration = await prisma.apiIntegration.findFirst({ where: { provider: 'facebook' } })
+        const fbConfig = (fbIntegration?.config || {}) as Record<string, string>
+        if (!clientId) clientId = fbConfig.facebookClientId || process.env.FACEBOOK_CLIENT_ID || ''
+        if (!clientSecret && fbIntegration?.apiKeyEncrypted) {
+            try { clientSecret = decrypt(fbIntegration.apiKeyEncrypted) } catch { clientSecret = fbIntegration.apiKeyEncrypted }
+        }
+        if (!clientSecret) clientSecret = process.env.FACEBOOK_CLIENT_SECRET || ''
+    }
+
+    if (!clientId || !clientSecret) {
+        return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+    }
 
     const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/instagram/callback`
 
     try {
-        // Exchange code for token
+        // Step 1: Exchange code for user access token
         const tokenUrl = new URL('https://graph.facebook.com/v19.0/oauth/access_token')
         tokenUrl.searchParams.set('client_id', clientId)
         tokenUrl.searchParams.set('client_secret', clientSecret)
@@ -37,56 +58,107 @@ export async function GET(req: NextRequest) {
 
         const tokenRes = await fetch(tokenUrl.toString())
         if (!tokenRes.ok) {
-            console.error('Instagram token exchange failed:', await tokenRes.text())
+            console.error('[Instagram OAuth] Token exchange failed:', await tokenRes.text())
             return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin))
         }
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
 
-        // Get pages, then get Instagram Business accounts linked to pages
-        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account&access_token=${userAccessToken}`)
-        const pagesData = await pagesRes.json()
-        const pages = pagesData.data || []
+        // Step 2: Get ALL Facebook pages with pagination (each page may have an IG account)
+        let pages: Array<{ id: string; name: string; instagram_business_account?: { id: string } }> = []
+        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account&limit=100&access_token=${userAccessToken}`
 
-        let imported = 0
-        for (const page of pages) {
-            const igAccount = page.instagram_business_account
-            if (!igAccount) continue
+        while (pagesUrl) {
+            const pagesRes: Response = await fetch(pagesUrl)
+            const pagesData: {
+                data?: Array<{ id: string; name: string; instagram_business_account?: { id: string } }>;
+                paging?: { next?: string };
+                error?: { message: string }
+            } = await pagesRes.json()
 
-            // Get IG username
-            const igRes = await fetch(`https://graph.facebook.com/v19.0/${igAccount.id}?fields=id,username,name&access_token=${userAccessToken}`)
-            const igData = await igRes.json()
-
-            await prisma.channelPlatform.upsert({
-                where: {
-                    channelId_platform_accountId: {
-                        channelId: state.channelId,
-                        platform: 'instagram',
-                        accountId: igData.id,
-                    },
-                },
-                update: {
-                    accountName: igData.username || igData.name || page.name,
-                    accessToken: userAccessToken,
-                    connectedBy: state.userId,
-                    isActive: true,
-                },
-                create: {
-                    channelId: state.channelId,
-                    platform: 'instagram',
-                    accountId: igData.id,
-                    accountName: igData.username || igData.name || page.name,
-                    accessToken: userAccessToken,
-                    connectedBy: state.userId,
-                    isActive: true,
-                    config: { source: 'oauth', pageId: page.id },
-                },
-            })
-            imported++
+            if (pagesData.error) {
+                console.error('[Instagram OAuth] API error:', pagesData.error.message)
+                break
+            }
+            if (pagesData.data) pages = pages.concat(pagesData.data)
+            pagesUrl = pagesData.paging?.next || null
         }
 
+        console.log(`[Instagram OAuth] Found ${pages.length} Facebook pages, checking for Instagram accounts...`)
+
+        // Step 3: For each page with an Instagram Business account, get IG details
+        let imported = 0
+        const errors: string[] = []
+
+        for (const page of pages) {
+            const igAccount = page.instagram_business_account
+            if (!igAccount) {
+                console.log(`[Instagram OAuth]   ⏭️ ${page.name} — no Instagram account linked`)
+                continue
+            }
+
+            try {
+                // Get Instagram account details
+                const igRes = await fetch(
+                    `https://graph.facebook.com/v19.0/${igAccount.id}?fields=id,username,name,profile_picture_url,followers_count&access_token=${userAccessToken}`
+                )
+                const igData: { id?: string; username?: string; name?: string; profile_picture_url?: string; followers_count?: number; error?: { message: string } } = await igRes.json()
+
+                if (igData.error) {
+                    console.error(`[Instagram OAuth]   ❌ Error fetching IG for ${page.name}:`, igData.error.message)
+                    errors.push(`${page.name}: ${igData.error.message}`)
+                    continue
+                }
+
+                const accountName = igData.username || igData.name || page.name
+
+                await prisma.channelPlatform.upsert({
+                    where: {
+                        channelId_platform_accountId: {
+                            channelId: state.channelId,
+                            platform: 'instagram',
+                            accountId: igData.id || igAccount.id,
+                        },
+                    },
+                    update: {
+                        accountName,
+                        accessToken: userAccessToken,
+                        connectedBy: state.userId,
+                        isActive: true,
+                        config: { source: 'oauth', pageId: page.id, pageName: page.name },
+                    },
+                    create: {
+                        channelId: state.channelId,
+                        platform: 'instagram',
+                        accountId: igData.id || igAccount.id,
+                        accountName,
+                        accessToken: userAccessToken,
+                        connectedBy: state.userId,
+                        isActive: true,
+                        config: { source: 'oauth', pageId: page.id, pageName: page.name },
+                    },
+                })
+                imported++
+                console.log(`[Instagram OAuth]   ✅ Imported: @${accountName} (${igData.id}) linked to page ${page.name}`)
+            } catch (upsertErr) {
+                console.error(`[Instagram OAuth]   ❌ Failed to import IG for ${page.name}:`, upsertErr)
+                errors.push(`${page.name}: ${upsertErr}`)
+            }
+        }
+
+        console.log(`[Instagram OAuth] Imported ${imported}/${pages.length} Instagram accounts. Errors: ${errors.length}`)
+
         if (imported === 0) {
-            return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_ig_accounts`, req.nextUrl.origin))
+            console.log('[Instagram OAuth] No Instagram Business accounts found on any page')
+            const errorUrl = `/dashboard/channels/${state.channelId}?tab=platforms&error=no_ig_accounts`
+            return new NextResponse(
+                `<!DOCTYPE html><html><head><title>No Instagram Accounts</title></head><body>
+                <script>
+                    if (window.opener) { window.opener.postMessage({ type: 'oauth-error', platform: 'instagram', error: 'no_ig_accounts' }, '*'); window.close(); }
+                    else { window.location.href = '${errorUrl}'; }
+                </script><p>No Instagram Business accounts found. Make sure your Instagram is connected to a Facebook Page as a Business or Creator account.</p></body></html>`,
+                { headers: { 'Content-Type': 'text/html' } }
+            )
         }
 
         const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=instagram&imported=${imported}`
@@ -95,11 +167,11 @@ export async function GET(req: NextRequest) {
             <script>
                 if (window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'instagram' }, '*'); window.close(); }
                 else { window.location.href = '${successUrl}'; }
-            </script><p>Instagram connected! Redirecting...</p></body></html>`,
+            </script><p>Instagram connected! ${imported} accounts imported. Redirecting...</p></body></html>`,
             { headers: { 'Content-Type': 'text/html' } }
         )
     } catch (err) {
-        console.error('Instagram OAuth callback error:', err)
+        console.error('[Instagram OAuth] Callback error:', err)
         return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin))
     }
 }
