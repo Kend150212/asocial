@@ -73,7 +73,34 @@ export async function GET(req: NextRequest) {
             }
             pagesUrl = pagesData.paging?.next || null
         }
-        console.log(`[Facebook OAuth] Total pages fetched: ${pages.length}`)
+        console.log(`[Facebook OAuth] Total pages from me/accounts: ${pages.length}`)
+
+        // FALLBACK: me/accounts may not return all pages (Facebook API limitation)
+        // Try to access existing DB pages directly by ID
+        const meAccountIds = new Set(pages.map(p => p.id))
+        const existingDbPages = await prisma.channelPlatform.findMany({
+            where: { channelId: state.channelId, platform: 'facebook' },
+            select: { accountId: true, accountName: true },
+        })
+
+        for (const dbPage of existingDbPages) {
+            if (meAccountIds.has(dbPage.accountId)) continue // already in me/accounts
+            try {
+                const directRes: Response = await fetch(
+                    `https://graph.facebook.com/v19.0/${dbPage.accountId}?fields=id,name,access_token&access_token=${userAccessToken}`
+                )
+                const directData: { id?: string; name?: string; access_token?: string; error?: { message: string } } = await directRes.json()
+                if (directData.id && directData.access_token) {
+                    pages.push({ id: directData.id, name: directData.name || dbPage.accountName, access_token: directData.access_token })
+                    console.log(`[Facebook OAuth] 🔄 Recovered via direct access: ${directData.name} (${directData.id})`)
+                } else {
+                    console.log(`[Facebook OAuth] ⚠️ Cannot access ${dbPage.accountName} (${dbPage.accountId}): ${directData.error?.message || 'no access_token'}`)
+                }
+            } catch (err) {
+                console.error(`[Facebook OAuth] ❌ Direct access failed for ${dbPage.accountId}:`, err)
+            }
+        }
+        console.log(`[Facebook OAuth] Total pages after fallback: ${pages.length}`)
 
         let imported = 0
         const errors: string[] = []
