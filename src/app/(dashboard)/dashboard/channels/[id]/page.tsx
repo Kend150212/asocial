@@ -38,6 +38,8 @@ import {
     ChevronDown,
     ChevronUp,
     Check,
+    Eye,
+    EyeOff,
     X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -275,6 +277,7 @@ export default function ChannelDetailPage({
     const [savingPlatform, setSavingPlatform] = useState(false)
     const [fetchingVbout, setFetchingVbout] = useState(false)
     const [platformSearch, setPlatformSearch] = useState('')
+    const [hideDisabled, setHideDisabled] = useState(false)
 
     // Members state
     const [members, setMembers] = useState<any[]>([])
@@ -1189,6 +1192,16 @@ export default function ChannelDetailPage({
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <Button
+                                            variant={hideDisabled ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setHideDisabled(!hideDisabled)}
+                                            className="gap-1.5 h-8 text-xs"
+                                            title={hideDisabled ? 'Show all accounts' : 'Hide disabled accounts'}
+                                        >
+                                            {hideDisabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                            {hideDisabled ? 'Show All' : 'Hide Disabled'}
+                                        </Button>
+                                        <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => toggleAllPlatforms(true)}
@@ -1278,8 +1291,10 @@ export default function ChannelDetailPage({
                             ) : (
                                 <div className="space-y-4">
                                     {(() => {
-                                        // Admin sees all accounts, regular users only see enabled
-                                        const visiblePlatforms = isAdmin ? platforms : platforms.filter(p => p.isActive)
+                                        // Filter based on role and hide-disabled toggle
+                                        const visiblePlatforms = isAdmin
+                                            ? (hideDisabled ? platforms.filter(p => p.isActive) : platforms)
+                                            : platforms.filter(p => p.isActive)
                                         const searchLower = platformSearch.toLowerCase()
                                         const filtered = searchLower
                                             ? visiblePlatforms.filter(p =>
