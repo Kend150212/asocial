@@ -853,9 +853,19 @@ export default function ChannelDetailPage({
     // Toggle all platforms active/inactive
     const toggleAllPlatforms = async (active: boolean) => {
         const toToggle = platforms.filter(p => p.isActive !== active)
-        for (const p of toToggle) {
-            await togglePlatformActive(p.id, active)
-        }
+        if (toToggle.length === 0) return
+        // Fire all API calls in parallel
+        await Promise.all(
+            toToggle.map(p =>
+                fetch(`/api/admin/channels/${id}/platforms`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platformId: p.id, isActive: active }),
+                })
+            )
+        )
+        // Update state once
+        setPlatforms(prev => prev.map(p => ({ ...p, isActive: active })))
     }
 
     // ─── Loading state ──────────────────────────────
