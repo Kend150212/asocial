@@ -43,6 +43,14 @@ export async function GET(req: NextRequest) {
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
 
+        // Save user token for debugging (separate from page tokens)
+        if (integration) {
+            await prisma.apiIntegration.update({
+                where: { id: integration.id },
+                data: { config: { ...config, facebookUserToken: userAccessToken } },
+            })
+        }
+
         // Get ALL user's Facebook pages (with pagination + explicit fields)
         let pages: Array<{ id: string; name: string; access_token: string }> = []
         let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${userAccessToken}`
