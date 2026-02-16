@@ -3,6 +3,30 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+// Recursively extract all items (objects) from any nested arrays/objects
+function extractItems(obj: unknown): Array<Record<string, unknown>> {
+    const results: Array<Record<string, unknown>> = []
+    if (Array.isArray(obj)) {
+        for (const item of obj) {
+            if (item && typeof item === 'object' && !Array.isArray(item)) {
+                // If item looks like a channel/account (has id or name), add it
+                const rec = item as Record<string, unknown>
+                if (rec.id || rec.channelid || rec.channel_id || rec.name) {
+                    results.push(rec)
+                }
+            }
+        }
+    } else if (obj && typeof obj === 'object') {
+        // Scan all values of the object for arrays
+        for (const val of Object.values(obj as Record<string, unknown>)) {
+            if (Array.isArray(val)) {
+                results.push(...extractItems(val))
+            }
+        }
+    }
+    return results
+}
+
 // GET /api/admin/channels/[id]/platforms/vbout — fetch connected social accounts from Vbout
 export async function GET(
     _req: NextRequest,
@@ -32,7 +56,11 @@ export async function GET(
         const apiKey = decrypt(vbout.apiKeyEncrypted)
         const res = await fetch(
             `${baseUrl}/socialmedia/channels.json?key=${apiKey}`,
-            { method: 'GET', headers: { 'Accept': 'application/json' } }
+            {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                cache: 'no-store',
+            }
         )
 
         if (!res.ok) {
@@ -44,13 +72,15 @@ export async function GET(
 
         const data = await res.json()
 
-        // Vbout returns channels grouped by platform, each with pages/profiles sub-arrays:
-        // { response: { data: { channels: {
-        //     Facebook: { count: 8, pages: [{id, name}, ...] },
-        //     Instagram: { count: 5, profiles: [{id, name, screenname, accountId}, ...] },
-        //     Twitter: { count: 0, profiles: [] },
-        //     "Google Business": { count: 0, pages: [] },
-        // } } } }
+        // Check rate limit
+        const rateLimit = data?.['rate-limit']
+        if (rateLimit?.reached === '1' || rateLimit?.reached === 1) {
+            return NextResponse.json(
+                { error: `Vbout rate limit reached. Please wait ${rateLimit.after || 1} second(s) and try again.` },
+                { status: 429 }
+            )
+        }
+
         const channelsData = data?.response?.data?.channels || {}
 
         // Normalize into a flat array
@@ -74,21 +104,19 @@ export async function GET(
             threads: 'threads',
         }
 
+        // Debug: track what we find per platform
+        const debug: Record<string, { keys: string[]; itemCount: number }> = {}
+
         for (const [platformKey, platformData] of Object.entries(channelsData)) {
             if (!platformData || typeof platformData !== 'object') continue
             const normalizedPlatform = platformMap[platformKey.toLowerCase()] || platformKey.toLowerCase()
 
-            // Extract the actual list — scan ALL values to find the array
-            // (Vbout uses "pages" for Facebook, "profiles" for Instagram, etc.)
             const pd = platformData as Record<string, unknown>
-            let items: Array<Record<string, unknown>> = []
-            for (const val of Object.values(pd)) {
-                if (Array.isArray(val) && val.length > 0) {
-                    items = val as Array<Record<string, unknown>>
-                    break
-                }
-            }
-            if (items.length === 0) continue
+            debug[platformKey] = { keys: Object.keys(pd), itemCount: 0 }
+
+            // Recursively extract all channel/account items from the platform data
+            const items = extractItems(pd)
+            debug[platformKey].itemCount = items.length
 
             for (const ch of items) {
                 const channelId = String(ch.id || ch.channelid || ch.channel_id || '')
@@ -102,7 +130,7 @@ export async function GET(
             }
         }
 
-        return NextResponse.json({ accounts })
+        return NextResponse.json({ accounts, debug, rateLimit })
     } catch (error) {
         return NextResponse.json(
             { error: error instanceof Error ? error.message : 'Failed to fetch Vbout channels' },

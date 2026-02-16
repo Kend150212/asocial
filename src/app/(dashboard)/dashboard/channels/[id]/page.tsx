@@ -28,6 +28,10 @@ import {
     Send,
     Zap,
     Download,
+    Search,
+    RefreshCw,
+    ToggleLeft,
+    ToggleRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -263,6 +267,7 @@ export default function ChannelDetailPage({
     const [newPlatformAccountName, setNewPlatformAccountName] = useState('')
     const [savingPlatform, setSavingPlatform] = useState(false)
     const [fetchingVbout, setFetchingVbout] = useState(false)
+    const [platformSearch, setPlatformSearch] = useState('')
 
     const fetchChannel = useCallback(async () => {
         try {
@@ -766,7 +771,7 @@ export default function ChannelDetailPage({
     const fetchFromVbout = async () => {
         setFetchingVbout(true)
         try {
-            const res = await fetch(`/api/admin/channels/${id}/platforms/vbout`)
+            const res = await fetch(`/api/admin/channels/${id}/platforms/vbout`, { cache: 'no-store' })
             if (!res.ok) {
                 const err = await res.json()
                 toast.error(err.error || t('channels.platforms.vboutError'))
@@ -814,6 +819,14 @@ export default function ChannelDetailPage({
             toast.error(t('channels.platforms.vboutError'))
         } finally {
             setFetchingVbout(false)
+        }
+    }
+
+    // Toggle all platforms active/inactive
+    const toggleAllPlatforms = async (active: boolean) => {
+        const toToggle = platforms.filter(p => p.isActive !== active)
+        for (const p of toToggle) {
+            await togglePlatformActive(p.id, active)
         }
     }
 
@@ -1097,6 +1110,43 @@ export default function ChannelDetailPage({
                             )}
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* Search and Bulk Actions */}
+                            {platforms.length > 0 && (
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search accounts..."
+                                            value={platformSearch}
+                                            onChange={(e) => setPlatformSearch(e.target.value)}
+                                            className="pl-9 h-8 text-sm"
+                                        />
+                                    </div>
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => toggleAllPlatforms(true)}
+                                                className="gap-1.5 h-8 text-xs"
+                                            >
+                                                <ToggleRight className="h-3.5 w-3.5" />
+                                                Enable All
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => toggleAllPlatforms(false)}
+                                                className="gap-1.5 h-8 text-xs"
+                                            >
+                                                <ToggleLeft className="h-3.5 w-3.5" />
+                                                Disable All
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Add Platform Form — Admin only */}
                             {isAdmin && addingPlatform && (
                                 <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
@@ -1164,74 +1214,83 @@ export default function ChannelDetailPage({
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {Object.entries(
-                                        platforms.reduce<Record<string, ChannelPlatformEntry[]>>((groups, p) => {
+                                    {(() => {
+                                        const searchLower = platformSearch.toLowerCase()
+                                        const filtered = searchLower
+                                            ? platforms.filter(p =>
+                                                p.accountName.toLowerCase().includes(searchLower) ||
+                                                p.accountId.toLowerCase().includes(searchLower) ||
+                                                p.platform.toLowerCase().includes(searchLower)
+                                            )
+                                            : platforms
+                                        const grouped = filtered.reduce<Record<string, ChannelPlatformEntry[]>>((groups, p) => {
                                             const key = p.platform
                                             if (!groups[key]) groups[key] = []
                                             groups[key].push(p)
                                             return groups
                                         }, {})
-                                    ).map(([platformKey, items]) => {
-                                        const info = platformOptions.find(o => o.value === platformKey)
-                                        return (
-                                            <div key={platformKey} className="border rounded-lg overflow-hidden">
-                                                {/* Group Header */}
-                                                <div
-                                                    className="flex items-center gap-2.5 px-4 py-2.5 border-b"
-                                                    style={{ backgroundColor: `${info?.color || '#888'}10` }}
-                                                >
-                                                    {platformIcons[platformKey] || (
-                                                        <span
-                                                            className="w-4 h-4 rounded-full shrink-0"
-                                                            style={{ backgroundColor: info?.color || '#888' }}
-                                                        />
-                                                    )}
-                                                    <span className="text-sm font-semibold">
-                                                        {info?.label || platformKey}
-                                                    </span>
-                                                    <Badge variant="secondary" className="text-[10px] ml-auto">
-                                                        {items.length}
-                                                    </Badge>
-                                                </div>
-                                                {/* Accounts */}
-                                                <div className="divide-y">
-                                                    {items.map((p) => (
-                                                        <div
-                                                            key={p.id}
-                                                            className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors"
-                                                        >
-                                                            <div>
-                                                                <p className="text-sm font-medium">{p.accountName}</p>
-                                                                <p className="text-xs text-muted-foreground font-mono">{p.accountId}</p>
+                                        return Object.entries(grouped).map(([platformKey, items]) => {
+                                            const info = platformOptions.find(o => o.value === platformKey)
+                                            return (
+                                                <div key={platformKey} className="border rounded-lg overflow-hidden">
+                                                    {/* Group Header */}
+                                                    <div
+                                                        className="flex items-center gap-2.5 px-4 py-2.5 border-b"
+                                                        style={{ backgroundColor: `${info?.color || '#888'}10` }}
+                                                    >
+                                                        {platformIcons[platformKey] || (
+                                                            <span
+                                                                className="w-4 h-4 rounded-full shrink-0"
+                                                                style={{ backgroundColor: info?.color || '#888' }}
+                                                            />
+                                                        )}
+                                                        <span className="text-sm font-semibold">
+                                                            {info?.label || platformKey}
+                                                        </span>
+                                                        <Badge variant="secondary" className="text-[10px] ml-auto">
+                                                            {items.length}
+                                                        </Badge>
+                                                    </div>
+                                                    {/* Accounts */}
+                                                    <div className="divide-y">
+                                                        {items.map((p) => (
+                                                            <div
+                                                                key={p.id}
+                                                                className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors"
+                                                            >
+                                                                <div>
+                                                                    <p className="text-sm font-medium">{p.accountName}</p>
+                                                                    <p className="text-xs text-muted-foreground font-mono">{p.accountId}</p>
+                                                                </div>
+                                                                <div className="flex items-center gap-3">
+                                                                    {isAdmin ? (
+                                                                        <>
+                                                                            <Switch
+                                                                                checked={p.isActive}
+                                                                                onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
+                                                                            />
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                                onClick={() => deletePlatformConnection(p.id)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                                                                            {p.isActive ? 'Active' : 'Inactive'}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div className="flex items-center gap-3">
-                                                                {isAdmin ? (
-                                                                    <>
-                                                                        <Switch
-                                                                            checked={p.isActive}
-                                                                            onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
-                                                                        />
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                            onClick={() => deletePlatformConnection(p.id)}
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </>
-                                                                ) : (
-                                                                    <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                                                                        {p.isActive ? 'Active' : 'Inactive'}
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
+                                            )
+                                        })
+                                    })()}
                                 </div>
                             )}
                         </CardContent>
