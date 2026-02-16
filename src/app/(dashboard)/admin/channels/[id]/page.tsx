@@ -24,6 +24,8 @@ import {
     GripVertical,
     Sparkles,
     Loader2,
+    Send,
+    Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -103,6 +105,8 @@ interface ChannelDetail {
     contentTemplates: ContentTemplate[]
     hashtagGroups: HashtagGroup[]
     _count: { posts: number; mediaItems: number }
+    defaultAiProvider: string | null
+    defaultAiModel: string | null
 }
 
 const sourceTypeIcons: Record<string, typeof Type> = {
@@ -163,6 +167,19 @@ export default function ChannelDetailPage({
     const [newHashTags, setNewHashTags] = useState('')
     const [addingHash, setAddingHash] = useState(false)
 
+    // AI provider/model
+    const [aiProvider, setAiProvider] = useState('')
+    const [aiModel, setAiModel] = useState('')
+    const [generatingDesc, setGeneratingDesc] = useState(false)
+
+    // Webhook state
+    const [webhookDiscordUrl, setWebhookDiscordUrl] = useState('')
+    const [webhookTelegramToken, setWebhookTelegramToken] = useState('')
+    const [webhookTelegramChatId, setWebhookTelegramChatId] = useState('')
+    const [webhookSlackUrl, setWebhookSlackUrl] = useState('')
+    const [webhookCustomUrl, setWebhookCustomUrl] = useState('')
+    const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
+
     const fetchChannel = useCallback(async () => {
         try {
             const res = await fetch(`/api/admin/channels/${id}`)
@@ -179,6 +196,15 @@ export default function ChannelDetailPage({
                 setKnowledgeEntries(data.knowledgeBase || [])
                 setTemplates(data.contentTemplates || [])
                 setHashtags(data.hashtagGroups || [])
+                // AI defaults
+                setAiProvider(data.defaultAiProvider || '')
+                setAiModel(data.defaultAiModel || '')
+                // Webhooks
+                setWebhookDiscordUrl(data.webhookDiscord?.url || '')
+                setWebhookTelegramToken(data.webhookTelegram?.botToken || '')
+                setWebhookTelegramChatId(data.webhookTelegram?.chatId || '')
+                setWebhookSlackUrl(data.webhookSlack?.url || '')
+                setWebhookCustomUrl(data.webhookCustom?.url || '')
             } else {
                 toast.error(t('channels.notFound'))
                 router.push('/admin/channels')
@@ -209,6 +235,12 @@ export default function ChannelDetailPage({
                     notificationEmail: notificationEmail || null,
                     requireApproval,
                     vibeTone,
+                    defaultAiProvider: aiProvider || null,
+                    defaultAiModel: aiModel || null,
+                    webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
+                    webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
+                    webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
+                    webhookCustom: webhookCustomUrl ? { url: webhookCustomUrl } : {},
                 }),
             })
             if (res.ok) {
@@ -249,6 +281,8 @@ export default function ChannelDetailPage({
                     channelName: displayName,
                     description,
                     language,
+                    provider: aiProvider || undefined,
+                    model: aiModel || undefined,
                 }),
             })
 
@@ -435,6 +469,71 @@ export default function ChannelDetailPage({
         }
     }
 
+    // ─── Generate SEO Description ────────────────────
+    const handleGenerateDescription = async () => {
+        if (!displayName || !description) {
+            toast.error(t('channels.ai.needDescription'))
+            return
+        }
+        setGeneratingDesc(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/generate-description`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelName: displayName,
+                    shortDescription: description,
+                    language,
+                    provider: aiProvider || undefined,
+                    model: aiModel || undefined,
+                }),
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setDescription(data.description)
+                toast.success(t('channels.ai.descGenerated'))
+            } else {
+                const err = await res.json()
+                toast.error(err.error || t('channels.ai.descFailed'))
+            }
+        } catch {
+            toast.error(t('channels.ai.descFailed'))
+        } finally {
+            setGeneratingDesc(false)
+        }
+    }
+
+    // ─── Webhook Test ────────────────────────────────
+    const handleWebhookTest = async (platform: string) => {
+        setTestingWebhook(platform)
+        try {
+            const payload: Record<string, string> = { platform }
+            if (platform === 'discord') payload.url = webhookDiscordUrl
+            if (platform === 'telegram') {
+                payload.botToken = webhookTelegramToken
+                payload.chatId = webhookTelegramChatId
+            }
+            if (platform === 'slack') payload.url = webhookSlackUrl
+            if (platform === 'custom') payload.url = webhookCustomUrl
+
+            const res = await fetch(`/api/admin/channels/${id}/webhook-test`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success(t('channels.webhooks.testSuccess'))
+            } else {
+                toast.error(data.message || t('channels.webhooks.testFailed'))
+            }
+        } catch {
+            toast.error(t('channels.webhooks.testFailed'))
+        } finally {
+            setTestingWebhook(null)
+        }
+    }
+
     // ─── Loading state ──────────────────────────────
     if (loading) {
         return (
@@ -532,7 +631,22 @@ export default function ChannelDetailPage({
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>{t('channels.descriptionLabel')}</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label>{t('channels.descriptionLabel')}</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleGenerateDescription}
+                                        disabled={generatingDesc || !description}
+                                        className="gap-1.5 text-xs text-purple-400 hover:text-purple-300 h-7"
+                                    >
+                                        {generatingDesc ? (
+                                            <><Loader2 className="h-3 w-3 animate-spin" /> {t('channels.ai.generatingDesc')}</>
+                                        ) : (
+                                            <><Sparkles className="h-3 w-3" /> {t('channels.ai.generateDesc')}</>
+                                        )}
+                                    </Button>
+                                </div>
                                 <Textarea
                                     placeholder={t('channels.descriptionPlaceholder')}
                                     value={description}
@@ -568,6 +682,59 @@ export default function ChannelDetailPage({
                                             <><Sparkles className="h-4 w-4" /> {t('channels.ai.analyze')}</>
                                         )}
                                     </Button>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* AI Provider & Model */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>{t('channels.ai.provider')}</Label>
+                                    <Select value={aiProvider} onValueChange={(v) => { setAiProvider(v); setAiModel('') }}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">{t('channels.ai.useGlobal')}</SelectItem>
+                                            <SelectItem value="gemini">Google Gemini</SelectItem>
+                                            <SelectItem value="openai">OpenAI</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">{t('channels.ai.providerDesc')}</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>{t('channels.ai.model')}</Label>
+                                    <Select value={aiModel} onValueChange={setAiModel}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">{t('channels.ai.useGlobal')}</SelectItem>
+                                            {aiProvider === 'openai' ? (
+                                                <>
+                                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                                    <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
+                                                    <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
+                                                </>
+                                            ) : aiProvider === 'gemini' ? (
+                                                <>
+                                                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                    <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                                                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                                </>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
                                 </div>
                             </div>
 
@@ -952,17 +1119,137 @@ export default function ChannelDetailPage({
                                 {t('channels.webhooks.desc')}
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {['Discord', 'Telegram', 'Slack'].map((platform) => (
-                                <div key={platform} className="space-y-2">
-                                    <Label>{platform} {t('channels.webhooks.webhookUrl')}</Label>
-                                    <Input placeholder={`https://hooks.${platform.toLowerCase()}.com/...`} />
-                                </div>
-                            ))}
-                            <Separator />
+                        <CardContent className="space-y-6">
+                            {/* Discord */}
                             <div className="space-y-2">
-                                <Label>{t('channels.webhooks.customWebhook')}</Label>
-                                <Input placeholder="https://your-server.com/webhook" />
+                                <Label className="flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-[#5865F2] inline-block" />
+                                    Discord {t('channels.webhooks.webhookUrl')}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="https://discord.com/api/webhooks/..."
+                                        value={webhookDiscordUrl}
+                                        onChange={(e) => setWebhookDiscordUrl(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleWebhookTest('discord')}
+                                        disabled={!webhookDiscordUrl || testingWebhook === 'discord'}
+                                        className="gap-1.5 shrink-0"
+                                    >
+                                        {testingWebhook === 'discord' ? (
+                                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                        ) : (
+                                            <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Telegram */}
+                            <div className="space-y-3">
+                                <Label className="flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-[#0088cc] inline-block" />
+                                    Telegram
+                                </Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">{t('channels.webhooks.botToken')}</Label>
+                                        <Input
+                                            placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v..."
+                                            value={webhookTelegramToken}
+                                            onChange={(e) => setWebhookTelegramToken(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">{t('channels.webhooks.chatId')}</Label>
+                                        <Input
+                                            placeholder="-1001234567890"
+                                            value={webhookTelegramChatId}
+                                            onChange={(e) => setWebhookTelegramChatId(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleWebhookTest('telegram')}
+                                    disabled={!webhookTelegramToken || !webhookTelegramChatId || testingWebhook === 'telegram'}
+                                    className="gap-1.5"
+                                >
+                                    {testingWebhook === 'telegram' ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                    ) : (
+                                        <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                    )}
+                                </Button>
+                            </div>
+
+                            <Separator />
+
+                            {/* Slack */}
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-[#4A154B] inline-block" />
+                                    Slack {t('channels.webhooks.webhookUrl')}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="https://hooks.slack.com/services/..."
+                                        value={webhookSlackUrl}
+                                        onChange={(e) => setWebhookSlackUrl(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleWebhookTest('slack')}
+                                        disabled={!webhookSlackUrl || testingWebhook === 'slack'}
+                                        className="gap-1.5 shrink-0"
+                                    >
+                                        {testingWebhook === 'slack' ? (
+                                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                        ) : (
+                                            <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Custom */}
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <Zap className="h-4 w-4 text-orange-400" />
+                                    {t('channels.webhooks.customWebhook')}
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="https://your-server.com/webhook"
+                                        value={webhookCustomUrl}
+                                        onChange={(e) => setWebhookCustomUrl(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleWebhookTest('custom')}
+                                        disabled={!webhookCustomUrl || testingWebhook === 'custom'}
+                                        className="gap-1.5 shrink-0"
+                                    >
+                                        {testingWebhook === 'custom' ? (
+                                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                        ) : (
+                                            <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                        )}
+                                    </Button>
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                     {t('channels.webhooks.customWebhookDesc')}
                                 </p>

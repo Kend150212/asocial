@@ -66,6 +66,7 @@ export async function PUT(
         'descriptionsPerPlatform', 'vibeTone', 'seoTags',
         'colorPalette', 'logoPrompts', 'bannerPrompts',
         'notificationEmail', 'requireApproval',
+        'defaultAiProvider', 'defaultAiModel',
         'storageProvider', 'storageConfig', 'useDefaultStorage',
         'webhookDiscord', 'webhookTelegram', 'webhookSlack',
         'webhookCustom', 'webhookEvents',

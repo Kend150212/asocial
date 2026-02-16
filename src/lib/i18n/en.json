@@ -308,7 +308,16 @@
             "needDescription": "Please enter a channel name and description first",
             "started": "✨ AI is analyzing your channel...",
             "complete": "✨ AI analysis complete! All tabs have been populated.",
-            "failed": "AI analysis failed"
+            "failed": "AI analysis failed",
+            "provider": "AI Provider",
+            "providerDesc": "Select default AI provider for this channel",
+            "model": "AI Model",
+            "modelDesc": "Default model for content generation",
+            "useGlobal": "Use global default",
+            "generateDesc": "Generate SEO Description",
+            "generatingDesc": "Generating...",
+            "descGenerated": "✨ SEO description generated!",
+            "descFailed": "Failed to generate description"
         },
         "vibe": {
             "title": "Brand Voice & Writing Style",
@@ -368,7 +377,13 @@
             "desc": "Get notified when posts are published or approved.",
             "webhookUrl": "Webhook URL",
             "customWebhook": "Custom Webhook URL",
-            "customWebhookDesc": "Receives POST requests with event payloads in JSON format."
+            "customWebhookDesc": "Receives POST requests with event payloads in JSON format.",
+            "botToken": "Bot Token",
+            "chatId": "Chat ID",
+            "test": "Test",
+            "testing": "Testing...",
+            "testSuccess": "Connection successful!",
+            "testFailed": "Connection failed"
         }
     }
 }

@@ -15,21 +15,34 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { channelName, description, language } = body
+    const { channelName, description, language, provider: requestedProvider, model: requestedModel } = body
 
     if (!channelName || !description) {
         return NextResponse.json({ error: 'Channel name and description are required' }, { status: 400 })
     }
 
-    // Find an active AI provider
-    const aiIntegration = await prisma.apiIntegration.findFirst({
-        where: {
-            category: 'AI',
-            status: 'ACTIVE',
-            apiKeyEncrypted: { not: null },
-        },
-        orderBy: { provider: 'asc' }, // gemini first (free tier), then openai
-    })
+    // Find the requested or any active AI provider
+    let aiIntegration
+    if (requestedProvider) {
+        aiIntegration = await prisma.apiIntegration.findFirst({
+            where: {
+                provider: requestedProvider,
+                category: 'AI',
+                status: 'ACTIVE',
+                apiKeyEncrypted: { not: null },
+            },
+        })
+    }
+    if (!aiIntegration) {
+        aiIntegration = await prisma.apiIntegration.findFirst({
+            where: {
+                category: 'AI',
+                status: 'ACTIVE',
+                apiKeyEncrypted: { not: null },
+            },
+            orderBy: { provider: 'asc' },
+        })
+    }
 
     if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
         return NextResponse.json(
@@ -40,7 +53,7 @@ export async function POST(
 
     const apiKey = decrypt(aiIntegration.apiKeyEncrypted)
     const config = (aiIntegration.config as Record<string, string>) || {}
-    const model = config.defaultTextModel || (aiIntegration.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash')
+    const model = requestedModel || config.defaultTextModel || (aiIntegration.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash')
 
     const langLabel = language === 'vi' ? 'Vietnamese' : language === 'fr' ? 'French' : language === 'de' ? 'German' : language === 'ja' ? 'Japanese' : language === 'ko' ? 'Korean' : language === 'zh' ? 'Chinese' : language === 'es' ? 'Spanish' : 'English'
 

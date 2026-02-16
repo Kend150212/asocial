@@ -308,7 +308,16 @@
             "needDescription": "Vui lòng nhập tên và mô tả kênh trước",
             "started": "✨ AI đang phân tích kênh của bạn...",
             "complete": "✨ Phân tích AI hoàn tất! Tất cả tab đã được điền.",
-            "failed": "Phân tích AI thất bại"
+            "failed": "Phân tích AI thất bại",
+            "provider": "Nhà cung cấp AI",
+            "providerDesc": "Chọn nhà cung cấp AI mặc định cho kênh này",
+            "model": "Model AI",
+            "modelDesc": "Model mặc định cho tạo nội dung",
+            "useGlobal": "Dùng mặc định chung",
+            "generateDesc": "Tạo mô tả SEO",
+            "generatingDesc": "Đang tạo...",
+            "descGenerated": "✨ Đã tạo mô tả SEO!",
+            "descFailed": "Tạo mô tả thất bại"
         },
         "vibe": {
             "title": "Giọng nói thương hiệu & Phong cách viết",
@@ -368,7 +377,13 @@
             "desc": "Nhận thông báo khi bài viết được đăng hoặc duyệt.",
             "webhookUrl": "URL Webhook",
             "customWebhook": "URL Webhook tùy chỉnh",
-            "customWebhookDesc": "Nhận yêu cầu POST với dữ liệu sự kiện ở định dạng JSON."
+            "customWebhookDesc": "Nhận yêu cầu POST với dữ liệu sự kiện ở định dạng JSON.",
+            "botToken": "Bot Token",
+            "chatId": "Chat ID",
+            "test": "Kiểm tra",
+            "testing": "Đang kiểm tra...",
+            "testSuccess": "Kết nối thành công!",
+            "testFailed": "Kết nối thất bại"
         }
     }
 }
