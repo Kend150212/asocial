@@ -155,6 +155,7 @@ model Channel {
   id                      String   @id @default(cuid())
   name                    String   @unique
   displayName             String   @map("display_name")
+  description             String?  @db.Text
   isActive                Boolean  @default(true) @map("is_active")
   language                String   @default("vi")
   descriptionsPerPlatform Json?    @map("descriptions_per_platform") @default("{}")

@@ -22,6 +22,8 @@ import {
     Type,
     ExternalLink,
     GripVertical,
+    Sparkles,
+    Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -82,6 +84,7 @@ interface ChannelDetail {
     id: string
     name: string
     displayName: string
+    description: string | null
     isActive: boolean
     language: string
     descriptionsPerPlatform: Record<string, string>
@@ -128,10 +131,12 @@ export default function ChannelDetailPage({
     const [channel, setChannel] = useState<ChannelDetail | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [analyzing, setAnalyzing] = useState(false)
     const [activeTab, setActiveTab] = useState('general')
 
     // Editable fields
     const [displayName, setDisplayName] = useState('')
+    const [description, setDescription] = useState('')
     const [language, setLanguage] = useState('en')
     const [isActive, setIsActive] = useState(true)
     const [notificationEmail, setNotificationEmail] = useState('')
@@ -165,6 +170,7 @@ export default function ChannelDetailPage({
                 const data = await res.json()
                 setChannel(data)
                 setDisplayName(data.displayName)
+                setDescription(data.description || '')
                 setLanguage(data.language)
                 setIsActive(data.isActive)
                 setNotificationEmail(data.notificationEmail || '')
@@ -197,6 +203,7 @@ export default function ChannelDetailPage({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     displayName,
+                    description: description || null,
                     language,
                     isActive,
                     notificationEmail: notificationEmail || null,
@@ -214,6 +221,104 @@ export default function ChannelDetailPage({
             toast.error('Failed to save')
         } finally {
             setSaving(false)
+        }
+    }
+
+    // ─── AI Analysis ────────────────────────────────
+    const handleAnalyze = async () => {
+        if (!displayName || !description) {
+            toast.error('Please enter a channel name and description first')
+            return
+        }
+        setAnalyzing(true)
+        toast.info('✨ AI is analyzing your channel...')
+
+        try {
+            // First save description
+            await fetch(`/api/admin/channels/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description }),
+            })
+
+            // Call AI analysis
+            const res = await fetch(`/api/admin/channels/${id}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelName: displayName,
+                    description,
+                    language,
+                }),
+            })
+
+            if (!res.ok) {
+                const err = await res.json()
+                throw new Error(err.error || 'AI analysis failed')
+            }
+
+            const analysis = await res.json()
+
+            // Apply Vibe & Tone
+            if (analysis.vibeTone) {
+                setVibeTone(analysis.vibeTone)
+                await fetch(`/api/admin/channels/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vibeTone: analysis.vibeTone }),
+                })
+            }
+
+            // Create Knowledge Base entries
+            if (analysis.knowledgeBase?.length) {
+                for (const entry of analysis.knowledgeBase) {
+                    await fetch(`/api/admin/channels/${id}/knowledge`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: entry.title,
+                            sourceType: 'text',
+                            content: entry.content,
+                        }),
+                    })
+                }
+            }
+
+            // Create Content Templates
+            if (analysis.contentTemplates?.length) {
+                for (const tpl of analysis.contentTemplates) {
+                    await fetch(`/api/admin/channels/${id}/templates`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: tpl.name,
+                            templateContent: tpl.templateContent,
+                        }),
+                    })
+                }
+            }
+
+            // Create Hashtag Groups
+            if (analysis.hashtagGroups?.length) {
+                for (const group of analysis.hashtagGroups) {
+                    await fetch(`/api/admin/channels/${id}/hashtags`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: group.name,
+                            hashtags: group.hashtags,
+                        }),
+                    })
+                }
+            }
+
+            // Refresh all data
+            await fetchChannel()
+            toast.success('✨ AI analysis complete! All tabs have been populated.')
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'AI analysis failed')
+        } finally {
+            setAnalyzing(false)
         }
     }
 
@@ -426,6 +531,48 @@ export default function ChannelDetailPage({
                                     </Select>
                                 </div>
                             </div>
+                            <div className="space-y-2">
+                                <Label>Description</Label>
+                                <Textarea
+                                    placeholder="Describe what this channel is about, your brand, products, target audience..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    rows={4}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    AI will use this description to generate Vibe & Tone, Knowledge Base, Templates, and Hashtags
+                                </p>
+                            </div>
+
+                            {/* AI Analyze Button */}
+                            <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-500/5 via-violet-500/5 to-indigo-500/5 border-purple-500/20">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-sm font-medium flex items-center gap-2">
+                                            <Sparkles className="h-4 w-4 text-purple-400" />
+                                            AI Channel Analysis
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Automatically generate Vibe & Tone, Knowledge Base, Templates, and Hashtags from the channel description
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleAnalyze}
+                                        disabled={analyzing || !description}
+                                        className="gap-2 border-purple-500/30 hover:bg-purple-500/10 text-purple-400 hover:text-purple-300"
+                                    >
+                                        {analyzing ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                                        ) : (
+                                            <><Sparkles className="h-4 w-4" /> AI Analyze</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <Separator />
+
                             <div className="space-y-2">
                                 <Label>{t('channels.notificationEmail')}</Label>
                                 <Input
