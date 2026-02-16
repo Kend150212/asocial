@@ -1151,21 +1151,23 @@ export default function ChannelDetailPage({
                                 <CardDescription>{t('channels.platforms.desc')}</CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                {isAdmin && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={fetchFromVbout}
-                                        disabled={fetchingVbout}
-                                        className="gap-1.5 border-blue-500/30 hover:bg-blue-500/10 text-blue-500"
-                                    >
-                                        {fetchingVbout ? (
-                                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.platforms.fetchingVbout')}</>
-                                        ) : (
-                                            <><Download className="h-3.5 w-3.5" /> {t('channels.platforms.fetchVbout')}</>
-                                        )}
-                                    </Button>
-                                )}
+                                {/* Vbout import hidden — using direct OAuth instead
+                            {isAdmin && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={fetchFromVbout}
+                                    disabled={fetchingVbout}
+                                    className="gap-1.5 border-blue-500/30 hover:bg-blue-500/10 text-blue-500"
+                                >
+                                    {fetchingVbout ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.platforms.fetchingVbout')}</>
+                                    ) : (
+                                        <><Download className="h-3.5 w-3.5" /> {t('channels.platforms.fetchVbout')}</>
+                                    )}
+                                </Button>
+                            )}
+                            */}
                                 <Button
                                     variant="outline"
                                     size="sm"
