@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import { callAI, getDefaultModel } from '@/lib/ai-caller'
 
 // POST /api/admin/channels/[id]/analyze — AI analysis of channel
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
 
     const apiKey = decrypt(aiIntegration.apiKeyEncrypted)
     const config = (aiIntegration.config as Record<string, string>) || {}
-    const model = requestedModel || config.defaultTextModel || (aiIntegration.provider === 'openai' ? 'gpt-4o-mini' : 'gemini-2.0-flash')
+    const model = requestedModel || getDefaultModel(aiIntegration.provider, config)
 
     const langLabel = language === 'vi' ? 'Vietnamese' : language === 'fr' ? 'French' : language === 'de' ? 'German' : language === 'ja' ? 'Japanese' : language === 'ko' ? 'Korean' : language === 'zh' ? 'Chinese' : language === 'es' ? 'Spanish' : 'English'
 
@@ -103,15 +104,14 @@ Requirements:
 - Hashtags should be relevant and commonly used`
 
     try {
-        let result: string
-
-        if (aiIntegration.provider === 'openai') {
-            result = await callOpenAI(apiKey, model, systemPrompt, userPrompt)
-        } else if (aiIntegration.provider === 'gemini') {
-            result = await callGemini(apiKey, model, systemPrompt, userPrompt)
-        } else {
-            return NextResponse.json({ error: `Unsupported AI provider: ${aiIntegration.provider}` }, { status: 400 })
-        }
+        const result = await callAI(
+            aiIntegration.provider,
+            apiKey,
+            model,
+            systemPrompt,
+            userPrompt,
+            aiIntegration.baseUrl,
+        )
 
         // Parse the JSON response
         const cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -131,58 +131,4 @@ Requirements:
             { status: 500 }
         )
     }
-}
-
-// ─── OpenAI Chat Completion ─────────────────────────
-async function callOpenAI(apiKey: string, model: string, system: string, user: string): Promise<string> {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model,
-            messages: [
-                { role: 'system', content: system },
-                { role: 'user', content: user },
-            ],
-            temperature: 0.7,
-            response_format: { type: 'json_object' },
-        }),
-    })
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(`OpenAI error: ${err.error?.message || res.statusText}`)
-    }
-
-    const data = await res.json()
-    return data.choices[0].message.content
-}
-
-// ─── Google Gemini ──────────────────────────────────
-async function callGemini(apiKey: string, model: string, system: string, user: string): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: [{ parts: [{ text: user }] }],
-            generationConfig: {
-                temperature: 0.7,
-                responseMimeType: 'application/json',
-            },
-        }),
-    })
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(`Gemini error: ${err.error?.message || res.statusText}`)
-    }
-
-    const data = await res.json()
-    return data.candidates[0].content.parts[0].text
 }

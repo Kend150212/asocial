@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
 
-// POST /api/admin/channels/[id]/generate-description — Generate YouTube-style SEO description
+// POST /api/admin/channels/[id]/generate-vibe — AI-generate Vibe & Tone from short description
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -16,9 +16,9 @@ export async function POST(
 
     await params
     const body = await req.json()
-    const { channelName, shortDescription, language, provider: requestedProvider, model: requestedModel } = body
+    const { channelName, description, language, provider: requestedProvider, model: requestedModel } = body
 
-    if (!channelName || !shortDescription) {
+    if (!channelName || !description) {
         return NextResponse.json({ error: 'Channel name and description are required' }, { status: 400 })
     }
 
@@ -53,35 +53,31 @@ export async function POST(
     }
     const langLabel = langMap[language] || 'English'
 
-    const systemPrompt = `You are a world-class YouTube SEO expert and social media copywriter. You write channel descriptions that rank high in search results and convert viewers into subscribers. Respond ONLY with valid JSON.`
+    const systemPrompt = `You are a brand voice strategist and tone-of-voice expert. Generate comprehensive brand voice guidelines based on a channel description. Respond ONLY with valid JSON.`
 
-    const userPrompt = `Write a professional YouTube-style SEO channel description for this brand:
+    const userPrompt = `Create detailed Vibe & Tone (brand voice) guidelines for this channel:
 
 Channel Name: ${channelName}
-Brand Info: ${shortDescription}
+Description: ${description}
 Language: ${langLabel}
 
 Respond with this exact JSON structure:
 {
-  "description": "The full channel description"
+  "vibeTone": {
+    "personality": "3-4 sentences describing the brand personality. Include specific traits, emotional tone, and how the brand should feel to the audience. Be detailed and actionable.",
+    "writingStyle": "3-4 sentences about writing style. Cover: formality level, sentence structure preference, humor usage, storytelling approach, use of emojis, punctuation style. Be specific.",
+    "vocabulary": "3-4 sentences about vocabulary. Include: preferred words/phrases, words to avoid, technical level, industry jargon usage, tone markers. Give concrete examples.",
+    "targetAudience": "3-4 sentences about target audience. Cover: demographics (age, gender, location), psychographics (interests, values, lifestyle), pain points, content consumption habits.",
+    "brandValues": "3-4 sentences about brand values. Include: core mission, key differentiators, brand promise, emotional benefits, trust factors."
+  }
 }
 
-Write the description as a PROFESSIONAL YouTube channel "About" section with this exact format:
-1. **Opening Hook** (1-2 lines): A bold, compelling opening that grabs attention and clearly states what the channel/brand offers
-2. **Value Proposition** (2-3 lines): What makes this brand unique? What will viewers/followers gain?
-3. **Content/Service Overview** (2-3 lines): Key services, products, or content categories with bullet-style formatting using ✅ or 📌 emoji
-4. **Social Proof / Stats** (1 line): Any credibility indicators (years in business, customers served, etc.)
-5. **Call to Action** (1-2 lines): Subscribe/follow CTA with emoji like 🔔 or 👉
-6. **Contact / Links** (1 line): Professional sign-off with contact info placeholder
-
-Rules:
-- Write ENTIRELY in ${langLabel}
-- Use emojis strategically (not excessively) for visual breaks
-- Include relevant SEO keywords naturally
-- Use line breaks (\\n) for readability — this should look like a real YouTube description, NOT a paragraph
-- Make it 8-15 lines total
-- Sound authentic and professional, NOT generic or robotic
-- Include hashtags at the end if relevant`
+Requirements:
+- All content must be in ${langLabel}
+- Be specific and actionable, not generic
+- Include concrete examples where possible
+- Each field should be detailed enough to guide content creation
+- Reflect the unique identity of this specific brand`
 
     try {
         const result = await callAI(
@@ -101,11 +97,11 @@ Rules:
             data: { usageCount: { increment: 1 } },
         })
 
-        return NextResponse.json({ description: parsed.description })
+        return NextResponse.json({ vibeTone: parsed.vibeTone })
     } catch (error) {
-        console.error('AI Description error:', error)
+        console.error('AI Vibe & Tone error:', error)
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to generate description' },
+            { error: error instanceof Error ? error.message : 'Failed to generate Vibe & Tone' },
             { status: 500 }
         )
     }

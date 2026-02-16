@@ -186,6 +186,7 @@ export default function ChannelDetailPage({
     const [aiProvider, setAiProvider] = useState('')
     const [aiModel, setAiModel] = useState('')
     const [generatingDesc, setGeneratingDesc] = useState(false)
+    const [generatingVibe, setGeneratingVibe] = useState(false)
     const [availableProviders, setAvailableProviders] = useState<AiProviderInfo[]>([])
     const [availableModels, setAvailableModels] = useState<AiModelInfo[]>([])
     const [loadingModels, setLoadingModels] = useState(false)
@@ -568,6 +569,42 @@ export default function ChannelDetailPage({
         }
     }
 
+    // ─── Generate Vibe & Tone ───────────────────────
+    const handleGenerateVibe = async () => {
+        if (!displayName || !description) {
+            toast.error(t('channels.ai.needDescription'))
+            return
+        }
+        setGeneratingVibe(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/generate-vibe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelName: displayName,
+                    description,
+                    language,
+                    provider: aiProvider || undefined,
+                    model: aiModel || undefined,
+                }),
+            })
+            if (res.ok) {
+                const data = await res.json()
+                if (data.vibeTone) {
+                    setVibeTone(data.vibeTone)
+                    toast.success(t('channels.vibe.vibeGenerated'))
+                }
+            } else {
+                const err = await res.json()
+                toast.error(err.error || t('channels.vibe.vibeFailed'))
+            }
+        } catch {
+            toast.error(t('channels.vibe.vibeFailed'))
+        } finally {
+            setGeneratingVibe(false)
+        }
+    }
+
     // ─── Webhook Test ────────────────────────────────
     const handleWebhookTest = async (platform: string) => {
         setTestingWebhook(platform)
@@ -842,9 +879,23 @@ export default function ChannelDetailPage({
                 {/* ─── Vibe & Tone Tab ───────────────── */}
                 <TabsContent value="vibe" className="space-y-4">
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">{t('channels.vibe.title')}</CardTitle>
-                            <CardDescription>{t('channels.vibe.desc')}</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="text-base">{t('channels.vibe.title')}</CardTitle>
+                                <CardDescription>{t('channels.vibe.desc')}</CardDescription>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleGenerateVibe}
+                                disabled={generatingVibe || !description}
+                            >
+                                {generatingVibe ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin mr-1" /> {t('channels.vibe.generatingVibe')}</>
+                                ) : (
+                                    <><Sparkles className="h-4 w-4 mr-1" /> {t('channels.vibe.generateVibe')}</>
+                                )}
+                            </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {(['personality', 'writingStyle', 'vocabulary', 'targetAudience', 'brandValues'] as const).map((field) => {

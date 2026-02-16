@@ -331,7 +331,11 @@
             "writingStylePlaceholder": "Describe the writing style...",
             "vocabularyPlaceholder": "Describe the vocabulary...",
             "targetAudiencePlaceholder": "Describe the target audience...",
-            "brandValuesPlaceholder": "Describe the brand values..."
+            "brandValuesPlaceholder": "Describe the brand values...",
+            "generateVibe": "✨ AI Generate",
+            "generatingVibe": "Generating...",
+            "vibeGenerated": "✨ Vibe & Tone generated!",
+            "vibeFailed": "Failed to generate Vibe & Tone"
         },
         "knowledge": {
             "title": "Knowledge Base",

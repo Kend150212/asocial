@@ -331,7 +331,11 @@
             "writingStylePlaceholder": "Mô tả phong cách viết...",
             "vocabularyPlaceholder": "Mô tả từ vựng sử dụng...",
             "targetAudiencePlaceholder": "Mô tả đối tượng mục tiêu...",
-            "brandValuesPlaceholder": "Mô tả giá trị thương hiệu..."
+            "brandValuesPlaceholder": "Mô tả giá trị thương hiệu...",
+            "generateVibe": "✨ AI Tạo",
+            "generatingVibe": "Đang tạo...",
+            "vibeGenerated": "✨ Đã tạo Vibe & Tone!",
+            "vibeFailed": "Tạo Vibe & Tone thất bại"
         },
         "knowledge": {
             "title": "Cơ sở tri thức",
