@@ -187,6 +187,8 @@ export default function ChannelDetailPage({
     const [aiModel, setAiModel] = useState('')
     const [generatingDesc, setGeneratingDesc] = useState(false)
     const [generatingVibe, setGeneratingVibe] = useState(false)
+    const [newVibeFieldName, setNewVibeFieldName] = useState('')
+    const [addingVibeField, setAddingVibeField] = useState(false)
     const [availableProviders, setAvailableProviders] = useState<AiProviderInfo[]>([])
     const [availableModels, setAvailableModels] = useState<AiModelInfo[]>([])
     const [loadingModels, setLoadingModels] = useState(false)
@@ -963,22 +965,64 @@ export default function ChannelDetailPage({
                                     </div>
                                 ))}
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full border-dashed"
-                                onClick={() => {
-                                    const name = prompt(t('channels.vibe.customFieldName'))
-                                    if (name && name.trim()) {
-                                        const key = name.trim().replace(/\s+/g, '_').toLowerCase()
-                                        if (!vibeTone[key]) {
-                                            setVibeTone({ ...vibeTone, [key]: '' })
-                                        }
-                                    }
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-1" /> {t('channels.vibe.addCustomField')}
-                            </Button>
+                            {addingVibeField ? (
+                                <div className="flex items-center gap-2 rounded-md border border-dashed p-3 bg-muted/30">
+                                    <Input
+                                        autoFocus
+                                        placeholder={t('channels.vibe.customFieldName')}
+                                        value={newVibeFieldName}
+                                        onChange={(e) => setNewVibeFieldName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && newVibeFieldName.trim()) {
+                                                const key = newVibeFieldName.trim().replace(/\s+/g, '_').toLowerCase()
+                                                if (!vibeTone[key]) {
+                                                    setVibeTone({ ...vibeTone, [key]: '' })
+                                                }
+                                                setNewVibeFieldName('')
+                                                setAddingVibeField(false)
+                                            } else if (e.key === 'Escape') {
+                                                setNewVibeFieldName('')
+                                                setAddingVibeField(false)
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        variant="default"
+                                        disabled={!newVibeFieldName.trim()}
+                                        onClick={() => {
+                                            const key = newVibeFieldName.trim().replace(/\s+/g, '_').toLowerCase()
+                                            if (key && !vibeTone[key]) {
+                                                setVibeTone({ ...vibeTone, [key]: '' })
+                                            }
+                                            setNewVibeFieldName('')
+                                            setAddingVibeField(false)
+                                        }}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setNewVibeFieldName('')
+                                            setAddingVibeField(false)
+                                        }}
+                                    >
+                                        ✕
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full border-dashed"
+                                    onClick={() => setAddingVibeField(true)}
+                                >
+                                    <Plus className="h-4 w-4 mr-1" /> {t('channels.vibe.addCustomField')}
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
