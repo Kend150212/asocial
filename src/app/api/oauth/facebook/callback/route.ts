@@ -43,45 +43,67 @@ export async function GET(req: NextRequest) {
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
 
-        // Get ALL user's Facebook pages (with pagination)
+        // Get ALL user's Facebook pages (with pagination + explicit fields)
         let pages: Array<{ id: string; name: string; access_token: string }> = []
-        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?limit=100&access_token=${userAccessToken}`
+        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${userAccessToken}`
+        let pageNum = 0
         while (pagesUrl) {
+            pageNum++
             const pagesRes: Response = await fetch(pagesUrl)
-            const pagesData: { data?: Array<{ id: string; name: string; access_token: string }>; paging?: { next?: string } } = await pagesRes.json()
-            if (pagesData.data) pages = pages.concat(pagesData.data)
+            const pagesData: { data?: Array<{ id: string; name: string; access_token: string }>; paging?: { next?: string; cursors?: { after?: string } }; error?: { message: string } } = await pagesRes.json()
+
+            console.log(`[Facebook OAuth] Page batch ${pageNum}: ${pagesData.data?.length || 0} pages returned`)
+            if (pagesData.error) {
+                console.error(`[Facebook OAuth] API error on batch ${pageNum}:`, pagesData.error.message)
+                break
+            }
+            if (pagesData.data) {
+                for (const p of pagesData.data) {
+                    console.log(`[Facebook OAuth]   - ${p.name} (${p.id})`)
+                }
+                pages = pages.concat(pagesData.data)
+            }
             pagesUrl = pagesData.paging?.next || null
         }
+        console.log(`[Facebook OAuth] Total pages fetched: ${pages.length}`)
 
         let imported = 0
+        const errors: string[] = []
         for (const page of pages) {
-            await prisma.channelPlatform.upsert({
-                where: {
-                    channelId_platform_accountId: {
+            try {
+                await prisma.channelPlatform.upsert({
+                    where: {
+                        channelId_platform_accountId: {
+                            channelId: state.channelId,
+                            platform: 'facebook',
+                            accountId: page.id,
+                        },
+                    },
+                    update: {
+                        accountName: page.name,
+                        accessToken: page.access_token,
+                        connectedBy: state.userId,
+                        isActive: true,
+                    },
+                    create: {
                         channelId: state.channelId,
                         platform: 'facebook',
                         accountId: page.id,
+                        accountName: page.name,
+                        accessToken: page.access_token,
+                        connectedBy: state.userId,
+                        isActive: true,
+                        config: { source: 'oauth' },
                     },
-                },
-                update: {
-                    accountName: page.name,
-                    accessToken: page.access_token, // page-level token
-                    connectedBy: state.userId,
-                    isActive: true,
-                },
-                create: {
-                    channelId: state.channelId,
-                    platform: 'facebook',
-                    accountId: page.id,
-                    accountName: page.name,
-                    accessToken: page.access_token,
-                    connectedBy: state.userId,
-                    isActive: true,
-                    config: { source: 'oauth' },
-                },
-            })
-            imported++
+                })
+                imported++
+                console.log(`[Facebook OAuth] ✅ Imported: ${page.name} (${page.id})`)
+            } catch (upsertErr) {
+                console.error(`[Facebook OAuth] ❌ Failed to import ${page.name} (${page.id}):`, upsertErr)
+                errors.push(`${page.name}: ${upsertErr}`)
+            }
         }
+        console.log(`[Facebook OAuth] Successfully imported ${imported}/${pages.length} pages. Errors: ${errors.length}`)
 
         // If no pages, store user profile
         if (imported === 0) {
