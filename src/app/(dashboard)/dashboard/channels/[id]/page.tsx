@@ -118,6 +118,7 @@ interface ChannelPlatformEntry {
     accountId: string
     accountName: string
     isActive: boolean
+    config?: Record<string, unknown>
 }
 
 const platformIcons: Record<string, React.ReactNode> = {
@@ -1294,9 +1295,14 @@ export default function ChannelDetailPage({
                                 <div className="space-y-4">
                                     {(() => {
                                         // Filter based on role and hide-disabled toggle
+                                        const basePlatforms = platforms.filter(p => {
+                                            // Hide Vbout-imported accounts
+                                            if (p.config?.vboutChannelId) return false
+                                            return true
+                                        })
                                         const visiblePlatforms = isAdmin
-                                            ? (hideDisabled ? platforms.filter(p => p.isActive) : platforms)
-                                            : platforms.filter(p => p.isActive)
+                                            ? (hideDisabled ? basePlatforms.filter(p => p.isActive) : basePlatforms)
+                                            : basePlatforms.filter(p => p.isActive)
                                         const searchLower = platformSearch.toLowerCase()
                                         const filtered = searchLower
                                             ? visiblePlatforms.filter(p =>
