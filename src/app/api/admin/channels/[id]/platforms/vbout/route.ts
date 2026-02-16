@@ -78,10 +78,17 @@ export async function GET(
             if (!platformData || typeof platformData !== 'object') continue
             const normalizedPlatform = platformMap[platformKey.toLowerCase()] || platformKey.toLowerCase()
 
-            // Extract the actual list — Vbout uses "pages" for Facebook/GBP, "profiles" for others
+            // Extract the actual list — scan ALL values to find the array
+            // (Vbout uses "pages" for Facebook, "profiles" for Instagram, etc.)
             const pd = platformData as Record<string, unknown>
-            const items = (pd.pages || pd.profiles || pd.channels || []) as Array<Record<string, unknown>>
-            if (!Array.isArray(items)) continue
+            let items: Array<Record<string, unknown>> = []
+            for (const val of Object.values(pd)) {
+                if (Array.isArray(val) && val.length > 0) {
+                    items = val as Array<Record<string, unknown>>
+                    break
+                }
+            }
+            if (items.length === 0) continue
 
             for (const ch of items) {
                 const channelId = String(ch.id || ch.channelid || ch.channel_id || '')
