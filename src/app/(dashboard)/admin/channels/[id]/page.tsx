@@ -115,7 +115,7 @@ const sourceTypeIcons: Record<string, typeof Type> = {
 const sourceTypeLabels: Record<string, string> = {
     text: 'Text',
     url: 'URL',
-    google_sheet: 'Google Sheet',
+    google_sheet: 'Google Sheets',
     file: 'File',
 }
 
@@ -180,11 +180,11 @@ export default function ChannelDetailPage({
                 setTemplates(data.contentTemplates || [])
                 setHashtags(data.hashtagGroups || [])
             } else {
-                toast.error('Channel not found')
+                toast.error(t('channels.notFound'))
                 router.push('/admin/channels')
             }
         } catch {
-            toast.error('Failed to load channel')
+            toast.error(t('channels.loadFailed'))
         } finally {
             setLoading(false)
         }
@@ -215,10 +215,10 @@ export default function ChannelDetailPage({
                 toast.success(t('channels.saved'))
                 fetchChannel()
             } else {
-                toast.error('Failed to save')
+                toast.error(t('channels.saveFailed'))
             }
         } catch {
-            toast.error('Failed to save')
+            toast.error(t('channels.saveFailed'))
         } finally {
             setSaving(false)
         }
@@ -227,11 +227,11 @@ export default function ChannelDetailPage({
     // ─── AI Analysis ────────────────────────────────
     const handleAnalyze = async () => {
         if (!displayName || !description) {
-            toast.error('Please enter a channel name and description first')
+            toast.error(t('channels.ai.needDescription'))
             return
         }
         setAnalyzing(true)
-        toast.info('✨ AI is analyzing your channel...')
+        toast.info(t('channels.ai.started'))
 
         try {
             // First save description
@@ -254,7 +254,7 @@ export default function ChannelDetailPage({
 
             if (!res.ok) {
                 const err = await res.json()
-                throw new Error(err.error || 'AI analysis failed')
+                throw new Error(err.error || t('channels.ai.failed'))
             }
 
             const analysis = await res.json()
@@ -314,9 +314,9 @@ export default function ChannelDetailPage({
 
             // Refresh all data
             await fetchChannel()
-            toast.success('✨ AI analysis complete! All tabs have been populated.')
+            toast.success(t('channels.ai.complete'))
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'AI analysis failed')
+            toast.error(error instanceof Error ? error.message : t('channels.ai.failed'))
         } finally {
             setAnalyzing(false)
         }
@@ -344,10 +344,10 @@ export default function ChannelDetailPage({
                 setNewKbType('text')
                 setNewKbUrl('')
                 setNewKbContent('')
-                toast.success('Knowledge entry added')
+                toast.success(t('channels.knowledge.added'))
             }
         } catch {
-            toast.error('Failed to add entry')
+            toast.error(t('channels.knowledge.addFailed'))
         } finally {
             setAddingKb(false)
         }
@@ -357,9 +357,9 @@ export default function ChannelDetailPage({
         try {
             await fetch(`/api/admin/channels/${id}/knowledge?entryId=${entryId}`, { method: 'DELETE' })
             setKnowledgeEntries(knowledgeEntries.filter((e) => e.id !== entryId))
-            toast.success('Entry deleted')
+            toast.success(t('channels.knowledge.deleted'))
         } catch {
-            toast.error('Failed to delete')
+            toast.error(t('channels.knowledge.deleteFailed'))
         }
     }
 
@@ -381,10 +381,10 @@ export default function ChannelDetailPage({
                 setTemplates([tpl, ...templates])
                 setNewTplName('')
                 setNewTplContent('')
-                toast.success('Template added')
+                toast.success(t('channels.templates.added'))
             }
         } catch {
-            toast.error('Failed to add template')
+            toast.error(t('channels.templates.addFailed'))
         } finally {
             setAddingTpl(false)
         }
@@ -394,9 +394,9 @@ export default function ChannelDetailPage({
         try {
             await fetch(`/api/admin/channels/${id}/templates?templateId=${templateId}`, { method: 'DELETE' })
             setTemplates(templates.filter((t) => t.id !== templateId))
-            toast.success('Template deleted')
+            toast.success(t('channels.templates.deleted'))
         } catch {
-            toast.error('Failed to delete')
+            toast.error(t('channels.templates.deleteFailed'))
         }
     }
 
@@ -416,10 +416,10 @@ export default function ChannelDetailPage({
                 setHashtags([...hashtags, group])
                 setNewHashName('')
                 setNewHashTags('')
-                toast.success('Hashtag group added')
+                toast.success(t('channels.hashtags.added'))
             }
         } catch {
-            toast.error('Failed to add group')
+            toast.error(t('channels.hashtags.addFailed'))
         } finally {
             setAddingHash(false)
         }
@@ -429,9 +429,9 @@ export default function ChannelDetailPage({
         try {
             await fetch(`/api/admin/channels/${id}/hashtags?groupId=${groupId}`, { method: 'DELETE' })
             setHashtags(hashtags.filter((h) => h.id !== groupId))
-            toast.success('Group deleted')
+            toast.success(t('channels.hashtags.deleted'))
         } catch {
-            toast.error('Failed to delete')
+            toast.error(t('channels.hashtags.deleteFailed'))
         }
     }
 
@@ -463,7 +463,7 @@ export default function ChannelDetailPage({
                         <p className="text-xs text-muted-foreground font-mono">/{channel.name}</p>
                     </div>
                     <Badge variant={channel.isActive ? 'default' : 'secondary'}>
-                        {channel.isActive ? 'Active' : 'Inactive'}
+                        {channel.isActive ? t('channels.active') : t('channels.inactive')}
                     </Badge>
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -477,27 +477,27 @@ export default function ChannelDetailPage({
                 <TabsList className="grid grid-cols-6 w-full">
                     <TabsTrigger value="general" className="gap-1.5 text-xs">
                         <Settings className="h-3.5 w-3.5" />
-                        General
+                        {t('channels.tabs.general')}
                     </TabsTrigger>
                     <TabsTrigger value="vibe" className="gap-1.5 text-xs">
                         <Palette className="h-3.5 w-3.5" />
-                        Vibe & Tone
+                        {t('channels.tabs.vibe')}
                     </TabsTrigger>
                     <TabsTrigger value="knowledge" className="gap-1.5 text-xs">
                         <BookOpen className="h-3.5 w-3.5" />
-                        Knowledge
+                        {t('channels.tabs.knowledge')}
                     </TabsTrigger>
                     <TabsTrigger value="templates" className="gap-1.5 text-xs">
                         <FileText className="h-3.5 w-3.5" />
-                        Templates
+                        {t('channels.tabs.templates')}
                     </TabsTrigger>
                     <TabsTrigger value="hashtags" className="gap-1.5 text-xs">
                         <Hash className="h-3.5 w-3.5" />
-                        Hashtags
+                        {t('channels.tabs.hashtags')}
                     </TabsTrigger>
                     <TabsTrigger value="webhooks" className="gap-1.5 text-xs">
                         <Bell className="h-3.5 w-3.5" />
-                        Webhooks
+                        {t('channels.tabs.webhooks')}
                     </TabsTrigger>
                 </TabsList>
 
@@ -532,15 +532,15 @@ export default function ChannelDetailPage({
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>Description</Label>
+                                <Label>{t('channels.descriptionLabel')}</Label>
                                 <Textarea
-                                    placeholder="Describe what this channel is about, your brand, products, target audience..."
+                                    placeholder={t('channels.descriptionPlaceholder')}
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     rows={4}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    AI will use this description to generate Vibe & Tone, Knowledge Base, Templates, and Hashtags
+                                    {t('channels.descriptionHint')}
                                 </p>
                             </div>
 
@@ -550,10 +550,10 @@ export default function ChannelDetailPage({
                                     <div>
                                         <h4 className="text-sm font-medium flex items-center gap-2">
                                             <Sparkles className="h-4 w-4 text-purple-400" />
-                                            AI Channel Analysis
+                                            {t('channels.ai.title')}
                                         </h4>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            Automatically generate Vibe & Tone, Knowledge Base, Templates, and Hashtags from the channel description
+                                            {t('channels.ai.desc')}
                                         </p>
                                     </div>
                                     <Button
@@ -563,9 +563,9 @@ export default function ChannelDetailPage({
                                         className="gap-2 border-purple-500/30 hover:bg-purple-500/10 text-purple-400 hover:text-purple-300"
                                     >
                                         {analyzing ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> {t('channels.ai.analyzing')}</>
                                         ) : (
-                                            <><Sparkles className="h-4 w-4" /> AI Analyze</>
+                                            <><Sparkles className="h-4 w-4" /> {t('channels.ai.analyze')}</>
                                         )}
                                     </Button>
                                 </div>
@@ -603,10 +603,10 @@ export default function ChannelDetailPage({
                     {/* Stats */}
                     <div className="grid grid-cols-4 gap-3">
                         {[
-                            { label: 'Posts', value: channel._count.posts, icon: FileText },
-                            { label: 'Media', value: channel._count.mediaItems, icon: Palette },
-                            { label: 'Knowledge', value: knowledgeEntries.length, icon: BookOpen },
-                            { label: 'Templates', value: templates.length, icon: FileText },
+                            { label: t('channels.stats.posts'), value: channel._count.posts, icon: FileText },
+                            { label: t('channels.stats.media'), value: channel._count.mediaItems, icon: Palette },
+                            { label: t('channels.stats.knowledge'), value: knowledgeEntries.length, icon: BookOpen },
+                            { label: t('channels.stats.templates'), value: templates.length, icon: FileText },
                         ].map((stat) => (
                             <Card key={stat.label} className="p-4 text-center">
                                 <stat.icon className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
@@ -621,21 +621,37 @@ export default function ChannelDetailPage({
                 <TabsContent value="vibe" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Brand Voice & Writing Style</CardTitle>
-                            <CardDescription>Define how AI generates content for this channel</CardDescription>
+                            <CardTitle className="text-base">{t('channels.vibe.title')}</CardTitle>
+                            <CardDescription>{t('channels.vibe.desc')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {['personality', 'writingStyle', 'vocabulary', 'targetAudience', 'brandValues'].map((field) => (
-                                <div key={field} className="space-y-2">
-                                    <Label className="capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                                    <Textarea
-                                        placeholder={`Describe the ${field.replace(/([A-Z])/g, ' $1').trim().toLowerCase()}...`}
-                                        value={vibeTone[field] || ''}
-                                        onChange={(e) => setVibeTone({ ...vibeTone, [field]: e.target.value })}
-                                        rows={2}
-                                    />
-                                </div>
-                            ))}
+                            {(['personality', 'writingStyle', 'vocabulary', 'targetAudience', 'brandValues'] as const).map((field) => {
+                                const vibeLabels: Record<string, string> = {
+                                    personality: t('channels.vibe.personality'),
+                                    writingStyle: t('channels.vibe.writingStyle'),
+                                    vocabulary: t('channels.vibe.vocabulary'),
+                                    targetAudience: t('channels.vibe.targetAudience'),
+                                    brandValues: t('channels.vibe.brandValues'),
+                                }
+                                const vibePlaceholders: Record<string, string> = {
+                                    personality: t('channels.vibe.personalityPlaceholder'),
+                                    writingStyle: t('channels.vibe.writingStylePlaceholder'),
+                                    vocabulary: t('channels.vibe.vocabularyPlaceholder'),
+                                    targetAudience: t('channels.vibe.targetAudiencePlaceholder'),
+                                    brandValues: t('channels.vibe.brandValuesPlaceholder'),
+                                }
+                                return (
+                                    <div key={field} className="space-y-2">
+                                        <Label>{vibeLabels[field]}</Label>
+                                        <Textarea
+                                            placeholder={vibePlaceholders[field]}
+                                            value={vibeTone[field] || ''}
+                                            onChange={(e) => setVibeTone({ ...vibeTone, [field]: e.target.value })}
+                                            rows={2}
+                                        />
+                                    </div>
+                                )
+                            })}
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -646,10 +662,10 @@ export default function ChannelDetailPage({
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <BookOpen className="h-4 w-4" />
-                                Knowledge Base
+                                {t('channels.knowledge.title')}
                             </CardTitle>
                             <CardDescription>
-                                Add information sources for AI to reference. Supports text, URLs, and Google Sheets.
+                                {t('channels.knowledge.desc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -658,7 +674,7 @@ export default function ChannelDetailPage({
                                 <div className="flex items-center gap-3">
                                     <div className="flex-1">
                                         <Input
-                                            placeholder="Entry title..."
+                                            placeholder={t('channels.knowledge.entryTitle')}
                                             value={newKbTitle}
                                             onChange={(e) => setNewKbTitle(e.target.value)}
                                         />
@@ -690,7 +706,7 @@ export default function ChannelDetailPage({
                                 )}
 
                                 <Textarea
-                                    placeholder={newKbType === 'text' ? 'Enter knowledge content...' : 'Additional notes (optional)...'}
+                                    placeholder={newKbType === 'text' ? t('channels.knowledge.contentPlaceholder') : t('channels.knowledge.notesPlaceholder')}
                                     value={newKbContent}
                                     onChange={(e) => setNewKbContent(e.target.value)}
                                     rows={3}
@@ -703,7 +719,7 @@ export default function ChannelDetailPage({
                                     className="gap-2"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    Add Entry
+                                    {t('channels.knowledge.addEntry')}
                                 </Button>
                             </div>
 
@@ -713,7 +729,7 @@ export default function ChannelDetailPage({
                             {knowledgeEntries.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No knowledge entries yet</p>
+                                    <p className="text-sm">{t('channels.knowledge.noEntries')}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
@@ -771,21 +787,21 @@ export default function ChannelDetailPage({
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <FileText className="h-4 w-4" />
-                                Content Templates
+                                {t('channels.templates.title')}
                             </CardTitle>
                             <CardDescription>
-                                Reusable templates for posts. Use {'{{variable}}'} syntax for dynamic content.
+                                {t('channels.templates.desc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                                 <Input
-                                    placeholder="Template name..."
+                                    placeholder={t('channels.templates.namePlaceholder')}
                                     value={newTplName}
                                     onChange={(e) => setNewTplName(e.target.value)}
                                 />
                                 <Textarea
-                                    placeholder="Template content... Use {{variable}} for dynamic parts"
+                                    placeholder={t('channels.templates.contentPlaceholder')}
                                     value={newTplContent}
                                     onChange={(e) => setNewTplContent(e.target.value)}
                                     rows={4}
@@ -798,7 +814,7 @@ export default function ChannelDetailPage({
                                     className="gap-2"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    Add Template
+                                    {t('channels.templates.addTemplate')}
                                 </Button>
                             </div>
 
@@ -807,7 +823,7 @@ export default function ChannelDetailPage({
                             {templates.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No templates yet</p>
+                                    <p className="text-sm">{t('channels.templates.noTemplates')}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
@@ -844,21 +860,21 @@ export default function ChannelDetailPage({
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <Hash className="h-4 w-4" />
-                                Hashtag Groups
+                                {t('channels.hashtags.title')}
                             </CardTitle>
                             <CardDescription>
-                                Organize hashtags into groups for quick reuse in posts.
+                                {t('channels.hashtags.desc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                                 <Input
-                                    placeholder="Group name (e.g. Brand, Campaign, Trending)"
+                                    placeholder={t('channels.hashtags.namePlaceholder')}
                                     value={newHashName}
                                     onChange={(e) => setNewHashName(e.target.value)}
                                 />
                                 <Textarea
-                                    placeholder="#hashtag1, #hashtag2, #hashtag3"
+                                    placeholder={t('channels.hashtags.tagsPlaceholder')}
                                     value={newHashTags}
                                     onChange={(e) => setNewHashTags(e.target.value)}
                                     rows={2}
@@ -870,7 +886,7 @@ export default function ChannelDetailPage({
                                     className="gap-2"
                                 >
                                     <Plus className="h-3.5 w-3.5" />
-                                    Add Group
+                                    {t('channels.hashtags.addGroup')}
                                 </Button>
                             </div>
 
@@ -879,7 +895,7 @@ export default function ChannelDetailPage({
                             {hashtags.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <Hash className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">No hashtag groups yet</p>
+                                    <p className="text-sm">{t('channels.hashtags.noGroups')}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
@@ -892,7 +908,7 @@ export default function ChannelDetailPage({
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-medium text-sm">{group.name}</h4>
                                                     <Badge variant="outline" className="text-[10px]">
-                                                        {(group.hashtags as string[]).length} tags
+                                                        {(group.hashtags as string[]).length} {t('channels.hashtags.tags')}
                                                     </Badge>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1 mt-1.5">
@@ -903,7 +919,7 @@ export default function ChannelDetailPage({
                                                     ))}
                                                     {(group.hashtags as string[]).length > 8 && (
                                                         <span className="text-xs text-muted-foreground">
-                                                            +{(group.hashtags as string[]).length - 8} more
+                                                            +{(group.hashtags as string[]).length - 8} {t('channels.hashtags.more')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -930,25 +946,25 @@ export default function ChannelDetailPage({
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <Bell className="h-4 w-4" />
-                                Webhook Notifications
+                                {t('channels.webhooks.title')}
                             </CardTitle>
                             <CardDescription>
-                                Get notified when posts are published or approved.
+                                {t('channels.webhooks.desc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {['Discord', 'Telegram', 'Slack'].map((platform) => (
                                 <div key={platform} className="space-y-2">
-                                    <Label>{platform} Webhook URL</Label>
+                                    <Label>{platform} {t('channels.webhooks.webhookUrl')}</Label>
                                     <Input placeholder={`https://hooks.${platform.toLowerCase()}.com/...`} />
                                 </div>
                             ))}
                             <Separator />
                             <div className="space-y-2">
-                                <Label>Custom Webhook URL</Label>
+                                <Label>{t('channels.webhooks.customWebhook')}</Label>
                                 <Input placeholder="https://your-server.com/webhook" />
                                 <p className="text-xs text-muted-foreground">
-                                    Receives POST requests with event payloads in JSON format.
+                                    {t('channels.webhooks.customWebhookDesc')}
                                 </p>
                             </div>
                         </CardContent>
