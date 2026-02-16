@@ -654,7 +654,7 @@ export default function IntegrationsPage() {
         }
     }
 
-    const grouped = integrations.filter(i => i.provider !== 'vbout').reduce<Record<string, Integration[]>>((acc, i) => {
+    const grouped = integrations.reduce<Record<string, Integration[]>>((acc, i) => {
         acc[i.category] = acc[i.category] || []
         acc[i.category].push(i)
         return acc
