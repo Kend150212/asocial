@@ -335,7 +335,11 @@
             "generateVibe": "✨ AI Generate",
             "generatingVibe": "Generating...",
             "vibeGenerated": "✨ Vibe & Tone generated!",
-            "vibeFailed": "Failed to generate Vibe & Tone"
+            "vibeFailed": "Failed to generate Vibe & Tone",
+            "customFields": "Custom Fields",
+            "addCustomField": "+ Add custom field",
+            "customFieldName": "Field name...",
+            "customFieldValue": "Field value..."
         },
         "knowledge": {
             "title": "Knowledge Base",

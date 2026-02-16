@@ -335,7 +335,11 @@
             "generateVibe": "✨ AI Tạo",
             "generatingVibe": "Đang tạo...",
             "vibeGenerated": "✨ Đã tạo Vibe & Tone!",
-            "vibeFailed": "Tạo Vibe & Tone thất bại"
+            "vibeFailed": "Tạo Vibe & Tone thất bại",
+            "customFields": "Trường tùy chỉnh",
+            "addCustomField": "+ Thêm trường tùy chỉnh",
+            "customFieldName": "Tên trường...",
+            "customFieldValue": "Giá trị trường..."
         },
         "knowledge": {
             "title": "Cơ sở tri thức",

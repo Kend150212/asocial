@@ -925,6 +925,60 @@ export default function ChannelDetailPage({
                                     </div>
                                 )
                             })}
+
+                            {/* Custom Fields */}
+                            {Object.keys(vibeTone)
+                                .filter((k) => !['personality', 'writingStyle', 'vocabulary', 'targetAudience', 'brandValues'].includes(k))
+                                .length > 0 && (
+                                    <>
+                                        <Separator />
+                                        <Label className="text-sm font-medium">{t('channels.vibe.customFields')}</Label>
+                                    </>
+                                )}
+                            {Object.keys(vibeTone)
+                                .filter((k) => !['personality', 'writingStyle', 'vocabulary', 'targetAudience', 'brandValues'].includes(k))
+                                .map((key) => (
+                                    <div key={key} className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                                onClick={() => {
+                                                    const updated = { ...vibeTone }
+                                                    delete updated[key]
+                                                    setVibeTone(updated)
+                                                }}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                        <Textarea
+                                            placeholder={t('channels.vibe.customFieldValue')}
+                                            value={vibeTone[key] || ''}
+                                            onChange={(e) => setVibeTone({ ...vibeTone, [key]: e.target.value })}
+                                            rows={2}
+                                        />
+                                    </div>
+                                ))}
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full border-dashed"
+                                onClick={() => {
+                                    const name = prompt(t('channels.vibe.customFieldName'))
+                                    if (name && name.trim()) {
+                                        const key = name.trim().replace(/\s+/g, '_').toLowerCase()
+                                        if (!vibeTone[key]) {
+                                            setVibeTone({ ...vibeTone, [key]: '' })
+                                        }
+                                    }
+                                }}
+                            >
+                                <Plus className="h-4 w-4 mr-1" /> {t('channels.vibe.addCustomField')}
+                            </Button>
                         </CardContent>
                     </Card>
                 </TabsContent>
