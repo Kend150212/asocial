@@ -293,7 +293,8 @@
             "templates": "Templates",
             "hashtags": "Hashtags",
             "webhooks": "Webhooks",
-            "platforms": "Platforms"
+            "platforms": "Platforms",
+            "members": "Members"
         },
         "stats": {
             "posts": "Posts",
@@ -417,6 +418,40 @@
             "testing": "Testing...",
             "testSuccess": "Connection successful!",
             "testFailed": "Connection failed"
+        },
+        "members": {
+            "title": "Team Members",
+            "desc": "Assign users to this channel and manage their permissions",
+            "addMember": "Add Member",
+            "selectUser": "Select a user...",
+            "role": "Role",
+            "permissions": "Permissions",
+            "noMembers": "No members assigned",
+            "noMembersDesc": "Add team members to collaborate on this channel",
+            "added": "Member added successfully",
+            "removed": "Member removed",
+            "updated": "Permissions updated",
+            "addFailed": "Failed to add member",
+            "removeFailed": "Failed to remove member",
+            "updateFailed": "Failed to update permissions",
+            "alreadyMember": "User is already a member",
+            "noUsersAvailable": "All users are already assigned",
+            "confirmRemove": "Remove this member?",
+            "editPermissions": "Edit Permissions",
+            "permissionLabels": {
+                "canCreatePost": "Create Posts",
+                "canEditPost": "Edit Posts",
+                "canDeletePost": "Delete Posts",
+                "canApprovePost": "Approve Posts",
+                "canSchedulePost": "Schedule Posts",
+                "canUploadMedia": "Upload Media",
+                "canDeleteMedia": "Delete Media",
+                "canViewMedia": "View Media",
+                "canCreateEmail": "Create Emails",
+                "canManageContacts": "Manage Contacts",
+                "canViewReports": "View Reports",
+                "canEditSettings": "Edit Settings"
+            }
         }
     }
 }

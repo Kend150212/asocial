@@ -293,7 +293,8 @@
             "templates": "Mẫu",
             "hashtags": "Hashtag",
             "webhooks": "Webhook",
-            "platforms": "Nền tảng"
+            "platforms": "Nền tảng",
+            "members": "Thành viên"
         },
         "stats": {
             "posts": "Bài viết",
@@ -417,6 +418,40 @@
             "testing": "Đang kiểm tra...",
             "testSuccess": "Kết nối thành công!",
             "testFailed": "Kết nối thất bại"
+        },
+        "members": {
+            "title": "Thành viên",
+            "desc": "Gán người dùng vào kênh này và quản lý quyền hạn",
+            "addMember": "Thêm thành viên",
+            "selectUser": "Chọn người dùng...",
+            "role": "Vai trò",
+            "permissions": "Quyền hạn",
+            "noMembers": "Chưa có thành viên",
+            "noMembersDesc": "Thêm thành viên để cộng tác trên kênh này",
+            "added": "Đã thêm thành viên",
+            "removed": "Đã xóa thành viên",
+            "updated": "Đã cập nhật quyền hạn",
+            "addFailed": "Không thể thêm thành viên",
+            "removeFailed": "Không thể xóa thành viên",
+            "updateFailed": "Không thể cập nhật quyền hạn",
+            "alreadyMember": "Người dùng đã là thành viên",
+            "noUsersAvailable": "Tất cả người dùng đã được gán",
+            "confirmRemove": "Xóa thành viên này?",
+            "editPermissions": "Chỉnh sửa quyền",
+            "permissionLabels": {
+                "canCreatePost": "Tạo bài viết",
+                "canEditPost": "Sửa bài viết",
+                "canDeletePost": "Xóa bài viết",
+                "canApprovePost": "Duyệt bài viết",
+                "canSchedulePost": "Lên lịch đăng",
+                "canUploadMedia": "Tải media lên",
+                "canDeleteMedia": "Xóa media",
+                "canViewMedia": "Xem media",
+                "canCreateEmail": "Tạo email",
+                "canManageContacts": "Quản lý liên hệ",
+                "canViewReports": "Xem báo cáo",
+                "canEditSettings": "Sửa cài đặt"
+            }
         }
     }
 }
