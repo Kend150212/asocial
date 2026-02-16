@@ -1180,65 +1180,46 @@ export default function ChannelDetailPage({
                                     <div>
                                         <p className="text-xs font-medium text-muted-foreground mb-2">Connect via OAuth</p>
                                         <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="gap-2 border-red-500/30 hover:bg-red-500/10"
-                                                onClick={() => {
-                                                    const w = 500, h = 700
-                                                    const left = window.screenX + (window.outerWidth - w) / 2
-                                                    const top = window.screenY + (window.outerHeight - h) / 2
-                                                    const popup = window.open(
-                                                        `/api/oauth/youtube?channelId=${id}`,
-                                                        'youtube-oauth',
-                                                        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
-                                                    )
-                                                    const handler = (e: MessageEvent) => {
-                                                        if (e.data?.type === 'oauth-success' && e.data?.platform === 'youtube') {
-                                                            window.removeEventListener('message', handler)
-                                                            toast.success('YouTube connected successfully!')
-                                                            fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                            {[
+                                                { key: 'facebook', label: 'Facebook', border: 'border-blue-500/30', hover: 'hover:bg-blue-500/10' },
+                                                { key: 'instagram', label: 'Instagram', border: 'border-pink-500/30', hover: 'hover:bg-pink-500/10' },
+                                                { key: 'youtube', label: 'YouTube', border: 'border-red-500/30', hover: 'hover:bg-red-500/10' },
+                                                { key: 'tiktok', label: 'TikTok', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
+                                                { key: 'x', label: 'X', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
+                                                { key: 'linkedin', label: 'LinkedIn', border: 'border-blue-600/30', hover: 'hover:bg-blue-600/10' },
+                                                { key: 'pinterest', label: 'Pinterest', border: 'border-red-600/30', hover: 'hover:bg-red-600/10' },
+                                            ].map(({ key, label, border, hover }) => (
+                                                <Button
+                                                    key={key}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className={`gap-2 ${border} ${hover}`}
+                                                    onClick={() => {
+                                                        const w = 500, h = 700
+                                                        const left = window.screenX + (window.outerWidth - w) / 2
+                                                        const top = window.screenY + (window.outerHeight - h) / 2
+                                                        const popup = window.open(
+                                                            `/api/oauth/${key}?channelId=${id}`,
+                                                            `${key}-oauth`,
+                                                            `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                        )
+                                                        const handler = (e: MessageEvent) => {
+                                                            if (e.data?.type === 'oauth-success' && e.data?.platform === key) {
+                                                                window.removeEventListener('message', handler)
+                                                                toast.success(`${label} connected successfully!`)
+                                                                fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                                            }
                                                         }
-                                                    }
-                                                    window.addEventListener('message', handler)
-                                                    // Fallback: clean up if popup closed without success
-                                                    const check = setInterval(() => {
-                                                        if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
-                                                    }, 1000)
-                                                }}
-                                            >
-                                                {platformIcons.youtube}
-                                                <span className="text-sm">YouTube</span>
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="gap-2 border-neutral-500/30 hover:bg-neutral-500/10"
-                                                onClick={() => {
-                                                    const w = 500, h = 700
-                                                    const left = window.screenX + (window.outerWidth - w) / 2
-                                                    const top = window.screenY + (window.outerHeight - h) / 2
-                                                    const popup = window.open(
-                                                        `/api/oauth/tiktok?channelId=${id}`,
-                                                        'tiktok-oauth',
-                                                        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
-                                                    )
-                                                    const handler = (e: MessageEvent) => {
-                                                        if (e.data?.type === 'oauth-success' && e.data?.platform === 'tiktok') {
-                                                            window.removeEventListener('message', handler)
-                                                            toast.success('TikTok connected successfully!')
-                                                            fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
-                                                        }
-                                                    }
-                                                    window.addEventListener('message', handler)
-                                                    const check = setInterval(() => {
-                                                        if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
-                                                    }, 1000)
-                                                }}
-                                            >
-                                                {platformIcons.tiktok}
-                                                <span className="text-sm">TikTok</span>
-                                            </Button>
+                                                        window.addEventListener('message', handler)
+                                                        const check = setInterval(() => {
+                                                            if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
+                                                        }, 1000)
+                                                    }}
+                                                >
+                                                    {platformIcons[key]}
+                                                    <span className="text-sm">{label}</span>
+                                                </Button>
+                                            ))}
                                         </div>
                                     </div>
 
@@ -1317,14 +1298,16 @@ export default function ChannelDetailPage({
                             ) : (
                                 <div className="space-y-4">
                                     {(() => {
+                                        // Non-admin users only see enabled accounts
+                                        const visiblePlatforms = isAdmin ? platforms : platforms.filter(p => p.isActive)
                                         const searchLower = platformSearch.toLowerCase()
                                         const filtered = searchLower
-                                            ? platforms.filter(p =>
+                                            ? visiblePlatforms.filter(p =>
                                                 p.accountName.toLowerCase().includes(searchLower) ||
                                                 p.accountId.toLowerCase().includes(searchLower) ||
                                                 p.platform.toLowerCase().includes(searchLower)
                                             )
-                                            : platforms
+                                            : visiblePlatforms
                                         const grouped = filtered.reduce<Record<string, ChannelPlatformEntry[]>>((groups, p) => {
                                             const key = p.platform
                                             if (!groups[key]) groups[key] = []
