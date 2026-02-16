@@ -1125,7 +1125,7 @@ export default function ChannelDetailPage({
                                 </div>
                             )}
 
-                            {/* Platform List */}
+                            {/* Platform List — grouped by platform type */}
                             {platforms.length === 0 ? (
                                 <div className="text-center py-8">
                                     <Globe className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -1133,47 +1133,69 @@ export default function ChannelDetailPage({
                                     <p className="text-xs text-muted-foreground mt-1">{t('channels.platforms.noPlatformsDesc')}</p>
                                 </div>
                             ) : (
-                                <div className="space-y-2">
-                                    {platforms.map((p) => {
-                                        const info = platformOptions.find(o => o.value === p.platform)
+                                <div className="space-y-4">
+                                    {Object.entries(
+                                        platforms.reduce<Record<string, ChannelPlatformEntry[]>>((groups, p) => {
+                                            const key = p.platform
+                                            if (!groups[key]) groups[key] = []
+                                            groups[key].push(p)
+                                            return groups
+                                        }, {})
+                                    ).map(([platformKey, items]) => {
+                                        const info = platformOptions.find(o => o.value === platformKey)
                                         return (
-                                            <div
-                                                key={p.id}
-                                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-3">
+                                            <div key={platformKey} className="border rounded-lg overflow-hidden">
+                                                {/* Group Header */}
+                                                <div
+                                                    className="flex items-center gap-2.5 px-4 py-2.5 border-b"
+                                                    style={{ backgroundColor: `${info?.color || '#888'}10` }}
+                                                >
                                                     <span
                                                         className="w-3 h-3 rounded-full shrink-0"
                                                         style={{ backgroundColor: info?.color || '#888' }}
                                                     />
-                                                    <div>
-                                                        <p className="text-sm font-medium">{p.accountName}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {info?.label || p.platform} · <span className="font-mono">{p.accountId}</span>
-                                                        </p>
-                                                    </div>
+                                                    <span className="text-sm font-semibold">
+                                                        {info?.label || platformKey}
+                                                    </span>
+                                                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                                                        {items.length}
+                                                    </Badge>
                                                 </div>
-                                                <div className="flex items-center gap-3">
-                                                    {isAdmin ? (
-                                                        <>
-                                                            <Switch
-                                                                checked={p.isActive}
-                                                                onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
-                                                            />
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                onClick={() => deletePlatformConnection(p.id)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                                                            {p.isActive ? 'Active' : 'Inactive'}
-                                                        </Badge>
-                                                    )}
+                                                {/* Accounts */}
+                                                <div className="divide-y">
+                                                    {items.map((p) => (
+                                                        <div
+                                                            key={p.id}
+                                                            className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/30 transition-colors"
+                                                        >
+                                                            <div>
+                                                                <p className="text-sm font-medium">{p.accountName}</p>
+                                                                <p className="text-xs text-muted-foreground font-mono">{p.accountId}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                {isAdmin ? (
+                                                                    <>
+                                                                        <Switch
+                                                                            checked={p.isActive}
+                                                                            onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
+                                                                        />
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                            onClick={() => deletePlatformConnection(p.id)}
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </>
+                                                                ) : (
+                                                                    <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                                                                        {p.isActive ? 'Active' : 'Inactive'}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )
