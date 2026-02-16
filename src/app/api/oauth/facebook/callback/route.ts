@@ -43,10 +43,15 @@ export async function GET(req: NextRequest) {
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
 
-        // Get user's Facebook pages
-        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${userAccessToken}`)
-        const pagesData = await pagesRes.json()
-        const pages = pagesData.data || []
+        // Get ALL user's Facebook pages (with pagination)
+        let pages: Array<{ id: string; name: string; access_token: string }> = []
+        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?limit=100&access_token=${userAccessToken}`
+        while (pagesUrl) {
+            const pagesRes: Response = await fetch(pagesUrl)
+            const pagesData: { data?: Array<{ id: string; name: string; access_token: string }>; paging?: { next?: string } } = await pagesRes.json()
+            if (pagesData.data) pages = pages.concat(pagesData.data)
+            pagesUrl = pagesData.paging?.next || null
+        }
 
         let imported = 0
         for (const page of pages) {
