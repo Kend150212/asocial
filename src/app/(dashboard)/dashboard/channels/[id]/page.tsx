@@ -1260,66 +1260,9 @@ export default function ChannelDetailPage({
                                         </div>
                                     </div>
 
-                                    {/* Divider */}
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-1 border-t" />
-                                        <span className="text-xs text-muted-foreground">or add manually</span>
-                                        <div className="flex-1 border-t" />
-                                    </div>
-
-                                    {/* Manual Form */}
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs">{t('channels.platforms.platform')}</Label>
-                                            <Select value={newPlatform} onValueChange={setNewPlatform}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('channels.platforms.selectPlatform')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {platformOptions.map((p) => (
-                                                        <SelectItem key={p.value} value={p.value}>
-                                                            <span className="flex items-center gap-2">
-                                                                {platformIcons[p.value] || (
-                                                                    <span
-                                                                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                                                                        style={{ backgroundColor: p.color }}
-                                                                    />
-                                                                )}
-                                                                {p.label}
-                                                            </span>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs">{t('channels.platforms.accountId')}</Label>
-                                            <Input
-                                                placeholder={t('channels.platforms.accountIdPlaceholder')}
-                                                value={newPlatformAccountId}
-                                                onChange={(e) => setNewPlatformAccountId(e.target.value)}
-                                                className="font-mono text-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs">{t('channels.platforms.accountName')}</Label>
-                                            <Input
-                                                placeholder={t('channels.platforms.accountNamePlaceholder')}
-                                                value={newPlatformAccountName}
-                                                onChange={(e) => setNewPlatformAccountName(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end">
                                         <Button variant="ghost" size="sm" onClick={() => setAddingPlatform(false)}>
                                             {t('common.cancel')}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            onClick={addPlatformConnection}
-                                            disabled={!newPlatform || !newPlatformAccountId || !newPlatformAccountName || savingPlatform}
-                                        >
-                                            {savingPlatform ? t('common.saving') : t('channels.platforms.addPlatform')}
                                         </Button>
                                     </div>
                                 </div>
