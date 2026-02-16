@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState } from 'react'
+import { signIn } from 'next-auth/react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,11 +10,38 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/language-switcher'
-import { authenticate } from './actions'
 
 export default function LoginPage() {
-    const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined)
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [error, setError] = useState('')
+    const [isPending, setIsPending] = useState(false)
     const t = useTranslation()
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError('')
+        setIsPending(true)
+
+        try {
+            const result = await signIn('credentials', {
+                email,
+                password,
+                redirect: false,
+            })
+
+            if (result?.error) {
+                setError('Invalid email or password')
+            } else {
+                // Full page redirect to ensure SessionProvider re-initializes
+                window.location.href = '/dashboard'
+            }
+        } catch {
+            setError('Something went wrong. Please try again.')
+        } finally {
+            setIsPending(false)
+        }
+    }
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -37,8 +65,7 @@ export default function LoginPage() {
                     <CardDescription>Social Media Management Platform</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form action={formAction} className="space-y-4">
-                        <input type="hidden" name="redirectTo" value="/dashboard" />
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="email">{t('auth.email')}</Label>
                             <Input
@@ -48,6 +75,8 @@ export default function LoginPage() {
                                 placeholder={t('auth.emailPlaceholder')}
                                 required
                                 autoComplete="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
@@ -59,11 +88,13 @@ export default function LoginPage() {
                                 placeholder="••••••••"
                                 required
                                 autoComplete="current-password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
 
-                        {errorMessage && (
-                            <p className="text-sm text-destructive text-center">{errorMessage}</p>
+                        {error && (
+                            <p className="text-sm text-destructive text-center">{error}</p>
                         )}
 
                         <Button type="submit" className="w-full" disabled={isPending} size="lg">
