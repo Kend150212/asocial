@@ -16,11 +16,11 @@ export async function GET(req: NextRequest) {
     const dbPlatforms = channelId
         ? await prisma.channelPlatform.findMany({
             where: { channelId, platform: 'facebook' },
-            select: { id: true, accountId: true, accountName: true, isActive: true, config: true, connectedBy: true, createdAt: true },
+            select: { id: true, accountId: true, accountName: true, isActive: true, config: true, connectedBy: true },
         })
         : await prisma.channelPlatform.findMany({
             where: { platform: 'facebook' },
-            select: { id: true, channelId: true, accountId: true, accountName: true, isActive: true, config: true, connectedBy: true, createdAt: true },
+            select: { id: true, channelId: true, accountId: true, accountName: true, isActive: true, config: true, connectedBy: true },
         })
 
     // 2. Try to call Facebook API with any stored access token
