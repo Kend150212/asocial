@@ -26,6 +26,7 @@ import {
     Loader2,
     Send,
     Zap,
+    Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -228,6 +229,7 @@ export default function ChannelDetailPage({
     const [newPlatformAccountId, setNewPlatformAccountId] = useState('')
     const [newPlatformAccountName, setNewPlatformAccountName] = useState('')
     const [savingPlatform, setSavingPlatform] = useState(false)
+    const [fetchingVbout, setFetchingVbout] = useState(false)
 
     const fetchChannel = useCallback(async () => {
         try {
@@ -727,6 +729,61 @@ export default function ChannelDetailPage({
         }
     }
 
+    // ─── Fetch platforms from Vbout ──────────────────
+    const fetchFromVbout = async () => {
+        setFetchingVbout(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/platforms/vbout`)
+            if (!res.ok) {
+                const err = await res.json()
+                toast.error(err.error || t('channels.platforms.vboutError'))
+                return
+            }
+            const data = await res.json()
+            const accounts = data.accounts || []
+
+            if (accounts.length === 0) {
+                toast.info(t('channels.platforms.noVboutAccounts'))
+                return
+            }
+
+            // Add each account that isn't already connected
+            let imported = 0
+            for (const acc of accounts) {
+                const alreadyExists = platforms.some(
+                    p => p.platform === acc.platform && p.accountId === acc.accountId
+                )
+                if (alreadyExists) continue
+
+                const addRes = await fetch(`/api/admin/channels/${id}/platforms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        platform: acc.platform,
+                        accountId: acc.accountId,
+                        accountName: acc.accountName,
+                        config: { vboutChannelId: acc.vboutChannelId },
+                    }),
+                })
+                if (addRes.ok) {
+                    const entry = await addRes.json()
+                    setPlatforms(prev => [...prev, entry])
+                    imported++
+                }
+            }
+
+            if (imported > 0) {
+                toast.success(t('channels.platforms.imported').replace('{count}', String(imported)))
+            } else {
+                toast.info(t('channels.platforms.alreadyConnected'))
+            }
+        } catch {
+            toast.error(t('channels.platforms.vboutError'))
+        } finally {
+            setFetchingVbout(false)
+        }
+    }
+
     // ─── Loading state ──────────────────────────────
     if (loading) {
         return (
@@ -979,15 +1036,30 @@ export default function ChannelDetailPage({
                                 <CardTitle className="text-base">{t('channels.platforms.title')}</CardTitle>
                                 <CardDescription>{t('channels.platforms.desc')}</CardDescription>
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setAddingPlatform(!addingPlatform)}
-                                className="gap-1.5"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                {t('channels.platforms.addPlatform')}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={fetchFromVbout}
+                                    disabled={fetchingVbout}
+                                    className="gap-1.5 border-blue-500/30 hover:bg-blue-500/10 text-blue-500"
+                                >
+                                    {fetchingVbout ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.platforms.fetchingVbout')}</>
+                                    ) : (
+                                        <><Download className="h-3.5 w-3.5" /> {t('channels.platforms.fetchVbout')}</>
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setAddingPlatform(!addingPlatform)}
+                                    className="gap-1.5"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    {t('channels.platforms.addPlatform')}
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Add Platform Form */}

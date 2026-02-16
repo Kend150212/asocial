@@ -358,7 +358,13 @@
             "disconnectFailed": "Ngắt kết nối thất bại",
             "alreadyConnected": "Tài khoản này đã được kết nối",
             "noPlatforms": "Chưa kết nối nền tảng nào",
-            "noPlatformsDesc": "Kết nối tài khoản mạng xã hội để bắt đầu đăng bài"
+            "noPlatformsDesc": "Kết nối tài khoản mạng xã hội để bắt đầu đăng bài",
+            "fetchVbout": "Lấy từ Vbout",
+            "fetchingVbout": "Đang lấy...",
+            "fetchVboutDesc": "Nhập tài khoản đã kết nối từ Vbout",
+            "imported": "Đã nhập {count} nền tảng từ Vbout",
+            "noVboutAccounts": "Không tìm thấy tài khoản nào trên Vbout. Hãy kết nối tài khoản trên Vbout trước.",
+            "vboutError": "Không thể lấy dữ liệu từ Vbout"
         },
         "knowledge": {
             "title": "Cơ sở tri thức",

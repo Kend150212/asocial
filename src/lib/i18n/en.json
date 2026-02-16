@@ -358,7 +358,13 @@
             "disconnectFailed": "Failed to disconnect platform",
             "alreadyConnected": "This account is already connected",
             "noPlatforms": "No platforms connected",
-            "noPlatformsDesc": "Connect your social media accounts to start publishing"
+            "noPlatformsDesc": "Connect your social media accounts to start publishing",
+            "fetchVbout": "Fetch from Vbout",
+            "fetchingVbout": "Fetching...",
+            "fetchVboutDesc": "Import connected accounts from Vbout",
+            "imported": "Imported {count} platform(s) from Vbout",
+            "noVboutAccounts": "No accounts found in Vbout. Connect accounts in Vbout first.",
+            "vboutError": "Failed to fetch from Vbout"
         },
         "knowledge": {
             "title": "Knowledge Base",
