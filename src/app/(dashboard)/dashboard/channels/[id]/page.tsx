@@ -1082,8 +1082,8 @@ export default function ChannelDetailPage({
                                 <CardTitle className="text-base">{t('channels.platforms.title')}</CardTitle>
                                 <CardDescription>{t('channels.platforms.desc')}</CardDescription>
                             </div>
-                            {isAdmin && (
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
+                                {isAdmin && (
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -1097,17 +1097,17 @@ export default function ChannelDetailPage({
                                             <><Download className="h-3.5 w-3.5" /> {t('channels.platforms.fetchVbout')}</>
                                         )}
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setAddingPlatform(!addingPlatform)}
-                                        className="gap-1.5"
-                                    >
-                                        <Plus className="h-3.5 w-3.5" />
-                                        {t('channels.platforms.addPlatform')}
-                                    </Button>
-                                </div>
-                            )}
+                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setAddingPlatform(!addingPlatform)}
+                                    className="gap-1.5"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    {t('channels.platforms.addPlatform')}
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Search and Bulk Actions */}
@@ -1122,33 +1122,31 @@ export default function ChannelDetailPage({
                                             className="pl-9 h-8 text-sm"
                                         />
                                     </div>
-                                    {isAdmin && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => toggleAllPlatforms(true)}
-                                                className="gap-1.5 h-8 text-xs"
-                                            >
-                                                <ToggleRight className="h-3.5 w-3.5" />
-                                                Enable All
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => toggleAllPlatforms(false)}
-                                                className="gap-1.5 h-8 text-xs"
-                                            >
-                                                <ToggleLeft className="h-3.5 w-3.5" />
-                                                Disable All
-                                            </Button>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-1.5">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => toggleAllPlatforms(true)}
+                                            className="gap-1.5 h-8 text-xs"
+                                        >
+                                            <ToggleRight className="h-3.5 w-3.5" />
+                                            Enable All
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => toggleAllPlatforms(false)}
+                                            className="gap-1.5 h-8 text-xs"
+                                        >
+                                            <ToggleLeft className="h-3.5 w-3.5" />
+                                            Disable All
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Add Platform Form — Admin only */}
-                            {isAdmin && addingPlatform && (
+                            {/* Add Platform Form — All users */}
+                            {addingPlatform && (
                                 <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="space-y-1.5">
@@ -1263,26 +1261,18 @@ export default function ChannelDetailPage({
                                                                     <p className="text-xs text-muted-foreground font-mono">{p.accountId}</p>
                                                                 </div>
                                                                 <div className="flex items-center gap-3">
-                                                                    {isAdmin ? (
-                                                                        <>
-                                                                            <Switch
-                                                                                checked={p.isActive}
-                                                                                onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
-                                                                            />
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                                onClick={() => deletePlatformConnection(p.id)}
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    ) : (
-                                                                        <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-[10px]">
-                                                                            {p.isActive ? 'Active' : 'Inactive'}
-                                                                        </Badge>
-                                                                    )}
+                                                                    <Switch
+                                                                        checked={p.isActive}
+                                                                        onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
+                                                                    />
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                        onClick={() => deletePlatformConnection(p.id)}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         ))}
