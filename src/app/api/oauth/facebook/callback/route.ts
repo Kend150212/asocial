@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
                         accessToken: page.access_token,
                         connectedBy: state.userId,
                         isActive: true,
+                        config: { source: 'oauth' },
                     },
                     create: {
                         channelId: state.channelId,
