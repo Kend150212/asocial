@@ -111,8 +111,8 @@ const ACCEPTED_FILE_TYPES = [
 
 // ─── Realistic Preview Components ───────────────────
 
-function FacebookPreview({ content, media, accountName, postType }: {
-    content: string; media: MediaItem[]; accountName: string; postType: string
+function FacebookPreview({ content, media, accountName, postType, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; postType: string; mediaRatio: string
 }) {
     if (postType === 'story') {
         return (
@@ -159,8 +159,9 @@ function FacebookPreview({ content, media, accountName, postType }: {
             </div>
             {/* Media */}
             {media.length > 0 && (
-                <div className="w-full bg-muted">
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full max-h-[300px] object-cover" />
+                <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
+                    }`}>
+                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
                 </div>
             )}
             {/* Reactions bar */}
@@ -184,8 +185,8 @@ function FacebookPreview({ content, media, accountName, postType }: {
     )
 }
 
-function InstagramPreview({ content, media, accountName }: {
-    content: string; media: MediaItem[]; accountName: string
+function InstagramPreview({ content, media, accountName, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; mediaRatio: string
 }) {
     return (
         <div className="rounded-xl border bg-card overflow-hidden">
@@ -197,11 +198,13 @@ function InstagramPreview({ content, media, accountName }: {
                 <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
             </div>
             {media.length > 0 ? (
-                <div className="w-full bg-muted aspect-square">
+                <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
+                    }`}>
                     <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
                 </div>
             ) : (
-                <div className="w-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 aspect-square flex items-center justify-center">
+                <div className={`w-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
+                    }`}>
                     <p className="text-white text-center font-medium px-6 text-sm leading-relaxed">
                         {content.slice(0, 150)}
                     </p>
@@ -226,17 +229,18 @@ function InstagramPreview({ content, media, accountName }: {
     )
 }
 
-function TikTokPreview({ content, media, accountName }: {
-    content: string; media: MediaItem[]; accountName: string
+function TikTokPreview({ content, media, accountName, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; mediaRatio: string
 }) {
     return (
-        <div className="rounded-xl overflow-hidden bg-black text-white relative" style={{ minHeight: 320 }}>
+        <div className={`rounded-xl overflow-hidden bg-black text-white relative ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'
+            }`}>
             {media.length > 0 ? (
                 <img src={media[0].thumbnailUrl || media[0].url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />
             ) : (
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
             )}
-            <div className="relative z-10 flex h-full" style={{ minHeight: 320 }}>
+            <div className="relative z-10 flex h-full">
                 {/* Right sidebar */}
                 <div className="flex-1" />
                 <div className="flex flex-col items-center justify-end gap-4 p-3 pb-16">
@@ -311,13 +315,14 @@ function XPreview({ content, accountName }: {
     )
 }
 
-function YouTubePreview({ content, media, accountName }: {
-    content: string; media: MediaItem[]; accountName: string
+function YouTubePreview({ content, media, accountName, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; mediaRatio: string
 }) {
     return (
         <div className="rounded-xl border bg-card overflow-hidden">
             {media.length > 0 ? (
-                <div className="relative w-full aspect-video bg-muted">
+                <div className={`relative w-full bg-muted overflow-hidden ${mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : mediaRatio === '1:1' ? 'aspect-square' : 'aspect-video'
+                    }`}>
                     <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="h-12 w-12 rounded-full bg-red-600 flex items-center justify-center">
@@ -327,7 +332,8 @@ function YouTubePreview({ content, media, accountName }: {
                     <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1 rounded">0:00</div>
                 </div>
             ) : (
-                <div className="w-full aspect-video bg-muted flex items-center justify-center">
+                <div className={`w-full bg-muted flex items-center justify-center ${mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : mediaRatio === '1:1' ? 'aspect-square' : 'aspect-video'
+                    }`}>
                     <Play className="h-8 w-8 text-muted-foreground/30" />
                 </div>
             )}
@@ -344,8 +350,8 @@ function YouTubePreview({ content, media, accountName }: {
     )
 }
 
-function LinkedInPreview({ content, media, accountName }: {
-    content: string; media: MediaItem[]; accountName: string
+function LinkedInPreview({ content, media, accountName, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; mediaRatio: string
 }) {
     return (
         <div className="rounded-xl border bg-card overflow-hidden">
@@ -362,8 +368,9 @@ function LinkedInPreview({ content, media, accountName }: {
                 <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{content.slice(0, platformLimits.linkedin)}</p>
             </div>
             {media.length > 0 && (
-                <div className="w-full bg-muted">
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full max-h-[250px] object-cover" />
+                <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
+                    }`}>
+                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
                 </div>
             )}
             <div className="px-3 py-2 text-xs text-muted-foreground border-t">
@@ -384,8 +391,8 @@ function LinkedInPreview({ content, media, accountName }: {
     )
 }
 
-function GenericPreview({ content, media, accountName, platform }: {
-    content: string; media: MediaItem[]; accountName: string; platform: string
+function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
+    content: string; media: MediaItem[]; accountName: string; platform: string; mediaRatio: string
 }) {
     const limit = platformLimits[platform] || 5000
     return (
@@ -403,8 +410,9 @@ function GenericPreview({ content, media, accountName, platform }: {
                 <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{content.slice(0, limit)}</p>
             </div>
             {media.length > 0 && (
-                <div className="px-3 pb-3">
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full rounded-lg max-h-[200px] object-cover" />
+                <div className={`px-3 pb-3 overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
+                    }`}>
+                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full rounded-lg object-cover" />
                 </div>
             )}
         </div>
@@ -483,27 +491,75 @@ export default function ComposePage() {
         })
     }
 
-    // Upload media
+    // Upload media — direct to Google Drive (bypasses server body limit)
     const handleFileUpload = useCallback(async (files: FileList | null) => {
         if (!files || !selectedChannel) return
         setUploading(true)
+        let successCount = 0
         try {
             for (const file of Array.from(files)) {
-                const formData = new FormData()
-                formData.append('file', file)
-                formData.append('channelId', selectedChannel.id)
-                const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
-                if (!res.ok) {
-                    const err = await res.json()
-                    toast.error(err.error || 'Upload failed')
-                    continue
+                try {
+                    // Step 1: Get upload URI from server (small JSON request)
+                    const initRes = await fetch('/api/admin/media/init-upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channelId: selectedChannel.id,
+                            fileName: file.name,
+                            mimeType: file.type,
+                            fileSize: file.size,
+                        }),
+                    })
+                    if (!initRes.ok) {
+                        const err = await initRes.json()
+                        toast.error(err.error || `Failed to init upload for ${file.name}`)
+                        continue
+                    }
+                    const { uploadUri, channelFolderId } = await initRes.json()
+
+                    // Step 2: Upload file DIRECTLY to Google Drive (no server limit!)
+                    toast.info(`Uploading ${file.name}...`)
+                    const uploadRes = await fetch(uploadUri, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': file.type,
+                            'Content-Length': String(file.size),
+                        },
+                        body: file,
+                    })
+
+                    if (!uploadRes.ok) {
+                        toast.error(`Google Drive upload failed for ${file.name}`)
+                        continue
+                    }
+                    const driveData = await uploadRes.json()
+
+                    // Step 3: Save metadata to database (small JSON request)
+                    const completeRes = await fetch('/api/admin/media/complete-upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channelId: selectedChannel.id,
+                            driveFileId: driveData.id,
+                            channelFolderId,
+                            originalName: file.name,
+                            mimeType: file.type,
+                            fileSize: file.size,
+                        }),
+                    })
+                    if (!completeRes.ok) {
+                        const err = await completeRes.json()
+                        toast.error(err.error || `Failed to save ${file.name}`)
+                        continue
+                    }
+                    const media = await completeRes.json()
+                    setAttachedMedia((prev) => [...prev, media])
+                    successCount++
+                } catch {
+                    toast.error(`Upload failed: ${file.name}`)
                 }
-                const media = await res.json()
-                setAttachedMedia((prev) => [...prev, media])
             }
-            toast.success('Media uploaded')
-        } catch {
-            toast.error('Upload failed')
+            if (successCount > 0) toast.success(`${successCount} file(s) uploaded to Google Drive`)
         } finally {
             setUploading(false)
         }
@@ -1087,20 +1143,20 @@ export default function ComposePage() {
                                         {(() => {
                                             switch (effectivePreviewPlatform) {
                                                 case 'facebook':
-                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} />
+                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} mediaRatio={mediaRatio} />
                                                 case 'instagram':
-                                                    return <InstagramPreview content={content} media={attachedMedia} accountName={name} />
+                                                    return <InstagramPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'tiktok':
-                                                    return <TikTokPreview content={content} media={attachedMedia} accountName={name} />
+                                                    return <TikTokPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'x':
                                                 case 'twitter':
                                                     return <XPreview content={content} accountName={name} />
                                                 case 'youtube':
-                                                    return <YouTubePreview content={content} media={attachedMedia} accountName={name} />
+                                                    return <YouTubePreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'linkedin':
-                                                    return <LinkedInPreview content={content} media={attachedMedia} accountName={name} />
+                                                    return <LinkedInPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 default:
-                                                    return <GenericPreview content={content} media={attachedMedia} accountName={name} platform={effectivePreviewPlatform} />
+                                                    return <GenericPreview content={content} media={attachedMedia} accountName={name} platform={effectivePreviewPlatform} mediaRatio={mediaRatio} />
                                             }
                                         })()}
                                         {accountsCount > 1 && (
