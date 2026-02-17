@@ -4,6 +4,11 @@ import { prisma } from '@/lib/prisma'
 import { getGDriveAccessToken, uploadFile, makeFilePublic, getOrCreateChannelFolder } from '@/lib/gdrive'
 import { randomUUID } from 'crypto'
 
+// Allow large file uploads (up to 60MB)
+export const maxDuration = 60 // seconds
+export const dynamic = 'force-dynamic'
+
+
 // GET /api/admin/media — list media for a channel
 export async function GET(req: NextRequest) {
     const session = await auth()

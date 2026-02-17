@@ -24,6 +24,11 @@ import {
     Play,
     Repeat2,
     Globe,
+    FolderOpen,
+    RectangleHorizontal,
+    RectangleVertical,
+    Square,
+    ChevronLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -430,6 +435,10 @@ export default function ComposePage() {
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story'>>({})
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
+    const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
+    const [showMediaLibrary, setShowMediaLibrary] = useState(false)
+    const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
+    const [loadingLibrary, setLoadingLibrary] = useState(false)
 
     // Load channels — only include active platforms
     useEffect(() => {
@@ -525,6 +534,34 @@ export default function ComposePage() {
             handleFileUpload(e.dataTransfer.files)
         }
     }, [handleFileUpload])
+
+    // Fetch media library for current channel
+    const fetchLibrary = useCallback(async () => {
+        if (!selectedChannel) return
+        setLoadingLibrary(true)
+        try {
+            const res = await fetch(`/api/admin/media?channelId=${selectedChannel.id}&limit=50`)
+            const data = await res.json()
+            setLibraryMedia(data.media || [])
+        } catch {
+            toast.error('Failed to load media library')
+        } finally {
+            setLoadingLibrary(false)
+        }
+    }, [selectedChannel])
+
+    const openLibrary = useCallback(() => {
+        setShowMediaLibrary(true)
+        fetchLibrary()
+    }, [fetchLibrary])
+
+    const addFromLibrary = (media: MediaItem) => {
+        if (attachedMedia.some((m) => m.id === media.id)) {
+            toast.error('Already added')
+            return
+        }
+        setAttachedMedia((prev) => [...prev, media])
+    }
 
     // AI Generate
     const handleGenerate = async () => {
@@ -837,10 +874,16 @@ export default function ComposePage() {
                                     <ImageIcon className="h-4 w-4" /> Media
                                     {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
                                 </CardTitle>
-                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || !selectedChannel} className="cursor-pointer">
-                                    <Upload className="h-4 w-4 mr-1" />
-                                    Upload
-                                </Button>
+                                <div className="flex items-center gap-1.5">
+                                    <Button variant="outline" size="sm" onClick={openLibrary} disabled={!selectedChannel} className="cursor-pointer">
+                                        <FolderOpen className="h-4 w-4 mr-1" />
+                                        Library
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || !selectedChannel} className="cursor-pointer">
+                                        <Upload className="h-4 w-4 mr-1" />
+                                        Upload
+                                    </Button>
+                                </div>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -850,12 +893,38 @@ export default function ComposePage() {
                                     onChange={(e) => { handleFileUpload(e.target.files); if (e.target) e.target.value = '' }}
                                 />
                             </div>
+                            {/* Aspect Ratio Selector */}
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-muted-foreground">Ratio:</span>
+                                {(['16:9', '1:1', '9:16'] as const).map((ratio) => (
+                                    <button
+                                        key={ratio}
+                                        onClick={() => setMediaRatio(ratio)}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${mediaRatio === ratio
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                            }`}
+                                    >
+                                        {ratio === '16:9' && <RectangleHorizontal className="h-3 w-3" />}
+                                        {ratio === '1:1' && <Square className="h-3 w-3" />}
+                                        {ratio === '9:16' && <RectangleVertical className="h-3 w-3" />}
+                                        {ratio}
+                                    </button>
+                                ))}
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {attachedMedia.length > 0 && (
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className={`grid gap-2 ${mediaRatio === '9:16' ? 'grid-cols-4' : 'grid-cols-3'
+                                    }`}>
                                     {attachedMedia.map((media) => (
-                                        <div key={media.id} className="relative group rounded-lg overflow-hidden bg-muted aspect-square">
+                                        <div
+                                            key={media.id}
+                                            className={`relative group rounded-lg overflow-hidden bg-muted ${mediaRatio === '16:9' ? 'aspect-video'
+                                                : mediaRatio === '9:16' ? 'aspect-[9/16]'
+                                                    : 'aspect-square'
+                                                }`}
+                                        >
                                             {media.type === 'video' ? (
                                                 <div className="h-full w-full flex items-center justify-center bg-muted">
                                                     <Play className="h-8 w-8 text-muted-foreground/50" />
@@ -874,14 +943,14 @@ export default function ComposePage() {
                                     ))}
                                 </div>
                             )}
-                            {/* Drop zone — always visible to allow more uploads */}
+                            {/* Drop zone — always visible */}
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${dragging
-                                        ? 'border-primary bg-primary/5 p-8'
-                                        : attachedMedia.length > 0
-                                            ? 'p-4 hover:border-primary/30'
-                                            : 'p-8 hover:border-primary/30'
+                                    ? 'border-primary bg-primary/5 p-8'
+                                    : attachedMedia.length > 0
+                                        ? 'p-4 hover:border-primary/30'
+                                        : 'p-8 hover:border-primary/30'
                                     }`}
                             >
                                 {dragging ? (
@@ -903,6 +972,66 @@ export default function ComposePage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Media Library Modal */}
+                    {showMediaLibrary && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                                <CardHeader className="pb-3 border-b">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <FolderOpen className="h-4 w-4" />
+                                            Media Library — {selectedChannel?.displayName}
+                                        </CardTitle>
+                                        <Button variant="ghost" size="sm" onClick={() => setShowMediaLibrary(false)} className="cursor-pointer">
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <CardDescription className="text-xs">Click to add media to your post. Already attached items are marked.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="overflow-y-auto flex-1 py-4">
+                                    {loadingLibrary ? (
+                                        <div className="flex items-center justify-center py-12">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : libraryMedia.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground text-center py-12">No media uploaded yet for this channel.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {libraryMedia.map((media) => {
+                                                const isAttached = attachedMedia.some((m) => m.id === media.id)
+                                                return (
+                                                    <div
+                                                        key={media.id}
+                                                        onClick={() => !isAttached && addFromLibrary(media)}
+                                                        className={`relative rounded-lg overflow-hidden bg-muted aspect-square cursor-pointer group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
+                                                            }`}
+                                                    >
+                                                        {media.type === 'video' ? (
+                                                            <div className="h-full w-full flex flex-col items-center justify-center bg-muted">
+                                                                <Play className="h-6 w-6 text-muted-foreground/50" />
+                                                                <span className="text-[9px] text-muted-foreground mt-1 px-1 truncate max-w-full">{media.originalName}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
+                                                        )}
+                                                        {isAttached && (
+                                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                                <Check className="h-5 w-5 text-primary" />
+                                                            </div>
+                                                        )}
+                                                        <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
+                                                            {media.originalName}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div >
 
                 {/* ── Right: Realistic Previews ── */}
