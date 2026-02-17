@@ -8,9 +8,9 @@ export async function middleware(req: NextRequest) {
     // Auth is handled by the dashboard layout (server component)
     // This avoids edge runtime cookie issues with server actions
 
-    // Only handle: redirect logged-in users away from login page
-    const isLoginPage = pathname === '/login'
-    if (isLoginPage) {
+    // Redirect logged-in users away from public pages (landing, login)
+    const isPublicPage = pathname === '/' || pathname === '/login'
+    if (isPublicPage) {
         // Check for session cookie existence (simple check, no JWT verification)
         const hasSession = req.cookies.has('__Secure-authjs.session-token') ||
             req.cookies.has('authjs.session-token') ||

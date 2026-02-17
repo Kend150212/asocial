@@ -120,6 +120,19 @@ export default function LoginPage() {
                     </form>
                 </CardContent>
             </Card>
+
+            {/* Business footer for Facebook verification */}
+            <div className="fixed bottom-0 left-0 right-0 text-center py-3 text-xs text-muted-foreground border-t bg-background/80 backdrop-blur-sm">
+                <p>© 2026 <strong>Cuong Dao</strong> — <strong>Kendy Marketing LLC</strong></p>
+                <p className="mt-1">4706 Kelly Cv, Glen Allen, Virginia 23060, USA</p>
+                <p className="mt-1">
+                    <a href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</a>
+                    {' · '}
+                    <a href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</a>
+                    {' · '}
+                    <a href="mailto:support@kendymarketing.com" className="underline hover:text-primary transition-colors">support@kendymarketing.com</a>
+                </p>
+            </div>
         </div>
     )
 }
