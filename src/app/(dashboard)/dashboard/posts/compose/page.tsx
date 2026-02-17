@@ -43,7 +43,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
+
 import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────
@@ -663,29 +663,30 @@ export default function ComposePage() {
                                     const isFacebook = p.platform === 'facebook'
                                     return (
                                         <div key={p.id} className="space-y-1.5">
-                                            <div className="flex items-center gap-3">
-                                                <Checkbox
-                                                    checked={isChecked}
-                                                    onCheckedChange={() => togglePlatform(p.id)}
-                                                />
+                                            <div
+                                                className="flex items-center gap-3 cursor-pointer select-none"
+                                                onClick={() => togglePlatform(p.id)}
+                                            >
+                                                {/* Custom checkbox — no Radix, no event issues */}
+                                                <div className={`h-4 w-4 shrink-0 rounded-[4px] border shadow-xs flex items-center justify-center transition-colors ${isChecked
+                                                    ? 'bg-primary border-primary text-primary-foreground'
+                                                    : 'border-input bg-transparent'
+                                                    }`}>
+                                                    {isChecked && <Check className="h-3 w-3" />}
+                                                </div>
                                                 <div
-                                                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                                    onClick={() => togglePlatform(p.id)}
+                                                    className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                                                    style={{ backgroundColor: platformColors[p.platform] || '#666' }}
                                                 >
-                                                    <div
-                                                        className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                                                        style={{ backgroundColor: platformColors[p.platform] || '#666' }}
-                                                    >
-                                                        {(platformLabels[p.platform] || p.platform).charAt(0)}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-medium leading-none">
-                                                            {p.accountName}
-                                                        </p>
-                                                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                            {platformLabels[p.platform] || p.platform}
-                                                        </p>
-                                                    </div>
+                                                    {(platformLabels[p.platform] || p.platform).charAt(0)}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-medium leading-none">
+                                                        {p.accountName}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                        {platformLabels[p.platform] || p.platform}
+                                                    </p>
                                                 </div>
                                             </div>
                                             {isFacebook && isChecked && (
