@@ -491,7 +491,7 @@ export default function ComposePage() {
         })
     }
 
-    // Upload media — direct to Google Drive (bypasses server body limit)
+    // Upload media — server-side upload to Google Drive (avoids CORS)
     const handleFileUpload = useCallback(async (files: FileList | null) => {
         if (!files || !selectedChannel) return
         setUploading(true)
@@ -499,67 +499,30 @@ export default function ComposePage() {
         try {
             for (const file of Array.from(files)) {
                 try {
-                    // Step 1: Get upload URI from server (small JSON request)
-                    const initRes = await fetch('/api/admin/media/init-upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            channelId: selectedChannel.id,
-                            fileName: file.name,
-                            mimeType: file.type,
-                            fileSize: file.size,
-                        }),
-                    })
-                    if (!initRes.ok) {
-                        const err = await initRes.json()
-                        toast.error(err.error || `Failed to init upload for ${file.name}`)
-                        continue
-                    }
-                    const { uploadUri, channelFolderId } = await initRes.json()
-
-                    // Step 2: Upload file DIRECTLY to Google Drive (no server limit!)
                     toast.info(`Uploading ${file.name}...`)
-                    const uploadRes = await fetch(uploadUri, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': file.type,
-                            'Content-Length': String(file.size),
-                        },
-                        body: file,
-                    })
+                    const formData = new FormData()
+                    formData.append('file', file)
+                    formData.append('channelId', selectedChannel.id)
 
-                    if (!uploadRes.ok) {
-                        toast.error(`Google Drive upload failed for ${file.name}`)
-                        continue
-                    }
-                    const driveData = await uploadRes.json()
-
-                    // Step 3: Save metadata to database (small JSON request)
-                    const completeRes = await fetch('/api/admin/media/complete-upload', {
+                    const res = await fetch('/api/admin/media', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            channelId: selectedChannel.id,
-                            driveFileId: driveData.id,
-                            channelFolderId,
-                            originalName: file.name,
-                            mimeType: file.type,
-                            fileSize: file.size,
-                        }),
+                        body: formData,
                     })
-                    if (!completeRes.ok) {
-                        const err = await completeRes.json()
-                        toast.error(err.error || `Failed to save ${file.name}`)
+
+                    if (!res.ok) {
+                        const err = await res.json()
+                        toast.error(err.error || `Failed to upload ${file.name}`)
                         continue
                     }
-                    const media = await completeRes.json()
+
+                    const media = await res.json()
                     setAttachedMedia((prev) => [...prev, media])
                     successCount++
                 } catch {
                     toast.error(`Upload failed: ${file.name}`)
                 }
             }
-            if (successCount > 0) toast.success(`${successCount} file(s) uploaded to Google Drive`)
+            if (successCount > 0) toast.success(`${successCount} file(s) uploaded!`)
         } finally {
             setUploading(false)
         }
@@ -902,8 +865,8 @@ export default function ComposePage() {
                                                     setScheduleTime(slot.time)
                                                 }}
                                                 className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${isSelected
-                                                        ? 'bg-primary text-primary-foreground'
-                                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                                                     }`}
                                             >
                                                 <span className="font-medium">{slot.label}</span>

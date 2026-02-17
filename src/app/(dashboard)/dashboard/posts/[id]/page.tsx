@@ -195,7 +195,7 @@ export default function PostEditPage({
         })
     }
 
-    // Upload media (direct-to-Drive flow)
+    // Upload media (server-side upload to Google Drive — avoids CORS)
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || !post) return
         setUploading(true)
@@ -203,59 +203,27 @@ export default function PostEditPage({
         try {
             for (const file of Array.from(files)) {
                 try {
-                    // Step 1: Get upload URI from server
-                    const initRes = await fetch('/api/admin/media/init-upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            channelId: post.channel.id,
-                            fileName: file.name,
-                            mimeType: file.type,
-                            fileSize: file.size,
-                        }),
-                    })
-                    if (!initRes.ok) {
-                        const err = await initRes.json()
-                        toast.error(`Init failed for ${file.name}: ${err.error || 'Unknown'}`)
-                        continue
-                    }
-                    const { uploadUri, channelFolderId } = await initRes.json()
-
-                    // Step 2: Upload directly to Google Drive
                     toast.info(`Uploading ${file.name}...`)
-                    const uploadRes = await fetch(uploadUri, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': file.type, 'Content-Length': String(file.size) },
-                        body: file,
-                    })
-                    if (!uploadRes.ok) {
-                        toast.error(`Upload to Drive failed for ${file.name}`)
-                        continue
-                    }
-                    const driveData = await uploadRes.json()
+                    const formData = new FormData()
+                    formData.append('file', file)
+                    formData.append('channelId', post.channel.id)
 
-                    // Step 3: Save metadata to DB
-                    const completeRes = await fetch('/api/admin/media/complete-upload', {
+                    const res = await fetch('/api/admin/media', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            driveFileId: driveData.id,
-                            channelId: post.channel.id,
-                            channelFolderId,
-                            originalName: file.name,
-                            mimeType: file.type,
-                            fileSize: file.size,
-                        }),
+                        body: formData,
                     })
-                    if (!completeRes.ok) {
-                        toast.error(`Failed to save metadata for ${file.name}`)
+
+                    if (!res.ok) {
+                        const err = await res.json()
+                        toast.error(err.error || `Failed to upload ${file.name}`)
                         continue
                     }
-                    const media = await completeRes.json()
+
+                    const media = await res.json()
                     setAttachedMedia((prev) => [...prev, media])
                     successCount++
                 } catch {
-                    toast.error(`Error uploading ${file.name}`)
+                    toast.error(`Upload failed: ${file.name}`)
                 }
             }
             if (successCount > 0) toast.success(`${successCount} file(s) uploaded!`)
@@ -514,8 +482,8 @@ export default function PostEditPage({
                                                         setScheduleTime(slot.time)
                                                     }}
                                                     className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${isSelected
-                                                            ? 'bg-primary text-primary-foreground'
-                                                            : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                                                         }`}
                                                 >
                                                     <span className="font-medium">{slot.label}</span>
