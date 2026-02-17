@@ -210,3 +210,120 @@ export function getRedirectUri() {
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     return `${baseUrl}/api/admin/gdrive/callback`
 }
+
+/**
+ * Upload a file to Google Drive
+ * Uses multipart upload (metadata + file content in one request)
+ */
+export async function uploadFile(
+    accessToken: string,
+    fileName: string,
+    mimeType: string,
+    fileBuffer: Buffer,
+    parentFolderId?: string,
+) {
+    const metadata: Record<string, unknown> = {
+        name: fileName,
+        mimeType,
+    }
+    if (parentFolderId) {
+        metadata.parents = [parentFolderId]
+    }
+
+    // Build multipart body
+    const boundary = '===gdrive_upload_boundary==='
+    const metadataStr = JSON.stringify(metadata)
+
+    // We need to build a proper multipart/related body
+    const preamble = [
+        `--${boundary}`,
+        'Content-Type: application/json; charset=UTF-8',
+        '',
+        metadataStr,
+        `--${boundary}`,
+        `Content-Type: ${mimeType}`,
+        'Content-Transfer-Encoding: base64',
+        '',
+    ].join('\r\n')
+
+    const epilogue = `\r\n--${boundary}--`
+
+    const base64Data = fileBuffer.toString('base64')
+    const bodyStr = preamble + base64Data + epilogue
+
+    const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink,webContentLink,size',
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': `multipart/related; boundary=${boundary}`,
+            },
+            body: bodyStr,
+        },
+    )
+
+    const data = await res.json()
+    if (data.error) {
+        throw new Error(`GDrive upload failed: ${data.error.message}`)
+    }
+
+    return {
+        id: data.id as string,
+        name: data.name as string,
+        mimeType: data.mimeType as string,
+        webViewLink: data.webViewLink as string,
+        webContentLink: data.webContentLink as string | undefined,
+        size: data.size as string,
+    }
+}
+
+/**
+ * Make a file publicly readable (anyone with the link can view)
+ */
+export async function makeFilePublic(accessToken: string, fileId: string) {
+    await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/permissions`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            role: 'reader',
+            type: 'anyone',
+        }),
+    })
+
+    // Return the direct-access thumbnail/content URL
+    return `https://drive.google.com/uc?export=view&id=${fileId}`
+}
+
+/**
+ * Get or create a channel-specific subfolder inside the parent folder
+ */
+export async function getOrCreateChannelFolder(
+    accessToken: string,
+    parentFolderId: string,
+    channelName: string,
+) {
+    // Search for existing folder
+    const query = `name='${channelName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    const searchRes = await fetch(
+        `${GOOGLE_DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+        {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        },
+    )
+    const searchData = await searchRes.json()
+
+    if (searchData.files && searchData.files.length > 0) {
+        return {
+            id: searchData.files[0].id as string,
+            name: searchData.files[0].name as string,
+        }
+    }
+
+    // Create new folder
+    return createFolder(accessToken, channelName, parentFolderId)
+}
+

@@ -425,6 +425,7 @@ export default function ComposePage() {
     const [publishing, setPublishing] = useState(false)
     const [generating, setGenerating] = useState(false)
     const [uploading, setUploading] = useState(false)
+    const [dragging, setDragging] = useState(false)
     const [aiTopic, setAiTopic] = useState('')
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story'>>({})
@@ -502,6 +503,28 @@ export default function ComposePage() {
     const removeMedia = (id: string) => {
         setAttachedMedia((prev) => prev.filter((m) => m.id !== id))
     }
+
+    // Drag & drop handlers
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(true)
+    }, [])
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(false)
+    }, [])
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setDragging(false)
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFileUpload(e.dataTransfer.files)
+        }
+    }, [handleFileUpload])
 
     // AI Generate
     const handleGenerate = async () => {
@@ -802,14 +825,20 @@ export default function ComposePage() {
                     </Card >
 
                     {/* Media */}
-                    < Card >
+                    <Card
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`transition-all ${dragging ? 'ring-2 ring-primary border-primary' : ''}`}
+                    >
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <ImageIcon className="h-4 w-4" /> Media
+                                    {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
                                 </CardTitle>
                                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || !selectedChannel} className="cursor-pointer">
-                                    {uploading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                                    <Upload className="h-4 w-4 mr-1" />
                                     Upload
                                 </Button>
                                 <input
@@ -818,12 +847,12 @@ export default function ComposePage() {
                                     multiple
                                     accept={ACCEPTED_FILE_TYPES}
                                     className="hidden"
-                                    onChange={(e) => handleFileUpload(e.target.files)}
+                                    onChange={(e) => { handleFileUpload(e.target.files); if (e.target) e.target.value = '' }}
                                 />
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            {attachedMedia.length > 0 ? (
+                        <CardContent className="space-y-3">
+                            {attachedMedia.length > 0 && (
                                 <div className="grid grid-cols-3 gap-2">
                                     {attachedMedia.map((media) => (
                                         <div key={media.id} className="relative group rounded-lg overflow-hidden bg-muted aspect-square">
@@ -844,20 +873,36 @@ export default function ComposePage() {
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
-                                <div
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/30 transition-colors"
-                                >
-                                    <Upload className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                                    <p className="text-sm text-muted-foreground">Click or drag files to upload</p>
-                                    <p className="text-xs text-muted-foreground/60 mt-1">
-                                        Images (JPG, PNG, GIF, WebP, HEIC, AVIF) & Videos (MP4, MOV, AVI, MKV, WebM) up to 50MB
-                                    </p>
-                                </div>
                             )}
+                            {/* Drop zone — always visible to allow more uploads */}
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${dragging
+                                        ? 'border-primary bg-primary/5 p-8'
+                                        : attachedMedia.length > 0
+                                            ? 'p-4 hover:border-primary/30'
+                                            : 'p-8 hover:border-primary/30'
+                                    }`}
+                            >
+                                {dragging ? (
+                                    <>
+                                        <Upload className="h-10 w-10 mx-auto text-primary mb-2 animate-bounce" />
+                                        <p className="text-sm font-medium text-primary">Drop files here</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className={`mx-auto text-muted-foreground/40 mb-1.5 ${attachedMedia.length > 0 ? 'h-5 w-5' : 'h-8 w-8 mb-2'}`} />
+                                        <p className="text-sm text-muted-foreground">{attachedMedia.length > 0 ? 'Add more files' : 'Click or drag files to upload'}</p>
+                                        {attachedMedia.length === 0 && (
+                                            <p className="text-xs text-muted-foreground/60 mt-1">
+                                                Images & Videos — uploaded to Google Drive
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </CardContent>
-                    </Card >
+                    </Card>
                 </div >
 
                 {/* ── Right: Realistic Previews ── */}
