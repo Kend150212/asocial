@@ -505,7 +505,7 @@ export default function ComposePage() {
     // AI Generate
     const handleGenerate = async () => {
         if (!selectedChannel || !aiTopic.trim()) {
-            toast.error('Enter a topic for AI generation')
+            toast.error('Enter a topic or paste an article link for AI generation')
             return
         }
         setGenerating(true)
@@ -518,11 +518,18 @@ export default function ComposePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channelId: selectedChannel.id, topic: aiTopic, platforms }),
             })
-            if (!res.ok) { toast.error('Generation failed'); return }
             const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Generation failed')
+                return
+            }
             setContent(data.content || '')
-            toast.success('Content generated!')
-        } catch { toast.error('AI generation failed') }
+            if (data.articlesFetched > 0) {
+                toast.success(`Content generated from ${data.articlesFetched} article(s)!`)
+            } else {
+                toast.success('Content generated!')
+            }
+        } catch { toast.error('AI generation failed — check your AI API key in API Hub') }
         finally { setGenerating(false) }
     }
 
@@ -751,7 +758,7 @@ export default function ComposePage() {
                         <CardContent>
                             <div className="flex gap-2">
                                 <Input
-                                    placeholder="Enter topic, e.g. 'Summer sale 50% off'"
+                                    placeholder="Topic, keyword, or paste an article URL..."
                                     value={aiTopic}
                                     onChange={(e) => setAiTopic(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}

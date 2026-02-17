@@ -4,6 +4,62 @@ import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
 
+// ─── URL detection & article scraping ────────────────────────────────
+const URL_REGEX = /https?:\/\/[^\s<>"']+/gi
+
+async function fetchArticleContent(url: string): Promise<string> {
+    try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; ASocial/1.0; +https://asocial.app)',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            signal: controller.signal,
+        })
+        clearTimeout(timeout)
+        if (!res.ok) return ''
+        const html = await res.text()
+
+        // Strip HTML tags, scripts, styles to get text content
+        const text = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+            .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+            .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim()
+
+        // Extract title from meta or title tag
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i)
+        const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i)
+        const metaDesc = html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i)
+
+        const title = ogTitle?.[1] || titleMatch?.[1] || ''
+        const description = ogDesc?.[1] || metaDesc?.[1] || ''
+
+        // Return structured article info, limited to ~3000 chars
+        const articleBody = text.slice(0, 2500)
+        return [
+            title ? `Title: ${title}` : '',
+            description ? `Summary: ${description}` : '',
+            `Content: ${articleBody}`,
+        ].filter(Boolean).join('\n')
+    } catch {
+        return ''
+    }
+}
+
 // POST /api/admin/posts/generate — AI-generate post content
 export async function POST(req: NextRequest) {
     const session = await auth()
@@ -80,15 +136,34 @@ export async function POST(req: NextRequest) {
 
     const platformList = (platforms as string[])?.join(', ') || 'all social media'
 
+    // ── Detect URLs in topic and fetch article content ──
+    const urls = topic.match(URL_REGEX) || []
+    let articleContext = ''
+    if (urls.length > 0) {
+        const fetches = await Promise.allSettled(
+            urls.slice(0, 3).map((u: string) => fetchArticleContent(u))
+        )
+        const articles = fetches
+            .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && !!r.value)
+            .map((r) => r.value)
+        if (articles.length > 0) {
+            articleContext = `\n\nArticle(s) referenced by the user:\n${articles.join('\n---\n')}`
+        }
+    }
+
+    // Clean topic: keep the user's text but note what URLs were fetched
+    const cleanTopic = topic
+
     const systemPrompt = `You are a world-class social media content creator. Write engaging, high-converting posts. Respond ONLY with valid JSON.`
 
     const userPrompt = `Create social media post content for these platforms: ${platformList}
 
-Topic: ${topic}
+Topic / Input: ${cleanTopic}
 Brand: ${channel.displayName}
 Language: ${langLabel}
 ${vibeStr ? `Tone & Style: ${vibeStr}` : ''}
 ${kbContext ? `\nBrand Context:\n${kbContext}` : ''}
+${articleContext}
 ${allHashtags.length > 0 ? `\nAvailable hashtags: ${allHashtags.join(' ')}` : ''}
 
 Respond with this exact JSON structure:
@@ -100,13 +175,14 @@ Respond with this exact JSON structure:
 
 Rules:
 - Write ENTIRELY in ${langLabel}
+- If the user provided article link(s), USE the article content to create an engaging social media post summarizing or discussing the article
 - Start with a hook/attention grabber
 - Include a clear call-to-action
 - Keep it concise but engaging
 - Use emojis strategically (2-3 max)
 - Include 3-8 relevant hashtags
 - Sound authentic, NOT robotic
-- Make the content between 50-500 characters for cross-platform compatibility`
+- Make the content between 100-800 characters for cross-platform compatibility`
 
     try {
         const result = await callAI(
@@ -118,8 +194,20 @@ Rules:
             aiIntegration.baseUrl,
         )
 
-        const cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        const parsed = JSON.parse(cleaned)
+        // Robust JSON parsing — handle markdown code fences and partial JSON
+        let cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+        // Try to extract JSON object if there's extra text around it
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+        if (jsonMatch) cleaned = jsonMatch[0]
+
+        let parsed: { content?: string; hashtags?: string[]; hook?: string }
+        try {
+            parsed = JSON.parse(cleaned)
+        } catch {
+            // Fallback: use the raw AI text as content
+            parsed = { content: result, hashtags: [], hook: '' }
+        }
 
         // Increment usage
         await prisma.apiIntegration.update({
@@ -131,7 +219,7 @@ Rules:
         const hashtags = (parsed.hashtags || []).join(' ')
         const fullContent = hashtags
             ? `${parsed.content}\n\n${hashtags}`
-            : parsed.content
+            : (parsed.content || result)
 
         return NextResponse.json({
             content: fullContent,
@@ -139,11 +227,13 @@ Rules:
             hashtags: parsed.hashtags || [],
             provider: aiIntegration.provider,
             model,
+            articlesFetched: urls.length,
         })
     } catch (error) {
         console.error('AI Generate error:', error)
+        const msg = error instanceof Error ? error.message : 'Failed to generate content'
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to generate content' },
+            { error: msg, details: String(error) },
             { status: 500 }
         )
     }
