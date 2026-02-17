@@ -367,7 +367,7 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>4706 Kelly Cv, Glen Allen, Virginia 23060, USA</span>
+                  <span>Virginia, USA</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Mail className="h-4 w-4 mt-0.5 shrink-0" />
