@@ -705,14 +705,35 @@ export default function ComposePage() {
                     platforms: buildPlatformsPayload(),
                 }),
             })
-            if (!createRes.ok) { toast.error('Failed to create post'); return }
+            if (!createRes.ok) {
+                const err = await createRes.json()
+                toast.error(err.error || 'Failed to create post')
+                return
+            }
             const post = await createRes.json()
             const pubRes = await fetch(`/api/admin/posts/${post.id}/publish`, { method: 'POST' })
-            if (!pubRes.ok) toast.error('Post created but publishing failed.')
-            else toast.success('Post published!')
+            const pubData = await pubRes.json()
+
+            if (!pubRes.ok || !pubData.success) {
+                // Show per-platform errors but do NOT redirect
+                const failedPlatforms = (pubData.results || []).filter((r: { success: boolean }) => !r.success)
+                if (failedPlatforms.length > 0) {
+                    failedPlatforms.forEach((f: { platform: string; error?: string }) => {
+                        toast.error(`${f.platform}: ${f.error || 'Failed'}`, { duration: 8000 })
+                    })
+                } else {
+                    toast.error('Publishing failed. Check platform connections.')
+                }
+                return // Stay on page — don't redirect
+            }
+
+            toast.success('Post published successfully!')
             router.push('/dashboard/posts')
-        } catch { toast.error('Failed to publish') }
-        finally { setPublishing(false) }
+        } catch {
+            toast.error('Network error — failed to publish')
+        } finally {
+            setPublishing(false)
+        }
     }
 
     const charCount = content.length
@@ -855,7 +876,44 @@ export default function ComposePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                            {/* AI Suggested Times */}
                             <div>
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                    <span className="text-xs font-medium text-muted-foreground">Best times to post</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    {[
+                                        { label: '🌅 Morning', time: '08:00', desc: '8:00 AM' },
+                                        { label: '🌞 Lunch', time: '12:00', desc: '12:00 PM' },
+                                        { label: '🌤 Afternoon', time: '15:00', desc: '3:00 PM' },
+                                        { label: '🌙 Evening', time: '19:00', desc: '7:00 PM' },
+                                    ].map((slot) => {
+                                        // Get tomorrow's date
+                                        const tomorrow = new Date()
+                                        tomorrow.setDate(tomorrow.getDate() + 1)
+                                        const dateStr = tomorrow.toISOString().split('T')[0]
+                                        const isSelected = scheduleDate === dateStr && scheduleTime === slot.time
+                                        return (
+                                            <button
+                                                key={slot.time}
+                                                onClick={() => {
+                                                    setScheduleDate(dateStr)
+                                                    setScheduleTime(slot.time)
+                                                }}
+                                                className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${isSelected
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                                    }`}
+                                            >
+                                                <span className="font-medium">{slot.label}</span>
+                                                <span className="opacity-70 ml-1">{slot.desc}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                            <div className="border-t pt-3">
                                 <Label className="text-xs text-muted-foreground">Date</Label>
                                 <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="mt-1" />
                             </div>

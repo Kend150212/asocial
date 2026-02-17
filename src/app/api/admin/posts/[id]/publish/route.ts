@@ -158,8 +158,22 @@ export async function POST(
     const pendingStatuses = post.platformStatuses.filter((ps) => ps.status === 'pending')
 
     // Build public media URLs (for platform APIs that fetch media by URL)
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const mediaUrls = post.media.map((m) => `${baseUrl}${m.mediaItem.url}`)
+    // Media stored on Google Drive already have full URLs — don't prefix with baseUrl
+    const mediaUrls = post.media.map((m) => {
+        const url = m.mediaItem.url
+        // If URL is already absolute (starts with http), use as-is
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            // For Google Drive images: use drive.google.com/uc URL that external APIs can fetch
+            // lh3.googleusercontent.com URLs sometimes block external fetches
+            if (m.mediaItem.storageFileId && url.includes('googleusercontent.com')) {
+                return `https://drive.google.com/uc?export=download&id=${m.mediaItem.storageFileId}`
+            }
+            return url
+        }
+        // Legacy/local media — prefix with base URL
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        return `${baseUrl}${url}`
+    })
 
     for (const ps of pendingStatuses) {
         try {
