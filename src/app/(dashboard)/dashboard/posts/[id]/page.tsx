@@ -195,23 +195,70 @@ export default function PostEditPage({
         })
     }
 
-    // Upload media
+    // Upload media (direct-to-Drive flow)
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || !post) return
         setUploading(true)
+        let successCount = 0
         try {
             for (const file of Array.from(files)) {
-                const formData = new FormData()
-                formData.append('file', file)
-                formData.append('channelId', post.channel.id)
-                const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
-                if (!res.ok) continue
-                const media = await res.json()
-                setAttachedMedia((prev) => [...prev, media])
+                try {
+                    // Step 1: Get upload URI from server
+                    const initRes = await fetch('/api/admin/media/init-upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channelId: post.channel.id,
+                            fileName: file.name,
+                            mimeType: file.type,
+                            fileSize: file.size,
+                        }),
+                    })
+                    if (!initRes.ok) {
+                        const err = await initRes.json()
+                        toast.error(`Init failed for ${file.name}: ${err.error || 'Unknown'}`)
+                        continue
+                    }
+                    const { uploadUri, channelFolderId } = await initRes.json()
+
+                    // Step 2: Upload directly to Google Drive
+                    toast.info(`Uploading ${file.name}...`)
+                    const uploadRes = await fetch(uploadUri, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': file.type, 'Content-Length': String(file.size) },
+                        body: file,
+                    })
+                    if (!uploadRes.ok) {
+                        toast.error(`Upload to Drive failed for ${file.name}`)
+                        continue
+                    }
+                    const driveData = await uploadRes.json()
+
+                    // Step 3: Save metadata to DB
+                    const completeRes = await fetch('/api/admin/media/complete-upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            driveFileId: driveData.id,
+                            channelId: post.channel.id,
+                            channelFolderId,
+                            originalName: file.name,
+                            mimeType: file.type,
+                            fileSize: file.size,
+                        }),
+                    })
+                    if (!completeRes.ok) {
+                        toast.error(`Failed to save metadata for ${file.name}`)
+                        continue
+                    }
+                    const media = await completeRes.json()
+                    setAttachedMedia((prev) => [...prev, media])
+                    successCount++
+                } catch {
+                    toast.error(`Error uploading ${file.name}`)
+                }
             }
-            toast.success('Media uploaded')
-        } catch {
-            toast.error('Upload failed')
+            if (successCount > 0) toast.success(`${successCount} file(s) uploaded!`)
         } finally {
             setUploading(false)
         }
@@ -282,11 +329,27 @@ export default function PostEditPage({
             })
 
             const res = await fetch(`/api/admin/posts/${id}/publish`, { method: 'POST' })
-            if (!res.ok) toast.error('Publishing failed')
-            else toast.success('Post published!')
+            const data = await res.json()
+
+            if (!res.ok || !data.success) {
+                // Show per-platform errors
+                const failedPlatforms = (data.results || []).filter((r: { success: boolean }) => !r.success)
+                if (failedPlatforms.length > 0) {
+                    failedPlatforms.forEach((f: { platform: string; error?: string }) => {
+                        toast.error(`${f.platform}: ${f.error || 'Failed'}`, { duration: 8000 })
+                    })
+                } else {
+                    toast.error('Publishing failed. Check platform connections.')
+                }
+                // Refresh to keep up-to-date with new statuses
+                fetchPost()
+                return
+            }
+
+            toast.success('Post published successfully!')
             fetchPost()
         } catch {
-            toast.error('Failed to publish')
+            toast.error('Network error — failed to publish')
         } finally {
             setPublishing(false)
         }
@@ -426,7 +489,43 @@ export default function PostEditPage({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                                {/* AI Suggested Times */}
                                 <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                        <span className="text-xs font-medium text-muted-foreground">Best times to post</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        {[
+                                            { label: '🌅 Morning', time: '08:00', desc: '8:00 AM' },
+                                            { label: '🌞 Lunch', time: '12:00', desc: '12:00 PM' },
+                                            { label: '🌤 Afternoon', time: '15:00', desc: '3:00 PM' },
+                                            { label: '🌙 Evening', time: '19:00', desc: '7:00 PM' },
+                                        ].map((slot) => {
+                                            const tomorrow = new Date()
+                                            tomorrow.setDate(tomorrow.getDate() + 1)
+                                            const dateStr = tomorrow.toISOString().split('T')[0]
+                                            const isSelected = scheduleDate === dateStr && scheduleTime === slot.time
+                                            return (
+                                                <button
+                                                    key={slot.time}
+                                                    onClick={() => {
+                                                        setScheduleDate(dateStr)
+                                                        setScheduleTime(slot.time)
+                                                    }}
+                                                    className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${isSelected
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                                        }`}
+                                                >
+                                                    <span className="font-medium">{slot.label}</span>
+                                                    <span className="opacity-70 ml-1">{slot.desc}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="border-t pt-3">
                                     <Label className="text-xs text-muted-foreground">Date</Label>
                                     <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="mt-1" />
                                 </div>
@@ -434,6 +533,11 @@ export default function PostEditPage({
                                     <Label className="text-xs text-muted-foreground">Time</Label>
                                     <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="mt-1" />
                                 </div>
+                                {scheduleDate && (
+                                    <Button variant="ghost" size="sm" onClick={() => { setScheduleDate(''); setScheduleTime('') }} className="text-xs cursor-pointer">
+                                        <X className="h-3 w-3 mr-1" /> Clear schedule
+                                    </Button>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -570,6 +674,15 @@ export default function PostEditPage({
                                                     </Badge>
                                                 </div>
                                                 <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{previewContent}{isOver && '...'}</p>
+                                                {attachedMedia.length > 0 && (
+                                                    <div className="grid grid-cols-2 gap-1.5 mt-2">
+                                                        {attachedMedia.slice(0, 4).map((media) => (
+                                                            <div key={media.id} className="rounded-md overflow-hidden bg-muted aspect-video">
+                                                                <img src={media.thumbnailUrl || media.url} alt="" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })}
