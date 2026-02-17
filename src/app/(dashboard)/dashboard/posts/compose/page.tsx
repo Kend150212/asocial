@@ -776,18 +776,9 @@ export default function ComposePage() {
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm">Content</CardTitle>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    {selectedEntries.map((p) => {
-                                        const limit = platformLimits[p.platform]
-                                        if (!limit) return null
-                                        const over = charCount > limit
-                                        return (
-                                            <Badge key={p.id} variant={over ? 'destructive' : 'secondary'} className="text-[10px]">
-                                                {(platformLabels[p.platform] || p.platform).slice(0, 2).toUpperCase()} {charCount}/{limit}
-                                            </Badge>
-                                        )
-                                    })}
-                                </div>
+                                <span className={`text-xs ${charCount > 0 ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                                    {charCount > 0 ? `${charCount} characters` : ''}
+                                </span>
                             </div>
                         </CardHeader>
                         <CardContent>
