@@ -179,8 +179,8 @@ export default function PrivacyPolicyPage() {
                             If you have any questions about this Privacy Policy or our data practices, please contact us at:
                         </p>
                         <div className="mt-3 p-4 rounded-lg bg-muted/50 text-sm">
-                            <p className="font-medium">Kendy Marketing LLC</p>
-                            <p className="text-muted-foreground">Richmond, Virginia, USA</p>
+                            <p className="font-medium">Cuong Dao — Kendy Marketing LLC</p>
+                            <p className="text-muted-foreground">4706 Kelly Cv, Glen Allen, Virginia 23060, USA</p>
                             <p className="text-muted-foreground">Email: support@kendymarketing.com</p>
                             <p className="text-muted-foreground">Website: https://kendymarketing.com</p>
                         </div>
@@ -191,7 +191,7 @@ export default function PrivacyPolicyPage() {
             {/* Footer */}
             <footer className="border-t mt-16">
                 <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between text-sm text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Kendy Marketing LLC. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Cuong Dao — Kendy Marketing LLC. All rights reserved.</p>
                     <div className="flex gap-4">
                         <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
                         <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
