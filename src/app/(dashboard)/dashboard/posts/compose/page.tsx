@@ -656,32 +656,29 @@ export default function ComposePage() {
                                     const isFacebook = p.platform === 'facebook'
                                     return (
                                         <div key={p.id} className="space-y-1.5">
-                                            <div
-                                                className="flex items-center gap-3 cursor-pointer"
-                                                onClick={(e) => {
-                                                    // Only toggle if not clicking directly on the checkbox
-                                                    const target = e.target as HTMLElement
-                                                    if (target.closest('button[role="checkbox"]')) return
-                                                    togglePlatform(p.id)
-                                                }}
-                                            >
+                                            <div className="flex items-center gap-3">
                                                 <Checkbox
                                                     checked={isChecked}
                                                     onCheckedChange={() => togglePlatform(p.id)}
                                                 />
                                                 <div
-                                                    className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                                                    style={{ backgroundColor: platformColors[p.platform] || '#666' }}
+                                                    className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                                    onClick={() => togglePlatform(p.id)}
                                                 >
-                                                    {(platformLabels[p.platform] || p.platform).charAt(0)}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium leading-none">
-                                                        {p.accountName}
-                                                    </p>
-                                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                        {platformLabels[p.platform] || p.platform}
-                                                    </p>
+                                                    <div
+                                                        className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                                                        style={{ backgroundColor: platformColors[p.platform] || '#666' }}
+                                                    >
+                                                        {(platformLabels[p.platform] || p.platform).charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium leading-none">
+                                                            {p.accountName}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                            {platformLabels[p.platform] || p.platform}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                             {isFacebook && isChecked && (
@@ -689,8 +686,8 @@ export default function ComposePage() {
                                                     <button
                                                         onClick={() => setFbPostTypes((prev) => ({ ...prev, [p.id]: 'feed' }))}
                                                         className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors cursor-pointer ${(fbPostTypes[p.id] || 'feed') === 'feed'
-                                                                ? 'bg-blue-500 text-white border-blue-500'
-                                                                : 'border-border hover:border-blue-300'
+                                                            ? 'bg-blue-500 text-white border-blue-500'
+                                                            : 'border-border hover:border-blue-300'
                                                             }`}
                                                     >
                                                         Feed
@@ -698,8 +695,8 @@ export default function ComposePage() {
                                                     <button
                                                         onClick={() => setFbPostTypes((prev) => ({ ...prev, [p.id]: 'story' }))}
                                                         className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors cursor-pointer ${fbPostTypes[p.id] === 'story'
-                                                                ? 'bg-blue-500 text-white border-blue-500'
-                                                                : 'border-border hover:border-blue-300'
+                                                            ? 'bg-blue-500 text-white border-blue-500'
+                                                            : 'border-border hover:border-blue-300'
                                                             }`}
                                                     >
                                                         Story
