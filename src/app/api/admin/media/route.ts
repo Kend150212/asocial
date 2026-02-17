@@ -120,9 +120,13 @@ export async function POST(req: NextRequest) {
             channel.displayName || channel.name,
         )
 
-        // Generate unique filename to avoid collisions
+        // Generate filename with date suffix: "image 1 - 02-17-2026.jpg"
         const ext = file.name.split('.').pop() || 'jpg'
-        const uniqueName = `${randomUUID()}.${ext}`
+        const now = new Date()
+        const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
+        const prefix = file.type.startsWith('video/') ? 'video' : 'image'
+        const shortId = randomUUID().slice(0, 6)
+        const uniqueName = `${prefix} ${shortId} - ${dateStr}.${ext}`
 
         // Read file into buffer
         const bytes = await file.arrayBuffer()
@@ -138,15 +142,15 @@ export async function POST(req: NextRequest) {
         )
 
         // Make file publicly accessible (needed for platform publishing)
-        const publicUrl = await makeFilePublic(accessToken, driveFile.id)
+        const publicUrl = await makeFilePublic(accessToken, driveFile.id, file.type)
 
         // Determine type
         const fileType = file.type.startsWith('video/') ? 'video' : 'image'
 
-        // Build thumbnail URL for Google Drive
+        // Build thumbnail URL
         const thumbnailUrl = fileType === 'image'
-            ? `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w400`
-            : undefined
+            ? `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
+            : `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w400`
 
         // Save to database with Google Drive URL
         const mediaItem = await prisma.mediaItem.create({

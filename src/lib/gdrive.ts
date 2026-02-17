@@ -212,8 +212,8 @@ export function getRedirectUri() {
 }
 
 /**
- * Upload a file to Google Drive
- * Uses multipart upload (metadata + file content in one request)
+ * Upload a file to Google Drive using resumable upload.
+ * Works for any file size — no base64 overhead.
  */
 export async function uploadFile(
     accessToken: string,
@@ -230,40 +230,42 @@ export async function uploadFile(
         metadata.parents = [parentFolderId]
     }
 
-    // Build multipart body
-    const boundary = '===gdrive_upload_boundary==='
-    const metadataStr = JSON.stringify(metadata)
-
-    // We need to build a proper multipart/related body
-    const preamble = [
-        `--${boundary}`,
-        'Content-Type: application/json; charset=UTF-8',
-        '',
-        metadataStr,
-        `--${boundary}`,
-        `Content-Type: ${mimeType}`,
-        'Content-Transfer-Encoding: base64',
-        '',
-    ].join('\r\n')
-
-    const epilogue = `\r\n--${boundary}--`
-
-    const base64Data = fileBuffer.toString('base64')
-    const bodyStr = preamble + base64Data + epilogue
-
-    const res = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,webViewLink,webContentLink,size',
+    // Step 1: Initiate resumable upload session
+    const initRes = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,webContentLink,size',
         {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${accessToken}`,
-                'Content-Type': `multipart/related; boundary=${boundary}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+                'X-Upload-Content-Type': mimeType,
+                'X-Upload-Content-Length': String(fileBuffer.length),
             },
-            body: bodyStr,
+            body: JSON.stringify(metadata),
         },
     )
 
-    const data = await res.json()
+    if (!initRes.ok) {
+        const errData = await initRes.json()
+        throw new Error(`GDrive upload init failed: ${errData.error?.message || initRes.statusText}`)
+    }
+
+    const uploadUri = initRes.headers.get('Location')
+    if (!uploadUri) {
+        throw new Error('GDrive upload: no upload URI returned')
+    }
+
+    // Step 2: Upload the actual file bytes
+    const uploadRes = await fetch(uploadUri, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': mimeType,
+            'Content-Length': String(fileBuffer.length),
+        },
+        body: new Uint8Array(fileBuffer),
+    })
+
+    const data = await uploadRes.json()
     if (data.error) {
         throw new Error(`GDrive upload failed: ${data.error.message}`)
     }
@@ -279,9 +281,10 @@ export async function uploadFile(
 }
 
 /**
- * Make a file publicly readable (anyone with the link can view)
+ * Make a file publicly readable (anyone with the link can view).
+ * Returns a direct-content URL that works as <img src> or <video src>.
  */
-export async function makeFilePublic(accessToken: string, fileId: string) {
+export async function makeFilePublic(accessToken: string, fileId: string, mimeType: string) {
     await fetch(`${GOOGLE_DRIVE_API}/files/${fileId}/permissions`, {
         method: 'POST',
         headers: {
@@ -294,8 +297,12 @@ export async function makeFilePublic(accessToken: string, fileId: string) {
         }),
     })
 
-    // Return the direct-access thumbnail/content URL
-    return `https://drive.google.com/uc?export=view&id=${fileId}`
+    // Use lh3.googleusercontent.com for images — works as <img src> without redirect issues
+    // Use drive.google.com/uc?export=download for videos — allows direct streaming
+    if (mimeType.startsWith('image/')) {
+        return `https://lh3.googleusercontent.com/d/${fileId}`
+    }
+    return `https://drive.google.com/uc?export=download&id=${fileId}`
 }
 
 /**
