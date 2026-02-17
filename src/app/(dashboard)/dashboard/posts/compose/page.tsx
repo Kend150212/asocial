@@ -428,6 +428,7 @@ export default function ComposePage() {
     const [aiTopic, setAiTopic] = useState('')
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story'>>({})
+    const [previewPlatform, setPreviewPlatform] = useState<string>('')
 
     // Load channels — only include active platforms
     useEffect(() => {
@@ -602,6 +603,14 @@ export default function ComposePage() {
 
     // Get selected platform entries for preview
     const selectedEntries = activePlatforms.filter((p) => selectedPlatformIds.has(p.id))
+
+    // Deduplicate platforms for preview tabs
+    const uniqueSelectedPlatforms = [...new Set(selectedEntries.map((p) => p.platform))]
+
+    // Auto-select first platform for preview if current is invalid
+    const effectivePreviewPlatform = uniqueSelectedPlatforms.includes(previewPlatform)
+        ? previewPlatform
+        : uniqueSelectedPlatforms[0] || ''
 
     return (
         <div className="space-y-6">
@@ -855,31 +864,79 @@ export default function ComposePage() {
                 < div className="lg:col-span-4 space-y-4" >
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-sm">Preview</CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm">Post Preview</CardTitle>
+                                {content.trim() && uniqueSelectedPlatforms.length > 1 && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {uniqueSelectedPlatforms.length} platforms
+                                    </p>
+                                )}
+                            </div>
+                            {/* Platform tab pills */}
+                            {content.trim() && uniqueSelectedPlatforms.length > 0 && (
+                                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                    {uniqueSelectedPlatforms.map((platform) => {
+                                        const accountsForPlatform = selectedEntries.filter((e) => e.platform === platform)
+                                        const isActive = effectivePreviewPlatform === platform
+                                        return (
+                                            <button
+                                                key={platform}
+                                                onClick={() => setPreviewPlatform(platform)}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer ${isActive
+                                                    ? 'text-white shadow-sm'
+                                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                    }`}
+                                                style={isActive ? { backgroundColor: platformColors[platform] || '#666' } : {}}
+                                            >
+                                                {platformLabels[platform] || platform}
+                                                {accountsForPlatform.length > 1 && (
+                                                    <span className={`text-[9px] ${isActive ? 'opacity-80' : 'opacity-60'}`}>
+                                                        ×{accountsForPlatform.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {content.trim() && selectedEntries.length > 0 ? (
-                                selectedEntries.map((p) => {
-                                    const name = p.accountName
-                                    switch (p.platform) {
-                                        case 'facebook':
-                                            return <FacebookPreview key={p.id} content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[p.id] || 'feed'} />
-                                        case 'instagram':
-                                            return <InstagramPreview key={p.id} content={content} media={attachedMedia} accountName={name} />
-                                        case 'tiktok':
-                                            return <TikTokPreview key={p.id} content={content} media={attachedMedia} accountName={name} />
-                                        case 'x':
-                                        case 'twitter':
-                                            return <XPreview key={p.id} content={content} accountName={name} />
-                                        case 'youtube':
-                                            return <YouTubePreview key={p.id} content={content} media={attachedMedia} accountName={name} />
-                                        case 'linkedin':
-                                            return <LinkedInPreview key={p.id} content={content} media={attachedMedia} accountName={name} />
-                                        default:
-                                            return <GenericPreview key={p.id} content={content} media={attachedMedia} accountName={name} platform={p.platform} />
-                                    }
-                                })
-                            ) : (
+                        <CardContent className="space-y-3">
+                            {content.trim() && effectivePreviewPlatform ? (() => {
+                                // Find the first account of the currently previewed platform
+                                const entry = selectedEntries.find((e) => e.platform === effectivePreviewPlatform)
+                                if (!entry) return null
+                                const name = entry.accountName
+                                const accountsCount = selectedEntries.filter((e) => e.platform === effectivePreviewPlatform).length
+
+                                return (
+                                    <>
+                                        {(() => {
+                                            switch (effectivePreviewPlatform) {
+                                                case 'facebook':
+                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} />
+                                                case 'instagram':
+                                                    return <InstagramPreview content={content} media={attachedMedia} accountName={name} />
+                                                case 'tiktok':
+                                                    return <TikTokPreview content={content} media={attachedMedia} accountName={name} />
+                                                case 'x':
+                                                case 'twitter':
+                                                    return <XPreview content={content} accountName={name} />
+                                                case 'youtube':
+                                                    return <YouTubePreview content={content} media={attachedMedia} accountName={name} />
+                                                case 'linkedin':
+                                                    return <LinkedInPreview content={content} media={attachedMedia} accountName={name} />
+                                                default:
+                                                    return <GenericPreview content={content} media={attachedMedia} accountName={name} platform={effectivePreviewPlatform} />
+                                            }
+                                        })()}
+                                        {accountsCount > 1 && (
+                                            <p className="text-[10px] text-muted-foreground text-center">
+                                                This content will be posted to {accountsCount} {platformLabels[effectivePreviewPlatform] || effectivePreviewPlatform} accounts
+                                            </p>
+                                        )}
+                                    </>
+                                )
+                            })() : (
                                 <div className="text-center py-10">
                                     <Hash className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
                                     <p className="text-sm text-muted-foreground">
