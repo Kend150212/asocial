@@ -642,7 +642,6 @@ export default function ComposePage() {
                         </CardContent>
                     </Card>
 
-                    {/* Platform Selector — only active, unique key per ID */}
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm">Publish To</CardTitle>
@@ -659,9 +658,17 @@ export default function ComposePage() {
                                         <div key={p.id} className="space-y-1.5">
                                             <div
                                                 className="flex items-center gap-3 cursor-pointer"
-                                                onClick={() => togglePlatform(p.id)}
+                                                onClick={(e) => {
+                                                    // Only toggle if not clicking directly on the checkbox
+                                                    const target = e.target as HTMLElement
+                                                    if (target.closest('button[role="checkbox"]')) return
+                                                    togglePlatform(p.id)
+                                                }}
                                             >
-                                                <Checkbox checked={isChecked} onCheckedChange={() => togglePlatform(p.id)} />
+                                                <Checkbox
+                                                    checked={isChecked}
+                                                    onCheckedChange={() => togglePlatform(p.id)}
+                                                />
                                                 <div
                                                     className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                                                     style={{ backgroundColor: platformColors[p.platform] || '#666' }}
@@ -677,7 +684,6 @@ export default function ComposePage() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            {/* Facebook Feed/Story toggle */}
                                             {isFacebook && isChecked && (
                                                 <div className="ml-9 flex items-center gap-1.5">
                                                     <button
@@ -734,12 +740,12 @@ export default function ComposePage() {
                             )}
                         </CardContent>
                     </Card>
-                </div>
+                </div >
 
                 {/* ── Center: Editor ── */}
-                <div className="lg:col-span-5 space-y-4">
+                < div className="lg:col-span-5 space-y-4" >
                     {/* AI Generate */}
-                    <Card>
+                    < Card >
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Sparkles className="h-4 w-4 text-amber-500" /> AI Generate
@@ -758,10 +764,10 @@ export default function ComposePage() {
                                 </Button>
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card >
 
                     {/* Content Editor */}
-                    <Card>
+                    < Card >
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm">Content</CardTitle>
@@ -788,10 +794,10 @@ export default function ComposePage() {
                                 rows={8}
                             />
                         </CardContent>
-                    </Card>
+                    </Card >
 
                     {/* Media */}
-                    <Card>
+                    < Card >
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm flex items-center gap-2">
@@ -846,11 +852,11 @@ export default function ComposePage() {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
-                </div>
+                    </Card >
+                </div >
 
                 {/* ── Right: Realistic Previews ── */}
-                <div className="lg:col-span-4 space-y-4">
+                < div className="lg:col-span-4 space-y-4" >
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm">Preview</CardTitle>
@@ -888,25 +894,27 @@ export default function ComposePage() {
                         </CardContent>
                     </Card>
 
-                    {scheduleDate && (
-                        <Card>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                        <Clock className="h-5 w-5 text-primary" />
+                    {
+                        scheduleDate && (
+                            <Card>
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <Clock className="h-5 w-5 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">Scheduled for</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {new Date(`${scheduleDate}T${scheduleTime || '00:00'}`).toLocaleString('vi-VN')}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-medium">Scheduled for</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {new Date(`${scheduleDate}T${scheduleTime || '00:00'}`).toLocaleString('vi-VN')}
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-            </div>
-        </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    }
+                </div >
+            </div >
+        </div >
     )
 }
