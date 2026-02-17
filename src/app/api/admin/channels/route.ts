@@ -19,7 +19,7 @@ export async function GET() {
         include: {
             _count: { select: { members: true, posts: true, knowledgeBase: true, platforms: true } },
             platforms: {
-                select: { platform: true, accountName: true, isActive: true },
+                select: { id: true, platform: true, accountId: true, accountName: true, isActive: true },
             },
         },
     })
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         include: {
             _count: { select: { members: true, posts: true, knowledgeBase: true, platforms: true } },
             platforms: {
-                select: { platform: true, accountName: true, isActive: true },
+                select: { id: true, platform: true, accountId: true, accountName: true, isActive: true },
             },
         },
     })
