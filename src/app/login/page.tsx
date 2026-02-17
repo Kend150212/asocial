@@ -110,6 +110,13 @@ export default function LoginPage() {
                                 {t('auth.forgotPassword')}
                             </a>
                         </div>
+
+                        <div className="text-center text-xs text-muted-foreground pt-2 border-t">
+                            <span>By signing in, you agree to our </span>
+                            <a href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</a>
+                            <span> and </span>
+                            <a href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</a>
+                        </div>
                     </form>
                 </CardContent>
             </Card>
