@@ -66,12 +66,17 @@ export async function POST(req: NextRequest) {
 
     // Validate file type
     const allowedTypes = [
+        // Images
         'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-        'video/mp4', 'video/quicktime', 'video/webm',
+        'image/bmp', 'image/tiff', 'image/heic', 'image/heif', 'image/avif',
+        // Videos
+        'video/mp4', 'video/quicktime', 'video/webm', 'video/avi', 'video/x-msvideo',
+        'video/x-matroska', 'video/ogg', 'video/3gpp', 'video/x-flv',
+        'video/x-ms-wmv', 'video/mpeg',
     ]
     if (!allowedTypes.includes(file.type)) {
         return NextResponse.json(
-            { error: `Unsupported file type: ${file.type}` },
+            { error: `Unsupported file type: ${file.type}. Supported: images (JPG, PNG, GIF, WebP, HEIC, AVIF, BMP, TIFF) and videos (MP4, MOV, WebM, AVI, MKV, OGG, 3GP, FLV, WMV, MPEG)` },
             { status: 400 }
         )
     }
