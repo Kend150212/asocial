@@ -1040,13 +1040,15 @@ export default function ComposePage() {
                         * { margin: 0; padding: 0; box-sizing: border-box; }
                         body { background: #0f1419; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
                         .container { padding: 48px; max-width: 480px; }
-                        .logo { font-size: 28px; font-weight: 700; margin-bottom: 32px; color: #10b981; }
+                        .logo { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 32px; }
+                        .logo img { width: 40px; height: 40px; border-radius: 10px; }
+                        .logo span { font-size: 24px; font-weight: 700; color: #10b981; }
                         .icon { font-size: 48px; margin-bottom: 16px; }
                         .message { font-size: 18px; line-height: 1.6; color: #d1d5db; }
                         ${spinnerCSS}
                     </style></head><body>
                         <div class="container">
-                            <div class="logo">🅰 ASocial</div>
+                            <div class="logo"><img src="/logo.png" alt="ASocial" /><span>ASocial</span></div>
                             ${status === 'loading' ? '<div class="spinner"></div>' : `<div class="icon">${icon}</div>`}
                             <p class="message">${message}</p>
                             ${closeBtn}
