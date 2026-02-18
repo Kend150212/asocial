@@ -3,10 +3,11 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
+import { THUMBNAIL_STYLES, DEFAULT_THUMBNAIL_STYLE_ID } from '@/lib/thumbnail-styles'
 
 // POST /api/admin/posts/generate-metadata
 // AI-generates platform-specific metadata: first comment, Pinterest title/link,
-// YouTube title/tags/category/thumbnail prompt
+// YouTube 3 titles / tags / category / 3 thumbnail prompts (with style)
 export async function POST(req: NextRequest) {
     const session = await auth()
     if (!session?.user) {
@@ -14,10 +15,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { channelId, content, platforms } = body as {
+    const { channelId, content, platforms, thumbnailStyleId } = body as {
         channelId: string
         content: string
-        platforms: string[] // e.g. ['facebook', 'pinterest', 'youtube']
+        platforms: string[]
+        thumbnailStyleId?: string
     }
 
     if (!channelId || !content) {
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    // ── Resolve AI provider (same logic as generate route) ──
+    // ── Resolve AI provider ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const channelData = channel as any
     const providerToUse = channel.defaultAiProvider
@@ -46,7 +48,6 @@ export async function POST(req: NextRequest) {
     let config: Record<string, string> = {}
     let baseUrl: string | undefined | null
 
-    // Priority 1: User's own API key
     let userApiKey = providerToUse
         ? await prisma.userApiKey.findFirst({
             where: { userId: session.user.id!, provider: providerToUse, isActive: true },
@@ -131,13 +132,17 @@ export async function POST(req: NextRequest) {
         'Howto & Style', 'Education', 'Science & Technology', 'Nonprofits & Activism',
     ]
 
+    // Resolve thumbnail style
+    const selectedStyle = THUMBNAIL_STYLES.find(s => s.id === (thumbnailStyleId || DEFAULT_THUMBNAIL_STYLE_ID))
+        || THUMBNAIL_STYLES[0]
+
     // Build the prompt
     const requestedPlatforms = platforms || []
     const hasFacebook = requestedPlatforms.includes('facebook')
     const hasPinterest = requestedPlatforms.includes('pinterest')
     const hasYouTube = requestedPlatforms.includes('youtube')
 
-    const systemPrompt = `You are a world-class social media strategist. Generate platform-specific metadata for a post. Respond ONLY with valid JSON.`
+    const systemPrompt = `You are a world-class social media strategist and YouTube growth expert. Generate platform-specific metadata for a post. Respond ONLY with valid JSON.`
 
     const userPrompt = `Given this post content for the brand "${channel.displayName}" (${langLabel}):
 
@@ -154,18 +159,27 @@ Generate the following metadata as JSON. Write ENTIRELY in ${langLabel} unless n
 ${hasFacebook ? `  "firstComment": "A relevant first comment for the Facebook post — should be engaging, add value (e.g. a question, extra tip, or CTA). 1-2 sentences. Don't repeat the post content.",` : ''}
 ${hasPinterest ? `  "pinTitle": "A catchy, SEO-optimized pin title (max 100 chars) that describes the content. In ${langLabel}.",
   "pinLink": "A suggested destination URL if the post mentions any link or website. Empty string if no link context.",` : ''}
-${hasYouTube ? `  "ytTitle": "A compelling, clickbait-worthy video title (max 100 chars) that drives clicks. In ${langLabel}.",
+${hasYouTube ? `  "ytTitles": [
+    "Title option 1 — compelling, clickbait-worthy video title (max 100 chars). In ${langLabel}.",
+    "Title option 2 — different angle/approach, curiosity-driven. In ${langLabel}.",
+    "Title option 3 — with strong viral hook words (e.g. 'CẤM', 'BÍ MẬT', 'SHOCKING', 'PHẢI XEM'). In ${langLabel}."
+  ],
   "ytTags": "Comma-separated relevant video tags (8-15 tags) for YouTube SEO. Mix of broad and specific. In ${langLabel}.",
   "ytCategory": "The most relevant category from this list: [${ytCategories.join(', ')}]. Return the exact category name.",
-  "ytThumbnailPrompt": "A detailed prompt for generating a YouTube thumbnail image. Describe the visual composition, text overlay suggestions, colors, style, and mood. Be specific and vivid. Write in English for image generation.",` : ''}
+  "ytThumbnailPrompts": [
+    "Thumbnail prompt 1: ${selectedStyle.promptTemplate} Adapt to this video's content: describe specific visual elements, text overlays, and composition. Be specific about what the viewer should see. Write in English.",
+    "Thumbnail prompt 2: A variation of the same style with different composition, different hook text, and different focal point. Same style: ${selectedStyle.name}. Write in English.",
+    "Thumbnail prompt 3: Another variation with a completely different angle but same style. Different pose, color emphasis, or perspective. Same style: ${selectedStyle.name}. Write in English."
+  ],` : ''}
 }
 
 Rules:
-- ALL text fields in ${langLabel} (except ytThumbnailPrompt which should be in English)
-- Make titles catchy and attention-grabbing  
+- ALL text fields in ${langLabel} (except ytThumbnailPrompts which MUST be in English)
+- YouTube titles should be 3 DIFFERENT approaches — each must feel unique and click-worthy
+- Include strong viral hook words in titles (urgency, curiosity, numbers, superlatives)
 - First comment should feel natural, not promotional
 - YouTube tags should be comma-separated and SEO-optimized
-- Thumbnail prompt should describe a visually striking, clickable thumbnail
+- Each thumbnail prompt must be a detailed, complete image generation prompt
 - Return ONLY valid JSON, no extra text`
 
     try {
@@ -176,7 +190,8 @@ Rules:
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
         if (jsonMatch) cleaned = jsonMatch[0]
 
-        let parsed: Record<string, string>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let parsed: Record<string, any>
         try {
             parsed = JSON.parse(cleaned)
         } catch {
@@ -190,10 +205,11 @@ Rules:
                 pinLink: parsed.pinLink || '',
             } : {}),
             ...(hasYouTube ? {
-                ytTitle: parsed.ytTitle || '',
+                ytTitles: Array.isArray(parsed.ytTitles) ? parsed.ytTitles : [parsed.ytTitle || '', '', ''],
                 ytTags: parsed.ytTags || '',
                 ytCategory: parsed.ytCategory || '',
-                ytThumbnailPrompt: parsed.ytThumbnailPrompt || '',
+                ytThumbnailPrompts: Array.isArray(parsed.ytThumbnailPrompts) ? parsed.ytThumbnailPrompts : [parsed.ytThumbnailPrompt || '', '', ''],
+                thumbnailStyleId: selectedStyle.id,
             } : {}),
             provider: providerName,
             model,

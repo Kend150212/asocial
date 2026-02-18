@@ -56,6 +56,9 @@ import {
     Bell,
     Code2,
     Baby,
+    Palette,
+    Search,
+    CheckCircle2,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -76,6 +79,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { THUMBNAIL_STYLES, DEFAULT_THUMBNAIL_STYLE_ID } from '@/lib/thumbnail-styles'
+import Image from 'next/image'
 
 import { toast } from 'sonner'
 
@@ -537,6 +548,20 @@ export default function ComposePage() {
     const [ytNotifySubscribers, setYtNotifySubscribers] = useState(true)
     const [ytThumbnailPrompt, setYtThumbnailPrompt] = useState('')
     const [ytSettingsOpen, setYtSettingsOpen] = useState(true)
+    // YouTube 3 title options + 3 thumbnail prompts
+    const [ytTitleOptions, setYtTitleOptions] = useState<string[]>([])
+    const [ytThumbnailPrompts, setYtThumbnailPrompts] = useState<string[]>([])
+    const [ytSelectedTitleIdx, setYtSelectedTitleIdx] = useState(0)
+    const [ytSelectedThumbIdx, setYtSelectedThumbIdx] = useState(0)
+    // Thumbnail style selector
+    const [thumbnailStyleId, setThumbnailStyleId] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('asocial_yt_thumbnail_style') || DEFAULT_THUMBNAIL_STYLE_ID
+        }
+        return DEFAULT_THUMBNAIL_STYLE_ID
+    })
+    const [styleModalOpen, setStyleModalOpen] = useState(false)
+    const [styleSearch, setStyleSearch] = useState('')
     // TikTok settings
     const [ttPostType, setTtPostType] = useState<'video' | 'carousel'>('video')
     const [ttPublishMode, setTtPublishMode] = useState<'direct' | 'inbox'>('direct')
@@ -948,7 +973,7 @@ export default function ComposePage() {
         finally { setGenerating(false) }
     }
 
-    // AI Generate platform metadata (first comment, pin title, yt title, etc.)
+    // AI Generate platform metadata (first comment, pin title, yt titles x3, etc.)
     const handleGenerateMetadata = async (requestedPlatforms?: string[]) => {
         if (!selectedChannel || !content.trim()) {
             toast.error('Write your post content first')
@@ -964,7 +989,7 @@ export default function ComposePage() {
             const res = await fetch('/api/admin/posts/generate-metadata', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId: selectedChannel.id, content, platforms }),
+                body: JSON.stringify({ channelId: selectedChannel.id, content, platforms, thumbnailStyleId }),
             })
             const data = await res.json()
             if (!res.ok) {
@@ -977,10 +1002,30 @@ export default function ComposePage() {
             if (data.firstComment) { setFbFirstComment(data.firstComment); filled++ }
             if (data.pinTitle) { setPinTitle(data.pinTitle); filled++ }
             if (data.pinLink) { setPinLink(data.pinLink); filled++ }
-            if (data.ytTitle) { setYtVideoTitle(data.ytTitle); filled++ }
+            // YouTube: 3 titles
+            if (data.ytTitles && Array.isArray(data.ytTitles) && data.ytTitles.length > 0) {
+                setYtTitleOptions(data.ytTitles)
+                setYtSelectedTitleIdx(0)
+                setYtVideoTitle(data.ytTitles[0])
+                filled++
+            } else if (data.ytTitle) {
+                setYtVideoTitle(data.ytTitle)
+                setYtTitleOptions([data.ytTitle])
+                filled++
+            }
             if (data.ytTags) { setYtTags(data.ytTags); filled++ }
             if (data.ytCategory) { setYtCategory(data.ytCategory); filled++ }
-            if (data.ytThumbnailPrompt) { setYtThumbnailPrompt(data.ytThumbnailPrompt); filled++ }
+            // YouTube: 3 thumbnail prompts
+            if (data.ytThumbnailPrompts && Array.isArray(data.ytThumbnailPrompts) && data.ytThumbnailPrompts.length > 0) {
+                setYtThumbnailPrompts(data.ytThumbnailPrompts)
+                setYtSelectedThumbIdx(0)
+                setYtThumbnailPrompt(data.ytThumbnailPrompts[0])
+                filled++
+            } else if (data.ytThumbnailPrompt) {
+                setYtThumbnailPrompt(data.ytThumbnailPrompt)
+                setYtThumbnailPrompts([data.ytThumbnailPrompt])
+                filled++
+            }
 
             toast.success(`✨ AI filled ${filled} field(s)`)
         } catch {
@@ -1861,8 +1906,8 @@ export default function ComposePage() {
                                         </div>
                                     </div>
 
-                                    {/* Video Title */}
-                                    <div className="space-y-1 border-t pt-1.5">
+                                    {/* Video Title — 3 AI options */}
+                                    <div className="space-y-1.5 border-t pt-1.5">
                                         <div className="flex items-center justify-between">
                                             <Label className="text-[10px] text-muted-foreground">Video Title</Label>
                                             <button
@@ -1872,7 +1917,7 @@ export default function ComposePage() {
                                                 onClick={() => handleGenerateMetadata(['youtube'])}
                                             >
                                                 {generatingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                                                AI Fill All
+                                                ✨ AI Generate 3 Titles
                                             </button>
                                         </div>
                                         <Input
@@ -1881,6 +1926,32 @@ export default function ComposePage() {
                                             placeholder="Enter video title..."
                                             className="text-sm"
                                         />
+                                        {/* 3 title options from AI */}
+                                        {ytTitleOptions.length > 1 && (
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">AI Options — click to use</p>
+                                                {ytTitleOptions.map((title, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        className={`w-full text-left px-2.5 py-1.5 rounded-md border text-xs transition-all cursor-pointer flex items-start gap-2 ${ytSelectedTitleIdx === idx
+                                                            ? 'border-red-500 bg-red-500/10 text-foreground'
+                                                            : 'border-border hover:border-red-300 text-muted-foreground hover:text-foreground'
+                                                            }`}
+                                                        onClick={() => {
+                                                            setYtSelectedTitleIdx(idx)
+                                                            setYtVideoTitle(title)
+                                                        }}
+                                                    >
+                                                        <span className={`shrink-0 mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${ytSelectedTitleIdx === idx ? 'border-red-500' : 'border-muted-foreground/30'
+                                                            }`}>
+                                                            {ytSelectedTitleIdx === idx && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+                                                        </span>
+                                                        <span className="leading-snug">{title}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Category & Tags */}
@@ -1938,19 +2009,75 @@ export default function ComposePage() {
                                         />
                                     </div>
 
-                                    {/* Thumbnail Prompt */}
+                                    {/* Thumbnail Style + Prompts */}
                                     <div className="space-y-2 border-t pt-3">
-                                        <div className="flex items-center gap-2">
-                                            <ImageIcon className="h-4 w-4 text-red-500" />
-                                            <Label className="text-xs text-muted-foreground">Thumbnail Prompt (AI-generated)</Label>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <ImageIcon className="h-4 w-4 text-red-500" />
+                                                <Label className="text-xs text-muted-foreground">Thumbnail</Label>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-1 text-[10px] font-medium text-purple-600 hover:text-purple-500 transition-colors cursor-pointer"
+                                                onClick={() => setStyleModalOpen(true)}
+                                            >
+                                                <Palette className="h-3 w-3" />
+                                                {THUMBNAIL_STYLES.find(s => s.id === thumbnailStyleId)?.name || 'Select Style'}
+                                            </button>
                                         </div>
+                                        {/* Selected style preview */}
+                                        {(() => {
+                                            const style = THUMBNAIL_STYLES.find(s => s.id === thumbnailStyleId)
+                                            if (!style) return null
+                                            return (
+                                                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/50">
+                                                    <Image
+                                                        src={style.preview}
+                                                        alt={style.name}
+                                                        width={64}
+                                                        height={36}
+                                                        className="rounded object-cover"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[11px] font-medium truncate">{style.name}</p>
+                                                        <p className="text-[9px] text-muted-foreground truncate">{style.description}</p>
+                                                    </div>
+                                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                                </div>
+                                            )
+                                        })()}
+                                        {/* Active thumbnail prompt */}
                                         <textarea
                                             value={ytThumbnailPrompt}
                                             onChange={(e) => setYtThumbnailPrompt(e.target.value)}
-                                            placeholder="AI will generate a thumbnail prompt based on your content..."
+                                            placeholder="AI will generate a thumbnail prompt based on your content & selected style..."
                                             className="w-full min-h-[60px] resize-y rounded-lg border bg-transparent px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
                                             rows={3}
                                         />
+                                        {/* 3 thumbnail prompt options */}
+                                        {ytThumbnailPrompts.length > 1 && (
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Prompt options</p>
+                                                <div className="grid grid-cols-3 gap-1">
+                                                    {ytThumbnailPrompts.map((_, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            className={`py-1 px-2 rounded border text-[10px] font-medium transition-all cursor-pointer ${ytSelectedThumbIdx === idx
+                                                                ? 'border-red-500 bg-red-500/10 text-red-600'
+                                                                : 'border-border hover:border-red-300 text-muted-foreground hover:text-foreground'
+                                                                }`}
+                                                            onClick={() => {
+                                                                setYtSelectedThumbIdx(idx)
+                                                                setYtThumbnailPrompt(ytThumbnailPrompts[idx])
+                                                            }}
+                                                        >
+                                                            Prompt {idx + 1}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Toggles */}
@@ -2454,6 +2581,94 @@ export default function ComposePage() {
                     }
                 </div >
             </div >
+
+            {/* ── Thumbnail Style Selector Modal ── */}
+            <Dialog open={styleModalOpen} onOpenChange={setStyleModalOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Palette className="h-5 w-5 text-purple-500" />
+                            Choose Thumbnail Style
+                        </DialogTitle>
+                    </DialogHeader>
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search styles..."
+                            value={styleSearch}
+                            onChange={(e) => setStyleSearch(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    {/* Style Grid */}
+                    <div className="flex-1 overflow-y-auto -mx-1 px-1">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-2">
+                            {THUMBNAIL_STYLES
+                                .filter(s => {
+                                    if (!styleSearch.trim()) return true
+                                    const q = styleSearch.toLowerCase()
+                                    return s.name.toLowerCase().includes(q)
+                                        || s.description.toLowerCase().includes(q)
+                                        || s.tags.some(t => t.toLowerCase().includes(q))
+                                })
+                                .map(style => {
+                                    const isSelected = thumbnailStyleId === style.id
+                                    return (
+                                        <button
+                                            key={style.id}
+                                            type="button"
+                                            className={`group relative rounded-xl border-2 overflow-hidden transition-all cursor-pointer hover:shadow-lg ${isSelected
+                                                    ? 'border-purple-500 ring-2 ring-purple-500/30 shadow-md'
+                                                    : 'border-border hover:border-purple-300'
+                                                }`}
+                                            onClick={() => {
+                                                setThumbnailStyleId(style.id)
+                                                localStorage.setItem('asocial_yt_thumbnail_style', style.id)
+                                                setStyleModalOpen(false)
+                                                setStyleSearch('')
+                                            }}
+                                        >
+                                            {/* Preview image */}
+                                            <div className="aspect-video relative bg-muted">
+                                                <Image
+                                                    src={style.preview}
+                                                    alt={style.name}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 50vw, 33vw"
+                                                />
+                                                {isSelected && (
+                                                    <div className="absolute top-1.5 right-1.5 bg-purple-500 text-white rounded-full p-0.5">
+                                                        <Check className="h-3 w-3" />
+                                                    </div>
+                                                )}
+                                                {/* Default badge */}
+                                                {isSelected && (
+                                                    <div className="absolute bottom-1.5 left-1.5 bg-purple-500/90 backdrop-blur text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                                        Default
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Info */}
+                                            <div className="p-2">
+                                                <p className="text-xs font-semibold truncate">{style.name}</p>
+                                                <p className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-0.5">{style.description}</p>
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {style.tags.slice(0, 3).map(tag => (
+                                                        <span key={tag} className="text-[8px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div >
     )
 }
