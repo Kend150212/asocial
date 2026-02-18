@@ -78,6 +78,11 @@ interface ChannelPlatform {
     isActive: boolean
 }
 
+interface ChannelMember {
+    role: string
+    user: { name: string | null; email: string }
+}
+
 interface Channel {
     id: string
     name: string
@@ -86,6 +91,7 @@ interface Channel {
     language: string
     createdAt: string
     platforms: ChannelPlatform[]
+    members: ChannelMember[]
     _count: {
         members: number
         posts: number
@@ -287,22 +293,20 @@ export default function AdminChannelsPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                {/* Platform pills */}
-                                {channel.platforms.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {channel.platforms.map((p, i) => (
-                                            <span
-                                                key={i}
-                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted"
-                                                title={p.accountName}
-                                            >
-                                                <span
-                                                    className="w-2 h-2 rounded-full shrink-0"
-                                                    style={{ backgroundColor: platformColors[p.platform] || '#888' }}
-                                                />
-                                                {p.platform}
-                                            </span>
-                                        ))}
+                                {/* Admin info */}
+                                {channel.members?.[0] && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-semibold shrink-0">
+                                            {(channel.members[0].user.name || channel.members[0].user.email)[0]?.toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-medium text-foreground truncate text-xs">
+                                                {channel.members[0].user.name || 'Admin'}
+                                            </p>
+                                            <p className="truncate text-[10px]">
+                                                {channel.members[0].user.email}
+                                            </p>
+                                        </div>
                                     </div>
                                 )}
 

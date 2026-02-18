@@ -21,6 +21,13 @@ export async function GET() {
             platforms: {
                 select: { id: true, platform: true, accountId: true, accountName: true, isActive: true },
             },
+            members: {
+                where: { role: 'ADMIN' },
+                take: 1,
+                include: {
+                    user: { select: { name: true, email: true } },
+                },
+            },
         },
     })
 
