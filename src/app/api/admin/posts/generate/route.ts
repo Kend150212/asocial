@@ -91,7 +91,9 @@ export async function POST(req: NextRequest) {
 
     // Check if channel has its own API key
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channelAiKey = (channel as any).aiApiKeyEncrypted
+    const channelData = channel as any
+    const channelAiKey = channelData.aiApiKeyEncrypted
+    const mustUseOwnKey = channelData.requireOwnApiKey === true
     let apiKey: string
     let providerName: string
     let config: Record<string, string> = {}
@@ -102,6 +104,12 @@ export async function POST(req: NextRequest) {
         // Use channel-level API key
         apiKey = decrypt(channelAiKey)
         providerName = providerToUse || 'gemini' // default to gemini if no provider set
+    } else if (mustUseOwnKey) {
+        // Channel requires own key but doesn't have one
+        return NextResponse.json(
+            { error: 'This channel requires its own API key. Please set up a Channel AI API Key in channel settings.' },
+            { status: 400 }
+        )
     } else {
         // Fall back to global API integration
         let aiIntegration

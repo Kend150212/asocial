@@ -51,12 +51,13 @@ export async function GET(
         return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    // Add flag for whether channel has its own AI API key (don't expose the key itself)
+    // Add flags for AI API key (don't expose the encrypted key itself)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const channelData = channel as any
     const response = {
         ...channel,
         hasAiApiKey: !!channelData.aiApiKeyEncrypted,
+        requireOwnApiKey: channelData.requireOwnApiKey ?? false,
         aiApiKeyEncrypted: undefined, // never expose encrypted key
     }
 
@@ -111,13 +112,18 @@ export async function PUT(
         }
     }
 
-    // Handle AI API key (admin only) — encrypt before storing
-    if (isAdmin && body.aiApiKey !== undefined) {
+    // Handle AI API key — both admin and managers can set it
+    if (body.aiApiKey !== undefined) {
         if (body.aiApiKey && body.aiApiKey.trim()) {
             updateData.aiApiKeyEncrypted = encrypt(body.aiApiKey.trim())
         } else {
             updateData.aiApiKeyEncrypted = null // clear the key
         }
+    }
+
+    // Handle requireOwnApiKey — admin only
+    if (isAdmin && body.requireOwnApiKey !== undefined) {
+        updateData.requireOwnApiKey = body.requireOwnApiKey
     }
 
     const channel = await prisma.channel.update({

@@ -255,6 +255,7 @@ export default function ChannelDetailPage({
     const [aiModel, setAiModel] = useState('')
     const [aiApiKey, setAiApiKey] = useState('')
     const [hasExistingAiKey, setHasExistingAiKey] = useState(false)
+    const [requireOwnApiKey, setRequireOwnApiKey] = useState(false)
     const [generatingDesc, setGeneratingDesc] = useState(false)
     const [generatingVibe, setGeneratingVibe] = useState(false)
     const [newVibeFieldName, setNewVibeFieldName] = useState('')
@@ -313,6 +314,7 @@ export default function ChannelDetailPage({
                 setAiProvider(data.defaultAiProvider || '')
                 setAiModel(data.defaultAiModel || '')
                 setHasExistingAiKey(!!data.hasAiApiKey)
+                setRequireOwnApiKey(data.requireOwnApiKey ?? false)
                 setAiApiKey('')
                 // Webhooks
                 setWebhookDiscordUrl(data.webhookDiscord?.url || '')
@@ -438,6 +440,7 @@ export default function ChannelDetailPage({
                     defaultAiProvider: aiProvider || null,
                     defaultAiModel: aiModel || null,
                     ...(aiApiKey ? { aiApiKey } : {}),
+                    ...(isAdmin ? { requireOwnApiKey } : {}),
                     webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
                     webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
@@ -1050,44 +1053,57 @@ export default function ChannelDetailPage({
                                         </div>
                                     </div>
 
-                                    {/* Channel AI API Key */}
-                                    <div className="space-y-2">
-                                        <Label>Channel AI API Key</Label>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="password"
-                                                placeholder={hasExistingAiKey ? '••••••••••••••••' : 'Enter API key for this channel'}
-                                                value={aiApiKey}
-                                                onChange={(e) => setAiApiKey(e.target.value)}
-                                            />
-                                            {hasExistingAiKey && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="shrink-0 text-destructive cursor-pointer"
-                                                    onClick={() => {
-                                                        setAiApiKey('')
-                                                        setHasExistingAiKey(false)
-                                                        // Will send empty string to clear it on save
-                                                        fetch(`/api/admin/channels/${id}`, {
-                                                            method: 'PUT',
-                                                            headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ aiApiKey: '' }),
-                                                        }).then(() => toast.success('API key cleared'))
-                                                    }}
-                                                >
-                                                    Clear Key
-                                                </Button>
-                                            )}
+                                    {/* Require Own API Key — Admin Only */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label>Require Channel API Key</Label>
+                                            <p className="text-xs text-muted-foreground">If enabled, this channel must have its own API key and cannot use the global API key.</p>
                                         </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            {hasExistingAiKey
-                                                ? 'This channel has its own API key. AI generation will use this key instead of the global one.'
-                                                : 'Optional. If set, this channel will use its own API key for AI generation instead of the global API key.'}
-                                        </p>
+                                        <Switch checked={requireOwnApiKey} onCheckedChange={setRequireOwnApiKey} />
                                     </div>
                                 </>
                             )}
+
+                            {/* Channel AI API Key — Admin & Manager */}
+                            <div className="space-y-2">
+                                <Label>Channel AI API Key</Label>
+                                {requireOwnApiKey && !hasExistingAiKey && (
+                                    <p className="text-xs text-orange-400 font-medium">⚠ This channel requires its own API key. AI features won&apos;t work until a key is provided.</p>
+                                )}
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="password"
+                                        placeholder={hasExistingAiKey ? '••••••••••••••••' : 'Enter API key for this channel'}
+                                        value={aiApiKey}
+                                        onChange={(e) => setAiApiKey(e.target.value)}
+                                    />
+                                    {hasExistingAiKey && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="shrink-0 text-destructive cursor-pointer"
+                                            onClick={() => {
+                                                setAiApiKey('')
+                                                setHasExistingAiKey(false)
+                                                fetch(`/api/admin/channels/${id}`, {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ aiApiKey: '' }),
+                                                }).then(() => toast.success('API key cleared'))
+                                            }}
+                                        >
+                                            Clear Key
+                                        </Button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {hasExistingAiKey
+                                        ? 'This channel has its own API key. AI generation will use this key instead of the global one.'
+                                        : requireOwnApiKey
+                                            ? 'Required. This channel must provide its own API key for AI features.'
+                                            : 'Optional. If set, this channel will use its own API key for AI generation instead of the global API key.'}
+                                </p>
+                            </div>
 
                             <Separator />
 
