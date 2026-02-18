@@ -749,10 +749,17 @@ export default function ComposePage() {
                 })
             }
 
-            // 3. Build and show picker
+            // 3. Build and show picker with folder navigation
             const gPicker = win.google.picker
+
+            // Create a view that shows images & videos BUT with folder navigation
+            const docsView = new gPicker.DocsView()
+                .setIncludeFolders(true)
+                .setSelectFolderEnabled(false)
+                .setMimeTypes('image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,video/avi,video/webm')
+
             const picker = new gPicker.PickerBuilder()
-                .addView(gPicker.ViewId.DOCS_IMAGES_AND_VIDEOS)
+                .addView(docsView)
                 .setOAuthToken(accessToken)
                 .setAppId(appId)
                 .enableFeature(gPicker.Feature.MULTISELECT_ENABLED)
