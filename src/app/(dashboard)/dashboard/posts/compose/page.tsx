@@ -1109,9 +1109,22 @@ export default function ComposePage() {
                                                     : 'aspect-square'
                                                 }`}
                                         >
-                                            {media.type === 'video' ? (
-                                                <div className="h-full w-full flex items-center justify-center bg-muted">
-                                                    <Play className="h-8 w-8 text-muted-foreground/50" />
+                                            {isVideo(media) ? (
+                                                <div className="relative h-full w-full bg-muted">
+                                                    <video
+                                                        src={media.url}
+                                                        poster={media.thumbnailUrl || undefined}
+                                                        className="h-full w-full object-cover"
+                                                        muted
+                                                        playsInline
+                                                        preload="metadata"
+                                                        onLoadedData={(e) => { (e.target as HTMLVideoElement).currentTime = 0.5 }}
+                                                    />
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <div className="h-8 w-8 rounded-full bg-black/50 flex items-center justify-center">
+                                                            <Play className="h-4 w-4 text-white ml-0.5" />
+                                                        </div>
+                                                    </div>
                                                     <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1 rounded">{media.originalName}</span>
                                                 </div>
                                             ) : (
@@ -1191,10 +1204,23 @@ export default function ComposePage() {
                                                         className={`relative rounded-lg overflow-hidden bg-muted aspect-square cursor-pointer group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
                                                             }`}
                                                     >
-                                                        {media.type === 'video' ? (
-                                                            <div className="h-full w-full flex flex-col items-center justify-center bg-muted">
-                                                                <Play className="h-6 w-6 text-muted-foreground/50" />
-                                                                <span className="text-[9px] text-muted-foreground mt-1 px-1 truncate max-w-full">{media.originalName}</span>
+                                                        {isVideo(media) ? (
+                                                            <div className="relative h-full w-full bg-muted">
+                                                                <video
+                                                                    src={media.url}
+                                                                    poster={media.thumbnailUrl || undefined}
+                                                                    className="h-full w-full object-cover"
+                                                                    muted
+                                                                    playsInline
+                                                                    preload="metadata"
+                                                                    onLoadedData={(e) => { (e.target as HTMLVideoElement).currentTime = 0.5 }}
+                                                                />
+                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                    <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
+                                                                        <Play className="h-3 w-3 text-white ml-0.5" />
+                                                                    </div>
+                                                                </div>
+                                                                <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">{media.originalName}</span>
                                                             </div>
                                                         ) : (
                                                             <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
