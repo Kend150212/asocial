@@ -592,6 +592,7 @@ export default function ComposePage() {
     const [loadingLibrary, setLoadingLibrary] = useState(false)
     const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
     const [canvaLoading, setCanvaLoading] = useState(false)
+    const handleFileUploadRef = useRef<((files: FileList | null) => Promise<void>) | null>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
@@ -844,6 +845,8 @@ export default function ComposePage() {
             setUploading(false)
         }
     }, [selectedChannel])
+    // Keep ref updated so async callbacks (like Canva export) always use the latest version
+    handleFileUploadRef.current = handleFileUpload
 
     const removeMedia = (id: string) => {
         setAttachedMedia((prev) => prev.filter((m) => m.id !== id))
@@ -1054,11 +1057,16 @@ export default function ComposePage() {
                             if (blob && blob.size > 0) {
                                 const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
 
-                                // Upload via handleFileUpload
-                                const dt = new DataTransfer()
-                                dt.items.add(file)
-                                await handleFileUpload(dt.files)
-                                toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                                // Upload via handleFileUpload (use ref to avoid stale closure)
+                                const uploadFn = handleFileUploadRef.current
+                                if (uploadFn) {
+                                    const dt = new DataTransfer()
+                                    dt.items.add(file)
+                                    await uploadFn(dt.files)
+                                    toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                                } else {
+                                    toast.error('Upload function not available. Please try again.', { id: 'canva-export' })
+                                }
 
                                 // Close popup AFTER successful import
                                 if (popupRef && !popupRef.closed) popupRef.close()
