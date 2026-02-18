@@ -999,7 +999,7 @@ export default function ComposePage() {
         finally { setSaving(false) }
     }
 
-    // Publish now
+    // Publish now (fire-and-forget — publishes in background on server)
     const handlePublishNow = async () => {
         if (!selectedChannel || !content.trim()) { toast.error('Select a channel and add content'); return }
         if (selectedPlatformIds.size === 0) { toast.error('Select at least one platform'); return }
@@ -1024,31 +1024,16 @@ export default function ComposePage() {
                 return
             }
             const post = await createRes.json()
-            const pubRes = await fetch(`/api/admin/posts/${post.id}/publish`, { method: 'POST' })
-            const pubData = await pubRes.json()
 
-            if (!pubRes.ok || !pubData.success) {
-                // Show per-platform errors but do NOT redirect
-                const failedPlatforms = (pubData.results || []).filter((r: { success: boolean }) => !r.success)
-                if (failedPlatforms.length > 0) {
-                    failedPlatforms.forEach((f: { platform: string; error?: string }) => {
-                        toast.error(`${f.platform}: ${f.error || 'Failed'}`, { duration: 8000 })
-                    })
-                    const successCount = (pubData.results || []).filter((r: { success: boolean }) => r.success).length
-                    if (successCount > 0) {
-                        toast.warning(`Published to ${successCount} platform(s), ${failedPlatforms.length} failed`)
-                    }
-                } else {
-                    toast.error('Publishing failed. Check platform connections.')
-                }
-                return // Stay on page — don't redirect
-            }
+            // Fire publish in background — don't await
+            fetch(`/api/admin/posts/${post.id}/publish`, { method: 'POST' })
+                .catch(() => { /* server handles errors */ })
 
-            toast.success('Published successfully!')
+            toast.success('Publishing in background...')
             savedRef.current = true
             router.push('/dashboard/posts')
         } catch {
-            toast.error('Network error — failed to publish')
+            toast.error('Network error — failed to save post')
         } finally {
             setPublishing(false)
         }
