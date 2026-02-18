@@ -31,6 +31,7 @@ import {
     Mail,
     Calendar,
     AlertCircle,
+    Palette,
 } from 'lucide-react'
 import {
     Dialog,
@@ -494,10 +495,22 @@ export default function UserApiKeysPage() {
     const [gdriveLoading, setGdriveLoading] = useState(false)
     const [gdriveConnecting, setGdriveConnecting] = useState(false)
 
+    // Canva state
+    const [canvaStatus, setCanvaStatus] = useState<{ connected: boolean; isAdminConfigured: boolean; userName: string | null; connectedAt: string | null } | null>(null)
+    const [canvaLoading, setCanvaLoading] = useState(false)
+    const [canvaConnecting, setCanvaConnecting] = useState(false)
+
     const fetchGDriveStatus = useCallback(async () => {
         try {
             const res = await fetch('/api/user/gdrive/status')
             if (res.ok) setGdriveStatus(await res.json())
+        } catch { /* */ }
+    }, [])
+
+    const fetchCanvaStatus = useCallback(async () => {
+        try {
+            const res = await fetch('/api/user/canva/status')
+            if (res.ok) setCanvaStatus(await res.json())
         } catch { /* */ }
     }, [])
 
@@ -516,6 +529,27 @@ export default function UserApiKeysPage() {
             toast.error('Failed to connect to Google Drive')
             setGdriveConnecting(false)
         }
+    }
+
+    const handleCanvaConnect = async () => {
+        setCanvaConnecting(true)
+        window.location.href = `/api/oauth/canva?returnUrl=${encodeURIComponent('/dashboard/api-keys')}`
+    }
+
+    const handleCanvaDisconnect = async () => {
+        setCanvaLoading(true)
+        try {
+            const res = await fetch('/api/user/canva/disconnect', { method: 'POST' })
+            if (res.ok) {
+                toast.success('Canva disconnected')
+                fetchCanvaStatus()
+            } else {
+                toast.error('Failed to disconnect')
+            }
+        } catch {
+            toast.error('Failed to disconnect')
+        }
+        setCanvaLoading(false)
     }
 
     const handleGDriveDisconnect = async () => {
@@ -545,7 +579,17 @@ export default function UserApiKeysPage() {
             toast.error(searchParams.get('message') || 'Google Drive connection failed')
             router.replace('/dashboard/api-keys')
         }
-    }, [searchParams, router, fetchGDriveStatus])
+
+        const canva = searchParams.get('canva')
+        if (canva === 'connected') {
+            toast.success('🎨 Canva connected successfully!')
+            fetchCanvaStatus()
+            router.replace('/dashboard/api-keys')
+        } else if (canva === 'error') {
+            toast.error(searchParams.get('message') || 'Canva connection failed')
+            router.replace('/dashboard/api-keys')
+        }
+    }, [searchParams, router, fetchGDriveStatus, fetchCanvaStatus])
 
     const fetchProviders = useCallback(async () => {
         try {
@@ -568,8 +612,8 @@ export default function UserApiKeysPage() {
     }, [])
 
     useEffect(() => {
-        Promise.all([fetchProviders(), fetchKeys(), fetchGDriveStatus()]).then(() => setLoading(false))
-    }, [fetchProviders, fetchKeys, fetchGDriveStatus])
+        Promise.all([fetchProviders(), fetchKeys(), fetchGDriveStatus(), fetchCanvaStatus()]).then(() => setLoading(false))
+    }, [fetchProviders, fetchKeys, fetchGDriveStatus, fetchCanvaStatus])
 
     const handleSave = async (providerSlug: string) => {
         const apiKey = apiKeyValues[providerSlug]
@@ -799,6 +843,93 @@ export default function UserApiKeysPage() {
                                             <Link2 className="h-4 w-4 mr-2" />
                                         )}
                                         Connect Google Drive
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Separator />
+
+            {/* ─── Canva Design Tools Section ─── */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                    <Palette className="h-5 w-5" />
+                    <h2 className="text-xl font-semibold">Canva Design</h2>
+                    {canvaStatus?.connected && (
+                        <Badge variant="default" className="ml-2 gap-1 bg-violet-500/10 text-violet-600 border-violet-500/20">
+                            <CheckCircle className="h-3 w-3" />
+                            Connected
+                        </Badge>
+                    )}
+                </div>
+
+                <Card className="border-dashed">
+                    <CardContent className="pt-6">
+                        {canvaStatus?.connected ? (
+                            <div className="space-y-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-3 flex-1">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Palette className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-muted-foreground">Account:</span>
+                                            <span className="font-medium">{canvaStatus.userName}</span>
+                                        </div>
+                                        {canvaStatus.connectedAt && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                <span className="text-muted-foreground">Connected:</span>
+                                                <span className="font-medium">
+                                                    {new Date(canvaStatus.connectedAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCanvaDisconnect}
+                                        disabled={canvaLoading}
+                                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                                    >
+                                        {canvaLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Unlink className="h-4 w-4" />
+                                        )}
+                                        <span className="ml-1.5">Disconnect</span>
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Create stunning social media graphics using Canva directly from the Compose page.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 space-y-4">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center">
+                                    <Palette className="h-6 w-6 text-violet-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold">Connect Canva</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Design social media graphics with Canva. Create and edit images directly in the Compose page.
+                                    </p>
+                                </div>
+                                {!canvaStatus?.isAdminConfigured ? (
+                                    <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <span>Canva is not configured by admin yet. Contact your administrator.</span>
+                                    </div>
+                                ) : (
+                                    <Button onClick={handleCanvaConnect} disabled={canvaConnecting} className="bg-violet-600 hover:bg-violet-700">
+                                        {canvaConnecting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        ) : (
+                                            <Palette className="h-4 w-4 mr-2" />
+                                        )}
+                                        Connect Canva
                                     </Button>
                                 )}
                             </div>
