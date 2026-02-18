@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import {
     Key,
@@ -18,6 +19,9 @@ import {
     BrainCircuit,
     ExternalLink,
     Info,
+    RefreshCw,
+    Star,
+    Zap,
 } from 'lucide-react'
 import {
     Dialog,
@@ -134,11 +138,28 @@ interface UserApiKeyData {
     id: string
     provider: string
     name: string
+    defaultModel: string | null
+    isDefault: boolean
     isActive: boolean
 }
 
+interface ModelInfo {
+    id: string
+    name: string
+    type: string
+    description?: string
+}
+
 // ─── Status Badge ──────────────────────────────────────────
-function StatusBadge({ hasKey }: { hasKey: boolean }) {
+function StatusBadge({ hasKey, isDefault }: { hasKey: boolean; isDefault: boolean }) {
+    if (hasKey && isDefault) {
+        return (
+            <Badge variant="outline" className="text-[10px] px-1.5 gap-1 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                <Star className="h-3 w-3 fill-current" />
+                Default
+            </Badge>
+        )
+    }
     if (hasKey) {
         return (
             <Badge variant="outline" className="text-[10px] px-1.5 gap-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
@@ -162,12 +183,21 @@ function ProviderCard({
     showKey,
     isSaving,
     isDeleting,
+    isTesting,
+    testResult,
     showGuide,
+    models,
+    isLoadingModels,
+    selectedModel,
     onApiKeyChange,
     onToggleShow,
     onSave,
     onDelete,
+    onTest,
     onToggleGuide,
+    onFetchModels,
+    onModelSelect,
+    onSetDefault,
 }: {
     provider: AiProvider
     existingKey: UserApiKeyData | undefined
@@ -175,16 +205,27 @@ function ProviderCard({
     showKey: boolean
     isSaving: boolean
     isDeleting: boolean
+    isTesting: boolean
+    testResult?: { success: boolean; message: string }
     showGuide: boolean
+    models: ModelInfo[]
+    isLoadingModels: boolean
+    selectedModel: string
     onApiKeyChange: (val: string) => void
     onToggleShow: () => void
     onSave: () => void
     onDelete: () => void
+    onTest: () => void
     onToggleGuide: () => void
+    onFetchModels: () => void
+    onModelSelect: (modelId: string) => void
+    onSetDefault: () => void
 }) {
     const hasKey = !!existingKey
     const guide = providerGuides[provider.provider]
     const colorClass = providerColors[provider.provider] || 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+    const textModels = models.filter(m => m.type === 'text')
+    const hasModels = models.length > 0
 
     return (
         <Card className={`relative transition-all hover:shadow-md ${colorClass} border`}>
@@ -193,7 +234,7 @@ function ProviderCard({
                     <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">{provider.name}</CardTitle>
                     </div>
-                    <StatusBadge hasKey={hasKey} />
+                    <StatusBadge hasKey={hasKey} isDefault={existingKey?.isDefault || false} />
                 </div>
                 <CardDescription className="text-xs">
                     {guide?.description || `${provider.provider} integration`}
@@ -290,7 +331,7 @@ function ProviderCard({
                     </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Save + Test + Delete buttons */}
                 <div className="flex gap-2">
                     <Button
                         size="sm"
@@ -298,13 +339,22 @@ function ProviderCard({
                         onClick={onSave}
                         disabled={isSaving || !apiKeyValue.trim()}
                     >
-                        {isSaving ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                            <Save className="h-3 w-3" />
-                        )}
+                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                         {isSaving ? 'Saving...' : 'Save'}
                     </Button>
+
+                    {hasKey && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs gap-1 cursor-pointer"
+                            onClick={onTest}
+                            disabled={isTesting}
+                        >
+                            {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                            Test
+                        </Button>
+                    )}
 
                     {hasKey && (
                         <Button
@@ -314,14 +364,88 @@ function ProviderCard({
                             onClick={onDelete}
                             disabled={isDeleting}
                         >
-                            {isDeleting ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                                <Trash2 className="h-3 w-3" />
-                            )}
+                            {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                         </Button>
                     )}
                 </div>
+
+                {/* Test Result */}
+                {testResult && (
+                    <div className={`rounded-md p-2 text-xs ${testResult.success ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
+                        {testResult.success ? <CheckCircle className="h-3.5 w-3.5 inline mr-1" /> : '⚠️ '}
+                        {testResult.message}
+                    </div>
+                )}
+
+                {/* Model Selection (only when key exists) */}
+                {hasKey && (
+                    <div className="space-y-2 pt-2 border-t border-dashed">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[11px]">Default Model</Label>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[10px] gap-1 px-2 cursor-pointer"
+                                onClick={onFetchModels}
+                                disabled={isLoadingModels}
+                            >
+                                {isLoadingModels ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                {hasModels ? 'Refresh' : 'Load Models'}
+                            </Button>
+                        </div>
+
+                        {hasModels ? (
+                            <Select value={selectedModel} onValueChange={onModelSelect}>
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select a model..." />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60">
+                                    {textModels.length > 0 && (
+                                        <>
+                                            <SelectItem value="__text_label" disabled className="text-[10px] font-semibold text-muted-foreground">
+                                                Text Models
+                                            </SelectItem>
+                                            {textModels.map(m => (
+                                                <SelectItem key={m.id} value={m.id} className="text-xs">
+                                                    {m.name}
+                                                </SelectItem>
+                                            ))}
+                                        </>
+                                    )}
+                                    {models.filter(m => m.type === 'image').length > 0 && (
+                                        <>
+                                            <SelectItem value="__image_label" disabled className="text-[10px] font-semibold text-muted-foreground">
+                                                Image Models
+                                            </SelectItem>
+                                            {models.filter(m => m.type === 'image').map(m => (
+                                                <SelectItem key={m.id} value={m.id} className="text-xs">
+                                                    {m.name}
+                                                </SelectItem>
+                                            ))}
+                                        </>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                                {existingKey?.defaultModel ? `Current: ${existingKey.defaultModel}` : 'Click "Load Models" to select'}
+                            </p>
+                        )}
+
+                        {/* Set as Default Provider */}
+                        {!existingKey?.isDefault && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-7 text-[11px] gap-1.5 cursor-pointer"
+                                onClick={onSetDefault}
+                            >
+                                <Star className="h-3 w-3" />
+                                Set as Default Provider
+                            </Button>
+                        )}
+                    </div>
+                )}
             </CardContent>
         </Card>
     )
@@ -336,26 +460,30 @@ export default function UserApiKeysPage() {
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
     const [saving, setSaving] = useState<Record<string, boolean>>({})
     const [deleting, setDeleting] = useState<Record<string, boolean>>({})
+    const [testing, setTesting] = useState<Record<string, boolean>>({})
+    const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
+    const [models, setModels] = useState<Record<string, ModelInfo[]>>({})
+    const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
+    const [selectedModels, setSelectedModels] = useState<Record<string, string>>({})
 
-    // Fetch AI providers from API Hub
     const fetchProviders = useCallback(async () => {
         try {
             const res = await fetch('/api/user/ai-providers')
-            if (res.ok) {
-                const data = await res.json()
-                setProviders(data)
-            }
+            if (res.ok) setProviders(await res.json())
         } catch { /* */ }
     }, [])
 
-    // Fetch user's saved API keys
     const fetchKeys = useCallback(async () => {
         try {
             const res = await fetch('/api/user/api-keys')
             if (res.ok) {
-                const data = await res.json()
+                const data: UserApiKeyData[] = await res.json()
                 setKeys(data)
+                // Pre-fill selected models from saved defaults
+                const modelMap: Record<string, string> = {}
+                data.forEach(k => { if (k.defaultModel) modelMap[k.provider] = k.defaultModel })
+                setSelectedModels(prev => ({ ...prev, ...modelMap }))
             }
         } catch { /* */ }
     }, [])
@@ -380,7 +508,6 @@ export default function UserApiKeysPage() {
                     apiKey: apiKey.trim(),
                 }),
             })
-
             if (res.ok) {
                 toast.success(`${prov?.name || providerSlug} API key saved!`)
                 setApiKeyValues(v => ({ ...v, [providerSlug]: '' }))
@@ -389,10 +516,73 @@ export default function UserApiKeysPage() {
                 const data = await res.json()
                 toast.error(data.error || 'Failed to save')
             }
-        } catch {
-            toast.error('Failed to save')
-        }
+        } catch { toast.error('Failed to save') }
         setSaving(s => ({ ...s, [providerSlug]: false }))
+    }
+
+    const handleTest = async (providerSlug: string) => {
+        setTesting(s => ({ ...s, [providerSlug]: true }))
+        setTestResults(r => { const copy = { ...r }; delete copy[providerSlug]; return copy })
+        try {
+            const res = await fetch('/api/user/api-keys/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerSlug }),
+            })
+            const result = await res.json()
+            setTestResults(r => ({ ...r, [providerSlug]: result }))
+            if (result.success) toast.success(result.message)
+            else toast.error(result.message || 'Test failed')
+        } catch { toast.error('Connection test failed') }
+        setTesting(s => ({ ...s, [providerSlug]: false }))
+    }
+
+    const handleFetchModels = async (providerSlug: string) => {
+        setLoadingModels(l => ({ ...l, [providerSlug]: true }))
+        try {
+            const res = await fetch('/api/user/api-keys/models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerSlug }),
+            })
+            const data = await res.json()
+            if (data.models) {
+                setModels(m => ({ ...m, [providerSlug]: data.models }))
+                toast.success(`Loaded ${data.models.length} models`)
+            } else {
+                toast.error(data.error || 'Failed to load models')
+            }
+        } catch { toast.error('Failed to fetch models') }
+        setLoadingModels(l => ({ ...l, [providerSlug]: false }))
+    }
+
+    const handleModelSelect = async (providerSlug: string, modelId: string) => {
+        setSelectedModels(s => ({ ...s, [providerSlug]: modelId }))
+        // Save default model to server
+        try {
+            await fetch('/api/user/api-keys', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerSlug, defaultModel: modelId }),
+            })
+            toast.success('Default model saved')
+            fetchKeys()
+        } catch { toast.error('Failed to save model') }
+    }
+
+    const handleSetDefault = async (providerSlug: string) => {
+        try {
+            const res = await fetch('/api/user/api-keys', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerSlug, isDefault: true }),
+            })
+            if (res.ok) {
+                const prov = providers.find(p => p.provider === providerSlug)
+                toast.success(`${prov?.name || providerSlug} set as default provider`)
+                fetchKeys()
+            }
+        } catch { toast.error('Failed to set default') }
     }
 
     const handleDelete = async (providerSlug: string) => {
@@ -402,11 +592,11 @@ export default function UserApiKeysPage() {
             if (res.ok) {
                 const prov = providers.find(p => p.provider === providerSlug)
                 toast.success(`${prov?.name || providerSlug} key removed`)
+                setModels(m => { const copy = { ...m }; delete copy[providerSlug]; return copy })
+                setTestResults(r => { const copy = { ...r }; delete copy[providerSlug]; return copy })
                 fetchKeys()
             }
-        } catch {
-            toast.error('Failed to delete')
-        }
+        } catch { toast.error('Failed to delete') }
         setDeleting(s => ({ ...s, [providerSlug]: false }))
     }
 
@@ -456,7 +646,7 @@ export default function UserApiKeysPage() {
                     </Card>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {providers.map((prov) => {
+                        {providers.map(prov => {
                             const existingKey = keys.find(k => k.provider === prov.provider)
                             return (
                                 <ProviderCard
@@ -467,12 +657,21 @@ export default function UserApiKeysPage() {
                                     showKey={showKeys[prov.provider] || false}
                                     isSaving={saving[prov.provider] || false}
                                     isDeleting={deleting[prov.provider] || false}
+                                    isTesting={testing[prov.provider] || false}
+                                    testResult={testResults[prov.provider]}
                                     showGuide={showGuide[prov.provider] || false}
-                                    onApiKeyChange={(val) => setApiKeyValues(v => ({ ...v, [prov.provider]: val }))}
+                                    models={models[prov.provider] || []}
+                                    isLoadingModels={loadingModels[prov.provider] || false}
+                                    selectedModel={selectedModels[prov.provider] || ''}
+                                    onApiKeyChange={val => setApiKeyValues(v => ({ ...v, [prov.provider]: val }))}
                                     onToggleShow={() => setShowKeys(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
                                     onSave={() => handleSave(prov.provider)}
                                     onDelete={() => handleDelete(prov.provider)}
+                                    onTest={() => handleTest(prov.provider)}
                                     onToggleGuide={() => setShowGuide(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
+                                    onFetchModels={() => handleFetchModels(prov.provider)}
+                                    onModelSelect={modelId => handleModelSelect(prov.provider, modelId)}
+                                    onSetDefault={() => handleSetDefault(prov.provider)}
                                 />
                             )
                         })}

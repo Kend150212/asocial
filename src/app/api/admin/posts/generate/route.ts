@@ -101,17 +101,30 @@ export async function POST(req: NextRequest) {
     let integrationId: string | null = null
 
     // Priority 1: User's own API key
-    const userApiKey = await prisma.userApiKey.findFirst({
-        where: {
-            userId: session.user.id!,
-            provider: providerToUse || undefined,
-            isActive: true,
-        },
-        orderBy: { provider: 'asc' },
-    })
+    // First try specific provider, then fall back to user's default
+    let userApiKey = providerToUse
+        ? await prisma.userApiKey.findFirst({
+            where: { userId: session.user.id!, provider: providerToUse, isActive: true },
+        })
+        : null
+
+    if (!userApiKey) {
+        // Try user's default provider
+        userApiKey = await prisma.userApiKey.findFirst({
+            where: { userId: session.user.id!, isDefault: true, isActive: true },
+        })
+    }
+
+    if (!userApiKey) {
+        // Try any active user key
+        userApiKey = await prisma.userApiKey.findFirst({
+            where: { userId: session.user.id!, isActive: true },
+            orderBy: { provider: 'asc' },
+        })
+    }
 
     if (userApiKey) {
-        // Use user's key
+        // Use user's key + user's default model if available
         apiKey = decrypt(userApiKey.apiKeyEncrypted)
         providerName = userApiKey.provider
     } else if (channelAiKey) {
@@ -153,7 +166,7 @@ export async function POST(req: NextRequest) {
         integrationId = aiIntegration.id
     }
 
-    const model = requestedModel || channel.defaultAiModel || getDefaultModel(providerName, config)
+    const model = requestedModel || userApiKey?.defaultModel || channel.defaultAiModel || getDefaultModel(providerName, config)
 
     // Build context from knowledge base
     const kbContext = channel.knowledgeBase

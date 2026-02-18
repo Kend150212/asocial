@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { encrypt, decrypt } from '@/lib/encryption'
+import { encrypt } from '@/lib/encryption'
 
 // GET /api/user/api-keys — list user's API keys
 export async function GET() {
@@ -18,6 +18,7 @@ export async function GET() {
             provider: true,
             name: true,
             defaultModel: true,
+            isDefault: true,
             isActive: true,
             createdAt: true,
             updatedAt: true,
@@ -71,6 +72,57 @@ export async function POST(req: Request) {
         provider: key.provider,
         name: key.name,
         defaultModel: key.defaultModel,
+        isDefault: key.isDefault,
+        isActive: key.isActive,
+    })
+}
+
+// PATCH /api/user/api-keys — update default provider or model (without changing key)
+export async function PATCH(req: Request) {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const { provider, defaultModel, isDefault } = body
+
+    if (!provider) {
+        return NextResponse.json({ error: 'Provider is required' }, { status: 400 })
+    }
+
+    const existing = await prisma.userApiKey.findUnique({
+        where: { userId_provider: { userId: session.user.id, provider } },
+    })
+
+    if (!existing) {
+        return NextResponse.json({ error: 'Key not found' }, { status: 404 })
+    }
+
+    // If setting as default, unset all others first
+    if (isDefault === true) {
+        await prisma.userApiKey.updateMany({
+            where: { userId: session.user.id, isDefault: true },
+            data: { isDefault: false },
+        })
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
+    if (defaultModel !== undefined) updateData.defaultModel = defaultModel || null
+    if (isDefault !== undefined) updateData.isDefault = isDefault
+
+    const key = await prisma.userApiKey.update({
+        where: { id: existing.id },
+        data: updateData,
+    })
+
+    return NextResponse.json({
+        id: key.id,
+        provider: key.provider,
+        name: key.name,
+        defaultModel: key.defaultModel,
+        isDefault: key.isDefault,
         isActive: key.isActive,
     })
 }
