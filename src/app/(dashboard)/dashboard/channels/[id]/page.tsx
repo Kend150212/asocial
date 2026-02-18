@@ -215,6 +215,7 @@ export default function ChannelDetailPage({
     const router = useRouter()
     const { data: session } = useSession()
     const isAdmin = session?.user?.role === 'ADMIN'
+    const isAdminOrManager = session?.user?.role === 'ADMIN' || session?.user?.role === 'MANAGER'
     const [channel, setChannel] = useState<ChannelDetail | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -1017,7 +1018,7 @@ export default function ChannelDetailPage({
 
                             <Separator />
 
-                            {isAdmin ? (
+                            {isAdminOrManager ? (
                                 <>
                                     {/* Channel AI Setup — Admin Only */}
                                     <div className="space-y-4">
