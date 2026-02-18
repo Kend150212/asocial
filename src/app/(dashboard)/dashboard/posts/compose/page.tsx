@@ -38,6 +38,12 @@ import {
     Smile,
     AtSign,
     Link2,
+    ChevronDown,
+    MessageSquare,
+    Layers,
+    Film,
+    LayoutGrid,
+    CircleDot,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -485,7 +491,10 @@ export default function ComposePage() {
     const [dragging, setDragging] = useState(false)
     const [aiTopic, setAiTopic] = useState('')
     // Facebook post type per platform ID
-    const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story'>>({})
+    const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story' | 'reel'>>({})
+    const [fbCarousel, setFbCarousel] = useState(false)
+    const [fbFirstComment, setFbFirstComment] = useState('')
+    const [fbSettingsOpen, setFbSettingsOpen] = useState(true)
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
     const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
@@ -535,7 +544,7 @@ export default function ComposePage() {
                 // Restore selected platforms from platformStatuses
                 if (post.platformStatuses && ch) {
                     const selectedIds = new Set<string>()
-                    const fbTypes: Record<string, 'feed' | 'story'> = {}
+                    const fbTypes: Record<string, 'feed' | 'story' | 'reel'> = {}
                     for (const ps of post.platformStatuses) {
                         const match = ch.platforms.find(
                             (p) => p.platform === ps.platform && p.accountId === ps.accountId
@@ -559,7 +568,7 @@ export default function ComposePage() {
         if (selectedChannel?.platforms) {
             setSelectedPlatformIds(new Set(selectedChannel.platforms.map((p) => p.id)))
             // Default FB pages to "feed"
-            const fbTypes: Record<string, 'feed' | 'story'> = {}
+            const fbTypes: Record<string, 'feed' | 'story' | 'reel'> = {}
             selectedChannel.platforms.forEach((p) => {
                 if (p.platform === 'facebook') fbTypes[p.id] = 'feed'
             })
@@ -1054,28 +1063,6 @@ export default function ComposePage() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            {isFacebook && isChecked && (
-                                                <div className="ml-9 flex items-center gap-1.5">
-                                                    <button
-                                                        onClick={() => setFbPostTypes((prev) => ({ ...prev, [p.id]: 'feed' }))}
-                                                        className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors cursor-pointer ${(fbPostTypes[p.id] || 'feed') === 'feed'
-                                                            ? 'bg-blue-500 text-white border-blue-500'
-                                                            : 'border-border hover:border-blue-300'
-                                                            }`}
-                                                    >
-                                                        Feed
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setFbPostTypes((prev) => ({ ...prev, [p.id]: 'story' }))}
-                                                        className={`px-2.5 py-1 text-[11px] rounded-full border transition-colors cursor-pointer ${fbPostTypes[p.id] === 'story'
-                                                            ? 'bg-blue-500 text-white border-blue-500'
-                                                            : 'border-border hover:border-blue-300'
-                                                            }`}
-                                                    >
-                                                        Story
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                     )
                                 })
@@ -1481,6 +1468,100 @@ export default function ComposePage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Facebook Settings — only when Facebook platform is selected */}
+                    {selectedChannel?.platforms?.some(p => p.platform === 'facebook' && selectedPlatformIds.has(p.id)) && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <button
+                                    type="button"
+                                    className="flex items-center justify-between w-full cursor-pointer"
+                                    onClick={() => setFbSettingsOpen(!fbSettingsOpen)}
+                                >
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <PlatformIcon platform="facebook" size="md" />
+                                        Facebook Settings
+                                    </CardTitle>
+                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${fbSettingsOpen ? '' : '-rotate-90'}`} />
+                                </button>
+                            </CardHeader>
+                            {fbSettingsOpen && (
+                                <CardContent className="space-y-4">
+                                    {/* Post Type */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Post Type</Label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'feed' as const, label: 'Feed', icon: LayoutGrid, desc: 'Up to 10 images or a video' },
+                                                { value: 'reel' as const, label: 'Reel', icon: Film, desc: 'Single video only' },
+                                                { value: 'story' as const, label: 'Story', icon: CircleDot, desc: 'Images, videos, or a mix' },
+                                            ].map(opt => {
+                                                // Set same post type for all selected Facebook accounts
+                                                const selectedFbIds = selectedChannel?.platforms?.filter(p => p.platform === 'facebook' && selectedPlatformIds.has(p.id)).map(p => p.id) || []
+                                                const currentType = selectedFbIds.length > 0 ? (fbPostTypes[selectedFbIds[0]] || 'feed') : 'feed'
+                                                const isActive = currentType === opt.value
+                                                return (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all cursor-pointer ${isActive
+                                                            ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                                            : 'border-border hover:border-blue-300 text-muted-foreground hover:text-foreground'
+                                                            }`}
+                                                        onClick={() => {
+                                                            const newTypes = { ...fbPostTypes }
+                                                            selectedFbIds.forEach(id => { newTypes[id] = opt.value })
+                                                            setFbPostTypes(newTypes)
+                                                        }}
+                                                    >
+                                                        <opt.icon className="h-5 w-5" />
+                                                        <span className="text-xs font-medium">{opt.label}</span>
+                                                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{opt.desc}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Carousel Toggle */}
+                                    <div className="flex items-center justify-between py-2 border-t">
+                                        <div className="flex items-center gap-2">
+                                            <Layers className="h-4 w-4 text-blue-500" />
+                                            <div>
+                                                <p className="text-sm font-medium">Carousel</p>
+                                                <p className="text-[10px] text-muted-foreground">Post images as a swipeable carousel</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${fbCarousel ? 'bg-blue-500' : 'bg-muted'}`}
+                                            onClick={() => setFbCarousel(!fbCarousel)}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${fbCarousel ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    {/* First Comment */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <div className="flex items-center gap-2">
+                                            <MessageSquare className="h-4 w-4 text-blue-500" />
+                                            <div>
+                                                <p className="text-sm font-medium">First Comment</p>
+                                                <p className="text-[10px] text-muted-foreground">Auto-comment after posting (great for hashtags)</p>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={fbFirstComment}
+                                            onChange={(e) => setFbFirstComment(e.target.value)}
+                                            placeholder="Add your first comment here... #hashtag #marketing"
+                                            className="w-full min-h-[60px] resize-y rounded-lg border bg-transparent px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+                                            rows={2}
+                                        />
+                                    </div>
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
 
                     {/* Media Library Modal */}
                     {showMediaLibrary && (
