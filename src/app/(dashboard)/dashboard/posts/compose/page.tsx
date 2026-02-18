@@ -1332,7 +1332,7 @@ export default function ComposePage() {
                                 <Sparkles className="h-3.5 w-3.5 text-amber-500" /> AI Generate
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="px-2.5 pb-2">
+                        <CardContent className="px-2.5 pb-2 space-y-2">
                             <div className="flex gap-2">
                                 <Input
                                     placeholder="Topic, keyword, or paste an article URL..."
@@ -1344,6 +1344,18 @@ export default function ComposePage() {
                                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                                 </Button>
                             </div>
+                            {/* AI Fill All Platforms — shown when content exists and platforms are selected */}
+                            {content.trim() && activePlatforms.some(p => selectedPlatformIds.has(p.id) && ['facebook', 'pinterest', 'youtube'].includes(p.platform)) && (
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-500 bg-amber-500/10 hover:bg-amber-500/15 rounded-md py-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                                    disabled={generatingMeta}
+                                    onClick={() => handleGenerateMetadata()}
+                                >
+                                    {generatingMeta ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                                    AI Fill All Platforms
+                                </button>
+                            )}
                         </CardContent>
                     </Card >
 
