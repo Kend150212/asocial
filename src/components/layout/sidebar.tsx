@@ -56,13 +56,11 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
     { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
-    // Future: calendar, media, email, reports
 ]
 
 const adminNav: NavItem[] = [
     { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
     { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
-    // Future: activity, automation, settings
 ]
 
 export function Sidebar({ session }: { session: Session }) {
@@ -72,7 +70,7 @@ export function Sidebar({ session }: { session: Session }) {
     const isAdmin = session?.user?.role === 'ADMIN'
     const t = useTranslation()
 
-    // Close mobile sidebar on route change
+    // Close mobile expanded sidebar on route change
     useEffect(() => {
         setMobileOpen(false)
     }, [pathname])
@@ -84,23 +82,22 @@ export function Sidebar({ session }: { session: Session }) {
         .toUpperCase()
         .slice(0, 2) || '?'
 
-    const sidebarContent = (isMobile: boolean) => (
+    /** Shared content renderer for expanded sidebars (desktop full + mobile overlay) */
+    const expandedContent = (onClose?: () => void) => (
         <>
             {/* Header */}
             <div className="flex h-16 items-center justify-between px-4">
-                {(!collapsed || isMobile) && (
-                    <Link href="/dashboard" className="flex items-center gap-2">
-                        <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
-                        <span className="text-lg font-bold tracking-tight">ASocial</span>
-                    </Link>
-                )}
-                {isMobile ? (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(false)}>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                    <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
+                    <span className="text-lg font-bold tracking-tight">ASocial</span>
+                </Link>
+                {onClose ? (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
                         <X className="h-4 w-4" />
                     </Button>
                 ) : (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(!collapsed)}>
-                        {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(true)}>
+                        <ChevronLeft className="h-4 w-4" />
                     </Button>
                 )}
             </div>
@@ -120,12 +117,11 @@ export function Sidebar({ session }: { session: Session }) {
                                 pathname === item.href || pathname?.startsWith(item.href + '/')
                                     ? 'bg-accent text-accent-foreground'
                                     : 'text-muted-foreground',
-                                !isMobile && collapsed && 'justify-center px-2'
                             )}
                         >
                             <item.icon className="h-4 w-4 shrink-0" />
-                            {(isMobile || !collapsed) && <span>{t(item.titleKey)}</span>}
-                            {(isMobile || !collapsed) && item.badge && (
+                            <span>{t(item.titleKey)}</span>
+                            {item.badge && (
                                 <Badge variant="secondary" className="ml-auto text-xs">
                                     {item.badge}
                                 </Badge>
@@ -138,11 +134,9 @@ export function Sidebar({ session }: { session: Session }) {
                     <>
                         <Separator className="my-4" />
                         <div className="px-3">
-                            {(isMobile || !collapsed) && (
-                                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                    {t('nav.administration')}
-                                </p>
-                            )}
+                            <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                {t('nav.administration')}
+                            </p>
                             <nav className="space-y-1">
                                 {adminNav.map((item) => (
                                     <Link
@@ -154,11 +148,10 @@ export function Sidebar({ session }: { session: Session }) {
                                             pathname === item.href || pathname?.startsWith(item.href + '/')
                                                 ? 'bg-accent text-accent-foreground'
                                                 : 'text-muted-foreground',
-                                            !isMobile && collapsed && 'justify-center px-2'
                                         )}
                                     >
                                         <item.icon className="h-4 w-4 shrink-0" />
-                                        {(isMobile || !collapsed) && <span>{t(item.titleKey)}</span>}
+                                        <span>{t(item.titleKey)}</span>
                                     </Link>
                                 ))}
                             </nav>
@@ -170,8 +163,8 @@ export function Sidebar({ session }: { session: Session }) {
             <Separator />
 
             {/* Footer */}
-            <div className={cn('p-3', !isMobile && collapsed && 'flex flex-col items-center gap-2')}>
-                <div className={cn('flex items-center gap-2', !isMobile && collapsed && 'flex-col')}>
+            <div className="p-3">
+                <div className="flex items-center gap-2">
                     <ThemeToggle />
                     <LanguageSwitcher />
                     <Button variant="ghost" size="icon" className="h-9 w-9 relative">
@@ -184,23 +177,16 @@ export function Sidebar({ session }: { session: Session }) {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button
-                            className={cn(
-                                'flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-accent',
-                                !isMobile && collapsed && 'justify-center p-1'
-                            )}
-                        >
+                        <button className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-accent">
                             <Avatar className="h-8 w-8">
                                 <AvatarFallback className="bg-primary/10 text-xs font-medium">
                                     {initials}
                                 </AvatarFallback>
                             </Avatar>
-                            {(isMobile || !collapsed) && (
-                                <div className="flex-1 truncate">
-                                    <p className="text-sm font-medium truncate">{session?.user?.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
-                                </div>
-                            )}
+                            <div className="flex-1 truncate">
+                                <p className="text-sm font-medium truncate">{session?.user?.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+                            </div>
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
@@ -222,40 +208,163 @@ export function Sidebar({ session }: { session: Session }) {
         </>
     )
 
+    /** Collapsed content for desktop collapsed state */
+    const collapsedContent = () => (
+        <>
+            <div className="flex h-16 items-center justify-center px-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(false)}>
+                    <Menu className="h-4 w-4" />
+                </Button>
+            </div>
+
+            <Separator />
+
+            <ScrollArea className="flex-1 py-4">
+                <nav className="space-y-1 px-2">
+                    {mainNav.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={cn(
+                                'flex items-center justify-center rounded-lg p-2 transition-colors',
+                                'hover:bg-accent hover:text-accent-foreground',
+                                pathname === item.href || pathname?.startsWith(item.href + '/')
+                                    ? 'bg-accent text-accent-foreground'
+                                    : 'text-muted-foreground',
+                            )}
+                            title={t(item.titleKey)}
+                        >
+                            <item.icon className="h-4 w-4" />
+                        </Link>
+                    ))}
+                </nav>
+
+                {isAdmin && (
+                    <>
+                        <Separator className="my-4" />
+                        <nav className="space-y-1 px-2">
+                            {adminNav.map((item) => (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={cn(
+                                        'flex items-center justify-center rounded-lg p-2 transition-colors',
+                                        'hover:bg-accent hover:text-accent-foreground',
+                                        pathname === item.href || pathname?.startsWith(item.href + '/')
+                                            ? 'bg-accent text-accent-foreground'
+                                            : 'text-muted-foreground',
+                                    )}
+                                    title={t(item.titleKey)}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                </Link>
+                            ))}
+                        </nav>
+                    </>
+                )}
+            </ScrollArea>
+
+            <Separator />
+
+            <div className="flex flex-col items-center gap-2 p-2">
+                <ThemeToggle />
+                <Avatar className="h-7 w-7">
+                    <AvatarFallback className="bg-primary/10 text-[10px] font-medium">
+                        {initials}
+                    </AvatarFallback>
+                </Avatar>
+            </div>
+        </>
+    )
+
     return (
         <>
-            {/* Mobile hamburger trigger — fixed top-left */}
-            <button
-                className="md:hidden fixed top-3 left-3 z-50 h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center shadow-sm"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open menu"
-            >
-                <Menu className="h-5 w-5" />
-            </button>
+            {/* ── Mobile: collapsed icon strip (always visible) ── */}
+            <aside className="md:hidden flex h-screen w-[52px] flex-col border-r bg-card shrink-0">
+                {/* Hamburger to expand */}
+                <div className="flex h-16 items-center justify-center">
+                    <button onClick={() => setMobileOpen(true)} aria-label="Open menu">
+                        <Menu className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                </div>
+                <Separator />
+                {/* Icon-only nav */}
+                <ScrollArea className="flex-1 py-4">
+                    <nav className="space-y-1 px-2">
+                        {mainNav.map((item) => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={cn(
+                                    'flex items-center justify-center rounded-lg p-2 transition-colors',
+                                    'hover:bg-accent hover:text-accent-foreground',
+                                    pathname === item.href || pathname?.startsWith(item.href + '/')
+                                        ? 'bg-accent text-accent-foreground'
+                                        : 'text-muted-foreground',
+                                )}
+                                title={t(item.titleKey)}
+                            >
+                                <item.icon className="h-4 w-4" />
+                            </Link>
+                        ))}
+                    </nav>
+                    {isAdmin && (
+                        <>
+                            <Separator className="my-4" />
+                            <nav className="space-y-1 px-2">
+                                {adminNav.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={cn(
+                                            'flex items-center justify-center rounded-lg p-2 transition-colors',
+                                            'hover:bg-accent hover:text-accent-foreground',
+                                            pathname === item.href || pathname?.startsWith(item.href + '/')
+                                                ? 'bg-accent text-accent-foreground'
+                                                : 'text-muted-foreground',
+                                        )}
+                                        title={t(item.titleKey)}
+                                    >
+                                        <item.icon className="h-4 w-4" />
+                                    </Link>
+                                ))}
+                            </nav>
+                        </>
+                    )}
+                </ScrollArea>
+                <Separator />
+                {/* Compact footer */}
+                <div className="flex flex-col items-center gap-2 p-2">
+                    <ThemeToggle />
+                    <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-primary/10 text-[10px] font-medium">
+                            {initials}
+                        </AvatarFallback>
+                    </Avatar>
+                </div>
+            </aside>
 
-            {/* Mobile overlay sidebar */}
+            {/* ── Mobile: expanded overlay (when user taps hamburger) ── */}
             {mobileOpen && (
                 <div className="md:hidden fixed inset-0 z-50 flex">
-                    {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
                         onClick={() => setMobileOpen(false)}
                     />
-                    {/* Sidebar panel */}
                     <aside className="relative z-10 flex h-full w-[280px] flex-col bg-card border-r animate-in slide-in-from-left duration-200">
-                        {sidebarContent(true)}
+                        {expandedContent(() => setMobileOpen(false))}
                     </aside>
                 </div>
             )}
 
-            {/* Desktop sidebar */}
+            {/* ── Desktop sidebar ── */}
             <aside
                 className={cn(
                     'hidden md:flex h-screen flex-col border-r bg-card transition-all duration-300',
                     collapsed ? 'w-[68px]' : 'w-[260px]'
                 )}
             >
-                {sidebarContent(false)}
+                {collapsed ? collapsedContent() : expandedContent()}
             </aside>
         </>
     )
