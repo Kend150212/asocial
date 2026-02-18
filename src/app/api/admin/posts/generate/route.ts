@@ -100,18 +100,32 @@ export async function POST(req: NextRequest) {
     let baseUrl: string | undefined | null
     let integrationId: string | null = null
 
-    if (channelAiKey) {
-        // Use channel-level API key
+    // Priority 1: User's own API key
+    const userApiKey = await prisma.userApiKey.findFirst({
+        where: {
+            userId: session.user.id!,
+            provider: providerToUse || undefined,
+            isActive: true,
+        },
+        orderBy: { provider: 'asc' },
+    })
+
+    if (userApiKey) {
+        // Use user's key
+        apiKey = decrypt(userApiKey.apiKeyEncrypted)
+        providerName = userApiKey.provider
+    } else if (channelAiKey) {
+        // Priority 2: Channel-level API key
         apiKey = decrypt(channelAiKey)
-        providerName = providerToUse || 'gemini' // default to gemini if no provider set
+        providerName = providerToUse || 'gemini'
     } else if (mustUseOwnKey) {
-        // Channel requires own key but doesn't have one
+        // Channel requires own key but neither user nor channel has one
         return NextResponse.json(
-            { error: 'This channel requires its own API key. Please set up a Channel AI API Key in channel settings.' },
+            { error: 'No API key found. Please set up your AI API Key in the API Keys page, or contact your admin.' },
             { status: 400 }
         )
     } else {
-        // Fall back to global API integration
+        // Priority 3: Fall back to global API integration
         let aiIntegration
         if (providerToUse) {
             aiIntegration = await prisma.apiIntegration.findFirst({
@@ -127,7 +141,7 @@ export async function POST(req: NextRequest) {
 
         if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
             return NextResponse.json(
-                { error: 'No AI provider configured. Set up an AI API key in API Hub or in Channel settings.' },
+                { error: 'No AI provider configured. Set up your AI API key in the API Keys page.' },
                 { status: 400 }
             )
         }

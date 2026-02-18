@@ -38,6 +38,7 @@ import {
     ChevronLeft,
     Menu,
     Zap,
+    Key,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -53,6 +54,7 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
     { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
+    { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
     // Future: calendar, media, email, reports
 ]
 
