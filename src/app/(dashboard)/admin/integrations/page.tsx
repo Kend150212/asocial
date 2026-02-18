@@ -97,6 +97,7 @@ const providerColors: Record<string, string> = {
     robolly: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
     gdrive: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    canva: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
 }
 
 const providerGuideUrls: Record<string, string> = {
@@ -116,6 +117,7 @@ const providerGuideUrls: Record<string, string> = {
     robolly: 'https://robolly.com/dashboard/',
     gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
     smtp: 'https://myaccount.google.com/apppasswords',
+    canva: 'https://www.canva.com/developers/',
 }
 
 interface PlatformGuide {
@@ -270,6 +272,26 @@ const platformGuides: Record<string, PlatformGuide> = {
         ],
         url: 'https://developers.pinterest.com/apps/',
         urlLabel: 'Open Pinterest Developer Portal',
+    },
+    canva: {
+        title: '🎨 Canva Connect API Setup Guide',
+        description: 'Design stunning social media graphics with Canva editor embedded in ASocial.',
+        steps: [
+            { title: 'Go to Canva Developers', detail: 'Visit canva.com/developers → sign in with your Canva account → click "Create an integration".' },
+            { title: 'Set Integration Name', detail: 'Name your integration "ASocial". Copy the "Client ID" shown.' },
+            { title: 'Generate Client Secret', detail: 'Click "Generate secret" — copy it IMMEDIATELY. It will only be shown once.' },
+            { title: 'Set Scopes', detail: 'Check these scopes:\n✅ design:content — Read and Write\n✅ design:meta — Read\n✅ asset — Read and Write\n✅ profile — Read' },
+            { title: 'Add Redirect URL', detail: 'Under Authentication → Add Authentication → URL 1:\n{YOUR_DOMAIN}/api/oauth/canva/callback' },
+            { title: 'Enable Return Navigation', detail: 'Toggle "Enable return navigation" ON.\nSet Return URL: {YOUR_DOMAIN}/dashboard/posts/compose' },
+            { title: 'Paste Credentials Below', detail: 'Paste the Client ID and Client Secret into the fields below and click Save.' },
+        ],
+        tips: [
+            'Redirect URI: {YOUR_DOMAIN}/api/oauth/canva/callback',
+            'Required scopes: design:content, design:meta, asset, profile',
+            'Canva Connect API is free for developers — users need Canva Free or Pro.',
+        ],
+        url: 'https://www.canva.com/developers/',
+        urlLabel: 'Open Canva Developer Portal',
     },
     vbout: {
         title: '🟦 Vbout API Setup Guide',
@@ -428,6 +450,12 @@ export default function IntegrationsPage() {
                         clientSecret: '',
                     }
                 }
+                if (i.provider === 'canva') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.canvaClientId || '',
+                        clientSecret: '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
@@ -548,6 +576,15 @@ export default function IntegrationsPage() {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
                     body.config = { pinterestClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Canva OAuth config
+            if (integration.provider === 'canva') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { canvaClientId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -848,7 +885,7 @@ function IntegrationCard({
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
-    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest'].includes(integration.provider)
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')

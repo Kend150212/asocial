@@ -37,6 +37,15 @@ export async function POST() {
             status: 'INACTIVE' as const,
             baseUrl: 'https://api.robolly.com',
         },
+        {
+            category: 'DESIGN' as const,
+            provider: 'canva',
+            name: 'Canva',
+            isActive: false,
+            isDefault: false,
+            status: 'INACTIVE' as const,
+            baseUrl: 'https://api.canva.com/rest/v1',
+        },
     ]
 
     const results = []

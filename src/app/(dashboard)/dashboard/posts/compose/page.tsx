@@ -1204,7 +1204,7 @@ export default function ComposePage() {
                     if (!hasVideo) errors.push('🎵 TikTok requires a video. Please upload a video.')
                     break
                 case 'youtube':
-                    if (ytPostType !== 'community' && !hasVideo) errors.push('▶️ YouTube requires a video. Please upload a video.')
+                    if (!hasVideo) errors.push('▶️ YouTube requires a video. Please upload a video.')
                     break
                 case 'facebook':
                     if ((fbPostTypes[p.id] || 'feed') === 'reel' && !hasVideo) errors.push('📘 Facebook Reels require a video.')
