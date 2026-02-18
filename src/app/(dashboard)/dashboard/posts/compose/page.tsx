@@ -591,6 +591,7 @@ export default function ComposePage() {
     const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
     const [loadingLibrary, setLoadingLibrary] = useState(false)
     const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
+    const [canvaLoading, setCanvaLoading] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
@@ -967,6 +968,84 @@ export default function ComposePage() {
         }
         setLoadingDrivePicker(false)
     }, [attachedMedia])
+
+    // ─── Canva design handler ────────────────────────────────────
+    const openCanvaDesign = useCallback(async (existingMediaUrl?: string) => {
+        setCanvaLoading(true)
+        try {
+            // Determine dimensions from current ratio
+            const dims = mediaRatio === '16:9' ? { width: 1920, height: 1080 }
+                : mediaRatio === '9:16' ? { width: 1080, height: 1920 }
+                    : { width: 1080, height: 1080 }
+
+            const res = await fetch('/api/canva/designs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    designType: 'custom',
+                    width: dims.width,
+                    height: dims.height,
+                    title: `ASocial Design ${new Date().toLocaleDateString()}`,
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Failed to open Canva')
+                setCanvaLoading(false)
+                return
+            }
+
+            if (!data.editUrl) {
+                toast.error('No Canva editor URL returned')
+                setCanvaLoading(false)
+                return
+            }
+
+            // Open Canva editor in popup
+            const popup = window.open(data.editUrl, 'canva-editor', 'width=1200,height=800,menubar=no,toolbar=no')
+            toast.success('🎨 Canva editor opened! Design your content and close the tab when done.')
+
+            // Poll for popup close, then export
+            const checkClosed = setInterval(async () => {
+                if (popup && popup.closed) {
+                    clearInterval(checkClosed)
+                    toast.loading('Exporting design from Canva...', { id: 'canva-export' })
+                    try {
+                        const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
+                        const exportData = await exportRes.json()
+
+                        if (exportData.status === 'success' && exportData.urls?.length > 0) {
+                            // Download the exported image and upload to our media library
+                            const imageUrl = exportData.urls[0]
+                            const imgRes = await fetch(imageUrl)
+                            const blob = await imgRes.blob()
+                            const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+
+                            // Upload via handleFileUpload
+                            const dt = new DataTransfer()
+                            dt.items.add(file)
+                            await handleFileUpload(dt.files)
+                            toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                        } else {
+                            toast.error(exportData.error || 'Export failed', { id: 'canva-export' })
+                        }
+                    } catch {
+                        toast.error('Failed to export from Canva', { id: 'canva-export' })
+                    }
+                    setCanvaLoading(false)
+                }
+            }, 1000)
+
+            // Timeout after 10 minutes
+            setTimeout(() => {
+                clearInterval(checkClosed)
+                setCanvaLoading(false)
+            }, 600000)
+        } catch {
+            toast.error('Failed to open Canva')
+            setCanvaLoading(false)
+        }
+    }, [mediaRatio])
 
     const addFromLibrary = (media: MediaItem) => {
         if (attachedMedia.some((m) => m.id === media.id)) {
@@ -1847,6 +1926,10 @@ export default function ComposePage() {
                                         <Upload className="h-3 w-3 mr-0.5" />
                                         Upload
                                     </Button>
+                                    <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 cursor-pointer bg-violet-500/10 border-violet-500/30 hover:bg-violet-500/20 text-violet-400" onClick={() => openCanvaDesign()} disabled={canvaLoading}>
+                                        {canvaLoading ? <Loader2 className="h-3 w-3 mr-0.5 animate-spin" /> : <Palette className="h-3 w-3 mr-0.5" />}
+                                        Canva
+                                    </Button>
                                 </div>
                                 <input
                                     ref={fileInputRef}
@@ -1912,6 +1995,16 @@ export default function ComposePage() {
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
+                                            {/* Edit in Canva — only for images */}
+                                            {!isVideo(media) && (
+                                                <button
+                                                    onClick={() => openCanvaDesign(media.url)}
+                                                    title="Edit in Canva"
+                                                    className="absolute top-1 left-1 h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                                >
+                                                    <Palette className="h-3 w-3" />
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
