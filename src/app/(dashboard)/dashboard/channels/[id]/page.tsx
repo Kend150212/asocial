@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -219,6 +219,9 @@ export default function ChannelDetailPage({
     const [channel, setChannel] = useState<ChannelDetail | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
+    const isInitialLoad = useRef(true)
     const [analyzing, setAnalyzing] = useState(false)
     const [activeTab, setActiveTab] = useState('general')
 
@@ -467,6 +470,58 @@ export default function ChannelDetailPage({
             setSaving(false)
         }
     }
+
+    // ─── Auto-save (debounced 2s) ────────────────────────
+    const autoSave = useCallback(async () => {
+        if (!channel) return
+        setAutoSaveStatus('saving')
+        try {
+            const res = await fetch(`/api/admin/channels/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    displayName,
+                    description: description || null,
+                    language,
+                    isActive,
+                    notificationEmail: notificationEmail || null,
+                    requireApproval,
+                    vibeTone,
+                    defaultAiProvider: aiProvider || null,
+                    defaultAiModel: aiModel || null,
+                    ...(isAdmin ? { requireOwnApiKey } : {}),
+                }),
+            })
+            if (res.ok) {
+                setAutoSaveStatus('saved')
+                setTimeout(() => setAutoSaveStatus('idle'), 3000)
+            } else {
+                setAutoSaveStatus('idle')
+            }
+        } catch {
+            setAutoSaveStatus('idle')
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey])
+
+    useEffect(() => {
+        // Skip auto-save on initial load
+        if (isInitialLoad.current) {
+            if (channel) isInitialLoad.current = false
+            return
+        }
+        if (!channel) return
+
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+        autoSaveTimer.current = setTimeout(() => {
+            autoSave()
+        }, 2000)
+
+        return () => {
+            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, requireOwnApiKey])
 
     // ─── AI Analysis ────────────────────────────────
     const handleAnalyze = async () => {
@@ -888,10 +943,18 @@ export default function ChannelDetailPage({
                         {channel.isActive ? t('channels.active') : t('channels.inactive')}
                     </Badge>
                 </div>
-                <Button onClick={handleSave} disabled={saving} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    {saving ? t('common.saving') : t('common.save')}
-                </Button>
+                <div className="flex items-center gap-3">
+                    {autoSaveStatus === 'saving' && (
+                        <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                        <span className="text-xs text-green-500">Auto-saved ✓</span>
+                    )}
+                    <Button onClick={handleSave} disabled={saving} className="gap-2">
+                        <Save className="h-4 w-4" />
+                        {saving ? t('common.saving') : t('common.save')}
+                    </Button>
+                </div>
             </div>
 
             {/* Tabs */}

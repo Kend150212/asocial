@@ -16,11 +16,17 @@ import {
     ExternalLink,
     Hash,
     BookOpen,
+    ChevronRight,
+    ChevronLeft,
+    Check,
+    Sparkles,
+    Palette,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
     Card,
@@ -109,11 +115,25 @@ export default function AdminChannelsPage() {
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<Channel | null>(null)
 
-    // Create form
+    // Wizard state
+    const [wizardStep, setWizardStep] = useState(1)
     const [newName, setNewName] = useState('')
     const [newDisplayName, setNewDisplayName] = useState('')
     const [newLanguage, setNewLanguage] = useState('en')
+    const [newDescription, setNewDescription] = useState('')
+    const [newAiProvider, setNewAiProvider] = useState('')
+    const [newVibe, setNewVibe] = useState('')
     const [creating, setCreating] = useState(false)
+    const [userProviders, setUserProviders] = useState<{ provider: string; name: string }[]>([])
+
+    const vibePresets = [
+        { id: 'professional', label: '💼 Professional', tone: 'formal, authoritative, polished' },
+        { id: 'casual', label: '😊 Casual', tone: 'friendly, approachable, conversational' },
+        { id: 'fun', label: '🎉 Fun & Playful', tone: 'witty, humorous, entertaining' },
+        { id: 'educational', label: '📚 Educational', tone: 'informative, clear, helpful' },
+        { id: 'luxury', label: '✨ Luxury', tone: 'elegant, sophisticated, premium' },
+        { id: 'bold', label: '🔥 Bold & Edgy', tone: 'provocative, daring, attention-grabbing' },
+    ]
 
     const fetchChannels = useCallback(async () => {
         try {
@@ -133,10 +153,46 @@ export default function AdminChannelsPage() {
         fetchChannels()
     }, [fetchChannels])
 
+    // Fetch user's AI providers when wizard opens
+    useEffect(() => {
+        if (!showCreateDialog) return
+        const fetchProviders = async () => {
+            try {
+                const [keysRes, providersRes] = await Promise.all([
+                    fetch('/api/user/api-keys'),
+                    fetch('/api/user/ai-providers').catch(() => null),
+                ])
+                if (keysRes.ok) {
+                    const keys = await keysRes.json()
+                    const providerNames: Record<string, string> = {
+                        openai: 'OpenAI', gemini: 'Google Gemini', anthropic: 'Anthropic',
+                        openrouter: 'OpenRouter', runware: 'Runware', synthetic: 'Synthetic',
+                    }
+                    setUserProviders(keys.map((k: { provider: string }) => ({
+                        provider: k.provider,
+                        name: providerNames[k.provider] || k.provider,
+                    })))
+                }
+            } catch { /* ignore */ }
+        }
+        fetchProviders()
+    }, [showCreateDialog])
+
+    const resetWizard = () => {
+        setWizardStep(1)
+        setNewName('')
+        setNewDisplayName('')
+        setNewLanguage('en')
+        setNewDescription('')
+        setNewAiProvider('')
+        setNewVibe('')
+    }
+
     const handleCreate = async () => {
         if (!newName || !newDisplayName) return
         setCreating(true)
         try {
+            const vibeData = newVibe ? vibePresets.find(v => v.id === newVibe) : null
             const res = await fetch('/api/admin/channels', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -144,15 +200,17 @@ export default function AdminChannelsPage() {
                     name: newName,
                     displayName: newDisplayName,
                     language: newLanguage,
+                    description: newDescription || null,
+                    defaultAiProvider: newAiProvider || null,
+                    vibeTone: vibeData ? { style: vibeData.id, tone: vibeData.tone } : null,
                 }),
             })
             if (res.ok) {
+                const channel = await res.json()
                 toast.success(t('channels.created'))
                 setShowCreateDialog(false)
-                setNewName('')
-                setNewDisplayName('')
-                setNewLanguage('en')
-                fetchChannels()
+                resetWizard()
+                router.push(`/dashboard/channels/${channel.id}`)
             } else {
                 const err = await res.json()
                 toast.error(err.error || 'Failed to create channel')
@@ -336,65 +394,174 @@ export default function AdminChannelsPage() {
             )}
 
             {/* Create Channel Dialog */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogContent>
+            <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetWizard() }}>
+                <DialogContent className="sm:max-w-[520px]">
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
-                        <DialogDescription>{t('channels.addChannelDesc')}</DialogDescription>
+                        <DialogDescription>
+                            Step {wizardStep} of 3 — {wizardStep === 1 ? 'Basic Info' : wizardStep === 2 ? 'AI Configuration' : 'Vibe & Tone'}
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>{t('channels.displayName')}</Label>
-                            <Input
-                                placeholder="e.g. My Brand"
-                                value={newDisplayName}
-                                onChange={(e) => {
-                                    setNewDisplayName(e.target.value)
-                                    setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
-                                }}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>{t('channels.slug')}</Label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground text-sm">/</span>
+
+                    {/* Step Indicator */}
+                    <div className="flex items-center gap-2 py-2">
+                        {[1, 2, 3].map((step) => (
+                            <div key={step} className="flex items-center gap-2 flex-1">
+                                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${step < wizardStep ? 'bg-primary text-primary-foreground' :
+                                        step === wizardStep ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' :
+                                            'bg-muted text-muted-foreground'
+                                    }`}>
+                                    {step < wizardStep ? <Check className="h-4 w-4" /> : step}
+                                </div>
+                                {step < 3 && <div className={`h-0.5 flex-1 rounded ${step < wizardStep ? 'bg-primary' : 'bg-muted'}`} />}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Step 1: Basics */}
+                    {wizardStep === 1 && (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>{t('channels.displayName')}</Label>
                                 <Input
-                                    placeholder="my-brand"
-                                    value={newName}
-                                    readOnly
-                                    className="font-mono text-sm bg-muted/50"
+                                    placeholder="e.g. My Brand"
+                                    value={newDisplayName}
+                                    onChange={(e) => {
+                                        setNewDisplayName(e.target.value)
+                                        setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
+                                    }}
+                                    autoFocus
                                 />
                             </div>
-                            <p className="text-xs text-muted-foreground">{t('channels.slugHint')}</p>
+                            <div className="space-y-2">
+                                <Label>{t('channels.slug')}</Label>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground text-sm">/</span>
+                                    <Input
+                                        placeholder="my-brand"
+                                        value={newName}
+                                        readOnly
+                                        className="font-mono text-sm bg-muted/50"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Description</Label>
+                                <Textarea
+                                    placeholder="What is this channel about? (optional)"
+                                    value={newDescription}
+                                    onChange={(e) => setNewDescription(e.target.value)}
+                                    rows={2}
+                                    className="resize-none"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>{t('channels.language')}</Label>
+                                <Select value={newLanguage} onValueChange={setNewLanguage}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="en">English</SelectItem>
+                                        <SelectItem value="vi">Vietnamese</SelectItem>
+                                        <SelectItem value="fr">French</SelectItem>
+                                        <SelectItem value="de">German</SelectItem>
+                                        <SelectItem value="ja">Japanese</SelectItem>
+                                        <SelectItem value="ko">Korean</SelectItem>
+                                        <SelectItem value="zh">Chinese</SelectItem>
+                                        <SelectItem value="es">Spanish</SelectItem>
+                                        <SelectItem value="pt">Portuguese</SelectItem>
+                                        <SelectItem value="th">Thai</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label>{t('channels.language')}</Label>
-                            <Select value={newLanguage} onValueChange={setNewLanguage}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="en">English</SelectItem>
-                                    <SelectItem value="vi">Vietnamese</SelectItem>
-                                    <SelectItem value="fr">French</SelectItem>
-                                    <SelectItem value="de">German</SelectItem>
-                                    <SelectItem value="ja">Japanese</SelectItem>
-                                    <SelectItem value="ko">Korean</SelectItem>
-                                    <SelectItem value="zh">Chinese</SelectItem>
-                                    <SelectItem value="es">Spanish</SelectItem>
-                                    <SelectItem value="pt">Portuguese</SelectItem>
-                                    <SelectItem value="th">Thai</SelectItem>
-                                </SelectContent>
-                            </Select>
+                    )}
+
+                    {/* Step 2: AI Configuration */}
+                    {wizardStep === 2 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-4 w-4 text-primary" />
+                                <p className="text-sm font-medium">Default AI Provider for this channel</p>
+                            </div>
+                            {userProviders.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-4 text-center space-y-2">
+                                    <p className="text-sm text-orange-400">No AI providers configured yet</p>
+                                    <p className="text-xs text-muted-foreground">You can set up API keys later in AI API Keys</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {userProviders.map((p) => (
+                                        <button
+                                            key={p.provider}
+                                            type="button"
+                                            onClick={() => setNewAiProvider(newAiProvider === p.provider ? '' : p.provider)}
+                                            className={`p-3 rounded-lg border text-left text-sm transition-all cursor-pointer ${newAiProvider === p.provider
+                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                                }`}
+                                        >
+                                            <p className="font-medium">{p.name}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{p.provider}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">Optional — you can change this later in channel settings</p>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                            {t('common.cancel')}
-                        </Button>
-                        <Button onClick={handleCreate} disabled={!newName || !newDisplayName || creating}>
-                            {creating ? t('common.creating') : t('channels.addChannel')}
-                        </Button>
+                    )}
+
+                    {/* Step 3: Vibe & Tone */}
+                    {wizardStep === 3 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Palette className="h-4 w-4 text-primary" />
+                                <p className="text-sm font-medium">Choose a content style</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {vibePresets.map((vibe) => (
+                                    <button
+                                        key={vibe.id}
+                                        type="button"
+                                        onClick={() => setNewVibe(newVibe === vibe.id ? '' : vibe.id)}
+                                        className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${newVibe === vibe.id
+                                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                            }`}
+                                    >
+                                        <p className="text-sm font-medium">{vibe.label}</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{vibe.tone}</p>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Optional — defines AI writing style for this channel</p>
+                        </div>
+                    )}
+
+                    <DialogFooter className="flex !justify-between">
+                        <div>
+                            {wizardStep > 1 && (
+                                <Button variant="ghost" onClick={() => setWizardStep(wizardStep - 1)} className="gap-1 cursor-pointer">
+                                    <ChevronLeft className="h-4 w-4" /> Back
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            {wizardStep < 3 ? (
+                                <Button
+                                    onClick={() => setWizardStep(wizardStep + 1)}
+                                    disabled={wizardStep === 1 && (!newName || !newDisplayName)}
+                                    className="gap-1 cursor-pointer"
+                                >
+                                    Next <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button onClick={handleCreate} disabled={creating} className="gap-1 cursor-pointer">
+                                    {creating ? 'Creating...' : <><Check className="h-4 w-4" /> Create Channel</>}
+                                </Button>
+                            )}
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

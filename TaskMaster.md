@@ -36,14 +36,14 @@
 - [x] Per-channel permissions (12 permission types)
 - [x] Granular permission matrix (checkbox UI)
 
-## Phase 5: Channel Management
-- [ ] Channel CRUD
-- [ ] AI channel analysis (names, descriptions, tags, branding)
-- [ ] Multi-step creation wizard
-- [ ] Knowledge base per channel
-- [ ] Vibe/Tone settings
-- [ ] Channel settings auto-save
-- [ ] Content templates
+## Phase 5: Channel Management ✅ COMPLETED
+- [x] Channel CRUD
+- [x] AI channel analysis (names, descriptions, tags, branding)
+- [x] Multi-step creation wizard
+- [x] Knowledge base per channel
+- [x] Vibe/Tone settings
+- [x] Channel settings auto-save
+- [x] Content templates
 
 ## Phase 6: Platform Integration
 - [x] Vbout API client (`src/lib/vbout.ts`)
@@ -110,6 +110,24 @@
 - [ ] First-run wizard
 - [ ] Backup system
 
+## Phase 16: Plans & Billing 💰
+- [ ] Plan schema (FREE, PRO, BUSINESS, ENTERPRISE) + limits config
+- [ ] Stripe integration (Checkout, Webhooks, Customer Portal)
+- [ ] Usage tracking (posts/month, AI generations/month, channels count)
+- [ ] Limit enforcement middleware (channel creation, post creation, AI generation)
+- [ ] Upgrade prompts UI (khi user hit limit → show upgrade modal)
+- [ ] Admin billing dashboard (subscriptions, revenue, usage stats)
+- [ ] Public pricing page
+- [ ] Annual discount option (20% off)
+- [ ] AI Credits system (optional — charge per generation if no BYOK)
+
+## Phase 17: Production Launch 🚀
+- [ ] Final security audit
+- [ ] Performance optimization
+- [ ] Marketing landing page
+- [ ] Documentation / Help center
+- [ ] Beta testing program
+
 ---
 
-**Tổng tiến độ: Phase 1 ✅ | Phase 3 ✅ | Phase 6 (partial) | Còn lại: Phases 2,4,5,7-15**
+**Tổng tiến độ: Phase 1 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 (partial) | Còn lại: Phases 2,7-17**

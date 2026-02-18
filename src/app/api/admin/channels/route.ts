@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, displayName, language } = body
+    const { name, displayName, language, description, defaultAiProvider, vibeTone } = body
 
     if (!name || !displayName) {
         return NextResponse.json({ error: 'Name and display name are required' }, { status: 400 })
@@ -61,6 +61,9 @@ export async function POST(req: NextRequest) {
             name: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
             displayName,
             language: language || 'en',
+            ...(description && { description }),
+            ...(defaultAiProvider && { defaultAiProvider }),
+            ...(vibeTone && { vibeTone }),
             // Auto-assign creator as member (non-admin)
             ...(!isAdmin ? {
                 members: {
