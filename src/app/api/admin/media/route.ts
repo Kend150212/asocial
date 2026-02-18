@@ -3,10 +3,70 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getGDriveAccessToken, uploadFile, makeFilePublic, getOrCreateChannelFolder } from '@/lib/gdrive'
 import { randomUUID } from 'crypto'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { writeFile, readFile, unlink } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+
+const execAsync = promisify(exec)
 
 // Allow large file uploads (up to 60MB)
 export const maxDuration = 60 // seconds
 export const dynamic = 'force-dynamic'
+
+/**
+ * Generate a video thumbnail using ffmpeg.
+ * Extracts a frame at 1s, uploads to Google Drive, returns public URL.
+ * Falls back to Drive thumbnail URL if ffmpeg is not available.
+ */
+async function generateVideoThumbnail(
+    videoBuffer: Buffer,
+    accessToken: string,
+    parentFolderId: string,
+    videoFileId: string,
+): Promise<string> {
+    const fallbackUrl = `https://drive.google.com/thumbnail?id=${videoFileId}&sz=w400`
+
+    try {
+        const id = randomUUID().slice(0, 8)
+        const tmpVideo = join(tmpdir(), `vid_${id}.mp4`)
+        const tmpThumb = join(tmpdir(), `thumb_${id}.jpg`)
+
+        // Write video to temp file
+        await writeFile(tmpVideo, videoBuffer)
+
+        // Extract frame at 1 second (or first frame if video is shorter)
+        await execAsync(
+            `ffmpeg -i "${tmpVideo}" -ss 00:00:01 -vframes 1 -q:v 2 -y "${tmpThumb}"`,
+            { timeout: 15000 }
+        )
+
+        // Read the thumbnail
+        const thumbBuffer = await readFile(tmpThumb)
+
+        // Clean up temp files
+        await unlink(tmpVideo).catch(() => { })
+        await unlink(tmpThumb).catch(() => { })
+
+        // Upload thumbnail to Google Drive
+        const thumbName = `thumb_${videoFileId}.jpg`
+        const thumbFile = await uploadFile(
+            accessToken,
+            thumbName,
+            'image/jpeg',
+            thumbBuffer,
+            parentFolderId,
+        )
+
+        // Make thumbnail public
+        const publicUrl = await makeFilePublic(accessToken, thumbFile.id, 'image/jpeg')
+        return publicUrl
+    } catch (err) {
+        console.warn('ffmpeg thumbnail generation failed, using fallback:', err)
+        return fallbackUrl
+    }
+}
 
 
 // GET /api/admin/media — list media for a channel
@@ -153,9 +213,15 @@ export async function POST(req: NextRequest) {
         const fileType = file.type.startsWith('video/') ? 'video' : 'image'
 
         // Build thumbnail URL
-        const thumbnailUrl = fileType === 'image'
-            ? `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
-            : `https://drive.google.com/thumbnail?id=${driveFile.id}&sz=w400`
+        let thumbnailUrl: string
+        if (fileType === 'image') {
+            thumbnailUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
+        } else {
+            // For videos: try to generate thumbnail with ffmpeg
+            thumbnailUrl = await generateVideoThumbnail(
+                buffer, accessToken, channelFolder.id, driveFile.id
+            )
+        }
 
         // Save to database with Google Drive URL
         const mediaItem = await prisma.mediaItem.create({
