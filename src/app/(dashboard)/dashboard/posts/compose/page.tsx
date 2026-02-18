@@ -32,6 +32,12 @@ import {
     HardDrive,
     Folder,
     ChevronRight,
+    Bold,
+    Italic,
+    Type,
+    Smile,
+    AtSign,
+    Link2,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -458,8 +464,10 @@ export default function ComposePage() {
     const searchParams = useSearchParams()
     const editPostId = searchParams.get('edit')
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
     const savedRef = useRef(false) // track if post has been saved/published
     const postIdRef = useRef<string | null>(editPostId) // track created post ID to avoid duplicates
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
     // State
     const [channels, setChannels] = useState<Channel[]>([])
@@ -969,7 +977,7 @@ export default function ComposePage() {
             {/* 3-Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* ── Left: Platforms ── */}
-                <div className="lg:col-span-3 space-y-4">
+                <div className="lg:col-span-2 space-y-4">
                     {/* Channel */}
                     <Card>
                         <CardHeader className="pb-3">
@@ -1173,7 +1181,7 @@ export default function ComposePage() {
                 </div >
 
                 {/* ── Center: Editor ── */}
-                < div className="lg:col-span-5 space-y-4" >
+                < div className="lg:col-span-6 space-y-4" >
                     {/* AI Generate */}
                     < Card >
                         <CardHeader className="pb-3">
@@ -1198,16 +1206,148 @@ export default function ComposePage() {
 
                     {/* Content Editor */}
                     < Card >
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm">Content</CardTitle>
                                 <span className={`text-xs ${charCount > 0 ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
                                     {charCount > 0 ? `${charCount} characters` : ''}
                                 </span>
                             </div>
+                            {/* Content Toolbar */}
+                            <div className="flex items-center gap-1 pt-2 border-b pb-2 -mx-1 flex-wrap">
+                                <button
+                                    type="button"
+                                    title="Bold"
+                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const ta = textareaRef.current
+                                        if (!ta) return
+                                        const start = ta.selectionStart
+                                        const end = ta.selectionEnd
+                                        const selected = content.substring(start, end)
+                                        const newContent = content.substring(0, start) + `**${selected || 'text'}**` + content.substring(end)
+                                        setContent(newContent)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(start + 2, start + 2 + (selected || 'text').length) }, 0)
+                                    }}
+                                >
+                                    <Bold className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="Italic"
+                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const ta = textareaRef.current
+                                        if (!ta) return
+                                        const start = ta.selectionStart
+                                        const end = ta.selectionEnd
+                                        const selected = content.substring(start, end)
+                                        const newContent = content.substring(0, start) + `_${selected || 'text'}_` + content.substring(end)
+                                        setContent(newContent)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(start + 1, start + 1 + (selected || 'text').length) }, 0)
+                                    }}
+                                >
+                                    <Italic className="h-4 w-4" />
+                                </button>
+                                <div className="w-px h-5 bg-border mx-1" />
+                                <button
+                                    type="button"
+                                    title="Add Hashtag"
+                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const ta = textareaRef.current
+                                        if (!ta) return
+                                        const pos = ta.selectionStart
+                                        const before = content.substring(0, pos)
+                                        const after = content.substring(pos)
+                                        const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
+                                        const newContent = before + prefix + '#' + after
+                                        setContent(newContent)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length + 1, pos + prefix.length + 1) }, 0)
+                                    }}
+                                >
+                                    <Hash className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="Mention"
+                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const ta = textareaRef.current
+                                        if (!ta) return
+                                        const pos = ta.selectionStart
+                                        const before = content.substring(0, pos)
+                                        const after = content.substring(pos)
+                                        const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
+                                        const newContent = before + prefix + '@' + after
+                                        setContent(newContent)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length + 1, pos + prefix.length + 1) }, 0)
+                                    }}
+                                >
+                                    <AtSign className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="Add Link"
+                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        const ta = textareaRef.current
+                                        if (!ta) return
+                                        const pos = ta.selectionStart
+                                        const before = content.substring(0, pos)
+                                        const after = content.substring(pos)
+                                        const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
+                                        const newContent = before + prefix + 'https://' + after
+                                        setContent(newContent)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length, pos + prefix.length + 8) }, 0)
+                                    }}
+                                >
+                                    <Link2 className="h-4 w-4" />
+                                </button>
+                                <div className="w-px h-5 bg-border mx-1" />
+                                {/* Emoji Picker */}
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        title="Emoji"
+                                        className={`h-8 w-8 rounded-md flex items-center justify-center transition-colors cursor-pointer ${showEmojiPicker ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    >
+                                        <Smile className="h-4 w-4" />
+                                    </button>
+                                    {showEmojiPicker && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
+                                            <div className="absolute top-10 left-0 z-50 bg-popover border rounded-xl shadow-xl p-3 w-[280px]">
+                                                <div className="grid grid-cols-8 gap-1">
+                                                    {['😀', '😂', '🤣', '😍', '🥰', '😎', '🤩', '🥳', '😤', '🔥', '💯', '❤️', '👏', '🙌', '💪', '✨', '🎉', '🎊', '👍', '👎', '🤔', '😱', '😢', '🤝', '💡', '📌', '🚀', '📢', '💰', '🛒', '🎯', '📈', '⭐', '🏆', '💎', '🌟', '❗', '✅', '📣', '🔔', '🎁', '💝', '🌈', '☀️', '🌙', '💫', '🍀', '🦋'].map(emoji => (
+                                                        <button
+                                                            key={emoji}
+                                                            type="button"
+                                                            className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors cursor-pointer text-lg"
+                                                            onClick={() => {
+                                                                const ta = textareaRef.current
+                                                                if (!ta) { setContent(prev => prev + emoji); setShowEmojiPicker(false); return }
+                                                                const pos = ta.selectionStart
+                                                                const newContent = content.substring(0, pos) + emoji + content.substring(pos)
+                                                                setContent(newContent)
+                                                                setShowEmojiPicker(false)
+                                                                setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + emoji.length, pos + emoji.length) }, 0)
+                                                            }}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <textarea
+                                ref={textareaRef}
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
                                 placeholder="Write your post content here..."
