@@ -838,10 +838,29 @@ export default function ComposePage() {
 
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-sm">Publish To</CardTitle>
-                            <CardDescription className="text-xs">
-                                {selectedPlatformIds.size} account{selectedPlatformIds.size !== 1 ? 's' : ''} selected
-                            </CardDescription>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-sm">Publish To</CardTitle>
+                                    <CardDescription className="text-xs">
+                                        {selectedPlatformIds.size} account{selectedPlatformIds.size !== 1 ? 's' : ''} selected
+                                    </CardDescription>
+                                </div>
+                                {activePlatforms.length > 0 && (
+                                    <button
+                                        type="button"
+                                        className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
+                                        onClick={() => {
+                                            if (selectedPlatformIds.size === activePlatforms.length) {
+                                                setSelectedPlatformIds(new Set())
+                                            } else {
+                                                setSelectedPlatformIds(new Set(activePlatforms.map(p => p.id)))
+                                            }
+                                        }}
+                                    >
+                                        {selectedPlatformIds.size === activePlatforms.length ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                )}
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {activePlatforms.length ? (
