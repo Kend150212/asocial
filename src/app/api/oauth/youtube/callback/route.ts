@@ -76,23 +76,44 @@ export async function GET(req: NextRequest) {
         const refreshToken = tokens.refresh_token
         const expiresIn = tokens.expires_in
 
-        // Fetch YouTube channels for this user
-        const ytRes = await fetch(
-            'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
-            {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            }
-        )
+        // Fetch YouTube channels — both owned and managed (brand accounts)
+        const channelMap = new Map<string, { id: string; snippet: Record<string, string> }>()
 
-        if (!ytRes.ok) {
-            console.error('YouTube API failed:', await ytRes.text())
+        // 1. Channels owned by the user (mine=true)
+        const ytRes = await fetch(
+            'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&maxResults=50',
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+        if (ytRes.ok) {
+            const data = await ytRes.json()
+            for (const ch of (data.items || [])) {
+                channelMap.set(ch.id, ch)
+            }
+        } else {
+            console.error('YouTube API (mine) failed:', await ytRes.text())
+        }
+
+        // 2. Channels managed by the user (brand accounts)
+        const managedRes = await fetch(
+            'https://www.googleapis.com/youtube/v3/channels?part=snippet&managedByMe=true&maxResults=50',
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+        if (managedRes.ok) {
+            const data = await managedRes.json()
+            for (const ch of (data.items || [])) {
+                channelMap.set(ch.id, ch) // dedup by channel ID
+            }
+        } else {
+            console.warn('YouTube API (managed) failed — may not have manager access')
+        }
+
+        if (channelMap.size === 0) {
             return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=youtube_api_failed`, req.nextUrl.origin)
+                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_youtube_channels`, req.nextUrl.origin)
             )
         }
 
-        const ytData = await ytRes.json()
-        const channels = ytData.items || []
+        const channels = Array.from(channelMap.values())
 
         let imported = 0
         for (const ch of channels) {
