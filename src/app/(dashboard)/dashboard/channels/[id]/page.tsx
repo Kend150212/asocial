@@ -253,8 +253,6 @@ export default function ChannelDetailPage({
     // AI provider/model
     const [aiProvider, setAiProvider] = useState('')
     const [aiModel, setAiModel] = useState('')
-    const [aiApiKey, setAiApiKey] = useState('')
-    const [hasExistingAiKey, setHasExistingAiKey] = useState(false)
     const [requireOwnApiKey, setRequireOwnApiKey] = useState(false)
     const [generatingDesc, setGeneratingDesc] = useState(false)
     const [generatingVibe, setGeneratingVibe] = useState(false)
@@ -263,6 +261,7 @@ export default function ChannelDetailPage({
     const [availableProviders, setAvailableProviders] = useState<AiProviderInfo[]>([])
     const [availableModels, setAvailableModels] = useState<AiModelInfo[]>([])
     const [loadingModels, setLoadingModels] = useState(false)
+    const [userConfiguredProviders, setUserConfiguredProviders] = useState<string[]>([])
 
     // Webhook state
     const [webhookDiscordUrl, setWebhookDiscordUrl] = useState('')
@@ -313,9 +312,7 @@ export default function ChannelDetailPage({
                 // AI defaults
                 setAiProvider(data.defaultAiProvider || '')
                 setAiModel(data.defaultAiModel || '')
-                setHasExistingAiKey(!!data.hasAiApiKey)
                 setRequireOwnApiKey(data.requireOwnApiKey ?? false)
-                setAiApiKey('')
                 // Webhooks
                 setWebhookDiscordUrl(data.webhookDiscord?.url || '')
                 setWebhookTelegramToken(data.webhookTelegram?.botToken || '')
@@ -375,39 +372,49 @@ export default function ChannelDetailPage({
         }
     }, [searchParams, id, router])
 
-    // Fetch AI providers from API Hub
+    // Fetch AI providers from API Hub + user's configured keys
     useEffect(() => {
         const fetchProviders = async () => {
             try {
-                const res = await fetch('/api/admin/integrations')
+                const res = await fetch('/api/user/ai-providers')
                 if (res.ok) {
                     const data = await res.json()
-                    const aiProviders = data.filter(
-                        (i: AiProviderInfo & { category: string }) => i.category === 'AI'
-                    )
-                    setAvailableProviders(aiProviders)
+                    setAvailableProviders(data)
+                }
+            } catch { /* silently ignore */ }
+        }
+        const fetchUserKeys = async () => {
+            try {
+                const res = await fetch('/api/user/api-keys')
+                if (res.ok) {
+                    const data = await res.json()
+                    setUserConfiguredProviders(data.map((k: { provider: string }) => k.provider))
                 }
             } catch { /* silently ignore */ }
         }
         fetchProviders()
+        fetchUserKeys()
     }, [])
 
-    // Fetch models when provider changes
+    // Fetch models when provider changes — uses user's key
     useEffect(() => {
         if (!aiProvider) {
             setAvailableModels([])
             return
         }
-        const provider = availableProviders.find(p => p.provider === aiProvider)
-        if (!provider) return
+        // Only fetch models if user has this provider configured
+        if (!userConfiguredProviders.includes(aiProvider)) {
+            setAvailableModels([])
+            return
+        }
 
         const fetchModels = async () => {
             setLoadingModels(true)
             try {
-                const res = await fetch('/api/admin/integrations/models', {
+                const res = await fetch('/api/user/api-keys/models', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: provider.id }),
+                    body: JSON.stringify({ provider: aiProvider }),
                 })
                 if (res.ok) {
                     const data = await res.json()
@@ -420,7 +427,7 @@ export default function ChannelDetailPage({
             setLoadingModels(false)
         }
         fetchModels()
-    }, [aiProvider, availableProviders])
+    }, [aiProvider, userConfiguredProviders])
 
     // ─── Save General Settings ──────────────────────
     const handleSave = async () => {
@@ -439,7 +446,7 @@ export default function ChannelDetailPage({
                     vibeTone,
                     defaultAiProvider: aiProvider || null,
                     defaultAiModel: aiModel || null,
-                    ...(aiApiKey ? { aiApiKey } : {}),
+
                     ...(isAdmin ? { requireOwnApiKey } : {}),
                     webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
@@ -1010,22 +1017,21 @@ export default function ChannelDetailPage({
 
                             <Separator />
 
-                            {/* Require Own API Key — Admin Only */}
-                            {isAdmin && (
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label>Require Channel API Key</Label>
-                                        <p className="text-xs text-muted-foreground">If enabled, this channel must have its own API key and cannot use the global API key.</p>
-                                    </div>
-                                    <Switch checked={requireOwnApiKey} onCheckedChange={setRequireOwnApiKey} />
-                                </div>
-                            )}
-
                             {/* Channel AI Setup — Admin & Manager */}
                             <div className="space-y-4">
                                 <Label className="text-base font-semibold">Channel AI Configuration</Label>
-                                {requireOwnApiKey && !hasExistingAiKey && (
-                                    <p className="text-xs text-orange-400 font-medium">⚠ This channel requires its own API key. AI features won&apos;t work until a key is provided.</p>
+
+                                {/* User Key Status */}
+                                {userConfiguredProviders.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
+                                        <p className="text-xs text-orange-400 font-medium">⚠ You haven&apos;t set up any AI API keys yet.</p>
+                                        <a href="/dashboard/api-keys" className="text-xs text-primary hover:underline font-medium mt-1 inline-block">→ Go to AI API Keys to add your keys</a>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center justify-between">
+                                        <p className="text-xs text-emerald-500">✓ You have {userConfiguredProviders.length} AI provider{userConfiguredProviders.length > 1 ? 's' : ''} configured</p>
+                                        <a href="/dashboard/api-keys" className="text-[11px] text-primary hover:underline">Manage keys →</a>
+                                    </div>
                                 )}
 
                                 {/* Provider & Model */}
@@ -1038,23 +1044,25 @@ export default function ChannelDetailPage({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                                {availableProviders.map((p) => (
-                                                    <SelectItem key={p.provider} value={p.provider}>
-                                                        {p.name}
-                                                    </SelectItem>
-                                                ))}
+                                                {availableProviders
+                                                    .filter(p => userConfiguredProviders.includes(p.provider))
+                                                    .map((p) => (
+                                                        <SelectItem key={p.provider} value={p.provider}>
+                                                            {p.name} ✓
+                                                        </SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
-                                        <p className="text-xs text-muted-foreground">{t('channels.ai.providerDesc')}</p>
+                                        <p className="text-xs text-muted-foreground">Only shows providers you&apos;ve set up in AI API Keys</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="flex items-center gap-2">
                                             {t('channels.ai.model')}
                                             {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                                         </Label>
-                                        <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels}>
+                                        <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels || !aiProvider}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                                <SelectValue placeholder={aiProvider ? 'Select a model...' : 'Select provider first'} />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
@@ -1067,44 +1075,6 @@ export default function ChannelDetailPage({
                                         </Select>
                                         <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
                                     </div>
-                                </div>
-
-                                {/* API Key */}
-                                <div className="space-y-2">
-                                    <Label>API Key</Label>
-                                    <div className="flex gap-2">
-                                        <Input
-                                            type="password"
-                                            placeholder={hasExistingAiKey ? '••••••••••••••••' : 'Enter API key for this channel'}
-                                            value={aiApiKey}
-                                            onChange={(e) => setAiApiKey(e.target.value)}
-                                        />
-                                        {hasExistingAiKey && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="shrink-0 text-destructive cursor-pointer"
-                                                onClick={() => {
-                                                    setAiApiKey('')
-                                                    setHasExistingAiKey(false)
-                                                    fetch(`/api/admin/channels/${id}`, {
-                                                        method: 'PUT',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ aiApiKey: '' }),
-                                                    }).then(() => toast.success('API key cleared'))
-                                                }}
-                                            >
-                                                Clear Key
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        {hasExistingAiKey
-                                            ? 'This channel has its own API key configured.'
-                                            : requireOwnApiKey
-                                                ? 'Required. Provide an API key matching the selected provider above.'
-                                                : 'Optional. If set, this key will be used instead of the global API key.'}
-                                    </p>
                                 </div>
                             </div>
 
