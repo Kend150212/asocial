@@ -79,6 +79,32 @@ interface MediaItem {
     originalName: string | null
 }
 
+// ─── Media helper ────────────────────────────────────
+
+function isVideo(media: MediaItem): boolean {
+    if (media.type === 'video') return true
+    const ext = (media.originalName || media.url || '').toLowerCase()
+    return /\.(mp4|mov|webm|avi|mkv|ogg|3gp|flv|wmv|mpeg)$/.test(ext)
+}
+
+function MediaElement({ media, className }: { media: MediaItem; className?: string }) {
+    if (isVideo(media)) {
+        return (
+            <video
+                src={media.url}
+                poster={media.thumbnailUrl || undefined}
+                className={className}
+                muted
+                playsInline
+                loop
+                onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => { })}
+                onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
+            />
+        )
+    }
+    return <img src={media.thumbnailUrl || media.url} alt="" className={className} />
+}
+
 // ─── Platform config ────────────────────────────────
 
 const platformLimits: Record<string, number> = {
@@ -118,7 +144,7 @@ function FacebookPreview({ content, media, accountName, postType, mediaRatio }: 
         return (
             <div className="rounded-xl overflow-hidden bg-gradient-to-b from-blue-600 to-blue-800 text-white relative" style={{ minHeight: 280 }}>
                 {media.length > 0 && (
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                    <MediaElement media={media[0]} className="absolute inset-0 w-full h-full object-cover opacity-80" />
                 )}
                 <div className="relative z-10 p-4 flex flex-col justify-between h-full" style={{ minHeight: 280 }}>
                     <div className="flex items-center gap-2">
@@ -161,7 +187,7 @@ function FacebookPreview({ content, media, accountName, postType, mediaRatio }: 
             {media.length > 0 && (
                 <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
                     }`}>
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
+                    <MediaElement media={media[0]} className="w-full h-full object-cover" />
                 </div>
             )}
             {/* Reactions bar */}
@@ -200,7 +226,7 @@ function InstagramPreview({ content, media, accountName, mediaRatio }: {
             {media.length > 0 ? (
                 <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
                     }`}>
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
+                    <MediaElement media={media[0]} className="w-full h-full object-cover" />
                 </div>
             ) : (
                 <div className={`w-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
@@ -236,7 +262,7 @@ function TikTokPreview({ content, media, accountName, mediaRatio }: {
         <div className={`rounded-xl overflow-hidden bg-black text-white relative ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'
             }`}>
             {media.length > 0 ? (
-                <img src={media[0].thumbnailUrl || media[0].url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />
+                <MediaElement media={media[0]} className="absolute inset-0 w-full h-full object-cover opacity-70" />
             ) : (
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
             )}
@@ -323,7 +349,7 @@ function YouTubePreview({ content, media, accountName, mediaRatio }: {
             {media.length > 0 ? (
                 <div className={`relative w-full bg-muted overflow-hidden ${mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : mediaRatio === '1:1' ? 'aspect-square' : 'aspect-video'
                     }`}>
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
+                    <MediaElement media={media[0]} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="h-12 w-12 rounded-full bg-red-600 flex items-center justify-center">
                             <Play className="h-6 w-6 text-white ml-0.5" />
@@ -370,7 +396,7 @@ function LinkedInPreview({ content, media, accountName, mediaRatio }: {
             {media.length > 0 && (
                 <div className={`w-full bg-muted overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
                     }`}>
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full object-cover" />
+                    <MediaElement media={media[0]} className="w-full h-full object-cover" />
                 </div>
             )}
             <div className="px-3 py-2 text-xs text-muted-foreground border-t">
@@ -412,7 +438,7 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
             {media.length > 0 && (
                 <div className={`px-3 pb-3 overflow-hidden ${mediaRatio === '16:9' ? 'aspect-video' : mediaRatio === '9:16' ? 'aspect-[9/16] max-h-[400px]' : 'aspect-square'
                     }`}>
-                    <img src={media[0].thumbnailUrl || media[0].url} alt="" className="w-full h-full rounded-lg object-cover" />
+                    <MediaElement media={media[0]} className="w-full h-full rounded-lg object-cover" />
                 </div>
             )}
         </div>
@@ -447,6 +473,8 @@ export default function ComposePage() {
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
     const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
     const [loadingLibrary, setLoadingLibrary] = useState(false)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
     // Load channels — only include active platforms
     useEffect(() => {
@@ -839,42 +867,73 @@ export default function ComposePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {/* AI Suggested Times */}
+                            {/* AI-Powered Schedule Suggestion */}
                             <div>
-                                <div className="flex items-center gap-1.5 mb-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-xs cursor-pointer gap-2"
+                                    disabled={!selectedChannel || generating}
+                                    onClick={async () => {
+                                        if (!selectedChannel) return
+                                        const platforms = activePlatforms
+                                            .filter((p) => selectedPlatformIds.has(p.id))
+                                            .map((p) => p.platform)
+                                        if (platforms.length === 0) {
+                                            toast.error('Select at least one platform')
+                                            return
+                                        }
+                                        try {
+                                            const res = await fetch('/api/admin/posts/suggest-schedule', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    channelId: selectedChannel.id,
+                                                    platforms,
+                                                    content: content.slice(0, 200),
+                                                }),
+                                            })
+                                            const data = await res.json()
+                                            if (!res.ok) {
+                                                toast.error(data.error || 'Failed to get suggestions')
+                                                return
+                                            }
+                                            setAiScheduleSuggestions(data.suggestions || [])
+                                            toast.success('AI schedule suggestions ready!')
+                                        } catch {
+                                            toast.error('Failed to get AI suggestions')
+                                        }
+                                    }}
+                                >
                                     <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                                    <span className="text-xs font-medium text-muted-foreground">Best times to post</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-1.5">
-                                    {[
-                                        { label: '🌅 Morning', time: '08:00', desc: '8:00 AM' },
-                                        { label: '🌞 Lunch', time: '12:00', desc: '12:00 PM' },
-                                        { label: '🌤 Afternoon', time: '15:00', desc: '3:00 PM' },
-                                        { label: '🌙 Evening', time: '19:00', desc: '7:00 PM' },
-                                    ].map((slot) => {
-                                        // Get tomorrow's date
-                                        const tomorrow = new Date()
-                                        tomorrow.setDate(tomorrow.getDate() + 1)
-                                        const dateStr = tomorrow.toISOString().split('T')[0]
-                                        const isSelected = scheduleDate === dateStr && scheduleTime === slot.time
-                                        return (
-                                            <button
-                                                key={slot.time}
-                                                onClick={() => {
-                                                    setScheduleDate(dateStr)
-                                                    setScheduleTime(slot.time)
-                                                }}
-                                                className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${isSelected
-                                                    ? 'bg-primary text-primary-foreground'
-                                                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
-                                                    }`}
-                                            >
-                                                <span className="font-medium">{slot.label}</span>
-                                                <span className="opacity-70 ml-1">{slot.desc}</span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
+                                    AI Suggest Best Times
+                                </Button>
+                                {aiScheduleSuggestions.length > 0 && (
+                                    <div className="grid grid-cols-1 gap-1.5 mt-2">
+                                        {aiScheduleSuggestions.map((s: { date: string; time: string; label: string; reason: string }, i: number) => {
+                                            const isSelected = scheduleDate === s.date && scheduleTime === s.time
+                                            return (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => {
+                                                        setScheduleDate(s.date)
+                                                        setScheduleTime(s.time)
+                                                    }}
+                                                    className={`text-left px-2.5 py-2 rounded-md text-xs transition-colors cursor-pointer ${isSelected
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-medium">{s.label}</span>
+                                                        <span className="opacity-70">{s.date} {s.time}</span>
+                                                    </div>
+                                                    <p className="opacity-60 mt-0.5 text-[10px]">{s.reason}</p>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                )}
                             </div>
                             <div className="border-t pt-3">
                                 <Label className="text-xs text-muted-foreground">Date</Label>
@@ -885,7 +944,7 @@ export default function ComposePage() {
                                 <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="mt-1" />
                             </div>
                             {scheduleDate && (
-                                <Button variant="ghost" size="sm" onClick={() => { setScheduleDate(''); setScheduleTime('') }} className="text-xs cursor-pointer">
+                                <Button variant="ghost" size="sm" onClick={() => { setScheduleDate(''); setScheduleTime(''); setAiScheduleSuggestions([]) }} className="text-xs cursor-pointer">
                                     <X className="h-3 w-3 mr-1" /> Clear schedule
                                 </Button>
                             )}
