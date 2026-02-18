@@ -140,7 +140,7 @@ export default function LandingPage() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
-            Manage All Your Social Media{' '}
+            ASocial — Manage All Your Social Media{' '}
             <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
               in One Place
             </span>
