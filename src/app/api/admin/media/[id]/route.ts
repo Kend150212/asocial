@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { unlink } from 'fs/promises'
-import path from 'path'
+import { getGDriveAccessToken } from '@/lib/gdrive'
 
-// DELETE /api/admin/media/[id] — delete a media item
+// DELETE /api/admin/media/[id] — delete a media item + remove from Google Drive
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -21,16 +20,37 @@ export async function DELETE(
         return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     }
 
-    // Delete physical file if it's a local upload
-    if (media.url.startsWith('/uploads/')) {
-        const filePath = path.join(process.cwd(), 'public', media.url)
+    // Delete from Google Drive if storageFileId exists
+    if (media.storageFileId) {
         try {
-            await unlink(filePath)
-        } catch {
-            // File might not exist, continue with DB deletion
+            const accessToken = await getGDriveAccessToken()
+            await fetch(
+                `https://www.googleapis.com/drive/v3/files/${media.storageFileId}`,
+                {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                }
+            )
+
+            // Also delete thumbnail if it was uploaded as a separate file
+            // Thumbnail storageFileId is stored in aiMetadata
+            const meta = (media.aiMetadata || {}) as Record<string, string>
+            if (meta.thumbnailFileId) {
+                await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${meta.thumbnailFileId}`,
+                    {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${accessToken}` },
+                    }
+                ).catch(() => { })
+            }
+        } catch (err) {
+            console.warn('Failed to delete from Google Drive:', err)
+            // Continue with DB deletion even if Drive delete fails
         }
     }
 
+    // Delete from database (cascade will remove PostMedia references)
     await prisma.mediaItem.delete({ where: { id } })
 
     return NextResponse.json({ success: true })

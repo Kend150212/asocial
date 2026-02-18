@@ -1177,12 +1177,17 @@ export default function ComposePage() {
                                         <CardTitle className="text-sm flex items-center gap-2">
                                             <FolderOpen className="h-4 w-4" />
                                             Media Library — {selectedChannel?.displayName}
+                                            {attachedMedia.length > 0 && (
+                                                <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                                                    {attachedMedia.length} selected
+                                                </span>
+                                            )}
                                         </CardTitle>
                                         <Button variant="ghost" size="sm" onClick={() => setShowMediaLibrary(false)} className="cursor-pointer">
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <CardDescription className="text-xs">Click to add media to your post. Already attached items are marked.</CardDescription>
+                                    <CardDescription className="text-xs">Click to add media. Hover to delete. Already attached items are marked with ✓.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="overflow-y-auto flex-1 py-4">
                                     {loadingLibrary ? (
@@ -1198,32 +1203,62 @@ export default function ComposePage() {
                                                 return (
                                                     <div
                                                         key={media.id}
-                                                        onClick={() => !isAttached && addFromLibrary(media)}
-                                                        className={`relative rounded-lg overflow-hidden bg-muted aspect-square cursor-pointer group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
+                                                        className={`relative rounded-lg overflow-hidden bg-muted aspect-square group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
                                                             }`}
                                                     >
-                                                        {isVideo(media) ? (
-                                                            <div className="relative h-full w-full bg-muted">
-                                                                <img
-                                                                    src={media.thumbnailUrl || media.url}
-                                                                    alt={media.originalName || ''}
-                                                                    className="h-full w-full object-cover"
-                                                                />
-                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                    <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
-                                                                        <Play className="h-3 w-3 text-white ml-0.5" />
+                                                        {/* Media content — click to add */}
+                                                        <div
+                                                            className="h-full w-full cursor-pointer"
+                                                            onClick={() => !isAttached && addFromLibrary(media)}
+                                                        >
+                                                            {isVideo(media) ? (
+                                                                <div className="relative h-full w-full bg-muted">
+                                                                    <img
+                                                                        src={media.thumbnailUrl || media.url}
+                                                                        alt={media.originalName || ''}
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                        <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
+                                                                            <Play className="h-3 w-3 text-white ml-0.5" />
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                                <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">{media.originalName}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
-                                                        )}
+                                                            ) : (
+                                                                <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Attached check overlay */}
                                                         {isAttached && (
-                                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
                                                                 <Check className="h-5 w-5 text-primary" />
                                                             </div>
                                                         )}
+
+                                                        {/* Delete button — top right on hover */}
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation()
+                                                                if (!confirm(`Delete "${media.originalName}"? This will also remove it from Google Drive.`)) return
+                                                                try {
+                                                                    const res = await fetch(`/api/admin/media/${media.id}`, { method: 'DELETE' })
+                                                                    if (!res.ok) throw new Error()
+                                                                    // Remove from library list
+                                                                    setLibraryMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                    // Remove from attached if it was attached
+                                                                    setAttachedMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                    toast.success('Media deleted')
+                                                                } catch {
+                                                                    toast.error('Failed to delete media')
+                                                                }
+                                                            }}
+                                                            className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+
+                                                        {/* Filename */}
                                                         <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
                                                             {media.originalName}
                                                         </span>
@@ -1233,6 +1268,21 @@ export default function ComposePage() {
                                         </div>
                                     )}
                                 </CardContent>
+
+                                {/* Done button footer */}
+                                <div className="border-t px-4 py-3 flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">
+                                        {libraryMedia.length} item{libraryMedia.length !== 1 ? 's' : ''} in library
+                                    </span>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setShowMediaLibrary(false)}
+                                        className="cursor-pointer"
+                                    >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Done
+                                    </Button>
+                                </div>
                             </Card>
                         </div>
                     )}
