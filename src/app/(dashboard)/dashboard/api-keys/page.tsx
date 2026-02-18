@@ -18,7 +18,6 @@ import {
     BrainCircuit,
     ExternalLink,
     Info,
-    X,
 } from 'lucide-react'
 import {
     Dialog,
@@ -27,10 +26,8 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 
-// ─── Provider definitions ──────────────────────────────────
-interface ProviderDef {
-    provider: string
-    name: string
+// ─── Provider metadata (guide info per provider) ───────────
+interface ProviderGuide {
     description: string
     placeholder: string
     guideUrl: string
@@ -39,10 +36,8 @@ interface ProviderDef {
     tips?: string[]
 }
 
-const AI_PROVIDERS: ProviderDef[] = [
-    {
-        provider: 'gemini',
-        name: 'Google Gemini',
+const providerGuides: Record<string, ProviderGuide> = {
+    gemini: {
         description: 'Google AI Studio — Gemini Pro, Flash, Ultra',
         placeholder: 'AIza...',
         guideUrl: 'https://aistudio.google.com/apikey',
@@ -55,9 +50,7 @@ const AI_PROVIDERS: ProviderDef[] = [
         ],
         tips: ['Free tier supports 15 RPM for Gemini Flash', 'Gemini Pro/Flash available'],
     },
-    {
-        provider: 'openai',
-        name: 'OpenAI',
+    openai: {
         description: 'GPT-4o, GPT-4o mini, o1, o3',
         placeholder: 'sk-...',
         guideUrl: 'https://platform.openai.com/api-keys',
@@ -68,11 +61,9 @@ const AI_PROVIDERS: ProviderDef[] = [
             { title: 'Name and copy', detail: 'Name your key and copy it' },
             { title: 'Billing required', detail: 'Note: Billing plan required for API usage' },
         ],
-        tips: ['GPT-4o mini is most cost-effective for content generation', 'Set usage limits in your OpenAI dashboard'],
+        tips: ['GPT-4o mini is most cost-effective for content generation'],
     },
-    {
-        provider: 'anthropic',
-        name: 'Anthropic (Claude)',
+    anthropic: {
         description: 'Claude 3.5 Sonnet, Haiku, Opus',
         placeholder: 'sk-ant-api...',
         guideUrl: 'https://console.anthropic.com/settings/keys',
@@ -83,11 +74,9 @@ const AI_PROVIDERS: ProviderDef[] = [
             { title: 'Create a key', detail: 'Click "Create Key" and copy it' },
             { title: 'Add credits', detail: 'Add billing credits to activate' },
         ],
-        tips: ['Claude 3.5 Sonnet is excellent for creative writing', 'Haiku is fast and cost-effective'],
+        tips: ['Claude 3.5 Sonnet is excellent for creative writing'],
     },
-    {
-        provider: 'openrouter',
-        name: 'OpenRouter',
+    openrouter: {
         description: 'Access 100+ models via one API key',
         placeholder: 'sk-or-v1-...',
         guideUrl: 'https://openrouter.ai/keys',
@@ -98,33 +87,49 @@ const AI_PROVIDERS: ProviderDef[] = [
             { title: 'Add credits', detail: 'Add credits to your account' },
             { title: 'Choose models', detail: 'Access any model through a single API' },
         ],
-        tips: ['One key for all models (GPT, Claude, Llama, Mistral...)', 'Pay-per-use pricing on all models'],
+        tips: ['One key for all models (GPT, Claude, Llama, Mistral...)'],
     },
-    {
-        provider: 'groq',
-        name: 'Groq',
-        description: 'Ultra-fast inference — Llama, Mixtral',
-        placeholder: 'gsk_...',
-        guideUrl: 'https://console.groq.com/keys',
-        guideLabel: 'Open Groq Console',
+    runware: {
+        description: 'Image generation — FLUX, SDXL, DALL-E',
+        placeholder: 'Enter API key...',
+        guideUrl: 'https://runware.ai',
+        guideLabel: 'Open Runware Dashboard',
         guideSteps: [
-            { title: 'Create account', detail: 'Sign up at console.groq.com' },
-            { title: 'Go to API Keys', detail: 'Navigate to API Keys section' },
-            { title: 'Create key', detail: 'Create a new API key and copy it' },
+            { title: 'Sign up', detail: 'Sign up at runware.ai' },
+            { title: 'Go to API Keys', detail: 'Dashboard → API Keys' },
+            { title: 'Create and copy', detail: 'Create new key and copy' },
         ],
-        tips: ['Fastest inference speeds in the industry', 'Free tier available with rate limits'],
     },
-]
+    synthetic: {
+        description: 'AI video and image generation',
+        placeholder: 'Enter API key...',
+        guideUrl: 'https://synthetic.new/api-keys',
+        guideLabel: 'Open Synthetic Dashboard',
+        guideSteps: [
+            { title: 'Sign up', detail: 'Sign up at synthetic.new' },
+            { title: 'Get API Key', detail: 'Go to API Keys section' },
+            { title: 'Copy key', detail: 'Create and copy your key' },
+        ],
+    },
+}
 
 const providerColors: Record<string, string> = {
     gemini: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     openai: 'bg-green-500/10 text-green-500 border-green-500/20',
     anthropic: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     openrouter: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    groq: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    runware: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+    synthetic: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
 }
 
-// ─── Existing key data from API ────────────────────────────
+// ─── Types ─────────────────────────────────────────────────
+interface AiProvider {
+    id: string
+    provider: string
+    name: string
+    status: string
+}
+
 interface UserApiKeyData {
     id: string
     provider: string
@@ -151,7 +156,7 @@ function StatusBadge({ hasKey }: { hasKey: boolean }) {
 
 // ─── Provider Card ─────────────────────────────────────────
 function ProviderCard({
-    def,
+    provider,
     existingKey,
     apiKeyValue,
     showKey,
@@ -164,7 +169,7 @@ function ProviderCard({
     onDelete,
     onToggleGuide,
 }: {
-    def: ProviderDef
+    provider: AiProvider
     existingKey: UserApiKeyData | undefined
     apiKeyValue: string
     showKey: boolean
@@ -178,87 +183,91 @@ function ProviderCard({
     onToggleGuide: () => void
 }) {
     const hasKey = !!existingKey
+    const guide = providerGuides[provider.provider]
+    const colorClass = providerColors[provider.provider] || 'bg-gray-500/10 text-gray-500 border-gray-500/20'
 
     return (
-        <Card className={`relative transition-all hover:shadow-md ${providerColors[def.provider] || ''} border`}>
+        <Card className={`relative transition-all hover:shadow-md ${colorClass} border`}>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{def.name}</CardTitle>
+                        <CardTitle className="text-lg">{provider.name}</CardTitle>
                     </div>
                     <StatusBadge hasKey={hasKey} />
                 </div>
                 <CardDescription className="text-xs">
-                    {def.description}
+                    {guide?.description || `${provider.provider} integration`}
                 </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
                 {/* Setup Guide Link */}
-                <div>
-                    <button
-                        type="button"
-                        onClick={onToggleGuide}
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                    >
-                        <Info className="h-3.5 w-3.5" />
-                        <span>{showGuide ? 'Hide guide' : 'How to get API Key'}</span>
-                    </button>
+                {guide && (
+                    <div>
+                        <button
+                            type="button"
+                            onClick={onToggleGuide}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                        >
+                            <Info className="h-3.5 w-3.5" />
+                            <span>{showGuide ? 'Hide guide' : 'How to get API Key'}</span>
+                        </button>
 
-                    <Dialog open={showGuide} onOpenChange={onToggleGuide}>
-                        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle className="text-xl">{def.name} API Key</DialogTitle>
-                                <p className="text-sm text-muted-foreground mt-1">{def.description}</p>
-                            </DialogHeader>
+                        <Dialog open={showGuide} onOpenChange={onToggleGuide}>
+                            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                                <DialogHeader>
+                                    <DialogTitle className="text-xl">{provider.name} API Key</DialogTitle>
+                                    <p className="text-sm text-muted-foreground mt-1">{guide.description}</p>
+                                </DialogHeader>
 
-                            <div className="space-y-3 mt-4">
-                                {def.guideSteps.map((step, i) => (
-                                    <div key={i} className="flex gap-3">
-                                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                                            {i + 1}
+                                <div className="space-y-3 mt-4">
+                                    {guide.guideSteps.map((step, i) => (
+                                        <div key={i} className="flex gap-3">
+                                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                                {i + 1}
+                                            </div>
+                                            <div className="flex-1 pt-0.5">
+                                                <p className="text-sm font-medium">{step.title}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 pt-0.5">
-                                            <p className="text-sm font-medium">{step.title}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {def.tips && def.tips.length > 0 && (
-                                <div className="mt-5 rounded-lg border border-dashed p-3 bg-muted/30">
-                                    <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
-                                        💡 Pro Tips
-                                    </p>
-                                    <ul className="space-y-1.5">
-                                        {def.tips.map((tip, i) => (
-                                            <li key={i} className="text-[11px] text-muted-foreground flex gap-2">
-                                                <span className="text-yellow-500 mt-0.5">•</span>
-                                                <span>{tip}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    ))}
                                 </div>
-                            )}
 
-                            <div className="mt-4 flex justify-between items-center">
-                                <a
-                                    href={def.guideUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
-                                >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    {def.guideLabel}
-                                </a>
-                                <Button variant="outline" size="sm" onClick={onToggleGuide} className="cursor-pointer">
-                                    Close
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
+                                {guide.tips && guide.tips.length > 0 && (
+                                    <div className="mt-5 rounded-lg border border-dashed p-3 bg-muted/30">
+                                        <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
+                                            💡 Pro Tips
+                                        </p>
+                                        <ul className="space-y-1.5">
+                                            {guide.tips.map((tip, i) => (
+                                                <li key={i} className="text-[11px] text-muted-foreground flex gap-2">
+                                                    <span className="text-yellow-500 mt-0.5">•</span>
+                                                    <span>{tip}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 flex justify-between items-center">
+                                    <a
+                                        href={guide.guideUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        {guide.guideLabel}
+                                    </a>
+                                    <Button variant="outline" size="sm" onClick={onToggleGuide} className="cursor-pointer">
+                                        Close
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                )}
 
                 {/* API Key Input */}
                 <div className="space-y-1">
@@ -268,7 +277,7 @@ function ProviderCard({
                             type={showKey ? 'text' : 'password'}
                             value={apiKeyValue}
                             onChange={(e) => onApiKeyChange(e.target.value)}
-                            placeholder={hasKey ? '••••••••••••••••' : def.placeholder}
+                            placeholder={hasKey ? '••••••••••••••••' : (guide?.placeholder || 'Enter API key...')}
                             className="pr-8 h-8 text-xs"
                         />
                         <button
@@ -320,6 +329,7 @@ function ProviderCard({
 
 // ─── Main Page ─────────────────────────────────────────────
 export default function UserApiKeysPage() {
+    const [providers, setProviders] = useState<AiProvider[]>([])
     const [keys, setKeys] = useState<UserApiKeyData[]>([])
     const [loading, setLoading] = useState(true)
     const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({})
@@ -328,6 +338,18 @@ export default function UserApiKeysPage() {
     const [deleting, setDeleting] = useState<Record<string, boolean>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
 
+    // Fetch AI providers from API Hub
+    const fetchProviders = useCallback(async () => {
+        try {
+            const res = await fetch('/api/user/ai-providers')
+            if (res.ok) {
+                const data = await res.json()
+                setProviders(data)
+            }
+        } catch { /* */ }
+    }, [])
+
+    // Fetch user's saved API keys
     const fetchKeys = useCallback(async () => {
         try {
             const res = await fetch('/api/user/api-keys')
@@ -336,33 +358,32 @@ export default function UserApiKeysPage() {
                 setKeys(data)
             }
         } catch { /* */ }
-        setLoading(false)
     }, [])
 
     useEffect(() => {
-        fetchKeys()
-    }, [fetchKeys])
+        Promise.all([fetchProviders(), fetchKeys()]).then(() => setLoading(false))
+    }, [fetchProviders, fetchKeys])
 
-    const handleSave = async (provider: string) => {
-        const apiKey = apiKeyValues[provider]
+    const handleSave = async (providerSlug: string) => {
+        const apiKey = apiKeyValues[providerSlug]
         if (!apiKey?.trim()) return
 
-        setSaving(s => ({ ...s, [provider]: true }))
+        setSaving(s => ({ ...s, [providerSlug]: true }))
         try {
-            const def = AI_PROVIDERS.find(p => p.provider === provider)
+            const prov = providers.find(p => p.provider === providerSlug)
             const res = await fetch('/api/user/api-keys', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    provider,
-                    name: def?.name || provider,
+                    provider: providerSlug,
+                    name: prov?.name || providerSlug,
                     apiKey: apiKey.trim(),
                 }),
             })
 
             if (res.ok) {
-                toast.success(`${def?.name || provider} API key saved!`)
-                setApiKeyValues(v => ({ ...v, [provider]: '' }))
+                toast.success(`${prov?.name || providerSlug} API key saved!`)
+                setApiKeyValues(v => ({ ...v, [providerSlug]: '' }))
                 fetchKeys()
             } else {
                 const data = await res.json()
@@ -371,22 +392,22 @@ export default function UserApiKeysPage() {
         } catch {
             toast.error('Failed to save')
         }
-        setSaving(s => ({ ...s, [provider]: false }))
+        setSaving(s => ({ ...s, [providerSlug]: false }))
     }
 
-    const handleDelete = async (provider: string) => {
-        setDeleting(s => ({ ...s, [provider]: true }))
+    const handleDelete = async (providerSlug: string) => {
+        setDeleting(s => ({ ...s, [providerSlug]: true }))
         try {
-            const res = await fetch(`/api/user/api-keys?provider=${provider}`, { method: 'DELETE' })
+            const res = await fetch(`/api/user/api-keys?provider=${providerSlug}`, { method: 'DELETE' })
             if (res.ok) {
-                const def = AI_PROVIDERS.find(p => p.provider === provider)
-                toast.success(`${def?.name || provider} key removed`)
+                const prov = providers.find(p => p.provider === providerSlug)
+                toast.success(`${prov?.name || providerSlug} key removed`)
                 fetchKeys()
             }
         } catch {
             toast.error('Failed to delete')
         }
-        setDeleting(s => ({ ...s, [provider]: false }))
+        setDeleting(s => ({ ...s, [providerSlug]: false }))
     }
 
     const configuredCount = keys.length
@@ -411,7 +432,7 @@ export default function UserApiKeysPage() {
                 </div>
                 <Badge variant="outline" className="gap-1">
                     <Key className="h-3 w-3" />
-                    {configuredCount}/{AI_PROVIDERS.length} configured
+                    {configuredCount}/{providers.length} configured
                 </Badge>
             </div>
 
@@ -421,32 +442,42 @@ export default function UserApiKeysPage() {
                     <BrainCircuit className="h-5 w-5" />
                     <h2 className="text-xl font-semibold">AI Providers</h2>
                     <Badge variant="secondary" className="ml-2">
-                        {configuredCount}/{AI_PROVIDERS.length}
+                        {configuredCount}/{providers.length}
                     </Badge>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {AI_PROVIDERS.map((def) => {
-                        const existingKey = keys.find(k => k.provider === def.provider)
-                        return (
-                            <ProviderCard
-                                key={def.provider}
-                                def={def}
-                                existingKey={existingKey}
-                                apiKeyValue={apiKeyValues[def.provider] || ''}
-                                showKey={showKeys[def.provider] || false}
-                                isSaving={saving[def.provider] || false}
-                                isDeleting={deleting[def.provider] || false}
-                                showGuide={showGuide[def.provider] || false}
-                                onApiKeyChange={(val) => setApiKeyValues(v => ({ ...v, [def.provider]: val }))}
-                                onToggleShow={() => setShowKeys(s => ({ ...s, [def.provider]: !s[def.provider] }))}
-                                onSave={() => handleSave(def.provider)}
-                                onDelete={() => handleDelete(def.provider)}
-                                onToggleGuide={() => setShowGuide(s => ({ ...s, [def.provider]: !s[def.provider] }))}
-                            />
-                        )
-                    })}
-                </div>
+                {providers.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-8 text-center text-muted-foreground">
+                            <BrainCircuit className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p className="font-medium">No AI providers available</p>
+                            <p className="text-sm">Contact your admin to set up AI providers in the API Hub.</p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {providers.map((prov) => {
+                            const existingKey = keys.find(k => k.provider === prov.provider)
+                            return (
+                                <ProviderCard
+                                    key={prov.id}
+                                    provider={prov}
+                                    existingKey={existingKey}
+                                    apiKeyValue={apiKeyValues[prov.provider] || ''}
+                                    showKey={showKeys[prov.provider] || false}
+                                    isSaving={saving[prov.provider] || false}
+                                    isDeleting={deleting[prov.provider] || false}
+                                    showGuide={showGuide[prov.provider] || false}
+                                    onApiKeyChange={(val) => setApiKeyValues(v => ({ ...v, [prov.provider]: val }))}
+                                    onToggleShow={() => setShowKeys(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
+                                    onSave={() => handleSave(prov.provider)}
+                                    onDelete={() => handleDelete(prov.provider)}
+                                    onToggleGuide={() => setShowGuide(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
+                                />
+                            )
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     )
