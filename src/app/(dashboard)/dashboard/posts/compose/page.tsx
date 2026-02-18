@@ -1191,6 +1191,39 @@ export default function ComposePage() {
     const handlePublishNow = async () => {
         if (!selectedChannel || !content.trim()) { toast.error('Select a channel and add content'); return }
         if (selectedPlatformIds.size === 0) { toast.error('Select at least one platform'); return }
+
+        // ── Media validation per platform ──
+        const hasVideo = attachedMedia.some(m => isVideo(m))
+        const hasImage = attachedMedia.some(m => !isVideo(m))
+        const selectedPlatforms = activePlatforms.filter(p => selectedPlatformIds.has(p.id))
+        const errors: string[] = []
+
+        for (const p of selectedPlatforms) {
+            switch (p.platform) {
+                case 'tiktok':
+                    if (!hasVideo) errors.push('🎵 TikTok requires a video. Please upload a video.')
+                    break
+                case 'youtube':
+                    if (ytPostType !== 'community' && !hasVideo) errors.push('▶️ YouTube requires a video. Please upload a video.')
+                    break
+                case 'facebook':
+                    if ((fbPostTypes[p.id] || 'feed') === 'reel' && !hasVideo) errors.push('📘 Facebook Reels require a video.')
+                    if ((fbPostTypes[p.id] || 'feed') === 'story' && !hasVideo && !hasImage) errors.push('📘 Facebook Stories require media (image or video).')
+                    break
+                case 'instagram':
+                    if (igPostType === 'reel' && !hasVideo) errors.push('📸 Instagram Reels require a video.')
+                    if (igPostType === 'story' && !hasVideo && !hasImage) errors.push('📸 Instagram Stories require media (image or video).')
+                    if (igPostType === 'feed' && attachedMedia.length === 0) errors.push('📸 Instagram Feed requires at least one image or video.')
+                    break
+            }
+        }
+
+        // De-duplicate errors
+        const uniqueErrors = [...new Set(errors)]
+        if (uniqueErrors.length > 0) {
+            uniqueErrors.forEach(err => toast.error(err, { duration: 5000 }))
+            return
+        }
         setPublishing(true)
         try {
             const existingId = editPostId || postIdRef.current
@@ -1254,8 +1287,8 @@ export default function ComposePage() {
                     {/* Auto-save status */}
                     {autoSaveStatus !== 'idle' && (
                         <span className={`text-[10px] font-medium transition-opacity ${autoSaveStatus === 'saving' ? 'text-muted-foreground animate-pulse' :
-                                autoSaveStatus === 'saved' ? 'text-emerald-500' :
-                                    'text-destructive'
+                            autoSaveStatus === 'saved' ? 'text-emerald-500' :
+                                'text-destructive'
                             }`}>
                             {autoSaveStatus === 'saving' && '● Saving...'}
                             {autoSaveStatus === 'saved' && '✓ Saved'}
