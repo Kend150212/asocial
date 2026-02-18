@@ -29,7 +29,11 @@ import {
     RectangleVertical,
     Square,
     ChevronLeft,
+    HardDrive,
+    Folder,
+    ChevronRight,
 } from 'lucide-react'
+import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -426,8 +430,8 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
     return (
         <div className="rounded-xl border bg-card overflow-hidden">
             <div className="flex items-center gap-3 p-3">
-                <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: platformColors[platform] || '#666' }}>
-                    {accountName.charAt(0).toUpperCase()}
+                <div className="h-9 w-9 rounded-full flex items-center justify-center bg-muted">
+                    <PlatformIcon platform={platform} size="md" />
                 </div>
                 <div>
                     <p className="text-sm font-semibold">{accountName}</p>
@@ -479,6 +483,11 @@ export default function ComposePage() {
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
     const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
     const [loadingLibrary, setLoadingLibrary] = useState(false)
+    // Google Drive file picker
+    const [showDrivePicker, setShowDrivePicker] = useState(false)
+    const [driveFiles, setDriveFiles] = useState<Array<{ id: string; name: string; mimeType: string; thumbnailUrl: string | null; url: string; isFolder: boolean }>>([])
+    const [loadingDrive, setLoadingDrive] = useState(false)
+    const [driveFolderStack, setDriveFolderStack] = useState<Array<{ id: string; name: string }>>([])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
@@ -706,6 +715,59 @@ export default function ComposePage() {
         setShowMediaLibrary(true)
         fetchLibrary()
     }, [fetchLibrary])
+
+    const fetchDriveFiles = useCallback(async (folderId?: string) => {
+        setLoadingDrive(true)
+        try {
+            const params = folderId ? `?folderId=${folderId}` : ''
+            const res = await fetch(`/api/user/gdrive/files${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setDriveFiles(data.files || [])
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Failed to load Drive files')
+            }
+        } catch {
+            toast.error('Failed to load Drive files')
+        }
+        setLoadingDrive(false)
+    }, [])
+
+    const openDrivePicker = useCallback(() => {
+        setShowDrivePicker(true)
+        setDriveFolderStack([])
+        fetchDriveFiles()
+    }, [fetchDriveFiles])
+
+    const navigateDriveFolder = (folder: { id: string; name: string }) => {
+        setDriveFolderStack(prev => [...prev, folder])
+        fetchDriveFiles(folder.id)
+    }
+
+    const navigateDriveBack = () => {
+        const newStack = [...driveFolderStack]
+        newStack.pop()
+        setDriveFolderStack(newStack)
+        const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : undefined
+        fetchDriveFiles(parentId)
+    }
+
+    const addFromDrive = (file: { id: string; name: string; mimeType: string; thumbnailUrl: string | null; url: string }) => {
+        const alreadyAttached = attachedMedia.some(m => m.url === file.url || m.id === file.id)
+        if (alreadyAttached) {
+            toast.info('File already attached')
+            return
+        }
+        setAttachedMedia(prev => [...prev, {
+            id: file.id,
+            url: file.url,
+            thumbnailUrl: file.thumbnailUrl,
+            type: file.mimeType,
+            originalName: file.name,
+        }])
+        toast.success(`Added: ${file.name}`)
+    }
 
     const addFromLibrary = (media: MediaItem) => {
         if (attachedMedia.some((m) => m.id === media.id)) {
@@ -951,11 +1013,8 @@ export default function ComposePage() {
                                                     }`}>
                                                     {isChecked && <Check className="h-3 w-3" />}
                                                 </div>
-                                                <div
-                                                    className="h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                                                    style={{ backgroundColor: platformColors[p.platform] || '#666' }}
-                                                >
-                                                    {(platformLabels[p.platform] || p.platform).charAt(0)}
+                                                <div className="h-6 w-6 shrink-0 flex items-center justify-center">
+                                                    <PlatformIcon platform={p.platform} size="md" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-medium leading-none">
@@ -1154,6 +1213,10 @@ export default function ComposePage() {
                                     <Button variant="outline" size="sm" onClick={openLibrary} disabled={!selectedChannel} className="cursor-pointer">
                                         <FolderOpen className="h-4 w-4 mr-1" />
                                         Library
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={openDrivePicker} className="cursor-pointer">
+                                        <HardDrive className="h-4 w-4 mr-1" />
+                                        Drive
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || !selectedChannel} className="cursor-pointer">
                                         <Upload className="h-4 w-4 mr-1" />
@@ -1376,6 +1439,149 @@ export default function ComposePage() {
                             </Card>
                         </div>
                     )}
+
+                    {/* Google Drive File Picker Modal */}
+                    {showDrivePicker && (
+                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDrivePicker(false)}>
+                            <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                                <CardHeader className="pb-3 border-b">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <HardDrive className="h-4 w-4 text-primary" />
+                                            <CardTitle className="text-sm">Google Drive</CardTitle>
+                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={() => setShowDrivePicker(false)} className="cursor-pointer">
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    {/* Breadcrumb navigation */}
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 flex-wrap">
+                                        <button
+                                            onClick={() => { setDriveFolderStack([]); fetchDriveFiles() }}
+                                            className="hover:text-foreground transition-colors cursor-pointer font-medium"
+                                        >
+                                            ASocial
+                                        </button>
+                                        {driveFolderStack.map((folder, i) => (
+                                            <span key={folder.id} className="flex items-center gap-1">
+                                                <ChevronRight className="h-3 w-3" />
+                                                <button
+                                                    onClick={() => {
+                                                        const newStack = driveFolderStack.slice(0, i + 1)
+                                                        setDriveFolderStack(newStack)
+                                                        fetchDriveFiles(folder.id)
+                                                    }}
+                                                    className="hover:text-foreground transition-colors cursor-pointer"
+                                                >
+                                                    {folder.name}
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="flex-1 overflow-y-auto p-4">
+                                    {loadingDrive ? (
+                                        <div className="flex items-center justify-center py-12">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : driveFiles.length === 0 ? (
+                                        <div className="text-center py-12 text-muted-foreground text-sm">
+                                            <HardDrive className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                                            <p>No files found</p>
+                                            <p className="text-xs mt-1">Upload media to your Google Drive first</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {/* Back button */}
+                                            {driveFolderStack.length > 0 && (
+                                                <button
+                                                    onClick={navigateDriveBack}
+                                                    className="flex items-center gap-2 w-full text-left p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer text-sm"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                    <span className="text-muted-foreground">Back</span>
+                                                </button>
+                                            )}
+                                            {/* Folders first */}
+                                            {driveFiles.filter(f => f.isFolder).map(folder => (
+                                                <button
+                                                    key={folder.id}
+                                                    onClick={() => navigateDriveFolder(folder)}
+                                                    className="flex items-center gap-3 w-full text-left p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                                                >
+                                                    <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                                        <Folder className="h-5 w-5 text-blue-500" />
+                                                    </div>
+                                                    <span className="text-sm font-medium truncate">{folder.name}</span>
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
+                                                </button>
+                                            ))}
+                                            {/* Files grid */}
+                                            {driveFiles.filter(f => !f.isFolder).length > 0 && (
+                                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-2">
+                                                    {driveFiles.filter(f => !f.isFolder).map(file => {
+                                                        const isAttached = attachedMedia.some(m => m.id === file.id || m.url === file.url)
+                                                        const isVideoFile = file.mimeType.startsWith('video/')
+                                                        return (
+                                                            <div
+                                                                key={file.id}
+                                                                className={`relative group aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer border-2 transition-all ${isAttached ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
+                                                                onClick={() => !isAttached && addFromDrive(file)}
+                                                            >
+                                                                {file.thumbnailUrl ? (
+                                                                    <img
+                                                                        src={file.thumbnailUrl}
+                                                                        alt={file.name}
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="h-full w-full flex items-center justify-center">
+                                                                        {isVideoFile ? (
+                                                                            <Play className="h-6 w-6 text-muted-foreground" />
+                                                                        ) : (
+                                                                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                                {isVideoFile && file.thumbnailUrl && (
+                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                        <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
+                                                                            <Play className="h-3 w-3 text-white ml-0.5" />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {isAttached && (
+                                                                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
+                                                                        <Check className="h-5 w-5 text-primary" />
+                                                                    </div>
+                                                                )}
+                                                                <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
+                                                                    {file.name}
+                                                                </span>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                                <div className="border-t px-4 py-3 flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">
+                                        {driveFiles.filter(f => !f.isFolder).length} file{driveFiles.filter(f => !f.isFolder).length !== 1 ? 's' : ''}
+                                    </span>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setShowDrivePicker(false)}
+                                        className="cursor-pointer"
+                                    >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Done
+                                    </Button>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
                 </div >
 
                 {/* ── Right: Realistic Previews ── */}
@@ -1406,6 +1612,7 @@ export default function ComposePage() {
                                                     }`}
                                                 style={isActive ? { backgroundColor: platformColors[platform] || '#666' } : {}}
                                             >
+                                                <PlatformIcon platform={platform} size="xs" />
                                                 {platformLabels[platform] || platform}
                                                 {accountsForPlatform.length > 1 && (
                                                     <span className={`text-[9px] ${isActive ? 'opacity-80' : 'opacity-60'}`}>
