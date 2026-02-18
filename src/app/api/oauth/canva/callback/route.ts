@@ -71,15 +71,16 @@ export async function GET(req: NextRequest) {
         console.error('Failed to fetch Canva profile:', e)
     }
 
-    // Store Canva connection in the integration's config JSON (per-user)
+    // Store Canva connection globally (shared by all team users)
     if (integration) {
         const existingConfig = (integration.config || {}) as Record<string, string | null>
         const updatedConfig = {
             ...existingConfig,
-            [`canvaToken_${state.userId}`]: encrypt(accessToken),
-            [`canvaRefresh_${state.userId}`]: refreshToken ? encrypt(refreshToken) : null,
-            [`canvaUser_${state.userId}`]: displayName,
-            [`canvaConnectedAt_${state.userId}`]: new Date().toISOString(),
+            canvaAccessToken: encrypt(accessToken),
+            canvaRefreshToken: refreshToken ? encrypt(refreshToken) : null,
+            canvaUserName: displayName,
+            canvaConnectedAt: new Date().toISOString(),
+            canvaConnectedBy: state.userId,
         }
         await prisma.apiIntegration.update({
             where: { id: integration.id },

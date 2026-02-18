@@ -3,12 +3,12 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
-// Helper: get Canva access token for the current user
-async function getCanvaToken(userId: string): Promise<string | null> {
+// Helper: get Canva access token (global — shared by all team users)
+async function getCanvaToken(): Promise<string | null> {
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'canva' } })
     if (!integration) return null
     const config = (integration.config || {}) as Record<string, string | null>
-    const encryptedToken = config[`canvaToken_${userId}`]
+    const encryptedToken = config.canvaAccessToken
     if (!encryptedToken) return null
     return decrypt(encryptedToken)
 }
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const token = await getCanvaToken(session.user.id)
+    const token = await getCanvaToken()
     if (!token) {
         return NextResponse.json({ error: 'Canva not connected. Please connect via API Hub.' }, { status: 400 })
     }
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const token = await getCanvaToken(session.user.id)
+    const token = await getCanvaToken()
     if (!token) {
         return NextResponse.json({ error: 'Canva not connected' }, { status: 400 })
     }
