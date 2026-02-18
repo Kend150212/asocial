@@ -1034,20 +1034,37 @@ export default function ComposePage() {
                         const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
                         const exportData = await exportRes.json()
 
-                        if (exportData.status === 'success' && exportData.urls?.length > 0) {
-                            // Download the exported image and upload to our media library
-                            const canvaImageUrl = exportData.urls[0]
-                            const imgRes = await fetch(canvaImageUrl)
-                            const blob = await imgRes.blob()
-                            const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+                        if (exportData.status === 'success') {
+                            let blob: Blob | null = null
 
-                            // Upload via handleFileUpload (don't auto-remove original — user can remove manually)
-                            const dt = new DataTransfer()
-                            dt.items.add(file)
-                            await handleFileUpload(dt.files)
-                            toast.success('🎨 Canva design imported!', { id: 'canva-export' })
-                            setCanvaLoading(false)
-                            return // success — exit
+                            // Prefer server-proxied base64 (avoids CORS issues)
+                            if (exportData.imageBase64) {
+                                const binary = atob(exportData.imageBase64)
+                                const bytes = new Uint8Array(binary.length)
+                                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+                                blob = new Blob([bytes], { type: exportData.contentType || 'image/png' })
+                            } else if (exportData.urls?.length > 0) {
+                                // Fallback: try fetching URL directly
+                                try {
+                                    const imgRes = await fetch(exportData.urls[0])
+                                    if (imgRes.ok) blob = await imgRes.blob()
+                                } catch { /* CORS likely blocked */ }
+                            }
+
+                            if (blob && blob.size > 0) {
+                                const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+
+                                // Upload via handleFileUpload
+                                const dt = new DataTransfer()
+                                dt.items.add(file)
+                                await handleFileUpload(dt.files)
+                                toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                                setCanvaLoading(false)
+                                return // success — exit
+                            }
+
+                            // Blob was empty — treat as failure for retry
+                            console.warn('Canva export blob was empty, attempt:', attempt + 1)
                         }
 
                         // If not success and not last attempt, wait and retry

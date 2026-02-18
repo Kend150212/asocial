@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     })
 }
 
-// GET /api/canva/designs?designId=xxx — Export a design as PNG
+// GET /api/canva/designs?designId=xxx — Export a design as PNG (proxied through server)
 export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -215,9 +215,32 @@ export async function GET(req: NextRequest) {
         const statusData = await statusRes.json()
 
         if (statusData.job?.status === 'success') {
+            const urls = statusData.job.urls || []
+            if (urls.length > 0) {
+                // Proxy-download the image to avoid CORS issues
+                try {
+                    const imgUrl = urls[0]
+                    console.log('Proxy-downloading Canva export from:', imgUrl)
+                    const imgRes = await fetch(imgUrl)
+                    if (imgRes.ok) {
+                        const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
+                        const base64 = imgBuffer.toString('base64')
+                        return NextResponse.json({
+                            status: 'success',
+                            imageBase64: base64,
+                            contentType: imgRes.headers.get('content-type') || 'image/png',
+                        })
+                    } else {
+                        console.error('Failed to download exported image:', imgRes.status)
+                    }
+                } catch (err) {
+                    console.error('Error proxy-downloading Canva export:', err)
+                }
+            }
+            // Fallback: return URLs if proxy download fails
             return NextResponse.json({
                 status: 'success',
-                urls: statusData.job.urls || [],
+                urls,
             })
         }
 
