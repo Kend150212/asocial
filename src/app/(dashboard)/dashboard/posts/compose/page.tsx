@@ -986,6 +986,7 @@ export default function ComposePage() {
                     width: dims.width,
                     height: dims.height,
                     title: `ASocial Design ${new Date().toLocaleDateString()}`,
+                    ...(existingMediaUrl ? { imageUrl: existingMediaUrl } : {}),
                 }),
             })
             const data = await res.json()
@@ -1009,7 +1010,10 @@ export default function ComposePage() {
 
             // Open Canva editor in popup
             const popup = window.open(data.editUrl, 'canva-editor', 'width=1200,height=800,menubar=no,toolbar=no')
-            toast.success('🎨 Canva editor opened! Close the Canva tab when done to import your design.')
+            toast.success(existingMediaUrl
+                ? '🎨 Editing image in Canva! Close the tab when done.'
+                : '🎨 Canva editor opened! Close the tab when done to import your design.'
+            )
 
             // Poll for popup close OR popup returning to our domain
             const triggerExport = async () => {
@@ -1020,16 +1024,24 @@ export default function ComposePage() {
 
                     if (exportData.status === 'success' && exportData.urls?.length > 0) {
                         // Download the exported image and upload to our media library
-                        const imageUrl = exportData.urls[0]
-                        const imgRes = await fetch(imageUrl)
+                        const canvaImageUrl = exportData.urls[0]
+                        const imgRes = await fetch(canvaImageUrl)
                         const blob = await imgRes.blob()
                         const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+
+                        if (existingMediaUrl) {
+                            // REPLACE the existing image — remove old, add new
+                            setAttachedMedia(prev => prev.filter(m => m.url !== existingMediaUrl))
+                        }
 
                         // Upload via handleFileUpload
                         const dt = new DataTransfer()
                         dt.items.add(file)
                         await handleFileUpload(dt.files)
-                        toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                        toast.success(
+                            existingMediaUrl ? '🎨 Image updated from Canva!' : '🎨 Canva design imported!',
+                            { id: 'canva-export' }
+                        )
                     } else {
                         toast.error(exportData.error || 'Export failed', { id: 'canva-export' })
                     }
