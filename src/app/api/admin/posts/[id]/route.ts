@@ -201,7 +201,13 @@ export async function DELETE(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.post.delete({ where: { id } })
+    // Delete related records first, then the post
+    await prisma.$transaction([
+        prisma.postMedia.deleteMany({ where: { postId: id } }),
+        prisma.postPlatformStatus.deleteMany({ where: { postId: id } }),
+        prisma.postApproval.deleteMany({ where: { postId: id } }),
+        prisma.post.delete({ where: { id } }),
+    ])
 
     return NextResponse.json({ success: true })
 }

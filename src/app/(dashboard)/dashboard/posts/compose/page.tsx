@@ -455,6 +455,7 @@ export default function ComposePage() {
     const editPostId = searchParams.get('edit')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const savedRef = useRef(false) // track if post has been saved/published
+    const postIdRef = useRef<string | null>(editPostId) // track created post ID to avoid duplicates
 
     // State
     const [channels, setChannels] = useState<Channel[]>([])
@@ -562,8 +563,14 @@ export default function ComposePage() {
                 const scheduledAt = scheduleDate && scheduleTime
                     ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
                     : null
-                await fetch('/api/admin/posts', {
-                    method: 'POST',
+
+                const url = postIdRef.current
+                    ? `/api/admin/posts/${postIdRef.current}`
+                    : '/api/admin/posts'
+                const method = postIdRef.current ? 'PUT' : 'POST'
+
+                const res = await fetch(url, {
+                    method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         channelId: selectedChannel.id,
@@ -571,10 +578,20 @@ export default function ComposePage() {
                         status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
                         scheduledAt,
                         mediaIds: attachedMedia.map((m) => m.id),
-                        platforms: buildPlatformsPayload(),
+                        platforms: activePlatforms
+                            .filter((p) => selectedPlatformIds.has(p.id))
+                            .map((p) => ({
+                                platform: p.platform,
+                                accountId: p.accountId,
+                                ...(p.platform === 'facebook' ? { postType: fbPostTypes[p.id] || 'feed' } : {}),
+                            })),
                     }),
-                    keepalive: true, // ensures request completes even on page close
+                    keepalive: true,
                 })
+                if (!postIdRef.current && res.ok) {
+                    const data = await res.json()
+                    postIdRef.current = data.id
+                }
             } catch { /* silent */ }
         }
 
@@ -751,8 +768,9 @@ export default function ComposePage() {
             let scheduledAt: string | null = null
             if (scheduleDate && scheduleTime) scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
 
-            const url = editPostId ? `/api/admin/posts/${editPostId}` : '/api/admin/posts'
-            const method = editPostId ? 'PUT' : 'POST'
+            const existingId = editPostId || postIdRef.current
+            const url = existingId ? `/api/admin/posts/${existingId}` : '/api/admin/posts'
+            const method = existingId ? 'PUT' : 'POST'
 
             const res = await fetch(url, {
                 method,
@@ -766,6 +784,8 @@ export default function ComposePage() {
                 }),
             })
             if (!res.ok) { const err = await res.json(); toast.error(err.error || 'Failed to save'); return }
+            const data = await res.json()
+            if (!postIdRef.current) postIdRef.current = data.id
             toast.success(scheduledAt ? 'Post scheduled!' : 'Draft saved!')
             savedRef.current = true
             router.push('/dashboard/posts')
@@ -779,8 +799,12 @@ export default function ComposePage() {
         if (selectedPlatformIds.size === 0) { toast.error('Select at least one platform'); return }
         setPublishing(true)
         try {
-            const createRes = await fetch('/api/admin/posts', {
-                method: 'POST',
+            const existingId = editPostId || postIdRef.current
+            const url = existingId ? `/api/admin/posts/${existingId}` : '/api/admin/posts'
+            const method = existingId ? 'PUT' : 'POST'
+
+            const createRes = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     channelId: selectedChannel.id, content, status: 'PUBLISHING',
