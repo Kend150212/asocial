@@ -681,90 +681,118 @@ export default function ComposePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedChannel, selectedPlatformIds])
 
-    // ── Auto-save draft on page leave ──
-    useEffect(() => {
-        const autoSave = async () => {
-            if (savedRef.current || !selectedChannel || !content.trim()) return
-            savedRef.current = true // prevent multiple saves
-            try {
-                const scheduledAt = scheduleDate && scheduleTime
-                    ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
-                    : null
+    // ── Auto-save draft continuously (debounced 3s) ──
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-                const url = postIdRef.current
-                    ? `/api/admin/posts/${postIdRef.current}`
-                    : '/api/admin/posts'
-                const method = postIdRef.current ? 'PUT' : 'POST'
+    const performAutoSave = useCallback(async () => {
+        if (savedRef.current || !selectedChannel || !content.trim()) return
+        if (selectedPlatformIds.size === 0) return
 
-                const res = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        channelId: selectedChannel.id,
-                        content,
-                        status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
-                        scheduledAt,
-                        mediaIds: attachedMedia.map((m) => m.id),
-                        platforms: activePlatforms
-                            .filter((p) => selectedPlatformIds.has(p.id))
-                            .map((p) => ({
-                                platform: p.platform,
-                                accountId: p.accountId,
-                                ...(p.platform === 'facebook' ? {
-                                    postType: fbPostTypes[p.id] || 'feed',
-                                    carousel: fbCarousel,
-                                    firstComment: fbFirstComment || undefined,
-                                } : {}),
-                                ...(p.platform === 'instagram' ? {
-                                    postType: igPostType,
-                                    shareToStory: igShareToStory,
-                                    collaborators: igCollaborators || undefined,
-                                } : {}),
-                                ...(p.platform === 'youtube' ? {
-                                    postType: ytPostType,
-                                    videoTitle: ytVideoTitle || undefined,
-                                    category: ytCategory || undefined,
-                                    tags: ytTags || undefined,
-                                    privacy: ytPrivacy,
-                                    notifySubscribers: ytNotifySubscribers,
-                                    madeForKids: ytMadeForKids,
-                                } : {}),
-                                ...(p.platform === 'tiktok' ? {
-                                    postType: ttPostType,
-                                    publishMode: ttPublishMode,
-                                    visibility: ttVisibility,
-                                    allowComment: ttAllowComment,
-                                    allowDuet: ttAllowDuet,
-                                    allowStitch: ttAllowStitch,
-                                    brandedContent: ttBrandedContent,
-                                    aiGenerated: ttAiGenerated,
-                                } : {}),
-                            })),
-                    }),
-                    keepalive: true,
-                })
-                if (!postIdRef.current && res.ok) {
-                    const data = await res.json()
-                    postIdRef.current = data.id
-                }
-            } catch { /* silent */ }
+        setAutoSaveStatus('saving')
+        try {
+            const scheduledAt = scheduleDate && scheduleTime
+                ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+                : null
+
+            const url = postIdRef.current
+                ? `/api/admin/posts/${postIdRef.current}`
+                : '/api/admin/posts'
+            const method = postIdRef.current ? 'PUT' : 'POST'
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelId: selectedChannel.id,
+                    content,
+                    contentPerPlatform: Object.keys(contentPerPlatform).length > 0 ? contentPerPlatform : undefined,
+                    status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
+                    scheduledAt,
+                    mediaIds: attachedMedia.map((m) => m.id),
+                    platforms: activePlatforms
+                        .filter((p) => selectedPlatformIds.has(p.id))
+                        .map((p) => ({
+                            platform: p.platform,
+                            accountId: p.accountId,
+                            ...(p.platform === 'facebook' ? {
+                                postType: fbPostTypes[p.id] || 'feed',
+                                carousel: fbCarousel,
+                                firstComment: fbFirstComment || undefined,
+                            } : {}),
+                            ...(p.platform === 'instagram' ? {
+                                postType: igPostType,
+                                shareToStory: igShareToStory,
+                                collaborators: igCollaborators || undefined,
+                            } : {}),
+                            ...(p.platform === 'youtube' ? {
+                                postType: ytPostType,
+                                videoTitle: ytVideoTitle || undefined,
+                                category: ytCategory || undefined,
+                                tags: ytTags || undefined,
+                                privacy: ytPrivacy,
+                                notifySubscribers: ytNotifySubscribers,
+                                madeForKids: ytMadeForKids,
+                            } : {}),
+                            ...(p.platform === 'tiktok' ? {
+                                postType: ttPostType,
+                                publishMode: ttPublishMode,
+                                visibility: ttVisibility,
+                                allowComment: ttAllowComment,
+                                allowDuet: ttAllowDuet,
+                                allowStitch: ttAllowStitch,
+                                brandedContent: ttBrandedContent,
+                                aiGenerated: ttAiGenerated,
+                            } : {}),
+                        })),
+                }),
+                keepalive: true,
+            })
+            if (!postIdRef.current && res.ok) {
+                const data = await res.json()
+                postIdRef.current = data.id
+            }
+            setAutoSaveStatus('saved')
+            // Reset to idle after 2s
+            setTimeout(() => setAutoSaveStatus('idle'), 2000)
+        } catch {
+            setAutoSaveStatus('error')
+            setTimeout(() => setAutoSaveStatus('idle'), 3000)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChannel, content, contentPerPlatform, attachedMedia, scheduleDate, scheduleTime,
+        selectedPlatformIds, fbPostTypes, fbCarousel, fbFirstComment,
+        igPostType, igShareToStory, igCollaborators,
+        ytPostType, ytVideoTitle, ytCategory, ytTags, ytPrivacy, ytNotifySubscribers, ytMadeForKids,
+        ttPostType, ttPublishMode, ttVisibility, ttAllowComment, ttAllowDuet, ttAllowStitch, ttBrandedContent, ttAiGenerated])
 
+    // Debounced auto-save: trigger 3s after last change
+    useEffect(() => {
+        if (savedRef.current || !selectedChannel || !content.trim()) return
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = setTimeout(() => {
+            performAutoSave()
+        }, 3000)
+        return () => {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+        }
+    }, [performAutoSave])
+
+    // Also save on page leave as safety net
+    useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (!savedRef.current && selectedChannel && content.trim()) {
-                autoSave()
+                performAutoSave()
                 e.preventDefault()
             }
         }
-
         window.addEventListener('beforeunload', handleBeforeUnload)
         return () => {
             window.removeEventListener('beforeunload', handleBeforeUnload)
-            // Auto-save when component unmounts (back button, navigation)
-            autoSave()
+            performAutoSave()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedChannel, content, attachedMedia, scheduleDate, scheduleTime])
+    }, [performAutoSave])
 
     // Get active platforms from selected channel
     const activePlatforms = selectedChannel?.platforms || []
@@ -1223,6 +1251,17 @@ export default function ComposePage() {
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <h1 className="text-sm font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
+                    {/* Auto-save status */}
+                    {autoSaveStatus !== 'idle' && (
+                        <span className={`text-[10px] font-medium transition-opacity ${autoSaveStatus === 'saving' ? 'text-muted-foreground animate-pulse' :
+                                autoSaveStatus === 'saved' ? 'text-emerald-500' :
+                                    'text-destructive'
+                            }`}>
+                            {autoSaveStatus === 'saving' && '● Saving...'}
+                            {autoSaveStatus === 'saved' && '✓ Saved'}
+                            {autoSaveStatus === 'error' && '⚠ Save failed'}
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-1.5">
                     <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={handleSaveDraft} disabled={saving || !content.trim()}>
