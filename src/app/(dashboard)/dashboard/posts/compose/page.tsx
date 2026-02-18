@@ -1017,7 +1017,7 @@ export default function ComposePage() {
 
             // Poll for popup close OR popup returning to our domain
             let exported = false
-            const triggerExport = async () => {
+            const triggerExport = async (popupRef?: Window | null) => {
                 if (exported) return // prevent double-trigger
                 exported = true
 
@@ -1059,6 +1059,10 @@ export default function ComposePage() {
                                 dt.items.add(file)
                                 await handleFileUpload(dt.files)
                                 toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+
+                                // Close popup AFTER successful import
+                                if (popupRef && !popupRef.closed) popupRef.close()
+
                                 setCanvaLoading(false)
                                 return // success — exit
                             }
@@ -1082,13 +1086,15 @@ export default function ComposePage() {
                         }
                     }
                 }
+                // Close popup even on failure
+                if (popupRef && !popupRef.closed) popupRef.close()
                 setCanvaLoading(false)
             }
 
             const checkClosed = setInterval(async () => {
                 if (exported) { clearInterval(checkClosed); return }
 
-                // Case 1: Popup was closed by user
+                // Case 1: Popup was closed by user manually — trigger export
                 if (popup && popup.closed) {
                     clearInterval(checkClosed)
                     await triggerExport()
@@ -1096,11 +1102,12 @@ export default function ComposePage() {
                 }
 
                 // Case 2: Popup navigated back to our domain (user clicked "Return to ASocial")
+                // Keep popup OPEN — run export first, close popup only after success
                 try {
                     if (popup && popup.location && popup.location.hostname === window.location.hostname) {
                         clearInterval(checkClosed)
-                        popup.close()
-                        await triggerExport()
+                        // Don't close popup yet! Export first, then close
+                        await triggerExport(popup)
                         return
                     }
                 } catch {
@@ -1111,6 +1118,7 @@ export default function ComposePage() {
             // Timeout after 10 minutes
             setTimeout(() => {
                 clearInterval(checkClosed)
+                if (popup && !popup.closed) popup.close()
                 setCanvaLoading(false)
             }, 600000)
         } catch {
