@@ -511,6 +511,8 @@ export default function ComposePage() {
     const savedRef = useRef(false) // track if post has been saved/published
     const postIdRef = useRef<string | null>(editPostId) // track created post ID to avoid duplicates
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+    const [showLinkInput, setShowLinkInput] = useState(false)
+    const [linkInputValue, setLinkInputValue] = useState('')
 
     // State
     const [channels, setChannels] = useState<Channel[]>([])
@@ -1417,37 +1419,23 @@ export default function ComposePage() {
                             <div className="flex items-center gap-0 pt-0.5 border-b pb-1 -mx-0.5 flex-wrap">
                                 <button
                                     type="button"
-                                    title="Bold"
+                                    title="UPPERCASE"
                                     className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
                                         const start = ta.selectionStart
                                         const end = ta.selectionEnd
+                                        if (start === end) return // nothing selected
                                         const selected = content.substring(start, end)
-                                        const newContent = content.substring(0, start) + `**${selected || 'text'}**` + content.substring(end)
+                                        const isUpper = selected === selected.toUpperCase()
+                                        const transformed = isUpper ? selected.toLowerCase() : selected.toUpperCase()
+                                        const newContent = content.substring(0, start) + transformed + content.substring(end)
                                         setContent(newContent)
-                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(start + 2, start + 2 + (selected || 'text').length) }, 0)
+                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(start, start + transformed.length) }, 0)
                                     }}
                                 >
                                     <Bold className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    title="Italic"
-                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                                    onClick={() => {
-                                        const ta = textareaRef.current
-                                        if (!ta) return
-                                        const start = ta.selectionStart
-                                        const end = ta.selectionEnd
-                                        const selected = content.substring(start, end)
-                                        const newContent = content.substring(0, start) + `_${selected || 'text'}_` + content.substring(end)
-                                        setContent(newContent)
-                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(start + 1, start + 1 + (selected || 'text').length) }, 0)
-                                    }}
-                                >
-                                    <Italic className="h-4 w-4" />
                                 </button>
                                 <div className="w-px h-5 bg-border mx-1" />
                                 <button
@@ -1486,24 +1474,81 @@ export default function ComposePage() {
                                 >
                                     <AtSign className="h-4 w-4" />
                                 </button>
-                                <button
-                                    type="button"
-                                    title="Add Link"
-                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                                    onClick={() => {
-                                        const ta = textareaRef.current
-                                        if (!ta) return
-                                        const pos = ta.selectionStart
-                                        const before = content.substring(0, pos)
-                                        const after = content.substring(pos)
-                                        const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
-                                        const newContent = before + prefix + 'https://' + after
-                                        setContent(newContent)
-                                        setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length, pos + prefix.length + 8) }, 0)
-                                    }}
-                                >
-                                    <Link2 className="h-4 w-4" />
-                                </button>
+                                {/* Link button with popover input */}
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        title="Add Link"
+                                        className={`h-7 w-7 rounded flex items-center justify-center transition-colors cursor-pointer ${showLinkInput ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                                        onClick={() => {
+                                            setShowLinkInput(!showLinkInput)
+                                            setLinkInputValue('')
+                                        }}
+                                    >
+                                        <Link2 className="h-4 w-4" />
+                                    </button>
+                                    {showLinkInput && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowLinkInput(false)} />
+                                            <div className="absolute top-9 left-0 z-50 bg-popover border rounded-xl shadow-xl p-3 w-[280px]">
+                                                <p className="text-[10px] text-muted-foreground font-medium mb-1.5">Paste or type a URL</p>
+                                                <div className="flex gap-1.5">
+                                                    <Input
+                                                        value={linkInputValue}
+                                                        onChange={(e) => setLinkInputValue(e.target.value)}
+                                                        placeholder="https://example.com"
+                                                        className="text-xs h-8"
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && linkInputValue.trim()) {
+                                                                e.preventDefault()
+                                                                const ta = textareaRef.current
+                                                                const url = linkInputValue.trim().startsWith('http') ? linkInputValue.trim() : `https://${linkInputValue.trim()}`
+                                                                if (ta) {
+                                                                    const pos = ta.selectionStart
+                                                                    const before = content.substring(0, pos)
+                                                                    const after = content.substring(pos)
+                                                                    const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
+                                                                    setContent(before + prefix + url + after)
+                                                                    setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length + url.length, pos + prefix.length + url.length) }, 0)
+                                                                } else {
+                                                                    setContent(prev => prev + (prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '') + url)
+                                                                }
+                                                                setShowLinkInput(false)
+                                                                setLinkInputValue('')
+                                                            } else if (e.key === 'Escape') {
+                                                                setShowLinkInput(false)
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="h-8 px-2.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+                                                        disabled={!linkInputValue.trim()}
+                                                        onClick={() => {
+                                                            const ta = textareaRef.current
+                                                            const url = linkInputValue.trim().startsWith('http') ? linkInputValue.trim() : `https://${linkInputValue.trim()}`
+                                                            if (ta) {
+                                                                const pos = ta.selectionStart
+                                                                const before = content.substring(0, pos)
+                                                                const after = content.substring(pos)
+                                                                const prefix = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n') ? ' ' : ''
+                                                                setContent(before + prefix + url + after)
+                                                                setTimeout(() => { ta.focus(); ta.setSelectionRange(pos + prefix.length + url.length, pos + prefix.length + url.length) }, 0)
+                                                            } else {
+                                                                setContent(prev => prev + (prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : '') + url)
+                                                            }
+                                                            setShowLinkInput(false)
+                                                            setLinkInputValue('')
+                                                        }}
+                                                    >
+                                                        Insert
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                                 <div className="w-px h-5 bg-border mx-1" />
                                 {/* Emoji Picker */}
                                 <div className="relative">
@@ -2619,8 +2664,8 @@ export default function ComposePage() {
                                             key={style.id}
                                             type="button"
                                             className={`group relative rounded-xl border-2 overflow-hidden transition-all cursor-pointer hover:shadow-lg ${isSelected
-                                                    ? 'border-purple-500 ring-2 ring-purple-500/30 shadow-md'
-                                                    : 'border-border hover:border-purple-300'
+                                                ? 'border-purple-500 ring-2 ring-purple-500/30 shadow-md'
+                                                : 'border-border hover:border-purple-300'
                                                 }`}
                                             onClick={() => {
                                                 setThumbnailStyleId(style.id)
