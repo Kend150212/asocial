@@ -162,15 +162,36 @@ async function publishToFacebook(
 
 /** Post a first comment on a Facebook post */
 async function postFirstComment(accessToken: string, postId: string, message: string) {
-    try {
-        await fetch(`https://graph.facebook.com/v21.0/${postId}/comments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, access_token: accessToken }),
-        })
-    } catch (err) {
-        console.warn('Failed to post first comment:', err)
+    // Retry a few times with delay — reels/videos may need processing time
+    const maxRetries = 3
+    const delayMs = 3000
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, delayMs))
+            }
+            const res = await fetch(`https://graph.facebook.com/v21.0/${postId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, access_token: accessToken }),
+            })
+            const data = await res.json()
+            if (data.error) {
+                console.warn(`[FirstComment] Attempt ${attempt + 1}/${maxRetries} failed:`, data.error.message, `(code: ${data.error.code})`)
+                // If it's a "page not found" or similar non-retryable error, stop
+                if (data.error.code === 100 || data.error.code === 190) {
+                    console.error(`[FirstComment] Non-retryable error, stopping.`)
+                    return
+                }
+                continue
+            }
+            console.log(`[FirstComment] Successfully posted comment on ${postId}`)
+            return
+        } catch (err) {
+            console.warn(`[FirstComment] Network error attempt ${attempt + 1}:`, err)
+        }
     }
+    console.error(`[FirstComment] All ${maxRetries} attempts failed for post ${postId}`)
 }
 
 async function publishToInstagram(
@@ -646,6 +667,7 @@ export async function POST(
             // Get post type from platform status config or default to 'feed'
             const psConfig = (ps.config as Record<string, unknown>) || undefined
             const postType = (psConfig?.postType as string) || 'feed'
+            console.log(`[Publish] Platform: ${ps.platform}, PostType: ${postType}, Config:`, JSON.stringify(psConfig || {}))
 
             switch (ps.platform) {
                 case 'facebook':
