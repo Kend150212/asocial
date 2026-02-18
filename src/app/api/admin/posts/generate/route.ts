@@ -137,8 +137,8 @@ export async function POST(req: NextRequest) {
             { error: 'No API key found. Please set up your AI API Key in the API Keys page, or contact your admin.' },
             { status: 400 }
         )
-    } else {
-        // Priority 3: Fall back to global API integration
+    } else if (session.user.role === 'ADMIN') {
+        // Priority 3: Fall back to global API integration (Admin only)
         let aiIntegration
         if (providerToUse) {
             aiIntegration = await prisma.apiIntegration.findFirst({
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
         if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
             return NextResponse.json(
-                { error: 'No AI provider configured. Set up your AI API key in the API Keys page.' },
+                { error: 'No AI provider configured in API Hub. Set up a provider in the Admin API Hub.' },
                 { status: 400 }
             )
         }
@@ -164,6 +164,12 @@ export async function POST(req: NextRequest) {
         config = (aiIntegration.config as Record<string, string>) || {}
         baseUrl = aiIntegration.baseUrl
         integrationId = aiIntegration.id
+    } else {
+        // Non-admin users must set up their own key
+        return NextResponse.json(
+            { error: 'No AI API key found. Please set up your API key in the AI API Keys page (sidebar → AI API Keys).' },
+            { status: 400 }
+        )
     }
 
     const model = requestedModel || userApiKey?.defaultModel || channel.defaultAiModel || getDefaultModel(providerName, config)
