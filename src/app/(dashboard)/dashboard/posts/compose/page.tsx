@@ -631,7 +631,25 @@ export default function ComposePage() {
                             .map((p) => ({
                                 platform: p.platform,
                                 accountId: p.accountId,
-                                ...(p.platform === 'facebook' ? { postType: fbPostTypes[p.id] || 'feed' } : {}),
+                                ...(p.platform === 'facebook' ? {
+                                    postType: fbPostTypes[p.id] || 'feed',
+                                    carousel: fbCarousel,
+                                    firstComment: fbFirstComment || undefined,
+                                } : {}),
+                                ...(p.platform === 'instagram' ? {
+                                    postType: igPostType,
+                                    shareToStory: igShareToStory,
+                                    collaborators: igCollaborators || undefined,
+                                } : {}),
+                                ...(p.platform === 'youtube' ? {
+                                    postType: ytPostType,
+                                    videoTitle: ytVideoTitle || undefined,
+                                    category: ytCategory || undefined,
+                                    tags: ytTags || undefined,
+                                    privacy: ytPrivacy,
+                                    notifySubscribers: ytNotifySubscribers,
+                                    madeForKids: ytMadeForKids,
+                                } : {}),
                             })),
                     }),
                     keepalive: true,
@@ -879,7 +897,25 @@ export default function ComposePage() {
             .map((p) => ({
                 platform: p.platform,
                 accountId: p.accountId,
-                ...(p.platform === 'facebook' ? { postType: fbPostTypes[p.id] || 'feed' } : {}),
+                ...(p.platform === 'facebook' ? {
+                    postType: fbPostTypes[p.id] || 'feed',
+                    carousel: fbCarousel,
+                    firstComment: fbFirstComment || undefined,
+                } : {}),
+                ...(p.platform === 'instagram' ? {
+                    postType: igPostType,
+                    shareToStory: igShareToStory,
+                    collaborators: igCollaborators || undefined,
+                } : {}),
+                ...(p.platform === 'youtube' ? {
+                    postType: ytPostType,
+                    videoTitle: ytVideoTitle || undefined,
+                    category: ytCategory || undefined,
+                    tags: ytTags || undefined,
+                    privacy: ytPrivacy,
+                    notifySubscribers: ytNotifySubscribers,
+                    madeForKids: ytMadeForKids,
+                } : {}),
             }))
     }
 
@@ -1622,8 +1658,8 @@ export default function ComposePage() {
                                                         key={opt.value}
                                                         type="button"
                                                         className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all cursor-pointer ${isActive
-                                                                ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-400'
-                                                                : 'border-border hover:border-pink-300 text-muted-foreground hover:text-foreground'
+                                                            ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-400'
+                                                            : 'border-border hover:border-pink-300 text-muted-foreground hover:text-foreground'
                                                             }`}
                                                         onClick={() => setIgPostType(opt.value)}
                                                     >
@@ -1709,8 +1745,8 @@ export default function ComposePage() {
                                                         key={opt.value}
                                                         type="button"
                                                         className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all cursor-pointer ${isActive
-                                                                ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400'
-                                                                : 'border-border hover:border-red-300 text-muted-foreground hover:text-foreground'
+                                                            ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400'
+                                                            : 'border-border hover:border-red-300 text-muted-foreground hover:text-foreground'
                                                             }`}
                                                         onClick={() => setYtPostType(opt.value)}
                                                     >

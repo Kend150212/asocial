@@ -26,8 +26,34 @@ async function publishToFacebook(
     content: string,
     mediaItems: MediaInfo[],
     postType: string,
+    config?: Record<string, unknown>,
 ): Promise<{ externalId: string }> {
     // Facebook Graph API — Post to Page
+    const carousel = config?.carousel === true
+    const firstComment = (config?.firstComment as string) || ''
+
+    // ── Reel: use /video_reels endpoint ──
+    if (postType === 'reel') {
+        const videoMedia = mediaItems.find(m => isVideoMedia(m))
+        if (!videoMedia) throw new Error('Reels require a video attachment')
+        const reelUrl = `https://graph.facebook.com/v21.0/${accountId}/video_reels`
+        const reelBody: Record<string, string> = {
+            upload_phase: 'finish',
+            video_url: videoMedia.url,
+            description: content,
+            access_token: accessToken,
+        }
+        const res = await fetch(reelUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reelBody),
+        })
+        const data = await res.json()
+        if (data.error) throw new Error(data.error.message || 'Facebook Reel upload error')
+        const postId = data.id || data.post_id
+        if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
+        return { externalId: postId }
+    }
 
     if (mediaItems.length > 0 && postType !== 'story') {
         const firstMedia = mediaItems[0]
@@ -37,7 +63,7 @@ async function publishToFacebook(
             const videoUrl = `https://graph.facebook.com/v21.0/${accountId}/videos`
             const videoBody: Record<string, string> = {
                 description: content,
-                file_url: firstMedia.url, // Facebook fetches the video from this URL
+                file_url: firstMedia.url,
                 access_token: accessToken,
             }
             const res = await fetch(videoUrl, {
@@ -49,13 +75,54 @@ async function publishToFacebook(
             if (data.error) {
                 throw new Error(data.error.message || 'Facebook video upload error')
             }
-            return { externalId: data.id || data.post_id }
+            const postId = data.id || data.post_id
+            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
+            return { externalId: postId }
+        } else if (carousel && mediaItems.length > 1) {
+            // ── Carousel: upload each photo unpublished, then batch ──
+            const photoIds: string[] = []
+            for (const media of mediaItems) {
+                if (isVideoMedia(media)) continue
+                const photoUrl = `https://graph.facebook.com/v21.0/${accountId}/photos`
+                const photoBody: Record<string, string | boolean> = {
+                    url: media.url,
+                    published: 'false',
+                    access_token: accessToken,
+                }
+                const res = await fetch(photoUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(photoBody),
+                })
+                const data = await res.json()
+                if (data.error) throw new Error(data.error.message || 'Facebook carousel photo error')
+                if (data.id) photoIds.push(data.id)
+            }
+            // Batch publish
+            const feedUrl = `https://graph.facebook.com/v21.0/${accountId}/feed`
+            const feedBody: Record<string, unknown> = {
+                message: content,
+                access_token: accessToken,
+            }
+            photoIds.forEach((pid, i) => {
+                feedBody[`attached_media[${i}]`] = JSON.stringify({ media_fbid: pid })
+            })
+            const res = await fetch(feedUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(feedBody),
+            })
+            const data = await res.json()
+            if (data.error) throw new Error(data.error.message || 'Facebook carousel publish error')
+            const postId = data.id
+            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
+            return { externalId: postId }
         } else {
-            // ── Image: use /photos endpoint ──
+            // ── Single Image: use /photos endpoint ──
             const photoUrl = `https://graph.facebook.com/v21.0/${accountId}/photos`
             const photoBody: Record<string, string> = {
                 caption: content,
-                url: firstMedia.url, // Facebook fetches the image from this URL
+                url: firstMedia.url,
                 access_token: accessToken,
             }
             const res = await fetch(photoUrl, {
@@ -67,7 +134,9 @@ async function publishToFacebook(
             if (data.error) {
                 throw new Error(data.error.message || 'Facebook photo upload error')
             }
-            return { externalId: data.id || data.post_id }
+            const postId = data.id || data.post_id
+            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
+            return { externalId: postId }
         }
     }
 
@@ -86,7 +155,22 @@ async function publishToFacebook(
     if (data.error) {
         throw new Error(data.error.message || 'Facebook API error')
     }
-    return { externalId: data.id }
+    const postId = data.id
+    if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
+    return { externalId: postId }
+}
+
+/** Post a first comment on a Facebook post */
+async function postFirstComment(accessToken: string, postId: string, message: string) {
+    try {
+        await fetch(`https://graph.facebook.com/v21.0/${postId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, access_token: accessToken }),
+        })
+    } catch (err) {
+        console.warn('Failed to post first comment:', err)
+    }
 }
 
 async function publishToInstagram(
@@ -94,25 +178,152 @@ async function publishToInstagram(
     accountId: string,
     content: string,
     mediaItems: MediaInfo[],
+    config?: Record<string, unknown>,
 ): Promise<{ externalId: string }> {
     if (mediaItems.length === 0) {
         throw new Error('Instagram requires at least one image or video')
     }
 
-    // Step 1: Create media container
+    const postType = (config?.postType as string) || 'feed'
+    const collaborators = (config?.collaborators as string) || ''
+    const collaboratorUsernames = collaborators
+        .split(',')
+        .map(c => c.trim().replace(/^@/, ''))
+        .filter(Boolean)
+        .slice(0, 3)
+
+    // ── Story: use STORIES media type ──
+    if (postType === 'story') {
+        const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
+        const firstMedia = mediaItems[0]
+        const containerBody: Record<string, string> = {
+            media_type: 'STORIES',
+            access_token: accessToken,
+        }
+        if (isVideoMedia(firstMedia)) {
+            containerBody.video_url = firstMedia.url
+        } else {
+            containerBody.image_url = firstMedia.url
+        }
+        const containerRes = await fetch(containerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(containerBody),
+        })
+        const containerData = await containerRes.json()
+        if (containerData.error) throw new Error(containerData.error.message || 'Instagram Story creation failed')
+        // Wait for container to be ready
+        await waitForIgContainer(accessToken, containerData.id)
+        const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
+        })
+        const publishData = await publishRes.json()
+        if (publishData.error) throw new Error(publishData.error.message || 'Instagram Story publish failed')
+        return { externalId: publishData.id }
+    }
+
+    // ── Reel: use REELS media type ──
+    if (postType === 'reel') {
+        const videoMedia = mediaItems.find(m => isVideoMedia(m))
+        if (!videoMedia) throw new Error('Reels require a video attachment')
+        const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
+        const containerBody: Record<string, unknown> = {
+            media_type: 'REELS',
+            video_url: videoMedia.url,
+            caption: content,
+            access_token: accessToken,
+        }
+        if (collaboratorUsernames.length > 0) {
+            containerBody.collaborators = collaboratorUsernames
+        }
+        const containerRes = await fetch(containerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(containerBody),
+        })
+        const containerData = await containerRes.json()
+        if (containerData.error) throw new Error(containerData.error.message || 'Instagram Reel creation failed')
+        await waitForIgContainer(accessToken, containerData.id)
+        const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
+        })
+        const publishData = await publishRes.json()
+        if (publishData.error) throw new Error(publishData.error.message || 'Instagram Reel publish failed')
+        return { externalId: publishData.id }
+    }
+
+    // ── Carousel: multiple images/videos ──
+    if (mediaItems.length > 1) {
+        const childIds: string[] = []
+        for (const media of mediaItems) {
+            const childUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
+            const childBody: Record<string, string> = {
+                is_carousel_item: 'true',
+                access_token: accessToken,
+            }
+            if (isVideoMedia(media)) {
+                childBody.media_type = 'VIDEO'
+                childBody.video_url = media.url
+            } else {
+                childBody.image_url = media.url
+            }
+            const childRes = await fetch(childUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(childBody),
+            })
+            const childData = await childRes.json()
+            if (childData.error) throw new Error(childData.error.message || 'Instagram carousel item creation failed')
+            await waitForIgContainer(accessToken, childData.id)
+            childIds.push(childData.id)
+        }
+        const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
+        const containerBody: Record<string, unknown> = {
+            media_type: 'CAROUSEL',
+            children: childIds,
+            caption: content,
+            access_token: accessToken,
+        }
+        if (collaboratorUsernames.length > 0) {
+            containerBody.collaborators = collaboratorUsernames
+        }
+        const containerRes = await fetch(containerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(containerBody),
+        })
+        const containerData = await containerRes.json()
+        if (containerData.error) throw new Error(containerData.error.message || 'Instagram carousel container creation failed')
+        const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
+        })
+        const publishData = await publishRes.json()
+        if (publishData.error) throw new Error(publishData.error.message || 'Instagram carousel publish failed')
+        return { externalId: publishData.id }
+    }
+
+    // ── Single image/video feed post ──
     const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
-    const containerBody: Record<string, string> = {
+    const containerBody: Record<string, unknown> = {
         caption: content,
         access_token: accessToken,
     }
 
-    // Determine media type from database type field
     const firstMedia = mediaItems[0]
     if (isVideoMedia(firstMedia)) {
         containerBody.media_type = 'VIDEO'
         containerBody.video_url = firstMedia.url
     } else {
         containerBody.image_url = firstMedia.url
+    }
+    if (collaboratorUsernames.length > 0) {
+        containerBody.collaborators = collaboratorUsernames
     }
 
     const containerRes = await fetch(containerUrl, {
@@ -125,7 +336,10 @@ async function publishToInstagram(
         throw new Error(containerData.error.message || 'Instagram container creation failed')
     }
 
-    // Step 2: Publish the container
+    // Wait for container to be ready
+    await waitForIgContainer(accessToken, containerData.id)
+
+    // Publish
     const publishUrl = `https://graph.facebook.com/v21.0/${accountId}/media_publish`
     const publishRes = await fetch(publishUrl, {
         method: 'POST',
@@ -140,6 +354,18 @@ async function publishToInstagram(
         throw new Error(publishData.error.message || 'Instagram publish failed')
     }
     return { externalId: publishData.id }
+}
+
+/** Wait for Instagram media container to finish processing (videos especially) */
+async function waitForIgContainer(accessToken: string, containerId: string, maxAttempts = 30) {
+    for (let i = 0; i < maxAttempts; i++) {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${accessToken}`)
+        const data = await res.json()
+        if (data.status_code === 'FINISHED') return
+        if (data.status_code === 'ERROR') throw new Error('Instagram container processing failed')
+        await new Promise(resolve => setTimeout(resolve, 2000)) // wait 2s
+    }
+    throw new Error('Instagram container processing timed out')
 }
 
 // ─── YouTube token refresh ──────────────────────────────────────────
@@ -191,12 +417,31 @@ async function publishToYouTube(
     content: string,
     mediaItems: MediaInfo[],
     platformId: string,
+    config?: Record<string, unknown>,
 ): Promise<{ externalId: string }> {
     // YouTube requires a video
     const videoMedia = mediaItems.find((m) => isVideoMedia(m))
     if (!videoMedia) {
         throw new Error('YouTube requires a video. Please attach a video to your post.')
     }
+
+    // Read config values
+    const ytPostType = (config?.postType as string) || 'video'
+    const ytVideoTitle = (config?.videoTitle as string) || ''
+    const ytCategory = (config?.category as string) || ''
+    const ytTags = (config?.tags as string) || ''
+    const ytPrivacy = (config?.privacy as string) || 'public'
+    const ytNotifySubscribers = config?.notifySubscribers !== false
+    const ytMadeForKids = config?.madeForKids === true
+
+    // YouTube category ID mapping
+    const categoryMap: Record<string, string> = {
+        'Film & Animation': '1', 'Autos & Vehicles': '2', 'Music': '10', 'Pets & Animals': '15',
+        'Sports': '17', 'Travel & Events': '19', 'Gaming': '20', 'People & Blogs': '22',
+        'Comedy': '23', 'Entertainment': '24', 'News & Politics': '25', 'Howto & Style': '26',
+        'Education': '27', 'Science & Technology': '28', 'Nonprofits & Activism': '29',
+    }
+    const categoryId = categoryMap[ytCategory] || '22' // Default to People & Blogs
 
     // Refresh token if we have a refresh token
     let token = accessToken
@@ -213,10 +458,21 @@ async function publishToYouTube(
         }
     }
 
-    // Extract title from first line of content, rest as description
+    // Get title: from config, or from first line of content, or 'Untitled'
     const lines = content.split('\n')
-    const title = (lines[0] || 'Untitled').slice(0, 100) // YouTube title max 100 chars
-    const description = lines.slice(1).join('\n').trim() || content
+    const title = (ytVideoTitle || lines[0] || 'Untitled').slice(0, 100)
+    const description = ytVideoTitle ? content : (lines.slice(1).join('\n').trim() || content)
+
+    // Parse tags
+    const tags = ytTags
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
+
+    // For Shorts, add #Shorts tag if not present
+    if (ytPostType === 'shorts' && !tags.some(t => t.toLowerCase() === 'shorts' || t.toLowerCase() === '#shorts')) {
+        tags.push('Shorts')
+    }
 
     // Step 1: Download the video file from URL
     const videoRes = await fetch(videoMedia.url)
@@ -231,16 +487,23 @@ async function publishToYouTube(
         snippet: {
             title,
             description,
-            categoryId: '22', // People & Blogs
+            categoryId,
+            ...(tags.length > 0 ? { tags } : {}),
         },
         status: {
-            privacyStatus: 'public',
-            selfDeclaredMadeForKids: false,
+            privacyStatus: ytPrivacy,
+            selfDeclaredMadeForKids: ytMadeForKids,
         },
     }
 
+    const uploadParams = new URLSearchParams({
+        uploadType: 'resumable',
+        part: 'snippet,status',
+        notifySubscribers: String(ytNotifySubscribers),
+    })
+
     const initRes = await fetch(
-        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
+        `https://www.googleapis.com/upload/youtube/v3/videos?${uploadParams}`,
         {
             method: 'POST',
             headers: {
@@ -381,8 +644,8 @@ export async function POST(
             let publishResult: { externalId: string }
 
             // Get post type from platform status config or default to 'feed'
-            const psConfig = (ps as Record<string, unknown>).config as Record<string, string> | undefined
-            const postType = psConfig?.postType || 'feed'
+            const psConfig = (ps as Record<string, unknown>).config as Record<string, unknown> | undefined
+            const postType = (psConfig?.postType as string) || 'feed'
 
             switch (ps.platform) {
                 case 'facebook':
@@ -392,6 +655,7 @@ export async function POST(
                         post.content || '',
                         mediaItems,
                         postType,
+                        psConfig,
                     )
                     break
 
@@ -401,6 +665,7 @@ export async function POST(
                         platformConn.accountId,
                         post.content || '',
                         mediaItems,
+                        psConfig,
                     )
                     break
 
@@ -412,6 +677,7 @@ export async function POST(
                         post.content || '',
                         mediaItems,
                         platformConn.id,
+                        psConfig,
                     )
                     break
 
