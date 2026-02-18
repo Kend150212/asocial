@@ -1693,10 +1693,10 @@ export default function ComposePage() {
                                                     key={platform}
                                                     type="button"
                                                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium transition-all cursor-pointer ${activeContentTab === platform
-                                                            ? 'bg-primary text-primary-foreground shadow-sm'
-                                                            : contentPerPlatform[platform]
-                                                                ? 'bg-muted text-foreground hover:bg-muted/80'
-                                                                : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                                        : contentPerPlatform[platform]
+                                                            ? 'bg-muted text-foreground hover:bg-muted/80'
+                                                            : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
                                                         }`}
                                                     onClick={() => setActiveContentTab(activeContentTab === platform ? null : platform)}
                                                 >
@@ -2716,22 +2716,24 @@ export default function ComposePage() {
                                 return (
                                     <>
                                         {(() => {
+                                            // Use per-platform content if available, otherwise fall back to master content
+                                            const previewContent = contentPerPlatform[effectivePreviewPlatform]?.trim() || content
                                             switch (effectivePreviewPlatform) {
                                                 case 'facebook':
-                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} mediaRatio={mediaRatio} firstComment={fbFirstComment || undefined} />
+                                                    return <FacebookPreview content={previewContent} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} mediaRatio={mediaRatio} firstComment={fbFirstComment || undefined} />
                                                 case 'instagram':
-                                                    return <InstagramPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
+                                                    return <InstagramPreview content={previewContent} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'tiktok':
-                                                    return <TikTokPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
+                                                    return <TikTokPreview content={previewContent} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'x':
                                                 case 'twitter':
-                                                    return <XPreview content={content} accountName={name} />
+                                                    return <XPreview content={previewContent} accountName={name} />
                                                 case 'youtube':
-                                                    return <YouTubePreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
+                                                    return <YouTubePreview content={previewContent} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'linkedin':
-                                                    return <LinkedInPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
+                                                    return <LinkedInPreview content={previewContent} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 default:
-                                                    return <GenericPreview content={content} media={attachedMedia} accountName={name} platform={effectivePreviewPlatform} mediaRatio={mediaRatio} />
+                                                    return <GenericPreview content={previewContent} media={attachedMedia} accountName={name} platform={effectivePreviewPlatform} mediaRatio={mediaRatio} />
                                             }
                                         })()}
                                         {accountsCount > 1 && (
