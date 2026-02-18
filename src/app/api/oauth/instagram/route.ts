@@ -45,11 +45,11 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('client_id', clientId)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('response_type', 'code')
-    // instagram_business_basic = read IG profile + media (new API)
-    // instagram_business_content_publish = post to IG (new API)
+    // instagram_basic = read IG profile + media (Facebook Login scope)
+    // instagram_content_publish = post to IG (Facebook Login scope)
     // pages_show_list = list Facebook pages (needed to find linked IG accounts)
     // pages_read_engagement = read page content
-    authUrl.searchParams.set('scope', 'instagram_business_basic,instagram_business_content_publish,pages_show_list,pages_read_engagement')
+    authUrl.searchParams.set('scope', 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement')
     authUrl.searchParams.set('auth_type', 'rerequest')
     authUrl.searchParams.set('state', state)
 
