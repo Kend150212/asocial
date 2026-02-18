@@ -141,11 +141,17 @@ export async function POST(req: NextRequest) {
             // Create platform statuses
             ...(platforms?.length ? {
                 platformStatuses: {
-                    create: platforms.map((p: { platform: string; accountId: string }) => ({
-                        platform: p.platform,
-                        accountId: p.accountId,
-                        status: 'pending',
-                    })),
+                    create: platforms.map((p: { platform: string; accountId: string;[key: string]: unknown }) => {
+                        // Extract platform-specific config (postType, firstComment, carousel, visibility, etc.)
+                        const { platform, accountId, ...rest } = p
+                        const config = Object.keys(rest).length > 0 ? rest : undefined
+                        return {
+                            platform,
+                            accountId,
+                            status: 'pending',
+                            ...(config ? { config } : {}),
+                        }
+                    }),
                 },
             } : {}),
         },

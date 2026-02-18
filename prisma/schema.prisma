@@ -404,6 +404,7 @@ model PostPlatformStatus {
   externalId String?  @map("external_id") // Vbout post ID
   status     String   @default("pending") // pending, published, failed
   errorMsg   String?  @map("error_msg")
+  config     Json?    // Platform-specific config: postType, firstComment, carousel, visibility, etc.
   publishedAt DateTime? @map("published_at")
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)

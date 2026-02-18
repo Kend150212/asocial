@@ -644,7 +644,7 @@ export async function POST(
             let publishResult: { externalId: string }
 
             // Get post type from platform status config or default to 'feed'
-            const psConfig = (ps as Record<string, unknown>).config as Record<string, unknown> | undefined
+            const psConfig = (ps.config as Record<string, unknown>) || undefined
             const postType = (psConfig?.postType as string) || 'feed'
 
             switch (ps.platform) {

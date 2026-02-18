@@ -147,12 +147,17 @@ export async function PUT(
             await tx.postPlatformStatus.deleteMany({ where: { postId: id } })
             if (platforms.length > 0) {
                 await tx.postPlatformStatus.createMany({
-                    data: platforms.map((p: { platform: string; accountId: string }) => ({
-                        postId: id,
-                        platform: p.platform,
-                        accountId: p.accountId,
-                        status: 'pending',
-                    })),
+                    data: platforms.map((p: { platform: string; accountId: string;[key: string]: unknown }) => {
+                        const { platform, accountId, ...rest } = p
+                        const config = Object.keys(rest).length > 0 ? rest : undefined
+                        return {
+                            postId: id,
+                            platform,
+                            accountId,
+                            status: 'pending',
+                            ...(config ? { config } : {}),
+                        }
+                    }),
                 })
             }
         }
