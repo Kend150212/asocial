@@ -1016,42 +1016,69 @@ export default function ComposePage() {
             )
 
             // Poll for popup close OR popup returning to our domain
+            let exported = false
             const triggerExport = async () => {
+                if (exported) return // prevent double-trigger
+                exported = true
+
+                toast.loading('Waiting for Canva to save...', { id: 'canva-export' })
+
+                // Give Canva 3 seconds to save the design before exporting
+                await new Promise(r => setTimeout(r, 3000))
+
                 toast.loading('Exporting design from Canva...', { id: 'canva-export' })
-                try {
-                    const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
-                    const exportData = await exportRes.json()
 
-                    if (exportData.status === 'success' && exportData.urls?.length > 0) {
-                        // Download the exported image and upload to our media library
-                        const canvaImageUrl = exportData.urls[0]
-                        const imgRes = await fetch(canvaImageUrl)
-                        const blob = await imgRes.blob()
-                        const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+                // Retry up to 3 times with delays
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
+                        const exportData = await exportRes.json()
 
-                        if (existingMediaUrl) {
-                            // REPLACE the existing image — remove old, add new
-                            setAttachedMedia(prev => prev.filter(m => m.url !== existingMediaUrl))
+                        if (exportData.status === 'success' && exportData.urls?.length > 0) {
+                            // Download the exported image and upload to our media library
+                            const canvaImageUrl = exportData.urls[0]
+                            const imgRes = await fetch(canvaImageUrl)
+                            const blob = await imgRes.blob()
+                            const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+
+                            if (existingMediaUrl) {
+                                // REPLACE the existing image — remove old, add new
+                                setAttachedMedia(prev => prev.filter(m => m.url !== existingMediaUrl))
+                            }
+
+                            // Upload via handleFileUpload
+                            const dt = new DataTransfer()
+                            dt.items.add(file)
+                            await handleFileUpload(dt.files)
+                            toast.success(
+                                existingMediaUrl ? '🎨 Image updated from Canva!' : '🎨 Canva design imported!',
+                                { id: 'canva-export' }
+                            )
+                            setCanvaLoading(false)
+                            return // success — exit
                         }
 
-                        // Upload via handleFileUpload
-                        const dt = new DataTransfer()
-                        dt.items.add(file)
-                        await handleFileUpload(dt.files)
-                        toast.success(
-                            existingMediaUrl ? '🎨 Image updated from Canva!' : '🎨 Canva design imported!',
-                            { id: 'canva-export' }
-                        )
-                    } else {
-                        toast.error(exportData.error || 'Export failed', { id: 'canva-export' })
+                        // If not success and not last attempt, wait and retry
+                        if (attempt < 2) {
+                            toast.loading(`Export pending, retrying... (${attempt + 2}/3)`, { id: 'canva-export' })
+                            await new Promise(r => setTimeout(r, 3000))
+                        } else {
+                            toast.error(exportData.error || 'Export failed after retries', { id: 'canva-export' })
+                        }
+                    } catch {
+                        if (attempt >= 2) {
+                            toast.error('Failed to export from Canva', { id: 'canva-export' })
+                        } else {
+                            await new Promise(r => setTimeout(r, 3000))
+                        }
                     }
-                } catch {
-                    toast.error('Failed to export from Canva', { id: 'canva-export' })
                 }
                 setCanvaLoading(false)
             }
 
             const checkClosed = setInterval(async () => {
+                if (exported) { clearInterval(checkClosed); return }
+
                 // Case 1: Popup was closed by user
                 if (popup && popup.closed) {
                     clearInterval(checkClosed)
