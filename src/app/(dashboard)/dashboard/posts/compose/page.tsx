@@ -1020,6 +1020,44 @@ export default function ComposePage() {
 
             // Poll for popup close OR popup returning to our domain
             let exported = false
+
+            // Helper: write status page into the popup
+            const writePopupStatus = (win: Window, status: 'loading' | 'success' | 'error', message: string) => {
+                try {
+                    const icon = status === 'loading' ? '⏳' : status === 'success' ? '✅' : '❌'
+                    const spinnerCSS = status === 'loading' ? `
+                        .spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+                        @keyframes spin { to { transform: rotate(360deg); } }
+                    ` : ''
+                    const closeBtn = status !== 'loading' ? `
+                        <button onclick="window.close()" style="margin-top:24px;padding:12px 32px;background:#10b981;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:600;transition:background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                            Close Window
+                        </button>
+                    ` : '<p style="color:#9ca3af;font-size:14px;margin-top:12px;">Please keep this window open...</p>'
+
+                    win.document.open()
+                    win.document.write(`<!DOCTYPE html><html><head><title>ASocial - Canva Export</title><style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { background: #0f1419; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
+                        .container { padding: 48px; max-width: 480px; }
+                        .logo { font-size: 28px; font-weight: 700; margin-bottom: 32px; color: #10b981; }
+                        .icon { font-size: 48px; margin-bottom: 16px; }
+                        .message { font-size: 18px; line-height: 1.6; color: #d1d5db; }
+                        ${spinnerCSS}
+                    </style></head><body>
+                        <div class="container">
+                            <div class="logo">🅰 ASocial</div>
+                            ${status === 'loading' ? '<div class="spinner"></div>' : `<div class="icon">${icon}</div>`}
+                            <p class="message">${message}</p>
+                            ${closeBtn}
+                        </div>
+                    </body></html>`)
+                    win.document.close()
+                } catch {
+                    // Can't write to popup (cross-origin or closed)
+                }
+            }
+
             const triggerExport = async (popupRef?: Window | null) => {
                 if (exported) return // prevent double-trigger
                 exported = true
@@ -1068,8 +1106,10 @@ export default function ComposePage() {
                                     toast.error('Upload function not available. Please try again.', { id: 'canva-export' })
                                 }
 
-                                // Close popup AFTER successful import
-                                if (popupRef && !popupRef.closed) popupRef.close()
+                                // Show success + close button in popup
+                                if (popupRef && !popupRef.closed) {
+                                    writePopupStatus(popupRef, 'success', 'Design imported successfully! 🎉')
+                                }
 
                                 setCanvaLoading(false)
                                 return // success — exit
@@ -1094,10 +1134,13 @@ export default function ComposePage() {
                         }
                     }
                 }
-                // Close popup even on failure
-                if (popupRef && !popupRef.closed) popupRef.close()
+                // Show failure in popup
+                if (popupRef && !popupRef.closed) {
+                    writePopupStatus(popupRef, 'error', 'Export failed. You can close this window and try again.')
+                }
                 setCanvaLoading(false)
             }
+
 
             const checkClosed = setInterval(async () => {
                 if (exported) { clearInterval(checkClosed); return }
@@ -1110,11 +1153,13 @@ export default function ComposePage() {
                 }
 
                 // Case 2: Popup navigated back to our domain (user clicked "Return to ASocial")
-                // Keep popup OPEN — run export first, close popup only after success
+                // Keep popup OPEN — show status UI, run export, close popup only after success
                 try {
                     if (popup && popup.location && popup.location.hostname === window.location.hostname) {
                         clearInterval(checkClosed)
-                        // Don't close popup yet! Export first, then close
+                        // Show processing UI in popup
+                        writePopupStatus(popup, 'loading', 'Importing your design from Canva...')
+                        // Run export (popup will be updated and closed on success)
                         await triggerExport(popup)
                         return
                     }
