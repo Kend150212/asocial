@@ -959,38 +959,38 @@ export default function ChannelDetailPage({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="flex w-full overflow-x-auto">
-                    <TabsTrigger value="general" className="gap-1.5 text-xs">
+                <TabsList className="!flex !w-full overflow-x-auto">
+                    <TabsTrigger value="general" className="gap-1.5 text-xs flex-none shrink-0">
                         <Settings className="h-3.5 w-3.5" />
-                        {t('channels.tabs.general')}
+                        <span className="hidden sm:inline">{t('channels.tabs.general')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="platforms" className="gap-1.5 text-xs">
+                    <TabsTrigger value="platforms" className="gap-1.5 text-xs flex-none shrink-0">
                         <Globe className="h-3.5 w-3.5" />
-                        {t('channels.tabs.platforms')}
+                        <span className="hidden sm:inline">{t('channels.tabs.platforms')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="vibe" className="gap-1.5 text-xs">
+                    <TabsTrigger value="vibe" className="gap-1.5 text-xs flex-none shrink-0">
                         <Palette className="h-3.5 w-3.5" />
-                        {t('channels.tabs.vibe')}
+                        <span className="hidden sm:inline">{t('channels.tabs.vibe')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="knowledge" className="gap-1.5 text-xs">
+                    <TabsTrigger value="knowledge" className="gap-1.5 text-xs flex-none shrink-0">
                         <BookOpen className="h-3.5 w-3.5" />
-                        {t('channels.tabs.knowledge')}
+                        <span className="hidden sm:inline">{t('channels.tabs.knowledge')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="templates" className="gap-1.5 text-xs">
+                    <TabsTrigger value="templates" className="gap-1.5 text-xs flex-none shrink-0">
                         <FileText className="h-3.5 w-3.5" />
-                        {t('channels.tabs.templates')}
+                        <span className="hidden sm:inline">{t('channels.tabs.templates')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="hashtags" className="gap-1.5 text-xs">
+                    <TabsTrigger value="hashtags" className="gap-1.5 text-xs flex-none shrink-0">
                         <Hash className="h-3.5 w-3.5" />
-                        {t('channels.tabs.hashtags')}
+                        <span className="hidden sm:inline">{t('channels.tabs.hashtags')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="webhooks" className="gap-1.5 text-xs">
+                    <TabsTrigger value="webhooks" className="gap-1.5 text-xs flex-none shrink-0">
                         <Bell className="h-3.5 w-3.5" />
-                        {t('channels.tabs.webhooks')}
+                        <span className="hidden sm:inline">{t('channels.tabs.webhooks')}</span>
                     </TabsTrigger>
-                    <TabsTrigger value="members" className="gap-1.5 text-xs">
+                    <TabsTrigger value="members" className="gap-1.5 text-xs flex-none shrink-0">
                         <Users className="h-3.5 w-3.5" />
-                        {t('channels.tabs.members')}
+                        <span className="hidden sm:inline">{t('channels.tabs.members')}</span>
                     </TabsTrigger>
                 </TabsList>
 
