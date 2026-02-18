@@ -334,3 +334,79 @@ export async function getOrCreateChannelFolder(
     return createFolder(accessToken, channelName, parentFolderId)
 }
 
+/**
+ * Build the OAuth2 redirect URI for user-level Google Drive connection
+ */
+export function getUserRedirectUri() {
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    return `${baseUrl}/api/user/gdrive/callback`
+}
+
+/**
+ * Get a valid access token for a specific user's Google Drive.
+ * Reads the refresh token from the User record and uses the admin's Client ID/Secret.
+ */
+export async function getUserGDriveAccessToken(userId: string) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { gdriveRefreshToken: true },
+    })
+
+    if (!user?.gdriveRefreshToken) {
+        throw new Error('Google Drive not connected — please connect your Google Drive first')
+    }
+
+    // Use admin's Google OAuth Client ID/Secret from ApiIntegration
+    const integration = await prisma.apiIntegration.findFirst({
+        where: { provider: 'gdrive' },
+    })
+
+    if (!integration) {
+        throw new Error('Google Drive integration not configured by admin')
+    }
+
+    const config = (integration.config || {}) as Record<string, string>
+    const clientId = config.gdriveClientId
+
+    if (!clientId || !integration.apiKeyEncrypted) {
+        throw new Error('Google Drive Client ID/Secret not configured in API Hub')
+    }
+
+    const clientSecret = decrypt(integration.apiKeyEncrypted)
+    const refreshToken = decrypt(user.gdriveRefreshToken)
+
+    const { accessToken } = await refreshAccessToken(refreshToken, clientId, clientSecret)
+    return accessToken
+}
+
+/**
+ * Get or create a monthly subfolder (YYYY-MM) inside the user's root folder
+ */
+export async function getOrCreateMonthlyFolder(
+    accessToken: string,
+    parentFolderId: string,
+) {
+    const now = new Date()
+    const monthFolder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+    // Search for existing monthly folder
+    const query = `name='${monthFolder}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    const searchRes = await fetch(
+        `${GOOGLE_DRIVE_API}/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+        {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        },
+    )
+    const searchData = await searchRes.json()
+
+    if (searchData.files && searchData.files.length > 0) {
+        return {
+            id: searchData.files[0].id as string,
+            name: searchData.files[0].name as string,
+        }
+    }
+
+    // Create new monthly folder
+    return createFolder(accessToken, monthFolder, parentFolderId)
+}
+

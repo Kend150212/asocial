@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getGDriveAccessToken, getOrCreateChannelFolder } from '@/lib/gdrive'
+import { getUserGDriveAccessToken, getGDriveAccessToken, getOrCreateMonthlyFolder, getOrCreateChannelFolder } from '@/lib/gdrive'
 import { randomUUID } from 'crypto'
 
 /**
  * POST /api/admin/media/init-upload
  * Creates a resumable upload session on Google Drive and returns the upload URI.
- * The client then uploads the file directly to Google Drive, bypassing the server.
+ * 
+ * Priority:
+ * 1. Use user's own Google Drive if connected (per-user tokens + monthly folders)
+ * 2. Fall back to admin's Google Drive (legacy: channel-based folders)
  */
 export async function POST(req: NextRequest) {
     const session = await auth()
@@ -27,37 +30,55 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const accessToken = await getGDriveAccessToken()
+        let accessToken: string
+        let targetFolderId: string
 
-        // Get parent folder
-        const integration = await prisma.apiIntegration.findFirst({
-            where: { provider: 'gdrive' },
+        // Check if user has their own Google Drive connected
+        const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { gdriveRefreshToken: true, gdriveFolderId: true },
         })
-        const gdriveConfig = (integration?.config || {}) as Record<string, string>
-        const parentFolderId = gdriveConfig.parentFolderId
 
-        if (!parentFolderId) {
-            return NextResponse.json(
-                { error: 'Google Drive parent folder not configured. Go to API Hub → Google Drive → Create Folder.' },
-                { status: 400 }
+        if (user?.gdriveRefreshToken && user?.gdriveFolderId) {
+            // ─── User's own Google Drive ───
+            accessToken = await getUserGDriveAccessToken(session.user.id)
+
+            // Get or create monthly subfolder (e.g. 2026-02)
+            const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, user.gdriveFolderId)
+            targetFolderId = monthlyFolder.id
+        } else {
+            // ─── Fallback: Admin's Google Drive (legacy) ───
+            accessToken = await getGDriveAccessToken()
+
+            const integration = await prisma.apiIntegration.findFirst({
+                where: { provider: 'gdrive' },
+            })
+            const gdriveConfig = (integration?.config || {}) as Record<string, string>
+            const parentFolderId = gdriveConfig.parentFolderId
+
+            if (!parentFolderId) {
+                return NextResponse.json(
+                    { error: 'Google Drive not connected. Go to AI API Keys page to connect your Google Drive.' },
+                    { status: 400 }
+                )
+            }
+
+            // Get channel info for subfolder
+            const channel = await prisma.channel.findUnique({
+                where: { id: channelId },
+                select: { name: true, displayName: true },
+            })
+            if (!channel) {
+                return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
+            }
+
+            const channelFolder = await getOrCreateChannelFolder(
+                accessToken,
+                parentFolderId,
+                channel.displayName || channel.name,
             )
+            targetFolderId = channelFolder.id
         }
-
-        // Get channel info for subfolder
-        const channel = await prisma.channel.findUnique({
-            where: { id: channelId },
-            select: { name: true, displayName: true },
-        })
-        if (!channel) {
-            return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
-        }
-
-        // Get or create channel subfolder
-        const channelFolder = await getOrCreateChannelFolder(
-            accessToken,
-            parentFolderId,
-            channel.displayName || channel.name,
-        )
 
         // Generate unique filename with date
         const ext = fileName.split('.').pop() || 'mp4'
@@ -71,7 +92,7 @@ export async function POST(req: NextRequest) {
         const metadata = {
             name: uniqueName,
             mimeType,
-            parents: [channelFolder.id],
+            parents: [targetFolderId],
         }
 
         const initRes = await fetch(
@@ -101,7 +122,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             uploadUri,
             accessToken,
-            channelFolderId: channelFolder.id,
+            channelFolderId: targetFolderId,
             uniqueName,
             originalName: fileName,
         })

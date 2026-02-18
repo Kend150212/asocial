@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import {
     Key,
@@ -22,6 +24,13 @@ import {
     RefreshCw,
     Star,
     Zap,
+    HardDrive,
+    Link2,
+    Unlink,
+    FolderOpen,
+    Mail,
+    Calendar,
+    AlertCircle,
 } from 'lucide-react'
 import {
     Dialog,
@@ -451,8 +460,21 @@ function ProviderCard({
     )
 }
 
+// ─── Google Drive Status Type ──────────────────────────────
+interface GDriveStatus {
+    connected: boolean
+    email: string | null
+    folderId: string | null
+    folderName: string | null
+    folderUrl: string | null
+    connectedAt: string | null
+    isAdminConfigured: boolean
+}
+
 // ─── Main Page ─────────────────────────────────────────────
 export default function UserApiKeysPage() {
+    const searchParams = useSearchParams()
+    const router = useRouter()
     const [providers, setProviders] = useState<AiProvider[]>([])
     const [keys, setKeys] = useState<UserApiKeyData[]>([])
     const [loading, setLoading] = useState(true)
@@ -467,6 +489,64 @@ export default function UserApiKeysPage() {
     const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
     const [selectedModels, setSelectedModels] = useState<Record<string, string>>({})
 
+    // Google Drive state
+    const [gdriveStatus, setGdriveStatus] = useState<GDriveStatus | null>(null)
+    const [gdriveLoading, setGdriveLoading] = useState(false)
+    const [gdriveConnecting, setGdriveConnecting] = useState(false)
+
+    const fetchGDriveStatus = useCallback(async () => {
+        try {
+            const res = await fetch('/api/user/gdrive/status')
+            if (res.ok) setGdriveStatus(await res.json())
+        } catch { /* */ }
+    }, [])
+
+    const handleGDriveConnect = async () => {
+        setGdriveConnecting(true)
+        try {
+            const res = await fetch('/api/user/gdrive/auth')
+            const data = await res.json()
+            if (data.authUrl) {
+                window.location.href = data.authUrl
+            } else {
+                toast.error(data.error || 'Failed to start Google Drive connection')
+                setGdriveConnecting(false)
+            }
+        } catch {
+            toast.error('Failed to connect to Google Drive')
+            setGdriveConnecting(false)
+        }
+    }
+
+    const handleGDriveDisconnect = async () => {
+        setGdriveLoading(true)
+        try {
+            const res = await fetch('/api/user/gdrive/disconnect', { method: 'POST' })
+            if (res.ok) {
+                toast.success('Google Drive disconnected')
+                fetchGDriveStatus()
+            } else {
+                toast.error('Failed to disconnect')
+            }
+        } catch {
+            toast.error('Failed to disconnect')
+        }
+        setGdriveLoading(false)
+    }
+
+    // Handle OAuth redirect params
+    useEffect(() => {
+        const gdrive = searchParams.get('gdrive')
+        if (gdrive === 'connected') {
+            toast.success('Google Drive connected successfully!')
+            fetchGDriveStatus()
+            router.replace('/dashboard/api-keys')
+        } else if (gdrive === 'error') {
+            toast.error(searchParams.get('message') || 'Google Drive connection failed')
+            router.replace('/dashboard/api-keys')
+        }
+    }, [searchParams, router, fetchGDriveStatus])
+
     const fetchProviders = useCallback(async () => {
         try {
             const res = await fetch('/api/user/ai-providers')
@@ -480,7 +560,6 @@ export default function UserApiKeysPage() {
             if (res.ok) {
                 const data: UserApiKeyData[] = await res.json()
                 setKeys(data)
-                // Pre-fill selected models from saved defaults
                 const modelMap: Record<string, string> = {}
                 data.forEach(k => { if (k.defaultModel) modelMap[k.provider] = k.defaultModel })
                 setSelectedModels(prev => ({ ...prev, ...modelMap }))
@@ -489,8 +568,8 @@ export default function UserApiKeysPage() {
     }, [])
 
     useEffect(() => {
-        Promise.all([fetchProviders(), fetchKeys()]).then(() => setLoading(false))
-    }, [fetchProviders, fetchKeys])
+        Promise.all([fetchProviders(), fetchKeys(), fetchGDriveStatus()]).then(() => setLoading(false))
+    }, [fetchProviders, fetchKeys, fetchGDriveStatus])
 
     const handleSave = async (providerSlug: string) => {
         const apiKey = apiKeyValues[providerSlug]
@@ -625,6 +704,110 @@ export default function UserApiKeysPage() {
                     {configuredCount}/{providers.length} configured
                 </Badge>
             </div>
+
+            {/* ─── Google Drive Storage Section ─── */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                    <HardDrive className="h-5 w-5" />
+                    <h2 className="text-xl font-semibold">Google Drive Storage</h2>
+                    {gdriveStatus?.connected && (
+                        <Badge variant="default" className="ml-2 gap-1 bg-green-500/10 text-green-600 border-green-500/20">
+                            <CheckCircle className="h-3 w-3" />
+                            Connected
+                        </Badge>
+                    )}
+                </div>
+
+                <Card className="border-dashed">
+                    <CardContent className="pt-6">
+                        {gdriveStatus?.connected ? (
+                            <div className="space-y-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-3 flex-1">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Mail className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-muted-foreground">Account:</span>
+                                            <span className="font-medium">{gdriveStatus.email}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-muted-foreground">Folder:</span>
+                                            {gdriveStatus.folderUrl ? (
+                                                <a
+                                                    href={gdriveStatus.folderUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="font-medium text-blue-500 hover:underline inline-flex items-center gap-1"
+                                                >
+                                                    {gdriveStatus.folderName}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            ) : (
+                                                <span className="font-medium">{gdriveStatus.folderName}</span>
+                                            )}
+                                        </div>
+                                        {gdriveStatus.connectedAt && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                <span className="text-muted-foreground">Connected:</span>
+                                                <span className="font-medium">
+                                                    {new Date(gdriveStatus.connectedAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleGDriveDisconnect}
+                                        disabled={gdriveLoading}
+                                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                                    >
+                                        {gdriveLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Unlink className="h-4 w-4" />
+                                        )}
+                                        <span className="ml-1.5">Disconnect</span>
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Media files are auto-organized into monthly folders (e.g. 2026-02/) inside your Drive.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 space-y-4">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                                    <HardDrive className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold">Connect Google Drive</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Store media files in your own Google Drive. A folder will be auto-created with your name.
+                                    </p>
+                                </div>
+                                {!gdriveStatus?.isAdminConfigured ? (
+                                    <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <span>Google Drive is not configured by admin yet. Contact your administrator.</span>
+                                    </div>
+                                ) : (
+                                    <Button onClick={handleGDriveConnect} disabled={gdriveConnecting}>
+                                        {gdriveConnecting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        ) : (
+                                            <Link2 className="h-4 w-4 mr-2" />
+                                        )}
+                                        Connect Google Drive
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            <Separator />
 
             {/* AI Providers Section */}
             <div className="space-y-4">

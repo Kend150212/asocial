@@ -34,6 +34,13 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
+  // Google Drive per-user storage
+  gdriveRefreshToken  String?   @map("gdrive_refresh_token") @db.Text
+  gdriveFolderId      String?   @map("gdrive_folder_id")
+  gdriveFolderName    String?   @map("gdrive_folder_name")
+  gdriveEmail         String?   @map("gdrive_email")
+  gdriveConnectedAt   DateTime? @map("gdrive_connected_at")
+
   // Relations
   preference     UserPreference?
   channelMembers ChannelMember[]
