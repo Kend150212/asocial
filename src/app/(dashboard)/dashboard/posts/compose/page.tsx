@@ -483,11 +483,7 @@ export default function ComposePage() {
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
     const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
     const [loadingLibrary, setLoadingLibrary] = useState(false)
-    // Google Drive file picker
-    const [showDrivePicker, setShowDrivePicker] = useState(false)
-    const [driveFiles, setDriveFiles] = useState<Array<{ id: string; name: string; mimeType: string; thumbnailUrl: string | null; url: string; isFolder: boolean }>>([])
-    const [loadingDrive, setLoadingDrive] = useState(false)
-    const [driveFolderStack, setDriveFolderStack] = useState<Array<{ id: string; name: string }>>([])
+    const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
@@ -716,58 +712,76 @@ export default function ComposePage() {
         fetchLibrary()
     }, [fetchLibrary])
 
-    const fetchDriveFiles = useCallback(async (folderId?: string) => {
-        setLoadingDrive(true)
+    // Google Picker API — opens Google's native file picker
+    const openGooglePicker = useCallback(async () => {
+        setLoadingDrivePicker(true)
         try {
-            const params = folderId ? `?folderId=${folderId}` : ''
-            const res = await fetch(`/api/user/gdrive/files${params}`)
-            if (res.ok) {
-                const data = await res.json()
-                setDriveFiles(data.files || [])
-            } else {
-                const err = await res.json()
-                toast.error(err.error || 'Failed to load Drive files')
+            // 1. Get picker config (access token + client ID)
+            const configRes = await fetch('/api/user/gdrive/picker-config')
+            if (!configRes.ok) {
+                const err = await configRes.json()
+                toast.error(err.error || 'Google Drive not connected. Connect in API Keys page.')
+                setLoadingDrivePicker(false)
+                return
             }
-        } catch {
-            toast.error('Failed to load Drive files')
+            const { accessToken, appId } = await configRes.json()
+
+            // 2. Load Google Picker script if not loaded
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const win = window as any
+            if (!win.google?.picker) {
+                await new Promise<void>((resolve, reject) => {
+                    if (document.getElementById('google-picker-script')) {
+                        const check = setInterval(() => {
+                            if (win.google?.picker) { clearInterval(check); resolve() }
+                        }, 100)
+                        setTimeout(() => { clearInterval(check); reject(new Error('Timeout')) }, 10000)
+                        return
+                    }
+                    const script = document.createElement('script')
+                    script.id = 'google-picker-script'
+                    script.src = 'https://apis.google.com/js/api.js'
+                    script.onload = () => {
+                        win.gapi.load('picker', { callback: () => resolve() })
+                    }
+                    script.onerror = () => reject(new Error('Failed to load Google Picker'))
+                    document.head.appendChild(script)
+                })
+            }
+
+            // 3. Build and show picker
+            const gPicker = win.google.picker
+            const picker = new gPicker.PickerBuilder()
+                .addView(gPicker.ViewId.DOCS_IMAGES_AND_VIDEOS)
+                .setOAuthToken(accessToken)
+                .setAppId(appId)
+                .enableFeature(gPicker.Feature.MULTISELECT_ENABLED)
+                .setMaxItems(10)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .setCallback((data: any) => {
+                    if (data.action === gPicker.Action.PICKED && data.docs) {
+                        for (const doc of data.docs) {
+                            const alreadyAttached = attachedMedia.some((m: { id: string }) => m.id === doc.id)
+                            if (alreadyAttached) continue
+                            setAttachedMedia(prev => [...prev, {
+                                id: doc.id,
+                                url: `https://drive.google.com/uc?id=${doc.id}&export=download`,
+                                thumbnailUrl: doc.thumbnails?.[0]?.url || null,
+                                type: doc.mimeType,
+                                originalName: doc.name,
+                            }])
+                        }
+                        toast.success(`Added ${data.docs.length} file${data.docs.length > 1 ? 's' : ''} from Drive`)
+                    }
+                })
+                .build()
+            picker.setVisible(true)
+        } catch (error) {
+            console.error('Google Picker error:', error)
+            toast.error('Failed to open Google Drive picker')
         }
-        setLoadingDrive(false)
-    }, [])
-
-    const openDrivePicker = useCallback(() => {
-        setShowDrivePicker(true)
-        setDriveFolderStack([])
-        fetchDriveFiles()
-    }, [fetchDriveFiles])
-
-    const navigateDriveFolder = (folder: { id: string; name: string }) => {
-        setDriveFolderStack(prev => [...prev, folder])
-        fetchDriveFiles(folder.id)
-    }
-
-    const navigateDriveBack = () => {
-        const newStack = [...driveFolderStack]
-        newStack.pop()
-        setDriveFolderStack(newStack)
-        const parentId = newStack.length > 0 ? newStack[newStack.length - 1].id : undefined
-        fetchDriveFiles(parentId)
-    }
-
-    const addFromDrive = (file: { id: string; name: string; mimeType: string; thumbnailUrl: string | null; url: string }) => {
-        const alreadyAttached = attachedMedia.some(m => m.url === file.url || m.id === file.id)
-        if (alreadyAttached) {
-            toast.info('File already attached')
-            return
-        }
-        setAttachedMedia(prev => [...prev, {
-            id: file.id,
-            url: file.url,
-            thumbnailUrl: file.thumbnailUrl,
-            type: file.mimeType,
-            originalName: file.name,
-        }])
-        toast.success(`Added: ${file.name}`)
-    }
+        setLoadingDrivePicker(false)
+    }, [attachedMedia])
 
     const addFromLibrary = (media: MediaItem) => {
         if (attachedMedia.some((m) => m.id === media.id)) {
@@ -1214,8 +1228,8 @@ export default function ComposePage() {
                                         <FolderOpen className="h-4 w-4 mr-1" />
                                         Library
                                     </Button>
-                                    <Button variant="outline" size="sm" onClick={openDrivePicker} className="cursor-pointer">
-                                        <HardDrive className="h-4 w-4 mr-1" />
+                                    <Button variant="outline" size="sm" onClick={openGooglePicker} disabled={loadingDrivePicker} className="cursor-pointer">
+                                        {loadingDrivePicker ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <HardDrive className="h-4 w-4 mr-1" />}
                                         Drive
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading || !selectedChannel} className="cursor-pointer">
@@ -1430,149 +1444,6 @@ export default function ComposePage() {
                                     <Button
                                         size="sm"
                                         onClick={() => setShowMediaLibrary(false)}
-                                        className="cursor-pointer"
-                                    >
-                                        <Check className="h-4 w-4 mr-1" />
-                                        Done
-                                    </Button>
-                                </div>
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* Google Drive File Picker Modal */}
-                    {showDrivePicker && (
-                        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDrivePicker(false)}>
-                            <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                                <CardHeader className="pb-3 border-b">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <HardDrive className="h-4 w-4 text-primary" />
-                                            <CardTitle className="text-sm">Google Drive</CardTitle>
-                                        </div>
-                                        <Button variant="ghost" size="sm" onClick={() => setShowDrivePicker(false)} className="cursor-pointer">
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    {/* Breadcrumb navigation */}
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 flex-wrap">
-                                        <button
-                                            onClick={() => { setDriveFolderStack([]); fetchDriveFiles() }}
-                                            className="hover:text-foreground transition-colors cursor-pointer font-medium"
-                                        >
-                                            My Drive
-                                        </button>
-                                        {driveFolderStack.map((folder, i) => (
-                                            <span key={folder.id} className="flex items-center gap-1">
-                                                <ChevronRight className="h-3 w-3" />
-                                                <button
-                                                    onClick={() => {
-                                                        const newStack = driveFolderStack.slice(0, i + 1)
-                                                        setDriveFolderStack(newStack)
-                                                        fetchDriveFiles(folder.id)
-                                                    }}
-                                                    className="hover:text-foreground transition-colors cursor-pointer"
-                                                >
-                                                    {folder.name}
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="flex-1 overflow-y-auto p-4">
-                                    {loadingDrive ? (
-                                        <div className="flex items-center justify-center py-12">
-                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                        </div>
-                                    ) : driveFiles.length === 0 ? (
-                                        <div className="text-center py-12 text-muted-foreground text-sm">
-                                            <HardDrive className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                                            <p>No files found</p>
-                                            <p className="text-xs mt-1">Upload media to your Google Drive first</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {/* Back button */}
-                                            {driveFolderStack.length > 0 && (
-                                                <button
-                                                    onClick={navigateDriveBack}
-                                                    className="flex items-center gap-2 w-full text-left p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer text-sm"
-                                                >
-                                                    <ChevronLeft className="h-4 w-4" />
-                                                    <span className="text-muted-foreground">Back</span>
-                                                </button>
-                                            )}
-                                            {/* Folders first */}
-                                            {driveFiles.filter(f => f.isFolder).map(folder => (
-                                                <button
-                                                    key={folder.id}
-                                                    onClick={() => navigateDriveFolder(folder)}
-                                                    className="flex items-center gap-3 w-full text-left p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                                                >
-                                                    <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                                        <Folder className="h-5 w-5 text-blue-500" />
-                                                    </div>
-                                                    <span className="text-sm font-medium truncate">{folder.name}</span>
-                                                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
-                                                </button>
-                                            ))}
-                                            {/* Files grid */}
-                                            {driveFiles.filter(f => !f.isFolder).length > 0 && (
-                                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-2">
-                                                    {driveFiles.filter(f => !f.isFolder).map(file => {
-                                                        const isAttached = attachedMedia.some(m => m.id === file.id || m.url === file.url)
-                                                        const isVideoFile = file.mimeType.startsWith('video/')
-                                                        return (
-                                                            <div
-                                                                key={file.id}
-                                                                className={`relative group aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer border-2 transition-all ${isAttached ? 'border-primary' : 'border-transparent hover:border-primary/50'}`}
-                                                                onClick={() => !isAttached && addFromDrive(file)}
-                                                            >
-                                                                {file.thumbnailUrl ? (
-                                                                    <img
-                                                                        src={file.thumbnailUrl}
-                                                                        alt={file.name}
-                                                                        className="h-full w-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-full w-full flex items-center justify-center">
-                                                                        {isVideoFile ? (
-                                                                            <Play className="h-6 w-6 text-muted-foreground" />
-                                                                        ) : (
-                                                                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                                {isVideoFile && file.thumbnailUrl && (
-                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                        <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
-                                                                            <Play className="h-3 w-3 text-white ml-0.5" />
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                {isAttached && (
-                                                                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
-                                                                        <Check className="h-5 w-5 text-primary" />
-                                                                    </div>
-                                                                )}
-                                                                <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
-                                                                    {file.name}
-                                                                </span>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </CardContent>
-                                <div className="border-t px-4 py-3 flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">
-                                        {driveFiles.filter(f => !f.isFolder).length} file{driveFiles.filter(f => !f.isFolder).length !== 1 ? 's' : ''}
-                                    </span>
-                                    <Button
-                                        size="sm"
-                                        onClick={() => setShowDrivePicker(false)}
                                         className="cursor-pointer"
                                     >
                                         <Check className="h-4 w-4 mr-1" />
