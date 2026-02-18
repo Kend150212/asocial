@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt, encrypt } from '@/lib/encryption'
 
-// GET /api/oauth/canva/callback — Handle Canva OAuth callback
+// GET /api/oauth/canva/callback — Handle Canva OAuth callback with PKCE
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Missing+code+or+state', req.nextUrl.origin))
     }
 
-    let state: { channelId: string; userId: string }
+    let state: { channelId: string; userId: string; codeVerifier: string }
     try {
         state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
     } catch {
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/canva/callback`
 
-    // Exchange authorization code for access token (Basic Auth)
+    // Exchange authorization code for access token (Basic Auth + PKCE code_verifier)
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 
     const tokenRes = await fetch('https://api.canva.com/rest/v1/oauth/token', {
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
             grant_type: 'authorization_code',
             code,
             redirect_uri: redirectUri,
+            code_verifier: state.codeVerifier,
         }),
     })
 
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
         console.error('Failed to fetch Canva profile:', e)
     }
 
-    // Store Canva connection in the integration's config JSON
+    // Store Canva connection in the integration's config JSON (per-user)
     if (integration) {
         const existingConfig = (integration.config || {}) as Record<string, string | null>
         const updatedConfig = {

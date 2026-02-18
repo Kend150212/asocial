@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import crypto from 'crypto'
 
-// GET /api/oauth/canva — Initiate Canva OAuth flow
+// Generate PKCE code verifier and challenge
+function generatePKCE() {
+    const verifier = crypto.randomBytes(32).toString('base64url')
+    const challenge = crypto
+        .createHash('sha256')
+        .update(verifier)
+        .digest('base64url')
+    return { verifier, challenge }
+}
+
+// GET /api/oauth/canva — Initiate Canva OAuth flow with PKCE
 export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,7 +29,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Canva OAuth is not configured. Please add Canva Client ID in API Hub.' }, { status: 400 })
     }
 
-    // Get client secret for PKCE
+    // Verify client secret exists
     let clientSecret = process.env.CANVA_CLIENT_SECRET || ''
     if (!clientSecret && integration?.apiKeyEncrypted) {
         clientSecret = decrypt(integration.apiKeyEncrypted)
@@ -30,18 +41,25 @@ export async function GET(req: NextRequest) {
     const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/canva/callback`
 
+    // Generate PKCE pair
+    const { verifier, challenge } = generatePKCE()
+
+    // Include code_verifier in state so callback can retrieve it
     const state = Buffer.from(JSON.stringify({
         channelId: channelId || '',
         userId: session.user.id,
+        codeVerifier: verifier,
     })).toString('base64url')
 
-    // Canva uses standard OAuth 2.0 authorization code flow
+    // Canva OAuth 2.0 with PKCE
     const authUrl = new URL('https://www.canva.com/api/oauth/authorize')
     authUrl.searchParams.set('client_id', clientId)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', 'design:content:read design:content:write design:meta:read asset:read asset:write profile:read')
+    authUrl.searchParams.set('scope', 'profile:read design:content:read design:content:write design:meta:read asset:read asset:write brandtemplate:meta:read brandtemplate:content:read')
     authUrl.searchParams.set('state', state)
+    authUrl.searchParams.set('code_challenge_method', 'S256')
+    authUrl.searchParams.set('code_challenge', challenge)
 
     return NextResponse.redirect(authUrl.toString())
 }
