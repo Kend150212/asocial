@@ -90,16 +90,18 @@ function isVideo(media: MediaItem): boolean {
 function MediaElement({ media, className }: { media: MediaItem; className?: string }) {
     if (isVideo(media)) {
         return (
-            <video
-                src={media.url}
-                poster={media.thumbnailUrl || undefined}
-                className={className}
-                muted
-                playsInline
-                loop
-                onMouseEnter={(e) => (e.target as HTMLVideoElement).play().catch(() => { })}
-                onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
-            />
+            <div className={`relative ${className || ''}`}>
+                <img
+                    src={media.thumbnailUrl || media.url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="h-8 w-8 rounded-full bg-black/50 flex items-center justify-center">
+                        <Play className="h-4 w-4 text-white ml-0.5" />
+                    </div>
+                </div>
+            </div>
         )
     }
     return <img src={media.thumbnailUrl || media.url} alt="" className={className} />
@@ -1111,14 +1113,10 @@ export default function ComposePage() {
                                         >
                                             {isVideo(media) ? (
                                                 <div className="relative h-full w-full bg-muted">
-                                                    <video
-                                                        src={media.url}
-                                                        poster={media.thumbnailUrl || undefined}
+                                                    <img
+                                                        src={media.thumbnailUrl || media.url}
+                                                        alt={media.originalName || ''}
                                                         className="h-full w-full object-cover"
-                                                        muted
-                                                        playsInline
-                                                        preload="metadata"
-                                                        onLoadedData={(e) => { (e.target as HTMLVideoElement).currentTime = 0.5 }}
                                                     />
                                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                                         <div className="h-8 w-8 rounded-full bg-black/50 flex items-center justify-center">
@@ -1206,14 +1204,10 @@ export default function ComposePage() {
                                                     >
                                                         {isVideo(media) ? (
                                                             <div className="relative h-full w-full bg-muted">
-                                                                <video
-                                                                    src={media.url}
-                                                                    poster={media.thumbnailUrl || undefined}
+                                                                <img
+                                                                    src={media.thumbnailUrl || media.url}
+                                                                    alt={media.originalName || ''}
                                                                     className="h-full w-full object-cover"
-                                                                    muted
-                                                                    playsInline
-                                                                    preload="metadata"
-                                                                    onLoadedData={(e) => { (e.target as HTMLVideoElement).currentTime = 0.5 }}
                                                                 />
                                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                                                     <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
