@@ -703,6 +703,12 @@ export async function POST(
         }
     })
 
+    // Resolve per-platform content: use platform-specific override if available, else master content
+    const contentPerPlatform = ((post?.contentPerPlatform) || {}) as Record<string, string>
+    function getContent(platform: string): string {
+        return contentPerPlatform[platform]?.trim() || post?.content || ''
+    }
+
     for (const ps of pendingStatuses) {
         try {
             // Find the platform connection
@@ -740,7 +746,7 @@ export async function POST(
                     publishResult = await publishToFacebook(
                         platformConn.accessToken,
                         platformConn.accountId,
-                        post.content || '',
+                        getContent('facebook'),
                         mediaItems,
                         postType,
                         psConfig,
@@ -751,7 +757,7 @@ export async function POST(
                     publishResult = await publishToInstagram(
                         platformConn.accessToken,
                         platformConn.accountId,
-                        post.content || '',
+                        getContent('instagram'),
                         mediaItems,
                         psConfig,
                     )
@@ -762,7 +768,7 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.refreshToken || null,
                         platformConn.accountId,
-                        post.content || '',
+                        getContent('youtube'),
                         mediaItems,
                         platformConn.id,
                         psConfig,
@@ -772,7 +778,7 @@ export async function POST(
                 case 'pinterest':
                     publishResult = await publishToPinterest(
                         platformConn.accessToken,
-                        post.content || '',
+                        getContent('pinterest'),
                         mediaItems,
                         psConfig,
                     )

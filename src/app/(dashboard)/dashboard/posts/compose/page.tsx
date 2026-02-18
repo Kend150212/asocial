@@ -518,6 +518,10 @@ export default function ComposePage() {
     const [channels, setChannels] = useState<Channel[]>([])
     const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null)
     const [content, setContent] = useState('')
+    // Per-platform content customization
+    const [contentPerPlatform, setContentPerPlatform] = useState<Record<string, string>>({})
+    const [customizingContent, setCustomizingContent] = useState(false)
+    const [activeContentTab, setActiveContentTab] = useState<string | null>(null)
     // Use platform ID as unique key (not platform:accountId which can collide)
     const [selectedPlatformIds, setSelectedPlatformIds] = useState<Set<string>>(new Set())
     const [attachedMedia, setAttachedMedia] = useState<MediaItem[]>([])
@@ -1037,6 +1041,43 @@ export default function ComposePage() {
         }
     }
 
+    // AI Customize content for each platform
+    const handleCustomizeContent = async () => {
+        if (!selectedChannel || !content.trim()) {
+            toast.error('Write your post content first')
+            return
+        }
+        const platforms = activePlatforms
+            .filter((p) => selectedPlatformIds.has(p.id))
+            .map((p) => p.platform)
+        const uniquePlatforms = [...new Set(platforms)]
+        if (uniquePlatforms.length === 0) {
+            toast.error('Select at least one platform')
+            return
+        }
+        setCustomizingContent(true)
+        try {
+            const res = await fetch('/api/admin/posts/customize-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId: selectedChannel.id, content, platforms: uniquePlatforms }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Failed to customize content')
+                return
+            }
+            setContentPerPlatform(data.contentPerPlatform || {})
+            const firstPlatform = uniquePlatforms.find(p => data.contentPerPlatform?.[p])
+            if (firstPlatform) setActiveContentTab(firstPlatform)
+            toast.success(`✨ Content customized for ${Object.keys(data.contentPerPlatform || {}).length} platform(s)`)
+        } catch {
+            toast.error('AI content customization failed')
+        } finally {
+            setCustomizingContent(false)
+        }
+    }
+
     // Build platforms payload from selected IDs
     const buildPlatformsPayload = () => {
         return activePlatforms
@@ -1101,6 +1142,7 @@ export default function ComposePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     channelId: selectedChannel.id, content,
+                    contentPerPlatform: Object.keys(contentPerPlatform).length > 0 ? contentPerPlatform : undefined,
                     status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
                     scheduledAt,
                     mediaIds: attachedMedia.map((m) => m.id),
@@ -1131,7 +1173,9 @@ export default function ComposePage() {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    channelId: selectedChannel.id, content, status: 'PUBLISHING',
+                    channelId: selectedChannel.id, content,
+                    contentPerPlatform: Object.keys(contentPerPlatform).length > 0 ? contentPerPlatform : undefined,
+                    status: 'PUBLISHING',
                     mediaIds: attachedMedia.map((m) => m.id),
                     platforms: buildPlatformsPayload(),
                 }),
@@ -1601,6 +1645,109 @@ export default function ComposePage() {
                             />
                         </CardContent>
                     </Card >
+
+                    {/* Per-Platform Content Customization */}
+                    {selectedPlatformIds.size > 0 && (
+                        <Card>
+                            <CardHeader className="py-1.5 px-2.5">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-xs flex items-center gap-1.5">
+                                        <Sparkles className="h-3.5 w-3.5" /> Platform Content
+                                    </CardTitle>
+                                    <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-medium hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 cursor-pointer"
+                                        disabled={customizingContent || !content.trim()}
+                                        onClick={handleCustomizeContent}
+                                    >
+                                        {customizingContent ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                        {customizingContent ? 'Customizing...' : 'AI Customize'}
+                                    </button>
+                                </div>
+                                {/* Platform tabs */}
+                                {(() => {
+                                    const uniquePlatforms = [...new Set(
+                                        activePlatforms
+                                            .filter((p) => selectedPlatformIds.has(p.id))
+                                            .map((p) => p.platform)
+                                    )]
+                                    const platformIcons: Record<string, string> = {
+                                        facebook: '📘', instagram: '📸', tiktok: '🎵',
+                                        x: '𝕏', linkedin: '💼', pinterest: '📌', youtube: '▶️',
+                                    }
+                                    const platformLabels: Record<string, string> = {
+                                        facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok',
+                                        x: 'X', linkedin: 'LinkedIn', pinterest: 'Pinterest', youtube: 'YouTube',
+                                    }
+                                    if (Object.keys(contentPerPlatform).length === 0) {
+                                        return (
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                Click &quot;AI Customize&quot; to generate optimized content for each platform, or all platforms will use the master content above.
+                                            </p>
+                                        )
+                                    }
+                                    return (
+                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                            {uniquePlatforms.map((platform) => (
+                                                <button
+                                                    key={platform}
+                                                    type="button"
+                                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium transition-all cursor-pointer ${activeContentTab === platform
+                                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                                            : contentPerPlatform[platform]
+                                                                ? 'bg-muted text-foreground hover:bg-muted/80'
+                                                                : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                                                        }`}
+                                                    onClick={() => setActiveContentTab(activeContentTab === platform ? null : platform)}
+                                                >
+                                                    <span>{platformIcons[platform] || '📱'}</span>
+                                                    {platformLabels[platform] || platform}
+                                                    {contentPerPlatform[platform] && <Check className="h-2.5 w-2.5" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )
+                                })()}
+                            </CardHeader>
+                            {activeContentTab && contentPerPlatform[activeContentTab] && (
+                                <CardContent>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] text-muted-foreground font-medium">
+                                                {activeContentTab.charAt(0).toUpperCase() + activeContentTab.slice(1)} version
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {contentPerPlatform[activeContentTab]?.length || 0}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                                                    onClick={() => {
+                                                        const updated = { ...contentPerPlatform }
+                                                        delete updated[activeContentTab!]
+                                                        setContentPerPlatform(updated)
+                                                        if (Object.keys(updated).length === 0) setActiveContentTab(null)
+                                                    }}
+                                                >
+                                                    ↺ Reset to Master
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <textarea
+                                            value={contentPerPlatform[activeContentTab] || ''}
+                                            onChange={(e) => setContentPerPlatform({
+                                                ...contentPerPlatform,
+                                                [activeContentTab]: e.target.value,
+                                            })}
+                                            className="w-full min-h-[100px] resize-y rounded-lg border bg-transparent px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+                                            rows={4}
+                                        />
+                                    </div>
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
 
                     {/* Media */}
                     <Card
