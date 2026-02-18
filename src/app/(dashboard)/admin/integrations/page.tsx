@@ -1260,9 +1260,53 @@ function IntegrationCard({
                                     linkedin: 'Go to linkedin.com/developers → Create App. Under Products tab, request "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect". Add your redirect URI under Auth settings.',
                                     x: 'Go to developer.x.com → Create Project & App. Set App permissions to "Read and Write". Enable OAuth 2.0, add your redirect URI. Note your Client ID and Client Secret from the "Keys and tokens" tab.',
                                     pinterest: 'Go to developers.pinterest.com → Create App. Request access to "pins:read", "pins:write", "boards:read", "boards:write" scopes. Add your redirect URI under App settings.',
+                                    canva: 'Configure OAuth credentials for this platform.',
                                 }[integration.provider] || 'Configure OAuth credentials for this platform.'}
                             </p>
                         </div>
+
+                        {/* Canva Connect / Disconnect */}
+                        {integration.provider === 'canva' && (() => {
+                            const cfg = (integration.config || {}) as Record<string, string | null>
+                            const isCanvaConnected = !!cfg.canvaAccessToken
+                            const canvaUser = cfg.canvaUserName || 'Canva User'
+                            return (
+                                <div className="pt-2 border-t border-dashed">
+                                    {isCanvaConnected ? (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="h-2 w-2 rounded-full bg-green-500" />
+                                                <span className="text-[11px] text-green-400">Connected as {canvaUser}</span>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 text-[10px] px-2 text-red-400 border-red-400/30 hover:bg-red-500/10 cursor-pointer"
+                                                onClick={async () => {
+                                                    if (!confirm('Disconnect Canva? All users will lose access to Canva features.')) return
+                                                    try {
+                                                        await fetch(`/api/admin/integrations/${integration.id}/canva-disconnect`, { method: 'POST' })
+                                                        window.location.reload()
+                                                    } catch { /* ignore */ }
+                                                }}
+                                            >
+                                                Disconnect
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full h-7 text-[11px] bg-violet-500/10 border-violet-500/30 hover:bg-violet-500/20 text-violet-400 cursor-pointer"
+                                            onClick={() => { window.location.href = '/api/oauth/canva' }}
+                                            disabled={!oauthConfig?.clientId}
+                                        >
+                                            🎨 Connect Canva
+                                        </Button>
+                                    )}
+                                </div>
+                            )
+                        })()}
                     </div>
                 ) : (
                     /* Standard API Key Input */
