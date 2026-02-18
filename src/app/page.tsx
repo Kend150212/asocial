@@ -148,9 +148,9 @@ export default function LandingPage() {
 
           {/* Subheadline */}
           <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Schedule posts, generate AI-powered content, and grow your audience
-            across Facebook, Instagram, YouTube, TikTok, and more — all from a
-            single dashboard.
+            ASocial is an AI-powered social media management platform that lets you
+            create, schedule, and publish content — including uploading videos to YouTube,
+            posting to Facebook, Instagram, TikTok, and more — all from a single dashboard.
           </p>
 
           {/* CTA buttons */}
