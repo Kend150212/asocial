@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendPublishWebhooks } from '@/lib/webhook-notify'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -839,6 +840,30 @@ export async function POST(
         for (const task of fbFirstCommentTasks) {
             await postFirstComment(task.accessToken, task.postId, task.message)
         }
+    }
+
+    // ── Post-publish: Webhook Notifications ────────────────────────────
+    try {
+        await sendPublishWebhooks(
+            {
+                webhookDiscord: post.channel.webhookDiscord as Record<string, string> | null,
+                webhookTelegram: post.channel.webhookTelegram as Record<string, string> | null,
+                webhookSlack: post.channel.webhookSlack as Record<string, string> | null,
+                webhookCustom: post.channel.webhookCustom as Record<string, string> | null,
+                webhookEvents: post.channel.webhookEvents as string[] | null,
+            },
+            {
+                postId: id,
+                content: post.content || '',
+                publishedBy: session.user.name || session.user.email || 'Unknown',
+                publishedAt: new Date(),
+                channelName: post.channel.name,
+                results,
+                mediaCount: post.media.length,
+            },
+        )
+    } catch (err) {
+        console.warn('[Webhook] Notification error:', err)
     }
 
     return NextResponse.json({
