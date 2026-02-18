@@ -39,8 +39,9 @@ import {
     Menu,
     Zap,
     Key,
+    X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface NavItem {
     titleKey: string
@@ -67,8 +68,14 @@ const adminNav: NavItem[] = [
 export function Sidebar({ session }: { session: Session }) {
     const pathname = usePathname()
     const [collapsed, setCollapsed] = useState(false)
+    const [mobileOpen, setMobileOpen] = useState(false)
     const isAdmin = session?.user?.role === 'ADMIN'
     const t = useTranslation()
+
+    // Close mobile sidebar on route change
+    useEffect(() => {
+        setMobileOpen(false)
+    }, [pathname])
 
     const initials = session?.user?.name
         ?.split(' ')
@@ -77,29 +84,25 @@ export function Sidebar({ session }: { session: Session }) {
         .toUpperCase()
         .slice(0, 2) || '?'
 
-    return (
-        <aside
-            className={cn(
-                'flex h-screen flex-col border-r bg-card transition-all duration-300',
-                collapsed ? 'w-[68px]' : 'w-[260px]'
-            )}
-        >
+    const sidebarContent = (isMobile: boolean) => (
+        <>
             {/* Header */}
             <div className="flex h-16 items-center justify-between px-4">
-                {!collapsed && (
+                {(!collapsed || isMobile) && (
                     <Link href="/dashboard" className="flex items-center gap-2">
                         <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
                         <span className="text-lg font-bold tracking-tight">ASocial</span>
                     </Link>
                 )}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setCollapsed(!collapsed)}
-                >
-                    {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                </Button>
+                {isMobile ? (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(false)}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                ) : (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(!collapsed)}>
+                        {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    </Button>
+                )}
             </div>
 
             <Separator />
@@ -117,12 +120,12 @@ export function Sidebar({ session }: { session: Session }) {
                                 pathname === item.href || pathname?.startsWith(item.href + '/')
                                     ? 'bg-accent text-accent-foreground'
                                     : 'text-muted-foreground',
-                                collapsed && 'justify-center px-2'
+                                !isMobile && collapsed && 'justify-center px-2'
                             )}
                         >
                             <item.icon className="h-4 w-4 shrink-0" />
-                            {!collapsed && <span>{t(item.titleKey)}</span>}
-                            {!collapsed && item.badge && (
+                            {(isMobile || !collapsed) && <span>{t(item.titleKey)}</span>}
+                            {(isMobile || !collapsed) && item.badge && (
                                 <Badge variant="secondary" className="ml-auto text-xs">
                                     {item.badge}
                                 </Badge>
@@ -135,7 +138,7 @@ export function Sidebar({ session }: { session: Session }) {
                     <>
                         <Separator className="my-4" />
                         <div className="px-3">
-                            {!collapsed && (
+                            {(isMobile || !collapsed) && (
                                 <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                     {t('nav.administration')}
                                 </p>
@@ -151,11 +154,11 @@ export function Sidebar({ session }: { session: Session }) {
                                             pathname === item.href || pathname?.startsWith(item.href + '/')
                                                 ? 'bg-accent text-accent-foreground'
                                                 : 'text-muted-foreground',
-                                            collapsed && 'justify-center px-2'
+                                            !isMobile && collapsed && 'justify-center px-2'
                                         )}
                                     >
                                         <item.icon className="h-4 w-4 shrink-0" />
-                                        {!collapsed && <span>{t(item.titleKey)}</span>}
+                                        {(isMobile || !collapsed) && <span>{t(item.titleKey)}</span>}
                                     </Link>
                                 ))}
                             </nav>
@@ -167,8 +170,8 @@ export function Sidebar({ session }: { session: Session }) {
             <Separator />
 
             {/* Footer */}
-            <div className={cn('p-3', collapsed && 'flex flex-col items-center gap-2')}>
-                <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
+            <div className={cn('p-3', !isMobile && collapsed && 'flex flex-col items-center gap-2')}>
+                <div className={cn('flex items-center gap-2', !isMobile && collapsed && 'flex-col')}>
                     <ThemeToggle />
                     <LanguageSwitcher />
                     <Button variant="ghost" size="icon" className="h-9 w-9 relative">
@@ -184,7 +187,7 @@ export function Sidebar({ session }: { session: Session }) {
                         <button
                             className={cn(
                                 'flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-accent',
-                                collapsed && 'justify-center p-1'
+                                !isMobile && collapsed && 'justify-center p-1'
                             )}
                         >
                             <Avatar className="h-8 w-8">
@@ -192,7 +195,7 @@ export function Sidebar({ session }: { session: Session }) {
                                     {initials}
                                 </AvatarFallback>
                             </Avatar>
-                            {!collapsed && (
+                            {(isMobile || !collapsed) && (
                                 <div className="flex-1 truncate">
                                     <p className="text-sm font-medium truncate">{session?.user?.name}</p>
                                     <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
@@ -216,6 +219,44 @@ export function Sidebar({ session }: { session: Session }) {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-        </aside>
+        </>
+    )
+
+    return (
+        <>
+            {/* Mobile hamburger trigger — fixed top-left */}
+            <button
+                className="md:hidden fixed top-3 left-3 z-50 h-10 w-10 rounded-lg bg-card border border-border flex items-center justify-center shadow-sm"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open menu"
+            >
+                <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Mobile overlay sidebar */}
+            {mobileOpen && (
+                <div className="md:hidden fixed inset-0 z-50 flex">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        onClick={() => setMobileOpen(false)}
+                    />
+                    {/* Sidebar panel */}
+                    <aside className="relative z-10 flex h-full w-[280px] flex-col bg-card border-r animate-in slide-in-from-left duration-200">
+                        {sidebarContent(true)}
+                    </aside>
+                </div>
+            )}
+
+            {/* Desktop sidebar */}
+            <aside
+                className={cn(
+                    'hidden md:flex h-screen flex-col border-r bg-card transition-all duration-300',
+                    collapsed ? 'w-[68px]' : 'w-[260px]'
+                )}
+            >
+                {sidebarContent(false)}
+            </aside>
+        </>
     )
 }

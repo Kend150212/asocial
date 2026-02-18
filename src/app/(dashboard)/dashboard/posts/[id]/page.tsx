@@ -388,13 +388,13 @@ export default function PostEditPage({
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="cursor-pointer">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Edit Post</h1>
+                        <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Edit Post</h1>
                         <div className="flex items-center gap-2 mt-1">
                             <Badge variant={sb.variant}>{sb.label}</Badge>
                             <span className="text-xs text-muted-foreground">{post.channel.displayName}</span>
@@ -405,12 +405,12 @@ export default function PostEditPage({
                     {isEditable && (
                         <>
                             <Button variant="outline" onClick={handleSave} disabled={saving} className="cursor-pointer">
-                                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                                Save
+                                {saving ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Save className="h-4 w-4 sm:mr-2" />}
+                                <span className="hidden sm:inline">Save</span>
                             </Button>
                             <Button onClick={handlePublish} disabled={publishing || selectedPlatforms.size === 0} className="cursor-pointer">
-                                {publishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                                Publish
+                                {publishing ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Send className="h-4 w-4 sm:mr-2" />}
+                                <span className="hidden sm:inline">Publish</span>
                             </Button>
                         </>
                     )}
@@ -604,7 +604,7 @@ export default function PostEditPage({
                         </CardHeader>
                         <CardContent>
                             {attachedMedia.length > 0 ? (
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {attachedMedia.map((media) => (
                                         <div key={media.id} className="relative group rounded-lg overflow-hidden bg-muted aspect-square">
                                             <img src={media.thumbnailUrl || media.url} alt="" className="h-full w-full object-cover" />

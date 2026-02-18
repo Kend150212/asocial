@@ -251,15 +251,15 @@ export default function AdminChannelsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Megaphone className="h-6 w-6" />
+                    <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                        <Megaphone className="h-5 w-5 sm:h-6 sm:w-6" />
                         {t('channels.title')}
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">{t('channels.description')}</p>
                 </div>
-                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                <Button onClick={() => setShowCreateDialog(true)} className="gap-2 w-full sm:w-auto">
                     <Plus className="h-4 w-4" />
                     {t('channels.addChannel')}
                 </Button>
@@ -330,7 +330,7 @@ export default function AdminChannelsPage() {
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -408,8 +408,8 @@ export default function AdminChannelsPage() {
                         {[1, 2, 3].map((step) => (
                             <div key={step} className="flex items-center gap-2 flex-1">
                                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${step < wizardStep ? 'bg-primary text-primary-foreground' :
-                                        step === wizardStep ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' :
-                                            'bg-muted text-muted-foreground'
+                                    step === wizardStep ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' :
+                                        'bg-muted text-muted-foreground'
                                     }`}>
                                     {step < wizardStep ? <Check className="h-4 w-4" /> : step}
                                 </div>
@@ -498,8 +498,8 @@ export default function AdminChannelsPage() {
                                             type="button"
                                             onClick={() => setNewAiProvider(newAiProvider === p.provider ? '' : p.provider)}
                                             className={`p-3 rounded-lg border text-left text-sm transition-all cursor-pointer ${newAiProvider === p.provider
-                                                    ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                                : 'border-border hover:border-primary/50 hover:bg-muted/50'
                                                 }`}
                                         >
                                             <p className="font-medium">{p.name}</p>
@@ -526,8 +526,8 @@ export default function AdminChannelsPage() {
                                         type="button"
                                         onClick={() => setNewVibe(newVibe === vibe.id ? '' : vibe.id)}
                                         className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${newVibe === vibe.id
-                                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                                            ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
                                             }`}
                                     >
                                         <p className="text-sm font-medium">{vibe.label}</p>

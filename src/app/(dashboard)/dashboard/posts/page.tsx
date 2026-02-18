@@ -208,10 +208,10 @@ export default function PostsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        <PenSquare className="h-6 w-6" />
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+                        <PenSquare className="h-5 w-5 sm:h-6 sm:w-6" />
                         {t('nav.posts') || 'Posts'}
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">
@@ -220,7 +220,7 @@ export default function PostsPage() {
                 </div>
                 <Button
                     onClick={() => router.push('/dashboard/posts/compose')}
-                    className="cursor-pointer"
+                    className="cursor-pointer w-full sm:w-auto"
                 >
                     <Plus className="h-4 w-4 mr-2" />
                     New Post

@@ -445,15 +445,15 @@ export default function UsersPage() {
     return (
         <div className="flex flex-col gap-6 p-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        <Users className="h-6 w-6" />
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+                        <Users className="h-5 w-5 sm:h-6 sm:w-6" />
                         {t('users.title')}
                     </h1>
                     <p className="text-muted-foreground mt-1">{t('users.description')}</p>
                 </div>
-                <Button onClick={handleOpenAdd} className="gap-2">
+                <Button onClick={handleOpenAdd} className="gap-2 w-full sm:w-auto">
                     <UserPlus className="h-4 w-4" />
                     {t('users.addUser')}
                 </Button>
@@ -462,7 +462,7 @@ export default function UsersPage() {
             {/* Filters */}
             <Card>
                 <CardContent className="pt-6">
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
@@ -473,7 +473,7 @@ export default function UsersPage() {
                             />
                         </div>
                         <Select value={roleFilter} onValueChange={setRoleFilter}>
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -487,8 +487,8 @@ export default function UsersPage() {
                 </CardContent>
             </Card>
 
-            {/* Users Table */}
-            <Card>
+            {/* Users — Desktop Table */}
+            <Card className="hidden md:block">
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
@@ -581,6 +581,70 @@ export default function UsersPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Users — Mobile Cards */}
+            <div className="md:hidden space-y-3">
+                {loading ? (
+                    <Card className="p-6 text-center text-muted-foreground">{t('common.loading')}</Card>
+                ) : filteredUsers.length === 0 ? (
+                    <Card className="p-6 text-center text-muted-foreground">{t('users.noUsers')}</Card>
+                ) : (
+                    filteredUsers.map((user) => (
+                        <Card key={user.id} className="cursor-pointer hover:border-primary/30 transition-colors" onClick={() => handleOpenEdit(user)}>
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <Avatar className="h-10 w-10 shrink-0">
+                                            <AvatarFallback className="bg-primary/10 text-xs font-medium">
+                                                {getInitials(user.name)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0">
+                                            <p className="font-medium truncate">{user.name || '—'}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleOpenEdit(user) }}>
+                                                <Pencil className="mr-2 h-4 w-4" />
+                                                {t('users.editUser')}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                className="text-destructive"
+                                                onClick={(e) => { e.stopPropagation(); setDeletingUser(user) }}
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                {t('users.deleteUser')}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <div className="flex items-center gap-2 mt-3">
+                                    <Badge variant="outline" className={roleBadgeVariants[user.role]}>
+                                        {t(`users.roles.${user.role}`)}
+                                    </Badge>
+                                    <Badge variant={user.isActive ? 'default' : 'secondary'} className={
+                                        user.isActive
+                                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                            : 'bg-zinc-500/10 text-zinc-400'
+                                    }>
+                                        {user.isActive ? t('users.active') : t('users.inactive')}
+                                    </Badge>
+                                    <Badge variant="outline" className="font-mono ml-auto">
+                                        {user._count.channelMembers} ch
+                                    </Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
 
             {/* ─── Add User Dialog ──────────────────── */}
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -780,7 +844,7 @@ export default function UsersPage() {
 
                                                         {/* Permission grid */}
                                                         {assignment.assigned && (
-                                                            <div className="grid grid-cols-3 gap-x-4 gap-y-2 mt-2 pl-7">
+                                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-2 pl-7">
                                                                 {PERMISSION_KEYS.map((perm) => (
                                                                     <label
                                                                         key={perm}

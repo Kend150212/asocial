@@ -864,21 +864,21 @@ export default function ComposePage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="cursor-pointer">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <h1 className="text-2xl font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
+                    <h1 className="text-lg sm:text-2xl font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !content.trim()} className="cursor-pointer">
-                        {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                        {scheduleDate ? 'Schedule' : 'Save Draft'}
+                        {saving ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Save className="h-4 w-4 sm:mr-2" />}
+                        <span className="hidden sm:inline">{scheduleDate ? 'Schedule' : 'Save Draft'}</span>
                     </Button>
                     <Button onClick={handlePublishNow} disabled={publishing || !content.trim() || selectedPlatformIds.size === 0} className="cursor-pointer">
-                        {publishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                        Publish Now
+                        {publishing ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Send className="h-4 w-4 sm:mr-2" />}
+                        <span className="hidden sm:inline">Publish Now</span>
                     </Button>
                 </div>
             </div>
@@ -1191,7 +1191,7 @@ export default function ComposePage() {
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {attachedMedia.length > 0 && (
-                                <div className={`grid gap-2 ${mediaRatio === '9:16' ? 'grid-cols-4' : 'grid-cols-3'
+                                <div className={`grid gap-2 ${mediaRatio === '9:16' ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'
                                     }`}>
                                     {attachedMedia.map((media) => (
                                         <div

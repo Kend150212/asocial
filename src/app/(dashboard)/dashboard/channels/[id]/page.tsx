@@ -927,13 +927,13 @@ export default function ChannelDetailPage({
     return (
         <div className="space-y-6 max-w-4xl">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/channels')}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h1 className="text-xl font-bold flex items-center gap-2">
+                        <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2">
                             <Megaphone className="h-5 w-5" />
                             {channel.displayName}
                         </h1>
@@ -950,7 +950,7 @@ export default function ChannelDetailPage({
                     {autoSaveStatus === 'saved' && (
                         <span className="text-xs text-green-500">Auto-saved ✓</span>
                     )}
-                    <Button onClick={handleSave} disabled={saving} className="gap-2">
+                    <Button onClick={handleSave} disabled={saving} className="gap-2 w-full sm:w-auto">
                         <Save className="h-4 w-4" />
                         {saving ? t('common.saving') : t('common.save')}
                     </Button>
@@ -959,7 +959,7 @@ export default function ChannelDetailPage({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="grid grid-cols-8 w-full">
+                <TabsList className="flex w-full overflow-x-auto">
                     <TabsTrigger value="general" className="gap-1.5 text-xs">
                         <Settings className="h-3.5 w-3.5" />
                         {t('channels.tabs.general')}
