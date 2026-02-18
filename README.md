@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+
+Understand this error
+/admin/settings?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/admin/automation?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/admin/activity?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/dashboard/reports?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/dashboard/email?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/dashboard/media?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+/dashboard/calendar?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()

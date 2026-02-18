@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
     ArrowLeft,
     Send,
@@ -451,6 +451,8 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
 
 export default function ComposePage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const editPostId = searchParams.get('edit')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const savedRef = useRef(false) // track if post has been saved/published
 
@@ -490,14 +492,56 @@ export default function ComposePage() {
                     platforms: (ch.platforms || []).filter((p) => p.isActive),
                 }))
                 setChannels(filtered)
-                const first = filtered.find((ch) => ch.platforms.length > 0)
-                if (first) setSelectedChannel(first)
+                // If editing, don't auto-select channel — wait for post load
+                if (!editPostId) {
+                    const first = filtered.find((ch) => ch.platforms.length > 0)
+                    if (first) setSelectedChannel(first)
+                }
             })
             .catch(() => toast.error('Failed to load channels'))
-    }, [])
+    }, [editPostId])
 
-    // When channel changes, auto-select all active platforms (by unique ID)
+    // Load existing post when in edit mode
     useEffect(() => {
+        if (!editPostId || channels.length === 0) return
+        fetch(`/api/admin/posts/${editPostId}`)
+            .then((r) => r.json())
+            .then((post) => {
+                setContent(post.content || '')
+                setAttachedMedia((post.media || []).map((m: { mediaItem: MediaItem }) => m.mediaItem))
+                // Find and select the channel
+                const ch = channels.find((c) => c.id === post.channel.id)
+                if (ch) setSelectedChannel(ch)
+                // Restore schedule
+                if (post.scheduledAt) {
+                    const d = new Date(post.scheduledAt)
+                    setScheduleDate(d.toISOString().split('T')[0])
+                    setScheduleTime(d.toTimeString().slice(0, 5))
+                }
+                // Restore selected platforms from platformStatuses
+                if (post.platformStatuses && ch) {
+                    const selectedIds = new Set<string>()
+                    const fbTypes: Record<string, 'feed' | 'story'> = {}
+                    for (const ps of post.platformStatuses) {
+                        const match = ch.platforms.find(
+                            (p) => p.platform === ps.platform && p.accountId === ps.accountId
+                        )
+                        if (match) {
+                            selectedIds.add(match.id)
+                            if (match.platform === 'facebook') fbTypes[match.id] = 'feed'
+                        }
+                    }
+                    setSelectedPlatformIds(selectedIds)
+                    setFbPostTypes(fbTypes)
+                }
+                savedRef.current = true // prevent auto-save of loaded data
+            })
+            .catch(() => toast.error('Failed to load post'))
+    }, [editPostId, channels])
+
+    // When channel changes (new post only), auto-select all active platforms
+    useEffect(() => {
+        if (editPostId) return // skip for edit mode — platforms restored from post
         if (selectedChannel?.platforms) {
             setSelectedPlatformIds(new Set(selectedChannel.platforms.map((p) => p.id)))
             // Default FB pages to "feed"
@@ -507,7 +551,7 @@ export default function ComposePage() {
             })
             setFbPostTypes(fbTypes)
         }
-    }, [selectedChannel])
+    }, [selectedChannel, editPostId])
 
     // ── Auto-save draft on page leave ──
     useEffect(() => {
@@ -696,7 +740,7 @@ export default function ComposePage() {
             }))
     }
 
-    // Save draft
+    // Save draft (or update existing)
     const handleSaveDraft = async () => {
         if (!selectedChannel || !content.trim()) {
             toast.error('Select a channel and add content')
@@ -707,8 +751,11 @@ export default function ComposePage() {
             let scheduledAt: string | null = null
             if (scheduleDate && scheduleTime) scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
 
-            const res = await fetch('/api/admin/posts', {
-                method: 'POST',
+            const url = editPostId ? `/api/admin/posts/${editPostId}` : '/api/admin/posts'
+            const method = editPostId ? 'PUT' : 'POST'
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     channelId: selectedChannel.id, content,
@@ -798,7 +845,7 @@ export default function ComposePage() {
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="cursor-pointer">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <h1 className="text-2xl font-bold tracking-tight">Compose Post</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !content.trim()} className="cursor-pointer">

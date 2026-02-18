@@ -182,6 +182,13 @@ export default function PostEditPage({
         fetchPost()
     }, [fetchPost])
 
+    // Redirect draft/scheduled posts to compose page for full editing experience
+    useEffect(() => {
+        if (post && ['DRAFT', 'SCHEDULED'].includes(post.status)) {
+            router.replace(`/dashboard/posts/compose?edit=${id}`)
+        }
+    }, [post, id, router])
+
     const isEditable = post && !['PUBLISHED', 'PUBLISHING'].includes(post.status)
 
     // Toggle platform
