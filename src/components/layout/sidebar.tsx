@@ -53,18 +53,13 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
     { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
-    { titleKey: 'nav.calendar', href: '/dashboard/calendar', icon: CalendarDays },
-    { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
-    { titleKey: 'nav.email', href: '/dashboard/email', icon: Mail },
-    { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
+    // Future: calendar, media, email, reports
 ]
 
 const adminNav: NavItem[] = [
     { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
     { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
-    { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
-    { titleKey: 'nav.automation', href: '/admin/automation', icon: Zap, roles: ['ADMIN'] },
-    { titleKey: 'nav.settings', href: '/admin/settings', icon: Settings, roles: ['ADMIN'] },
+    // Future: activity, automation, settings
 ]
 
 export function Sidebar({ session }: { session: Session }) {

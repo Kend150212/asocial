@@ -450,6 +450,7 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
 export default function ComposePage() {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const savedRef = useRef(false) // track if post has been saved/published
 
     // State
     const [channels, setChannels] = useState<Channel[]>([])
@@ -505,6 +506,47 @@ export default function ComposePage() {
             setFbPostTypes(fbTypes)
         }
     }, [selectedChannel])
+
+    // ── Auto-save draft on page leave ──
+    useEffect(() => {
+        const autoSave = async () => {
+            if (savedRef.current || !selectedChannel || !content.trim()) return
+            savedRef.current = true // prevent multiple saves
+            try {
+                const scheduledAt = scheduleDate && scheduleTime
+                    ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+                    : null
+                await fetch('/api/admin/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channelId: selectedChannel.id,
+                        content,
+                        status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
+                        scheduledAt,
+                        mediaIds: attachedMedia.map((m) => m.id),
+                        platforms: buildPlatformsPayload(),
+                    }),
+                    keepalive: true, // ensures request completes even on page close
+                })
+            } catch { /* silent */ }
+        }
+
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (!savedRef.current && selectedChannel && content.trim()) {
+                autoSave()
+                e.preventDefault()
+            }
+        }
+
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload)
+            // Auto-save when component unmounts (back button, navigation)
+            autoSave()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChannel, content, attachedMedia, scheduleDate, scheduleTime])
 
     // Get active platforms from selected channel
     const activePlatforms = selectedChannel?.platforms || []
@@ -676,6 +718,7 @@ export default function ComposePage() {
             })
             if (!res.ok) { const err = await res.json(); toast.error(err.error || 'Failed to save'); return }
             toast.success(scheduledAt ? 'Post scheduled!' : 'Draft saved!')
+            savedRef.current = true
             router.push('/dashboard/posts')
         } catch { toast.error('Failed to save') }
         finally { setSaving(false) }
@@ -712,13 +755,18 @@ export default function ComposePage() {
                     failedPlatforms.forEach((f: { platform: string; error?: string }) => {
                         toast.error(`${f.platform}: ${f.error || 'Failed'}`, { duration: 8000 })
                     })
+                    const successCount = (pubData.results || []).filter((r: { success: boolean }) => r.success).length
+                    if (successCount > 0) {
+                        toast.warning(`Published to ${successCount} platform(s), ${failedPlatforms.length} failed`)
+                    }
                 } else {
                     toast.error('Publishing failed. Check platform connections.')
                 }
                 return // Stay on page — don't redirect
             }
 
-            toast.success('Post published successfully!')
+            toast.success('Published successfully!')
+            savedRef.current = true
             router.push('/dashboard/posts')
         } catch {
             toast.error('Network error — failed to publish')

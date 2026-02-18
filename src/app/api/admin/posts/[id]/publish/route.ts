@@ -4,6 +4,10 @@ import { prisma } from '@/lib/prisma'
 
 // ─── Platform publishers ─────────────────────────────────────────────
 
+function isVideoUrl(url: string): boolean {
+    return /\.(mp4|mov|webm|avi|mkv|ogg|3gp|flv|wmv|mpeg)(\?|$)/i.test(url)
+}
+
 async function publishToFacebook(
     accessToken: string,
     accountId: string,
@@ -11,36 +15,56 @@ async function publishToFacebook(
     mediaUrls: string[],
     postType: string,
 ): Promise<{ externalId: string }> {
-    // Facebook Graph API — Post to Page Feed
-    const url = `https://graph.facebook.com/v21.0/${accountId}/feed`
+    // Facebook Graph API — Post to Page
 
+    if (mediaUrls.length > 0 && postType !== 'story') {
+        const firstUrl = mediaUrls[0]
+
+        if (isVideoUrl(firstUrl)) {
+            // ── Video: use /videos endpoint ──
+            const videoUrl = `https://graph.facebook.com/v21.0/${accountId}/videos`
+            const videoBody: Record<string, string> = {
+                description: content,
+                file_url: firstUrl, // Facebook fetches the video from this URL
+                access_token: accessToken,
+            }
+            const res = await fetch(videoUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(videoBody),
+            })
+            const data = await res.json()
+            if (data.error) {
+                throw new Error(data.error.message || 'Facebook video upload error')
+            }
+            return { externalId: data.id || data.post_id }
+        } else {
+            // ── Image: use /photos endpoint ──
+            const photoUrl = `https://graph.facebook.com/v21.0/${accountId}/photos`
+            const photoBody: Record<string, string> = {
+                caption: content,
+                url: firstUrl, // Facebook fetches the image from this URL
+                access_token: accessToken,
+            }
+            const res = await fetch(photoUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(photoBody),
+            })
+            const data = await res.json()
+            if (data.error) {
+                throw new Error(data.error.message || 'Facebook photo upload error')
+            }
+            return { externalId: data.id || data.post_id }
+        }
+    }
+
+    // ── Text-only post: use /feed endpoint ──
+    const url = `https://graph.facebook.com/v21.0/${accountId}/feed`
     const body: Record<string, string> = {
         message: content,
         access_token: accessToken,
     }
-
-    // If there's a link in the content, Facebook will auto-preview it
-    // For image posts, use /photos endpoint instead
-    if (mediaUrls.length > 0 && postType !== 'story') {
-        // For single photo posts
-        const photoUrl = `https://graph.facebook.com/v21.0/${accountId}/photos`
-        const photoBody: Record<string, string> = {
-            caption: content,
-            url: mediaUrls[0], // Facebook fetches the image from this URL
-            access_token: accessToken,
-        }
-        const res = await fetch(photoUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(photoBody),
-        })
-        const data = await res.json()
-        if (data.error) {
-            throw new Error(data.error.message || 'Facebook API error')
-        }
-        return { externalId: data.id || data.post_id }
-    }
-
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

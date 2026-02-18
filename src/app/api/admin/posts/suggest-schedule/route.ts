@@ -90,14 +90,14 @@ Respond with ONLY this JSON format (no markdown, no \`\`\`):
 }`
 
     try {
-        const result = await callAI({
-            provider: aiIntegration.provider,
+        const result = await callAI(
+            aiIntegration.provider,
             apiKey,
             model,
             systemPrompt,
             userPrompt,
-            config,
-        })
+            (config as Record<string, string>).baseUrl || null,
+        )
 
         // Parse JSON from response
         const jsonMatch = result.match(/\{[\s\S]*\}/)
