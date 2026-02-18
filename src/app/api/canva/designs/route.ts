@@ -3,14 +3,14 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
-// Helper: get Canva access token (global — shared by all team users)
-async function getCanvaToken(): Promise<string | null> {
+// Helper: get Canva access token for the current user
+async function getCanvaToken(userId: string): Promise<{ token: string | null; connected: boolean }> {
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'canva' } })
-    if (!integration) return null
+    if (!integration) return { token: null, connected: false }
     const config = (integration.config || {}) as Record<string, string | null>
-    const encryptedToken = config.canvaAccessToken
-    if (!encryptedToken) return null
-    return decrypt(encryptedToken)
+    const encryptedToken = config[`canvaToken_${userId}`]
+    if (!encryptedToken) return { token: null, connected: false }
+    return { token: decrypt(encryptedToken), connected: true }
 }
 
 // POST /api/canva/designs — Create a new Canva design
@@ -18,9 +18,13 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const token = await getCanvaToken()
-    if (!token) {
-        return NextResponse.json({ error: 'Canva not connected. Please connect via API Hub.' }, { status: 400 })
+    const { token, connected } = await getCanvaToken(session.user.id)
+    if (!connected || !token) {
+        return NextResponse.json({
+            error: 'canva_not_connected',
+            message: 'Please connect your Canva account first.',
+            connectUrl: `/api/oauth/canva?returnUrl=${encodeURIComponent('/dashboard/posts/compose')}`,
+        }, { status: 401 })
     }
 
     const { designType, width, height, title, assetId } = await req.json()
@@ -30,7 +34,6 @@ export async function POST(req: NextRequest) {
     if (designType === 'custom' && width && height) {
         design_type = { type: 'custom', width: Number(width), height: Number(height) }
     } else {
-        // Preset types: doc, whiteboard, presentation
         // For social media, use custom dimensions
         design_type = { type: 'custom', width: width || 1080, height: height || 1080 }
     }
@@ -71,8 +74,8 @@ export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const token = await getCanvaToken()
-    if (!token) {
+    const { token, connected } = await getCanvaToken(session.user.id)
+    if (!connected || !token) {
         return NextResponse.json({ error: 'Canva not connected' }, { status: 400 })
     }
 

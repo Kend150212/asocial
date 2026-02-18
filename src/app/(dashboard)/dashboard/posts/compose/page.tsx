@@ -990,7 +990,13 @@ export default function ComposePage() {
             })
             const data = await res.json()
             if (!res.ok) {
-                toast.error(data.error || 'Failed to open Canva')
+                // If user hasn't connected Canva yet, redirect to OAuth
+                if (data.error === 'canva_not_connected' && data.connectUrl) {
+                    toast('🎨 Connecting to Canva...', { icon: '🔗' })
+                    window.location.href = data.connectUrl
+                    return
+                }
+                toast.error(data.message || data.error || 'Failed to open Canva')
                 setCanvaLoading(false)
                 return
             }

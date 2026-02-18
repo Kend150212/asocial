@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const channelId = req.nextUrl.searchParams.get('channelId')
+    const returnUrl = req.nextUrl.searchParams.get('returnUrl') || '/admin/integrations'
 
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'canva' } })
     const config = (integration?.config || {}) as Record<string, string>
@@ -44,11 +45,12 @@ export async function GET(req: NextRequest) {
     // Generate PKCE pair
     const { verifier, challenge } = generatePKCE()
 
-    // Include code_verifier in state so callback can retrieve it
+    // Include code_verifier and returnUrl in state so callback can retrieve them
     const state = Buffer.from(JSON.stringify({
         channelId: channelId || '',
         userId: session.user.id,
         codeVerifier: verifier,
+        returnUrl,
     })).toString('base64url')
 
     // Canva OAuth 2.0 with PKCE

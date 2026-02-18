@@ -6,16 +6,17 @@ import { decrypt, encrypt } from '@/lib/encryption'
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
 
     if (!code || !stateParam) {
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Missing+code+or+state', process.env.NEXTAUTH_URL || req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Missing+code+or+state', host))
     }
 
-    let state: { channelId: string; userId: string; codeVerifier: string }
+    let state: { channelId: string; userId: string; codeVerifier: string; returnUrl?: string }
     try {
         state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
     } catch {
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Invalid+state', process.env.NEXTAUTH_URL || req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Invalid+state', host))
     }
 
     // Get Canva integration credentials from API Hub
@@ -27,7 +28,6 @@ export async function GET(req: NextRequest) {
         clientSecret = decrypt(integration.apiKeyEncrypted)
     }
 
-    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/canva/callback`
 
     // Exchange authorization code for access token (Basic Auth + PKCE code_verifier)
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     if (!tokenRes.ok) {
         const errorText = await tokenRes.text()
         console.error('Canva token exchange failed:', errorText)
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Token+exchange+failed', process.env.NEXTAUTH_URL || req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Token+exchange+failed', host))
     }
 
     const tokenData = await tokenRes.json()
@@ -71,16 +71,15 @@ export async function GET(req: NextRequest) {
         console.error('Failed to fetch Canva profile:', e)
     }
 
-    // Store Canva connection globally (shared by all team users)
+    // Store Canva connection per-user (each user has their own Canva account)
     if (integration) {
         const existingConfig = (integration.config || {}) as Record<string, string | null>
         const updatedConfig = {
             ...existingConfig,
-            canvaAccessToken: encrypt(accessToken),
-            canvaRefreshToken: refreshToken ? encrypt(refreshToken) : null,
-            canvaUserName: displayName,
-            canvaConnectedAt: new Date().toISOString(),
-            canvaConnectedBy: state.userId,
+            [`canvaToken_${state.userId}`]: encrypt(accessToken),
+            [`canvaRefresh_${state.userId}`]: refreshToken ? encrypt(refreshToken) : null,
+            [`canvaUser_${state.userId}`]: displayName,
+            [`canvaConnectedAt_${state.userId}`]: new Date().toISOString(),
         }
         await prisma.apiIntegration.update({
             where: { id: integration.id },
@@ -92,5 +91,9 @@ export async function GET(req: NextRequest) {
         })
     }
 
-    return NextResponse.redirect(new URL('/admin/integrations?canva=connected', host))
+    // Redirect to returnUrl (compose page or integrations page)
+    const returnUrl = state.returnUrl || '/admin/integrations'
+    const redirectTo = new URL(returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`, host)
+    redirectTo.searchParams.set('canva', 'connected')
+    return NextResponse.redirect(redirectTo)
 }

@@ -1268,42 +1268,52 @@ function IntegrationCard({
                         {/* Canva Connect / Disconnect */}
                         {integration.provider === 'canva' && (() => {
                             const cfg = (integration.config || {}) as Record<string, string | null>
-                            const isCanvaConnected = !!cfg.canvaAccessToken
-                            const canvaUser = cfg.canvaUserName || 'Canva User'
+                            // Check how many users have connected
+                            const connectedUsers = Object.keys(cfg).filter(k => k.startsWith('canvaToken_'))
+                            const connectedUserNames = connectedUsers.map(k => {
+                                const uid = k.replace('canvaToken_', '')
+                                return cfg[`canvaUser_${uid}`] || 'Unknown User'
+                            })
                             return (
-                                <div className="pt-2 border-t border-dashed">
-                                    {isCanvaConnected ? (
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="h-2 w-2 rounded-full bg-green-500" />
-                                                <span className="text-[11px] text-green-400">Connected as {canvaUser}</span>
-                                            </div>
+                                <div className="pt-2 border-t border-dashed space-y-1.5">
+                                    {connectedUsers.length > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                                            <span className="text-[11px] text-green-400">
+                                                {connectedUsers.length} user(s) connected: {connectedUserNames.join(', ')}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex gap-1.5">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 h-7 text-[11px] bg-violet-500/10 border-violet-500/30 hover:bg-violet-500/20 text-violet-400 cursor-pointer"
+                                            onClick={() => { window.location.href = '/api/oauth/canva' }}
+                                            disabled={!oauthConfig?.clientId}
+                                        >
+                                            🎨 {connectedUsers.length > 0 ? 'Reconnect' : 'Connect'} Canva
+                                        </Button>
+                                        {connectedUsers.length > 0 && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-6 text-[10px] px-2 text-red-400 border-red-400/30 hover:bg-red-500/10 cursor-pointer"
+                                                className="h-7 text-[11px] px-3 text-red-400 border-red-400/30 hover:bg-red-500/10 cursor-pointer"
                                                 onClick={async () => {
-                                                    if (!confirm('Disconnect Canva? All users will lose access to Canva features.')) return
+                                                    if (!confirm('Disconnect ALL Canva users? This will remove Canva access for everyone.')) return
                                                     try {
                                                         await fetch(`/api/admin/integrations/${integration.id}/canva-disconnect`, { method: 'POST' })
                                                         window.location.reload()
                                                     } catch { /* ignore */ }
                                                 }}
                                             >
-                                                Disconnect
+                                                Disconnect All
                                             </Button>
-                                        </div>
-                                    ) : (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full h-7 text-[11px] bg-violet-500/10 border-violet-500/30 hover:bg-violet-500/20 text-violet-400 cursor-pointer"
-                                            onClick={() => { window.location.href = '/api/oauth/canva' }}
-                                            disabled={!oauthConfig?.clientId}
-                                        >
-                                            🎨 Connect Canva
-                                        </Button>
-                                    )}
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Each user connects their own Canva account. Users can also connect directly from the Compose page.
+                                    </p>
                                 </div>
                             )
                         })()}
