@@ -4,7 +4,7 @@ import { getUserGDriveAccessToken } from '@/lib/gdrive'
 
 const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3'
 
-// GET /api/user/gdrive/files — list files from user's Google Drive folder
+// GET /api/user/gdrive/files — browse user's entire Google Drive
 export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) {
@@ -12,36 +12,28 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
-    const folderId = searchParams.get('folderId')
+    const folderId = searchParams.get('folderId') || 'root' // default = Drive root
     const pageToken = searchParams.get('pageToken') || undefined
+    const mediaOnly = searchParams.get('mediaOnly') === 'true'
 
     try {
         const accessToken = await getUserGDriveAccessToken(session.user.id)
 
-        // If no folderId provided, use user's root ASocial folder
-        let targetFolderId = folderId
-        if (!targetFolderId) {
-            const { prisma } = await import('@/lib/prisma')
-            const user = await prisma.user.findUnique({
-                where: { id: session.user.id },
-                select: { gdriveFolderId: true },
-            })
-            targetFolderId = user?.gdriveFolderId || null
+        // Build query: list items in folder, not trashed
+        let query = `'${folderId}' in parents and trashed=false`
+
+        // Optionally filter to only media files + folders
+        if (mediaOnly) {
+            query += ` and (mimeType contains 'image/' or mimeType contains 'video/' or mimeType = 'application/vnd.google-apps.folder')`
         }
 
-        if (!targetFolderId) {
-            return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
-        }
-
-        // Query files in folder (images, videos, and subfolders)
-        const query = `'${targetFolderId}' in parents and trashed=false`
         const fields = 'nextPageToken,files(id,name,mimeType,size,createdTime,thumbnailLink,webViewLink,webContentLink,imageMediaMetadata)'
 
         const url = new URL(`${GOOGLE_DRIVE_API}/files`)
         url.searchParams.set('q', query)
         url.searchParams.set('fields', fields)
         url.searchParams.set('pageSize', '50')
-        url.searchParams.set('orderBy', 'createdTime desc')
+        url.searchParams.set('orderBy', 'folder,name')
         if (pageToken) url.searchParams.set('pageToken', pageToken)
 
         const res = await fetch(url.toString(), {
@@ -64,16 +56,17 @@ export async function GET(req: NextRequest) {
             createdTime: f.createdTime,
             thumbnailUrl: f.thumbnailLink || null,
             webViewLink: f.webViewLink || null,
-            // Use webContentLink for direct download, or construct one
-            url: f.webContentLink
-                || `https://drive.google.com/uc?id=${f.id}&export=download`,
+            // For images: use direct link, for videos: use webViewLink
+            url: (f.mimeType as string)?.startsWith('image/')
+                ? `https://drive.google.com/uc?id=${f.id}&export=download`
+                : (f.webContentLink as string) || `https://drive.google.com/uc?id=${f.id}&export=download`,
             isFolder: f.mimeType === 'application/vnd.google-apps.folder',
         }))
 
         return NextResponse.json({
             files,
             nextPageToken: data.nextPageToken || null,
-            folderId: targetFolderId,
+            folderId,
         })
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to list files'

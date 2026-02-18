@@ -1460,7 +1460,7 @@ export default function ComposePage() {
                                             onClick={() => { setDriveFolderStack([]); fetchDriveFiles() }}
                                             className="hover:text-foreground transition-colors cursor-pointer font-medium"
                                         >
-                                            ASocial
+                                            My Drive
                                         </button>
                                         {driveFolderStack.map((folder, i) => (
                                             <span key={folder.id} className="flex items-center gap-1">
