@@ -1010,99 +1010,102 @@ export default function ChannelDetailPage({
 
                             <Separator />
 
-                            {/* AI Provider & Model — Admin Only */}
+                            {/* Require Own API Key — Admin Only */}
                             {isAdmin && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>{t('channels.ai.provider')}</Label>
-                                            <Select value={aiProvider || '__default__'} onValueChange={(v) => { setAiProvider(v === '__default__' ? '' : v); setAiModel('') }}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('channels.ai.useGlobal')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                                    {availableProviders.map((p) => (
-                                                        <SelectItem key={p.provider} value={p.provider}>
-                                                            {p.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <p className="text-xs text-muted-foreground">{t('channels.ai.providerDesc')}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="flex items-center gap-2">
-                                                {t('channels.ai.model')}
-                                                {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                                            </Label>
-                                            <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={t('channels.ai.useGlobal')} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                                    {availableModels.map((m) => (
-                                                        <SelectItem key={m.id} value={m.id}>
-                                                            {m.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
-                                        </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <Label>Require Channel API Key</Label>
+                                        <p className="text-xs text-muted-foreground">If enabled, this channel must have its own API key and cannot use the global API key.</p>
                                     </div>
-
-                                    {/* Require Own API Key — Admin Only */}
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <Label>Require Channel API Key</Label>
-                                            <p className="text-xs text-muted-foreground">If enabled, this channel must have its own API key and cannot use the global API key.</p>
-                                        </div>
-                                        <Switch checked={requireOwnApiKey} onCheckedChange={setRequireOwnApiKey} />
-                                    </div>
-                                </>
+                                    <Switch checked={requireOwnApiKey} onCheckedChange={setRequireOwnApiKey} />
+                                </div>
                             )}
 
-                            {/* Channel AI API Key — Admin & Manager */}
-                            <div className="space-y-2">
-                                <Label>Channel AI API Key</Label>
+                            {/* Channel AI Setup — Admin & Manager */}
+                            <div className="space-y-4">
+                                <Label className="text-base font-semibold">Channel AI Configuration</Label>
                                 {requireOwnApiKey && !hasExistingAiKey && (
                                     <p className="text-xs text-orange-400 font-medium">⚠ This channel requires its own API key. AI features won&apos;t work until a key is provided.</p>
                                 )}
-                                <div className="flex gap-2">
-                                    <Input
-                                        type="password"
-                                        placeholder={hasExistingAiKey ? '••••••••••••••••' : 'Enter API key for this channel'}
-                                        value={aiApiKey}
-                                        onChange={(e) => setAiApiKey(e.target.value)}
-                                    />
-                                    {hasExistingAiKey && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="shrink-0 text-destructive cursor-pointer"
-                                            onClick={() => {
-                                                setAiApiKey('')
-                                                setHasExistingAiKey(false)
-                                                fetch(`/api/admin/channels/${id}`, {
-                                                    method: 'PUT',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ aiApiKey: '' }),
-                                                }).then(() => toast.success('API key cleared'))
-                                            }}
-                                        >
-                                            Clear Key
-                                        </Button>
-                                    )}
+
+                                {/* Provider & Model */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>{t('channels.ai.provider')}</Label>
+                                        <Select value={aiProvider || '__default__'} onValueChange={(v) => { setAiProvider(v === '__default__' ? '' : v); setAiModel('') }}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
+                                                {availableProviders.map((p) => (
+                                                    <SelectItem key={p.provider} value={p.provider}>
+                                                        {p.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">{t('channels.ai.providerDesc')}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-2">
+                                            {t('channels.ai.model')}
+                                            {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                        </Label>
+                                        <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
+                                                {availableModels.map((m) => (
+                                                    <SelectItem key={m.id} value={m.id}>
+                                                        {m.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {hasExistingAiKey
-                                        ? 'This channel has its own API key. AI generation will use this key instead of the global one.'
-                                        : requireOwnApiKey
-                                            ? 'Required. This channel must provide its own API key for AI features.'
-                                            : 'Optional. If set, this channel will use its own API key for AI generation instead of the global API key.'}
-                                </p>
+
+                                {/* API Key */}
+                                <div className="space-y-2">
+                                    <Label>API Key</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            type="password"
+                                            placeholder={hasExistingAiKey ? '••••••••••••••••' : 'Enter API key for this channel'}
+                                            value={aiApiKey}
+                                            onChange={(e) => setAiApiKey(e.target.value)}
+                                        />
+                                        {hasExistingAiKey && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="shrink-0 text-destructive cursor-pointer"
+                                                onClick={() => {
+                                                    setAiApiKey('')
+                                                    setHasExistingAiKey(false)
+                                                    fetch(`/api/admin/channels/${id}`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ aiApiKey: '' }),
+                                                    }).then(() => toast.success('API key cleared'))
+                                                }}
+                                            >
+                                                Clear Key
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {hasExistingAiKey
+                                            ? 'This channel has its own API key configured.'
+                                            : requireOwnApiKey
+                                                ? 'Required. Provide an API key matching the selected provider above.'
+                                                : 'Optional. If set, this key will be used instead of the global API key.'}
+                                    </p>
+                                </div>
                             </div>
 
                             <Separator />
