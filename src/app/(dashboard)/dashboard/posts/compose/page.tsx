@@ -545,6 +545,13 @@ export default function ComposePage() {
     const [ttBrandedContent, setTtBrandedContent] = useState(false)
     const [ttAiGenerated, setTtAiGenerated] = useState(false)
     const [ttSettingsOpen, setTtSettingsOpen] = useState(true)
+    // Pinterest settings
+    const [pinBoardId, setPinBoardId] = useState('')
+    const [pinTitle, setPinTitle] = useState('')
+    const [pinLink, setPinLink] = useState('')
+    const [pinSettingsOpen, setPinSettingsOpen] = useState(true)
+    const [pinBoards, setPinBoards] = useState<{ id: string; name: string }[]>([])
+    const [pinBoardsLoading, setPinBoardsLoading] = useState(false)
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
     const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
@@ -625,6 +632,21 @@ export default function ComposePage() {
             setFbPostTypes(fbTypes)
         }
     }, [selectedChannel, editPostId])
+
+    // ── Auto-fetch Pinterest boards when Pinterest is selected ──
+    useEffect(() => {
+        const hasPinterest = activePlatforms.some(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
+        if (!hasPinterest || !selectedChannel || pinBoards.length > 0 || pinBoardsLoading) return
+        const pintPlatform = activePlatforms.find(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
+        if (!pintPlatform) return
+        setPinBoardsLoading(true)
+        fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards?accountId=${pintPlatform.accountId}`)
+            .then(r => r.json())
+            .then(data => { if (data.boards) setPinBoards(data.boards) })
+            .catch(() => { })
+            .finally(() => setPinBoardsLoading(false))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChannel, selectedPlatformIds])
 
     // ── Auto-save draft on page leave ──
     useEffect(() => {
@@ -959,6 +981,11 @@ export default function ComposePage() {
                     allowStitch: ttAllowStitch,
                     brandedContent: ttBrandedContent,
                     aiGenerated: ttAiGenerated,
+                } : {}),
+                ...(p.platform === 'pinterest' ? {
+                    boardId: pinBoardId || undefined,
+                    pinTitle: pinTitle || undefined,
+                    pinLink: pinLink || undefined,
                 } : {}),
             }))
     }
@@ -2014,6 +2041,80 @@ export default function ComposePage() {
                                                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${ttAiGenerated ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
+                                    </div>
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
+
+                    {/* Pinterest Settings — only when Pinterest platform is selected */}
+                    {activePlatforms.some(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest') && (
+                        <Card className="overflow-hidden border-[#E60023]/30">
+                            <CardHeader
+                                className="py-2 px-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => {
+                                    setPinSettingsOpen(!pinSettingsOpen)
+                                    // Fetch boards when opening settings for the first time
+                                    if (!pinSettingsOpen && pinBoards.length === 0 && !pinBoardsLoading) {
+                                        const pinterestPlatform = activePlatforms.find(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
+                                        if (pinterestPlatform && selectedChannel) {
+                                            setPinBoardsLoading(true)
+                                            fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards?accountId=${pinterestPlatform.accountId}`)
+                                                .then(r => r.json())
+                                                .then(data => { if (data.boards) setPinBoards(data.boards) })
+                                                .catch(() => { })
+                                                .finally(() => setPinBoardsLoading(false))
+                                        }
+                                    }
+                                }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-xs font-medium flex items-center gap-2">
+                                        <div className="h-4 w-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold" style={{ backgroundColor: '#E60023' }}>P</div>
+                                        Pinterest Settings
+                                    </CardTitle>
+                                    <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${pinSettingsOpen ? 'rotate-90' : ''}`} />
+                                </div>
+                            </CardHeader>
+                            {pinSettingsOpen && (
+                                <CardContent className="px-3 pb-3 pt-0 space-y-2">
+                                    {/* Board Selection */}
+                                    <div>
+                                        <Label className="text-[10px] text-muted-foreground">Board</Label>
+                                        <Select value={pinBoardId} onValueChange={v => setPinBoardId(v)}>
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder={pinBoardsLoading ? 'Loading boards...' : 'Select a board'} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {pinBoards.map(b => (
+                                                    <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                                                ))}
+                                                {pinBoards.length === 0 && !pinBoardsLoading && (
+                                                    <SelectItem value="_none" disabled className="text-xs text-muted-foreground">No boards found</SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {/* Pin Title */}
+                                    <div>
+                                        <Label className="text-[10px] text-muted-foreground">Pin Title</Label>
+                                        <Input
+                                            className="h-8 text-xs"
+                                            placeholder="Enter pin title (max 100 chars)"
+                                            maxLength={100}
+                                            value={pinTitle}
+                                            onChange={e => setPinTitle(e.target.value)}
+                                        />
+                                    </div>
+                                    {/* Destination Link */}
+                                    <div>
+                                        <Label className="text-[10px] text-muted-foreground">Destination Link</Label>
+                                        <Input
+                                            className="h-8 text-xs"
+                                            placeholder="https://example.com"
+                                            value={pinLink}
+                                            onChange={e => setPinLink(e.target.value)}
+                                        />
                                     </div>
                                 </CardContent>
                             )}

@@ -560,9 +560,80 @@ async function publishToYouTube(
     return { externalId: uploadData.id }
 }
 
+// ─── Pinterest publisher ─────────────────────────────────────────────
+
+async function publishToPinterest(
+    accessToken: string,
+    content: string,
+    mediaItems: MediaInfo[],
+    config?: Record<string, unknown>,
+): Promise<{ externalId: string }> {
+    // Pinterest API v5 — Create a Pin
+    let boardId = (config?.boardId as string) || ''
+    const pinTitle = (config?.pinTitle as string) || ''
+    const pinLink = (config?.pinLink as string) || ''
+
+    // If no board selected, fetch user's first board
+    if (!boardId) {
+        const boardsRes = await fetch('https://api.pinterest.com/v5/boards', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (boardsRes.ok) {
+            const boardsData = await boardsRes.json()
+            if (boardsData.items?.length > 0) {
+                boardId = boardsData.items[0].id
+            }
+        }
+        if (!boardId) throw new Error('No Pinterest board found. Please create a board first.')
+    }
+
+    // Build pin body
+    const pinBody: Record<string, unknown> = {
+        board_id: boardId,
+        description: content.slice(0, 500), // Pinterest limit: 500 chars
+    }
+    if (pinTitle) pinBody.title = pinTitle.slice(0, 100) // Pinterest limit: 100 chars
+    if (pinLink) pinBody.link = pinLink
+
+    // Add media source — Pinterest requires an image
+    if (mediaItems.length > 0) {
+        const imageMedia = mediaItems.find(m => !isVideoMedia(m))
+        if (imageMedia) {
+            pinBody.media_source = {
+                source_type: 'image_url',
+                url: imageMedia.url,
+            }
+        } else if (isVideoMedia(mediaItems[0])) {
+            // Video pins require a more complex flow, but try with video URL
+            pinBody.media_source = {
+                source_type: 'video_url',
+                url: mediaItems[0].url,
+                cover_image_url: mediaItems[0].url, // fallback
+            }
+        }
+    }
+
+    const res = await fetch('https://api.pinterest.com/v5/pins', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(pinBody),
+    })
+    const data = await res.json()
+
+    if (!res.ok || data.code) {
+        console.error('[Pinterest] Create pin error:', JSON.stringify(data))
+        throw new Error(data.message || data.error?.message || 'Pinterest publish failed')
+    }
+
+    return { externalId: data.id }
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
-    // TODO: Implement TikTok, LinkedIn, X, Pinterest publishing
+    // TODO: Implement TikTok, LinkedIn, X publishing
     throw new Error(`${platform} publishing not yet integrated. Coming soon!`)
 }
 
@@ -693,6 +764,15 @@ export async function POST(
                         post.content || '',
                         mediaItems,
                         platformConn.id,
+                        psConfig,
+                    )
+                    break
+
+                case 'pinterest':
+                    publishResult = await publishToPinterest(
+                        platformConn.accessToken,
+                        post.content || '',
+                        mediaItems,
                         psConfig,
                     )
                     break
