@@ -13,53 +13,67 @@ async function getCanvaToken(userId: string): Promise<{ token: string | null; co
     return { token: decrypt(encryptedToken), connected: true }
 }
 
-// Helper: Upload an image URL to Canva as an asset
+// Helper: Upload an image to Canva as an asset, return asset ID
 async function uploadImageToCanva(token: string, imageUrl: string): Promise<string | null> {
     try {
-        // Download the image first
+        // Download the image
         const imgRes = await fetch(imageUrl)
         if (!imgRes.ok) {
             console.error('Failed to download image for Canva upload:', imgRes.status)
             return null
         }
-        const imgBuffer = await imgRes.arrayBuffer()
-        const contentType = imgRes.headers.get('content-type') || 'image/png'
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
 
         // Upload to Canva Asset Upload API
+        // Content-Type MUST be application/octet-stream per Canva docs
         const uploadRes = await fetch('https://api.canva.com/rest/v1/asset-uploads', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': contentType,
+                'Content-Type': 'application/octet-stream',
                 'Asset-Upload-Metadata': JSON.stringify({
                     name_base64: Buffer.from(`ASocial-Upload-${Date.now()}`).toString('base64'),
                 }),
             },
-            body: Buffer.from(imgBuffer),
+            body: imgBuffer,
         })
 
         if (!uploadRes.ok) {
             const errText = await uploadRes.text()
-            console.error('Canva asset upload failed:', errText)
+            console.error('Canva asset upload failed:', uploadRes.status, errText)
             return null
         }
 
         const uploadData = await uploadRes.json()
-        const assetId = uploadData.job?.asset?.id
+        console.log('Canva asset upload response:', JSON.stringify(uploadData))
 
-        if (assetId) return assetId
+        // If already completed, return asset ID directly
+        if (uploadData.job?.status === 'success' && uploadData.job?.asset?.id) {
+            return uploadData.job.asset.id
+        }
 
-        // If the upload is async, poll for completion
+        // Otherwise poll for completion (async job)
         const jobId = uploadData.job?.id
-        if (!jobId) return null
+        if (!jobId) {
+            console.error('No job ID from Canva asset upload')
+            return null
+        }
 
-        for (let i = 0; i < 10; i++) {
-            await new Promise(r => setTimeout(r, 1500))
+        for (let i = 0; i < 15; i++) {
+            await new Promise(r => setTimeout(r, 2000))
+
             const statusRes = await fetch(`https://api.canva.com/rest/v1/asset-uploads/${jobId}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             })
-            if (!statusRes.ok) continue
+
+            if (!statusRes.ok) {
+                console.error('Canva asset upload status check failed:', statusRes.status)
+                continue
+            }
+
             const statusData = await statusRes.json()
+            console.log('Canva asset upload job status:', JSON.stringify(statusData))
+
             if (statusData.job?.status === 'success' && statusData.job?.asset?.id) {
                 return statusData.job.asset.id
             }
@@ -67,7 +81,10 @@ async function uploadImageToCanva(token: string, imageUrl: string): Promise<stri
                 console.error('Canva asset upload job failed:', statusData.job.error)
                 return null
             }
+            // status is 'in_progress', keep polling
         }
+
+        console.error('Canva asset upload timed out')
         return null
     } catch (err) {
         console.error('Error uploading image to Canva:', err)
@@ -94,9 +111,11 @@ export async function POST(req: NextRequest) {
     // If editing an existing image, upload it to Canva as an asset first
     let assetId: string | undefined
     if (imageUrl) {
+        console.log('Uploading image to Canva:', imageUrl)
         const uploadedAssetId = await uploadImageToCanva(token, imageUrl)
         if (uploadedAssetId) {
             assetId = uploadedAssetId
+            console.log('Successfully uploaded asset to Canva:', assetId)
         } else {
             console.warn('Failed to upload image to Canva, creating blank design instead')
         }
@@ -115,6 +134,8 @@ export async function POST(req: NextRequest) {
         title: title || 'ASocial Design',
     }
     if (assetId) body.asset_id = assetId
+
+    console.log('Creating Canva design with body:', JSON.stringify(body))
 
     const res = await fetch('https://api.canva.com/rest/v1/designs', {
         method: 'POST',
@@ -138,6 +159,7 @@ export async function POST(req: NextRequest) {
         viewUrl: data.design?.urls?.view_url,
         title: data.design?.title,
         thumbnail: data.design?.thumbnail,
+        hasAsset: !!assetId,
     })
 }
 

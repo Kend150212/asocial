@@ -1041,19 +1041,11 @@ export default function ComposePage() {
                             const blob = await imgRes.blob()
                             const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
 
-                            if (existingMediaUrl) {
-                                // REPLACE the existing image — remove old, add new
-                                setAttachedMedia(prev => prev.filter(m => m.url !== existingMediaUrl))
-                            }
-
-                            // Upload via handleFileUpload
+                            // Upload via handleFileUpload (don't auto-remove original — user can remove manually)
                             const dt = new DataTransfer()
                             dt.items.add(file)
                             await handleFileUpload(dt.files)
-                            toast.success(
-                                existingMediaUrl ? '🎨 Image updated from Canva!' : '🎨 Canva design imported!',
-                                { id: 'canva-export' }
-                            )
+                            toast.success('🎨 Canva design imported!', { id: 'canva-export' })
                             setCanvaLoading(false)
                             return // success — exit
                         }
