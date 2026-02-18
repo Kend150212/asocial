@@ -88,29 +88,50 @@ export async function POST(req: NextRequest) {
 
     // Find AI provider
     const providerToUse = requestedProvider || channel.defaultAiProvider
-    let aiIntegration
-    if (providerToUse) {
-        aiIntegration = await prisma.apiIntegration.findFirst({
-            where: { provider: providerToUse, category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
-        })
-    }
-    if (!aiIntegration) {
-        aiIntegration = await prisma.apiIntegration.findFirst({
-            where: { category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
-            orderBy: { provider: 'asc' },
-        })
+
+    // Check if channel has its own API key
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const channelAiKey = (channel as any).aiApiKeyEncrypted
+    let apiKey: string
+    let providerName: string
+    let config: Record<string, string> = {}
+    let baseUrl: string | undefined | null
+    let integrationId: string | null = null
+
+    if (channelAiKey) {
+        // Use channel-level API key
+        apiKey = decrypt(channelAiKey)
+        providerName = providerToUse || 'gemini' // default to gemini if no provider set
+    } else {
+        // Fall back to global API integration
+        let aiIntegration
+        if (providerToUse) {
+            aiIntegration = await prisma.apiIntegration.findFirst({
+                where: { provider: providerToUse, category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
+            })
+        }
+        if (!aiIntegration) {
+            aiIntegration = await prisma.apiIntegration.findFirst({
+                where: { category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
+                orderBy: { provider: 'asc' },
+            })
+        }
+
+        if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
+            return NextResponse.json(
+                { error: 'No AI provider configured. Set up an AI API key in API Hub or in Channel settings.' },
+                { status: 400 }
+            )
+        }
+
+        apiKey = decrypt(aiIntegration.apiKeyEncrypted)
+        providerName = aiIntegration.provider
+        config = (aiIntegration.config as Record<string, string>) || {}
+        baseUrl = aiIntegration.baseUrl
+        integrationId = aiIntegration.id
     }
 
-    if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
-        return NextResponse.json(
-            { error: 'No AI provider configured. Set up an AI API key in API Hub first.' },
-            { status: 400 }
-        )
-    }
-
-    const apiKey = decrypt(aiIntegration.apiKeyEncrypted)
-    const config = (aiIntegration.config as Record<string, string>) || {}
-    const model = requestedModel || channel.defaultAiModel || getDefaultModel(aiIntegration.provider, config)
+    const model = requestedModel || channel.defaultAiModel || getDefaultModel(providerName, config)
 
     // Build context from knowledge base
     const kbContext = channel.knowledgeBase
@@ -186,12 +207,12 @@ Rules:
 
     try {
         const result = await callAI(
-            aiIntegration.provider,
+            providerName,
             apiKey,
             model,
             systemPrompt,
             userPrompt,
-            aiIntegration.baseUrl,
+            baseUrl,
         )
 
         // Robust JSON parsing — handle markdown code fences and partial JSON
@@ -209,11 +230,13 @@ Rules:
             parsed = { content: result, hashtags: [], hook: '' }
         }
 
-        // Increment usage
-        await prisma.apiIntegration.update({
-            where: { id: aiIntegration.id },
-            data: { usageCount: { increment: 1 } },
-        })
+        // Increment usage (only if using global integration)
+        if (integrationId) {
+            await prisma.apiIntegration.update({
+                where: { id: integrationId },
+                data: { usageCount: { increment: 1 } },
+            })
+        }
 
         // Combine content with hashtags
         const hashtags = (parsed.hashtags || []).join(' ')
@@ -225,7 +248,7 @@ Rules:
             content: fullContent,
             hook: parsed.hook || '',
             hashtags: parsed.hashtags || [],
-            provider: aiIntegration.provider,
+            provider: providerName,
             model,
             articlesFetched: urls.length,
         })

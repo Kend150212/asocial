@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { encrypt } from '@/lib/encryption'
 
 // Helper: check if user is admin or a member of the channel
 async function checkAccess(userId: string, role: string, channelId: string) {
@@ -50,7 +51,16 @@ export async function GET(
         return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    return NextResponse.json(channel)
+    // Add flag for whether channel has its own AI API key (don't expose the key itself)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const channelData = channel as any
+    const response = {
+        ...channel,
+        hasAiApiKey: !!channelData.aiApiKeyEncrypted,
+        aiApiKeyEncrypted: undefined, // never expose encrypted key
+    }
+
+    return NextResponse.json(response)
 }
 
 // PUT /api/admin/channels/[id] — update channel settings
@@ -98,6 +108,15 @@ export async function PUT(
     for (const field of allowedFields) {
         if (body[field] !== undefined) {
             updateData[field] = body[field]
+        }
+    }
+
+    // Handle AI API key (admin only) — encrypt before storing
+    if (isAdmin && body.aiApiKey !== undefined) {
+        if (body.aiApiKey && body.aiApiKey.trim()) {
+            updateData.aiApiKeyEncrypted = encrypt(body.aiApiKey.trim())
+        } else {
+            updateData.aiApiKeyEncrypted = null // clear the key
         }
     }
 
