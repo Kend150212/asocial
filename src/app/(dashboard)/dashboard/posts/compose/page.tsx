@@ -44,6 +44,18 @@ import {
     Film,
     LayoutGrid,
     CircleDot,
+    Camera,
+    Users,
+    Video,
+    Scissors,
+    Tag,
+    Lock,
+    Eye,
+    EyeOff,
+    ShieldCheck,
+    Bell,
+    Code2,
+    Baby,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -495,6 +507,20 @@ export default function ComposePage() {
     const [fbCarousel, setFbCarousel] = useState(false)
     const [fbFirstComment, setFbFirstComment] = useState('')
     const [fbSettingsOpen, setFbSettingsOpen] = useState(true)
+    // Instagram settings
+    const [igPostType, setIgPostType] = useState<'feed' | 'reel' | 'story'>('feed')
+    const [igShareToStory, setIgShareToStory] = useState(false)
+    const [igCollaborators, setIgCollaborators] = useState('')
+    const [igSettingsOpen, setIgSettingsOpen] = useState(true)
+    // YouTube settings
+    const [ytPostType, setYtPostType] = useState<'video' | 'shorts'>('video')
+    const [ytVideoTitle, setYtVideoTitle] = useState('')
+    const [ytCategory, setYtCategory] = useState('')
+    const [ytTags, setYtTags] = useState('')
+    const [ytPrivacy, setYtPrivacy] = useState<'public' | 'unlisted' | 'private'>('public')
+    const [ytMadeForKids, setYtMadeForKids] = useState(false)
+    const [ytNotifySubscribers, setYtNotifySubscribers] = useState(true)
+    const [ytSettingsOpen, setYtSettingsOpen] = useState(true)
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
     const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
@@ -1557,6 +1583,243 @@ export default function ComposePage() {
                                             className="w-full min-h-[60px] resize-y rounded-lg border bg-transparent px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
                                             rows={2}
                                         />
+                                    </div>
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
+
+                    {/* Instagram Settings — only when Instagram platform is selected */}
+                    {selectedChannel?.platforms?.some(p => p.platform === 'instagram' && selectedPlatformIds.has(p.id)) && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <button
+                                    type="button"
+                                    className="flex items-center justify-between w-full cursor-pointer"
+                                    onClick={() => setIgSettingsOpen(!igSettingsOpen)}
+                                >
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <PlatformIcon platform="instagram" size="md" />
+                                        Instagram Settings
+                                    </CardTitle>
+                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${igSettingsOpen ? '' : '-rotate-90'}`} />
+                                </button>
+                            </CardHeader>
+                            {igSettingsOpen && (
+                                <CardContent className="space-y-4">
+                                    {/* Post Type */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Post Type</Label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'feed' as const, label: 'Feed', icon: LayoutGrid, desc: 'Single or multiple images/video' },
+                                                { value: 'reel' as const, label: 'Reel', icon: Film, desc: 'Short-form video content' },
+                                                { value: 'story' as const, label: 'Story', icon: CircleDot, desc: 'Disappears after 24 hours' },
+                                            ].map(opt => {
+                                                const isActive = igPostType === opt.value
+                                                return (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all cursor-pointer ${isActive
+                                                                ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-400'
+                                                                : 'border-border hover:border-pink-300 text-muted-foreground hover:text-foreground'
+                                                            }`}
+                                                        onClick={() => setIgPostType(opt.value)}
+                                                    >
+                                                        <opt.icon className="h-5 w-5" />
+                                                        <span className="text-xs font-medium">{opt.label}</span>
+                                                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{opt.desc}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Also Share to Story */}
+                                    {igPostType === 'feed' && (
+                                        <div className="flex items-center justify-between py-2 border-t">
+                                            <div className="flex items-center gap-2">
+                                                <Camera className="h-4 w-4 text-pink-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium">Also Share to Story</p>
+                                                    <p className="text-[10px] text-muted-foreground">Automatically share your feed post to Stories</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${igShareToStory ? 'bg-pink-500' : 'bg-muted'}`}
+                                                onClick={() => setIgShareToStory(!igShareToStory)}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${igShareToStory ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Collaborators */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-4 w-4 text-pink-500" />
+                                            <div>
+                                                <p className="text-sm font-medium">Collaborators</p>
+                                                <p className="text-[10px] text-muted-foreground">Invite up to 3 collaborators (public profiles only)</p>
+                                            </div>
+                                        </div>
+                                        <Input
+                                            value={igCollaborators}
+                                            onChange={(e) => setIgCollaborators(e.target.value)}
+                                            placeholder="@username1, @username2, @username3"
+                                            className="text-xs"
+                                        />
+                                    </div>
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
+
+                    {/* YouTube Settings — only when YouTube platform is selected */}
+                    {selectedChannel?.platforms?.some(p => p.platform === 'youtube' && selectedPlatformIds.has(p.id)) && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <button
+                                    type="button"
+                                    className="flex items-center justify-between w-full cursor-pointer"
+                                    onClick={() => setYtSettingsOpen(!ytSettingsOpen)}
+                                >
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <PlatformIcon platform="youtube" size="md" />
+                                        YouTube Settings
+                                    </CardTitle>
+                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${ytSettingsOpen ? '' : '-rotate-90'}`} />
+                                </button>
+                            </CardHeader>
+                            {ytSettingsOpen && (
+                                <CardContent className="space-y-4">
+                                    {/* Post Type */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Post Type</Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { value: 'video' as const, label: 'Video', icon: Video, desc: 'Standard YouTube video' },
+                                                { value: 'shorts' as const, label: 'Shorts', icon: Scissors, desc: 'Vertical short-form video' },
+                                            ].map(opt => {
+                                                const isActive = ytPostType === opt.value
+                                                return (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all cursor-pointer ${isActive
+                                                                ? 'border-red-500 bg-red-500/10 text-red-600 dark:text-red-400'
+                                                                : 'border-border hover:border-red-300 text-muted-foreground hover:text-foreground'
+                                                            }`}
+                                                        onClick={() => setYtPostType(opt.value)}
+                                                    >
+                                                        <opt.icon className="h-5 w-5" />
+                                                        <span className="text-xs font-medium">{opt.label}</span>
+                                                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{opt.desc}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Video Title */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <Label className="text-xs text-muted-foreground">Video Title</Label>
+                                        <Input
+                                            value={ytVideoTitle}
+                                            onChange={(e) => setYtVideoTitle(e.target.value)}
+                                            placeholder="Enter video title..."
+                                            className="text-sm"
+                                        />
+                                    </div>
+
+                                    {/* Category & Tags */}
+                                    <div className="grid grid-cols-2 gap-3 border-t pt-3">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Category</Label>
+                                            <Select value={ytCategory} onValueChange={setYtCategory}>
+                                                <SelectTrigger className="text-xs">
+                                                    <SelectValue placeholder="Select Category" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[
+                                                        'Film & Animation', 'Autos & Vehicles', 'Music', 'Pets & Animals',
+                                                        'Sports', 'Travel & Events', 'Gaming', 'People & Blogs',
+                                                        'Comedy', 'Entertainment', 'News & Politics', 'Howto & Style',
+                                                        'Education', 'Science & Technology', 'Nonprofits & Activism'
+                                                    ].map(cat => (
+                                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Privacy</Label>
+                                            <Select value={ytPrivacy} onValueChange={(v) => setYtPrivacy(v as 'public' | 'unlisted' | 'private')}>
+                                                <SelectTrigger className="text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="public">
+                                                        <span className="flex items-center gap-1.5"><Globe className="h-3 w-3" /> Public</span>
+                                                    </SelectItem>
+                                                    <SelectItem value="unlisted">
+                                                        <span className="flex items-center gap-1.5"><EyeOff className="h-3 w-3" /> Unlisted</span>
+                                                    </SelectItem>
+                                                    <SelectItem value="private">
+                                                        <span className="flex items-center gap-1.5"><Lock className="h-3 w-3" /> Private</span>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    {/* Video Tags */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <div className="flex items-center gap-2">
+                                            <Tag className="h-4 w-4 text-red-500" />
+                                            <Label className="text-xs text-muted-foreground">Video Tags</Label>
+                                        </div>
+                                        <Input
+                                            value={ytTags}
+                                            onChange={(e) => setYtTags(e.target.value)}
+                                            placeholder="tag1, tag2, tag3..."
+                                            className="text-xs"
+                                        />
+                                    </div>
+
+                                    {/* Toggles */}
+                                    <div className="border-t pt-3 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Bell className="h-4 w-4 text-red-500" />
+                                                <p className="text-sm font-medium">Notify Subscribers</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${ytNotifySubscribers ? 'bg-red-500' : 'bg-muted'}`}
+                                                onClick={() => setYtNotifySubscribers(!ytNotifySubscribers)}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${ytNotifySubscribers ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <ShieldCheck className="h-4 w-4 text-red-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium">Made for Kids</p>
+                                                    <p className="text-[10px] text-muted-foreground">Required by COPPA regulations</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${ytMadeForKids ? 'bg-red-500' : 'bg-muted'}`}
+                                                onClick={() => setYtMadeForKids(!ytMadeForKids)}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${ytMadeForKids ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </CardContent>
                             )}
