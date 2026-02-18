@@ -1075,7 +1075,15 @@ export default function ComposePage() {
                 for (let attempt = 0; attempt < 3; attempt++) {
                     try {
                         const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
+                        console.log('Canva export API response status:', exportRes.status)
                         const exportData = await exportRes.json()
+                        console.log('Canva export API data:', {
+                            status: exportData.status,
+                            hasBase64: !!exportData.imageBase64,
+                            base64Length: exportData.imageBase64?.length || 0,
+                            urlsCount: exportData.urls?.length || 0,
+                            error: exportData.error,
+                        })
 
                         if (exportData.status === 'success') {
                             let blob: Blob | null = null

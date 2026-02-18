@@ -216,28 +216,40 @@ export async function GET(req: NextRequest) {
 
         if (statusData.job?.status === 'success') {
             const urls = statusData.job.urls || []
+            console.log('Canva export job succeeded, urls count:', urls.length)
             if (urls.length > 0) {
                 // Proxy-download the image to avoid CORS issues
                 try {
                     const imgUrl = urls[0]
                     console.log('Proxy-downloading Canva export from:', imgUrl)
                     const imgRes = await fetch(imgUrl)
+                    console.log('Proxy download response status:', imgRes.status, imgRes.statusText)
                     if (imgRes.ok) {
                         const imgBuffer = Buffer.from(await imgRes.arrayBuffer())
+                        console.log('Downloaded image size (bytes):', imgBuffer.length)
+
+                        // If image is too large for JSON base64 (>8MB), return URL fallback
+                        if (imgBuffer.length > 8 * 1024 * 1024) {
+                            console.log('Image too large for base64, returning URL fallback')
+                            return NextResponse.json({ status: 'success', urls })
+                        }
+
                         const base64 = imgBuffer.toString('base64')
+                        console.log('Base64 string length:', base64.length, '— returning success response')
                         return NextResponse.json({
                             status: 'success',
                             imageBase64: base64,
                             contentType: imgRes.headers.get('content-type') || 'image/png',
                         })
                     } else {
-                        console.error('Failed to download exported image:', imgRes.status)
+                        console.error('Failed to download exported image:', imgRes.status, imgRes.statusText)
                     }
                 } catch (err) {
                     console.error('Error proxy-downloading Canva export:', err)
                 }
             }
             // Fallback: return URLs if proxy download fails
+            console.log('Returning URL fallback for export')
             return NextResponse.json({
                 status: 'success',
                 urls,
