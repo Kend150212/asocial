@@ -8,14 +8,14 @@ export async function GET(req: NextRequest) {
     const stateParam = req.nextUrl.searchParams.get('state')
 
     if (!code || !stateParam) {
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Missing+code+or+state', req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Missing+code+or+state', process.env.NEXTAUTH_URL || req.nextUrl.origin))
     }
 
     let state: { channelId: string; userId: string; codeVerifier: string }
     try {
         state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
     } catch {
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Invalid+state', req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Invalid+state', process.env.NEXTAUTH_URL || req.nextUrl.origin))
     }
 
     // Get Canva integration credentials from API Hub
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     if (!tokenRes.ok) {
         const errorText = await tokenRes.text()
         console.error('Canva token exchange failed:', errorText)
-        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Token+exchange+failed', req.nextUrl.origin))
+        return NextResponse.redirect(new URL('/admin/integrations?canva=error&message=Token+exchange+failed', process.env.NEXTAUTH_URL || req.nextUrl.origin))
     }
 
     const tokenData = await tokenRes.json()
@@ -91,5 +91,5 @@ export async function GET(req: NextRequest) {
         })
     }
 
-    return NextResponse.redirect(new URL('/admin/integrations?canva=connected', req.nextUrl.origin))
+    return NextResponse.redirect(new URL('/admin/integrations?canva=connected', host))
 }
