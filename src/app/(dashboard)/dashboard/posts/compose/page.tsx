@@ -513,6 +513,7 @@ export default function ComposePage() {
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
     const [generating, setGenerating] = useState(false)
+    const [generatingMeta, setGeneratingMeta] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [dragging, setDragging] = useState(false)
     const [aiTopic, setAiTopic] = useState('')
@@ -534,6 +535,7 @@ export default function ComposePage() {
     const [ytPrivacy, setYtPrivacy] = useState<'public' | 'unlisted' | 'private'>('public')
     const [ytMadeForKids, setYtMadeForKids] = useState(false)
     const [ytNotifySubscribers, setYtNotifySubscribers] = useState(true)
+    const [ytThumbnailPrompt, setYtThumbnailPrompt] = useState('')
     const [ytSettingsOpen, setYtSettingsOpen] = useState(true)
     // TikTok settings
     const [ttPostType, setTtPostType] = useState<'video' | 'carousel'>('video')
@@ -944,6 +946,48 @@ export default function ComposePage() {
             }
         } catch { toast.error('AI generation failed — check your AI API key in API Hub') }
         finally { setGenerating(false) }
+    }
+
+    // AI Generate platform metadata (first comment, pin title, yt title, etc.)
+    const handleGenerateMetadata = async (requestedPlatforms?: string[]) => {
+        if (!selectedChannel || !content.trim()) {
+            toast.error('Write your post content first')
+            return
+        }
+        setGeneratingMeta(true)
+        try {
+            // Determine which platforms to generate for
+            const platforms = requestedPlatforms || activePlatforms
+                .filter((p) => selectedPlatformIds.has(p.id))
+                .map((p) => p.platform)
+
+            const res = await fetch('/api/admin/posts/generate-metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId: selectedChannel.id, content, platforms }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Failed to generate metadata')
+                return
+            }
+
+            // Fill in the generated fields
+            let filled = 0
+            if (data.firstComment) { setFbFirstComment(data.firstComment); filled++ }
+            if (data.pinTitle) { setPinTitle(data.pinTitle); filled++ }
+            if (data.pinLink) { setPinLink(data.pinLink); filled++ }
+            if (data.ytTitle) { setYtVideoTitle(data.ytTitle); filled++ }
+            if (data.ytTags) { setYtTags(data.ytTags); filled++ }
+            if (data.ytCategory) { setYtCategory(data.ytCategory); filled++ }
+            if (data.ytThumbnailPrompt) { setYtThumbnailPrompt(data.ytThumbnailPrompt); filled++ }
+
+            toast.success(`✨ AI filled ${filled} field(s)`)
+        } catch {
+            toast.error('AI metadata generation failed')
+        } finally {
+            setGeneratingMeta(false)
+        }
     }
 
     // Build platforms payload from selected IDs
@@ -1642,12 +1686,23 @@ export default function ComposePage() {
 
                                     {/* First Comment */}
                                     <div className="space-y-2 border-t pt-3">
-                                        <div className="flex items-center gap-2">
-                                            <MessageSquare className="h-4 w-4 text-blue-500" />
-                                            <div>
-                                                <p className="text-sm font-medium">First Comment</p>
-                                                <p className="text-[10px] text-muted-foreground">Auto-comment after posting (great for hashtags)</p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <MessageSquare className="h-4 w-4 text-blue-500" />
+                                                <div>
+                                                    <p className="text-sm font-medium">First Comment</p>
+                                                    <p className="text-[10px] text-muted-foreground">Auto-comment after posting (great for hashtags)</p>
+                                                </div>
                                             </div>
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                                disabled={generatingMeta || !content.trim()}
+                                                onClick={() => handleGenerateMetadata(['facebook'])}
+                                            >
+                                                {generatingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                                AI Generate
+                                            </button>
                                         </div>
                                         <textarea
                                             value={fbFirstComment}
@@ -1796,7 +1851,18 @@ export default function ComposePage() {
 
                                     {/* Video Title */}
                                     <div className="space-y-1 border-t pt-1.5">
-                                        <Label className="text-[10px] text-muted-foreground">Video Title</Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[10px] text-muted-foreground">Video Title</Label>
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                                disabled={generatingMeta || !content.trim()}
+                                                onClick={() => handleGenerateMetadata(['youtube'])}
+                                            >
+                                                {generatingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                                AI Fill All
+                                            </button>
+                                        </div>
                                         <Input
                                             value={ytVideoTitle}
                                             onChange={(e) => setYtVideoTitle(e.target.value)}
@@ -1857,6 +1923,21 @@ export default function ComposePage() {
                                             onChange={(e) => setYtTags(e.target.value)}
                                             placeholder="tag1, tag2, tag3..."
                                             className="text-xs"
+                                        />
+                                    </div>
+
+                                    {/* Thumbnail Prompt */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <div className="flex items-center gap-2">
+                                            <ImageIcon className="h-4 w-4 text-red-500" />
+                                            <Label className="text-xs text-muted-foreground">Thumbnail Prompt (AI-generated)</Label>
+                                        </div>
+                                        <textarea
+                                            value={ytThumbnailPrompt}
+                                            onChange={(e) => setYtThumbnailPrompt(e.target.value)}
+                                            placeholder="AI will generate a thumbnail prompt based on your content..."
+                                            className="w-full min-h-[60px] resize-y rounded-lg border bg-transparent px-3 py-2 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+                                            rows={3}
                                         />
                                     </div>
 
@@ -2095,9 +2176,20 @@ export default function ComposePage() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    {/* Pin Title */}
+                                    {/* Pin Title + AI Button */}
                                     <div>
-                                        <Label className="text-[10px] text-muted-foreground">Pin Title</Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[10px] text-muted-foreground">Pin Title</Label>
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                                disabled={generatingMeta || !content.trim()}
+                                                onClick={() => handleGenerateMetadata(['pinterest'])}
+                                            >
+                                                {generatingMeta ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                                AI Fill
+                                            </button>
+                                        </div>
                                         <Input
                                             className="h-8 text-xs"
                                             placeholder="Enter pin title (max 100 chars)"
