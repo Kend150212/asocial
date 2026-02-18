@@ -2,30 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// ─── Types ───────────────────────────────────────────────────────────
+
+interface MediaInfo {
+    url: string
+    type: string // 'image' | 'video' from database
+    originalName?: string
+}
+
 // ─── Platform publishers ─────────────────────────────────────────────
 
-function isVideoUrl(url: string): boolean {
-    return /\.(mp4|mov|webm|avi|mkv|ogg|3gp|flv|wmv|mpeg)(\?|$)/i.test(url)
+function isVideoMedia(media: MediaInfo): boolean {
+    // Primary: trust the database type field
+    if (media.type === 'video') return true
+    // Fallback: check extension in URL or originalName
+    const str = (media.originalName || media.url || '').toLowerCase()
+    return /\.(mp4|mov|webm|avi|mkv|ogg|3gp|flv|wmv|mpeg)(\?|$)/i.test(str)
 }
 
 async function publishToFacebook(
     accessToken: string,
     accountId: string,
     content: string,
-    mediaUrls: string[],
+    mediaItems: MediaInfo[],
     postType: string,
 ): Promise<{ externalId: string }> {
     // Facebook Graph API — Post to Page
 
-    if (mediaUrls.length > 0 && postType !== 'story') {
-        const firstUrl = mediaUrls[0]
+    if (mediaItems.length > 0 && postType !== 'story') {
+        const firstMedia = mediaItems[0]
 
-        if (isVideoUrl(firstUrl)) {
+        if (isVideoMedia(firstMedia)) {
             // ── Video: use /videos endpoint ──
             const videoUrl = `https://graph.facebook.com/v21.0/${accountId}/videos`
             const videoBody: Record<string, string> = {
                 description: content,
-                file_url: firstUrl, // Facebook fetches the video from this URL
+                file_url: firstMedia.url, // Facebook fetches the video from this URL
                 access_token: accessToken,
             }
             const res = await fetch(videoUrl, {
@@ -43,7 +55,7 @@ async function publishToFacebook(
             const photoUrl = `https://graph.facebook.com/v21.0/${accountId}/photos`
             const photoBody: Record<string, string> = {
                 caption: content,
-                url: firstUrl, // Facebook fetches the image from this URL
+                url: firstMedia.url, // Facebook fetches the image from this URL
                 access_token: accessToken,
             }
             const res = await fetch(photoUrl, {
@@ -81,9 +93,9 @@ async function publishToInstagram(
     accessToken: string,
     accountId: string,
     content: string,
-    mediaUrls: string[],
+    mediaItems: MediaInfo[],
 ): Promise<{ externalId: string }> {
-    if (mediaUrls.length === 0) {
+    if (mediaItems.length === 0) {
         throw new Error('Instagram requires at least one image or video')
     }
 
@@ -94,14 +106,13 @@ async function publishToInstagram(
         access_token: accessToken,
     }
 
-    // Determine media type
-    const firstMedia = mediaUrls[0]
-    const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(firstMedia)
-    if (isVideo) {
+    // Determine media type from database type field
+    const firstMedia = mediaItems[0]
+    if (isVideoMedia(firstMedia)) {
         containerBody.media_type = 'VIDEO'
-        containerBody.video_url = firstMedia
+        containerBody.video_url = firstMedia.url
     } else {
-        containerBody.image_url = firstMedia
+        containerBody.image_url = firstMedia.url
     }
 
     const containerRes = await fetch(containerUrl, {
@@ -181,22 +192,25 @@ export async function POST(
     // Get pending platform statuses
     const pendingStatuses = post.platformStatuses.filter((ps) => ps.status === 'pending')
 
-    // Build public media URLs (for platform APIs that fetch media by URL)
-    // Media stored on Google Drive already have full URLs — don't prefix with baseUrl
-    const mediaUrls = post.media.map((m) => {
-        const url = m.mediaItem.url
+    // Build media info objects (URL + type) for platform APIs
+    const mediaItems: MediaInfo[] = post.media.map((m) => {
+        let url = m.mediaItem.url
         // If URL is already absolute (starts with http), use as-is
         if (url.startsWith('http://') || url.startsWith('https://')) {
-            // For Google Drive images: use drive.google.com/uc URL that external APIs can fetch
-            // lh3.googleusercontent.com URLs sometimes block external fetches
+            // For Google Drive: use drive.google.com/uc URL that external APIs can fetch
             if (m.mediaItem.storageFileId && url.includes('googleusercontent.com')) {
-                return `https://drive.google.com/uc?export=download&id=${m.mediaItem.storageFileId}`
+                url = `https://drive.google.com/uc?export=download&id=${m.mediaItem.storageFileId}`
             }
-            return url
+        } else {
+            // Legacy/local media — prefix with base URL
+            const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+            url = `${baseUrl}${url}`
         }
-        // Legacy/local media — prefix with base URL
-        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-        return `${baseUrl}${url}`
+        return {
+            url,
+            type: m.mediaItem.type || 'image',
+            originalName: m.mediaItem.originalName || undefined,
+        }
     })
 
     for (const ps of pendingStatuses) {
@@ -236,7 +250,7 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.accountId,
                         post.content || '',
-                        mediaUrls,
+                        mediaItems,
                         postType,
                     )
                     break
@@ -246,7 +260,7 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.accountId,
                         post.content || '',
-                        mediaUrls,
+                        mediaItems,
                     )
                     break
 
