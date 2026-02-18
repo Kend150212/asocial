@@ -30,7 +30,6 @@ async function publishToFacebook(
 ): Promise<{ externalId: string }> {
     // Facebook Graph API — Post to Page
     const carousel = config?.carousel === true
-    const firstComment = (config?.firstComment as string) || ''
 
     // ── Reel: use /video_reels endpoint ──
     if (postType === 'reel') {
@@ -51,7 +50,6 @@ async function publishToFacebook(
         const data = await res.json()
         if (data.error) throw new Error(data.error.message || 'Facebook Reel upload error')
         const postId = data.id || data.post_id
-        if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
         return { externalId: postId }
     }
 
@@ -76,7 +74,6 @@ async function publishToFacebook(
                 throw new Error(data.error.message || 'Facebook video upload error')
             }
             const postId = data.id || data.post_id
-            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
             return { externalId: postId }
         } else if (carousel && mediaItems.length > 1) {
             // ── Carousel: upload each photo unpublished, then batch ──
@@ -115,7 +112,6 @@ async function publishToFacebook(
             const data = await res.json()
             if (data.error) throw new Error(data.error.message || 'Facebook carousel publish error')
             const postId = data.id
-            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
             return { externalId: postId }
         } else {
             // ── Single Image: use /photos endpoint ──
@@ -135,7 +131,6 @@ async function publishToFacebook(
                 throw new Error(data.error.message || 'Facebook photo upload error')
             }
             const postId = data.id || data.post_id
-            if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
             return { externalId: postId }
         }
     }
@@ -156,7 +151,6 @@ async function publishToFacebook(
         throw new Error(data.error.message || 'Facebook API error')
     }
     const postId = data.id
-    if (firstComment && postId) await postFirstComment(accessToken, postId, firstComment)
     return { externalId: postId }
 }
 
@@ -738,6 +732,34 @@ export async function POST(
             publishedAt: anyPublished ? new Date() : null,
         },
     })
+
+    // ── Post-publish: First Comments ──────────────────────────────────
+    // Run AFTER all platforms are published, with a delay to ensure
+    // Facebook has fully processed the posts (especially reels/videos)
+    const fbFirstCommentTasks = results
+        .filter(r => r.success && r.platform === 'facebook' && r.externalId)
+        .map(r => {
+            const ps = pendingStatuses.find(p => p.platform === r.platform && p.accountId === r.accountId)
+            const cfg = ps ? ((ps.config as Record<string, unknown>) || {}) : {}
+            const firstComment = (cfg.firstComment as string) || ''
+            if (!firstComment) return null
+            // Find the access token for this platform
+            const platformConn = post.channel.platforms.find(
+                pc => pc.platform === r.platform && pc.accountId === r.accountId
+            )
+            if (!platformConn?.accessToken) return null
+            return { accessToken: platformConn.accessToken, postId: r.externalId!, message: firstComment }
+        })
+        .filter(Boolean) as { accessToken: string; postId: string; message: string }[]
+
+    if (fbFirstCommentTasks.length > 0) {
+        // Wait 5 seconds for Facebook to finish processing the posts
+        console.log(`[FirstComment] Waiting 5s before posting ${fbFirstCommentTasks.length} first comment(s)...`)
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        for (const task of fbFirstCommentTasks) {
+            await postFirstComment(task.accessToken, task.postId, task.message)
+        }
+    }
 
     return NextResponse.json({
         success: anyPublished,

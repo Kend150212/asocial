@@ -167,8 +167,8 @@ const ACCEPTED_FILE_TYPES = [
 
 // ─── Realistic Preview Components ───────────────────
 
-function FacebookPreview({ content, media, accountName, postType, mediaRatio }: {
-    content: string; media: MediaItem[]; accountName: string; postType: string; mediaRatio: string
+function FacebookPreview({ content, media, accountName, postType, mediaRatio, firstComment }: {
+    content: string; media: MediaItem[]; accountName: string; postType: string; mediaRatio: string; firstComment?: string
 }) {
     if (postType === 'story') {
         return (
@@ -223,7 +223,7 @@ function FacebookPreview({ content, media, accountName, postType, mediaRatio }: 
             {/* Reactions bar */}
             <div className="px-3 py-2 text-xs text-muted-foreground flex items-center justify-between border-t">
                 <span>👍 ❤️ 0</span>
-                <span>0 Comments · 0 Shares</span>
+                <span>{firstComment ? '1 Comment' : '0 Comments'} · 0 Shares</span>
             </div>
             {/* Actions */}
             <div className="flex items-center border-t divide-x">
@@ -237,6 +237,20 @@ function FacebookPreview({ content, media, accountName, postType, mediaRatio }: 
                     <Share2 className="h-4 w-4" /> Share
                 </button>
             </div>
+            {/* First Comment */}
+            {firstComment && (
+                <div className="px-3 py-2 border-t">
+                    <div className="flex gap-2">
+                        <div className="h-7 w-7 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: '#1877F2' }}>
+                            {accountName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="bg-muted rounded-xl px-3 py-1.5 flex-1">
+                            <p className="text-xs font-semibold">{accountName}</p>
+                            <p className="text-xs whitespace-pre-wrap break-words">{firstComment}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -2195,7 +2209,7 @@ export default function ComposePage() {
                                         {(() => {
                                             switch (effectivePreviewPlatform) {
                                                 case 'facebook':
-                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} mediaRatio={mediaRatio} />
+                                                    return <FacebookPreview content={content} media={attachedMedia} accountName={name} postType={fbPostTypes[entry.id] || 'feed'} mediaRatio={mediaRatio} firstComment={fbFirstComment || undefined} />
                                                 case 'instagram':
                                                     return <InstagramPreview content={content} media={attachedMedia} accountName={name} mediaRatio={mediaRatio} />
                                                 case 'tiktok':
