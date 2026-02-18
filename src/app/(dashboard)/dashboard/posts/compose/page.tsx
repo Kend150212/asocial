@@ -1009,36 +1009,54 @@ export default function ComposePage() {
 
             // Open Canva editor in popup
             const popup = window.open(data.editUrl, 'canva-editor', 'width=1200,height=800,menubar=no,toolbar=no')
-            toast.success('🎨 Canva editor opened! Design your content and close the tab when done.')
+            toast.success('🎨 Canva editor opened! Close the Canva tab when done to import your design.')
 
-            // Poll for popup close, then export
+            // Poll for popup close OR popup returning to our domain
+            const triggerExport = async () => {
+                toast.loading('Exporting design from Canva...', { id: 'canva-export' })
+                try {
+                    const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
+                    const exportData = await exportRes.json()
+
+                    if (exportData.status === 'success' && exportData.urls?.length > 0) {
+                        // Download the exported image and upload to our media library
+                        const imageUrl = exportData.urls[0]
+                        const imgRes = await fetch(imageUrl)
+                        const blob = await imgRes.blob()
+                        const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
+
+                        // Upload via handleFileUpload
+                        const dt = new DataTransfer()
+                        dt.items.add(file)
+                        await handleFileUpload(dt.files)
+                        toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+                    } else {
+                        toast.error(exportData.error || 'Export failed', { id: 'canva-export' })
+                    }
+                } catch {
+                    toast.error('Failed to export from Canva', { id: 'canva-export' })
+                }
+                setCanvaLoading(false)
+            }
+
             const checkClosed = setInterval(async () => {
+                // Case 1: Popup was closed by user
                 if (popup && popup.closed) {
                     clearInterval(checkClosed)
-                    toast.loading('Exporting design from Canva...', { id: 'canva-export' })
-                    try {
-                        const exportRes = await fetch(`/api/canva/designs?designId=${data.designId}`)
-                        const exportData = await exportRes.json()
+                    await triggerExport()
+                    return
+                }
 
-                        if (exportData.status === 'success' && exportData.urls?.length > 0) {
-                            // Download the exported image and upload to our media library
-                            const imageUrl = exportData.urls[0]
-                            const imgRes = await fetch(imageUrl)
-                            const blob = await imgRes.blob()
-                            const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
-
-                            // Upload via handleFileUpload
-                            const dt = new DataTransfer()
-                            dt.items.add(file)
-                            await handleFileUpload(dt.files)
-                            toast.success('🎨 Canva design imported!', { id: 'canva-export' })
-                        } else {
-                            toast.error(exportData.error || 'Export failed', { id: 'canva-export' })
-                        }
-                    } catch {
-                        toast.error('Failed to export from Canva', { id: 'canva-export' })
+                // Case 2: Popup navigated back to our domain (user clicked "Return to ASocial")
+                try {
+                    if (popup && popup.location && popup.location.hostname === window.location.hostname) {
+                        clearInterval(checkClosed)
+                        popup.close()
+                        await triggerExport()
+                        return
                     }
-                    setCanvaLoading(false)
+                } catch {
+                    // Cross-origin — popup is still on canva.com, that's fine
                 }
             }, 1000)
 
