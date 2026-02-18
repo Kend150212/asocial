@@ -1024,14 +1024,14 @@ export default function ComposePage() {
         : uniqueSelectedPlatforms[0] || ''
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="cursor-pointer">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <h1 className="text-lg sm:text-2xl font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
+                    <h1 className="text-base sm:text-lg font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !content.trim()} className="cursor-pointer">
@@ -1046,12 +1046,12 @@ export default function ComposePage() {
             </div>
 
             {/* 3-Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                 {/* ── Left: Platforms ── */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="lg:col-span-2 space-y-2">
                     {/* Channel */}
                     <Card>
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <CardTitle className="text-sm">Channel</CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -1070,7 +1070,7 @@ export default function ComposePage() {
                     </Card>
 
                     <Card>
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle className="text-sm">Publish To</CardTitle>
@@ -1095,7 +1095,7 @@ export default function ComposePage() {
                                 )}
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-1.5 px-3 pb-3">
                             {activePlatforms.length ? (
                                 activePlatforms.map((p) => {
                                     const isChecked = selectedPlatformIds.has(p.id)
@@ -1103,7 +1103,7 @@ export default function ComposePage() {
                                     return (
                                         <div key={p.id} className="space-y-1.5">
                                             <div
-                                                className="flex items-center gap-3 cursor-pointer select-none"
+                                                className="flex items-center gap-2 cursor-pointer select-none"
                                                 onClick={() => togglePlatform(p.id)}
                                             >
                                                 {/* Custom checkbox — no Radix, no event issues */}
@@ -1113,11 +1113,11 @@ export default function ComposePage() {
                                                     }`}>
                                                     {isChecked && <Check className="h-3 w-3" />}
                                                 </div>
-                                                <div className="h-6 w-6 shrink-0 flex items-center justify-center">
+                                                <div className="h-5 w-5 shrink-0 flex items-center justify-center">
                                                     <PlatformIcon platform={p.platform} size="md" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium leading-none">
+                                                    <p className="text-xs font-medium leading-none">
                                                         {p.accountName}
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -1138,12 +1138,12 @@ export default function ComposePage() {
 
                     {/* Schedule */}
                     <Card>
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Calendar className="h-4 w-4" /> Schedule
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-2 px-3 pb-3">
                             {/* AI-Powered Schedule Suggestion */}
                             <div>
                                 <Button
@@ -1230,10 +1230,10 @@ export default function ComposePage() {
                 </div >
 
                 {/* ── Center: Editor ── */}
-                < div className="lg:col-span-6 space-y-4" >
+                < div className="lg:col-span-6 space-y-2" >
                     {/* AI Generate */}
                     < Card >
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <Sparkles className="h-4 w-4 text-amber-500" /> AI Generate
                             </CardTitle>
@@ -1255,7 +1255,7 @@ export default function ComposePage() {
 
                     {/* Content Editor */}
                     < Card >
-                        <CardHeader className="pb-2">
+                        <CardHeader className="pb-1 pt-3 px-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm">Content</CardTitle>
                                 <span className={`text-xs ${charCount > 0 ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
@@ -1263,11 +1263,11 @@ export default function ComposePage() {
                                 </span>
                             </div>
                             {/* Content Toolbar */}
-                            <div className="flex items-center gap-1 pt-2 border-b pb-2 -mx-1 flex-wrap">
+                            <div className="flex items-center gap-0.5 pt-1 border-b pb-1.5 -mx-1 flex-wrap">
                                 <button
                                     type="button"
                                     title="Bold"
-                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
@@ -1284,7 +1284,7 @@ export default function ComposePage() {
                                 <button
                                     type="button"
                                     title="Italic"
-                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
@@ -1302,7 +1302,7 @@ export default function ComposePage() {
                                 <button
                                     type="button"
                                     title="Add Hashtag"
-                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
@@ -1320,7 +1320,7 @@ export default function ComposePage() {
                                 <button
                                     type="button"
                                     title="Mention"
-                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
@@ -1338,7 +1338,7 @@ export default function ComposePage() {
                                 <button
                                     type="button"
                                     title="Add Link"
-                                    className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                                    className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                                     onClick={() => {
                                         const ta = textareaRef.current
                                         if (!ta) return
@@ -1359,7 +1359,7 @@ export default function ComposePage() {
                                     <button
                                         type="button"
                                         title="Emoji"
-                                        className={`h-8 w-8 rounded-md flex items-center justify-center transition-colors cursor-pointer ${showEmojiPicker ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                                        className={`h-7 w-7 rounded flex items-center justify-center transition-colors cursor-pointer ${showEmojiPicker ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
                                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                                     >
                                         <Smile className="h-4 w-4" />
@@ -1367,13 +1367,13 @@ export default function ComposePage() {
                                     {showEmojiPicker && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
-                                            <div className="absolute top-10 left-0 z-50 bg-popover border rounded-xl shadow-xl p-3 w-[280px]">
+                                            <div className="absolute top-9 left-0 z-50 bg-popover border rounded-xl shadow-xl p-2 w-[260px]">
                                                 <div className="grid grid-cols-8 gap-1">
                                                     {['😀', '😂', '🤣', '😍', '🥰', '😎', '🤩', '🥳', '😤', '🔥', '💯', '❤️', '👏', '🙌', '💪', '✨', '🎉', '🎊', '👍', '👎', '🤔', '😱', '😢', '🤝', '💡', '📌', '🚀', '📢', '💰', '🛒', '🎯', '📈', '⭐', '🏆', '💎', '🌟', '❗', '✅', '📣', '🔔', '🎁', '💝', '🌈', '☀️', '🌙', '💫', '🍀', '🦋'].map(emoji => (
                                                         <button
                                                             key={emoji}
                                                             type="button"
-                                                            className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors cursor-pointer text-lg"
+                                                            className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors cursor-pointer text-base"
                                                             onClick={() => {
                                                                 const ta = textareaRef.current
                                                                 if (!ta) { setContent(prev => prev + emoji); setShowEmojiPicker(false); return }
@@ -1400,8 +1400,8 @@ export default function ComposePage() {
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
                                 placeholder="Write your post content here..."
-                                className="w-full min-h-[200px] resize-y rounded-lg border bg-transparent px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
-                                rows={8}
+                                className="w-full min-h-[120px] resize-y rounded-lg border bg-transparent px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
+                                rows={5}
                             />
                         </CardContent>
                     </Card >
@@ -1413,7 +1413,7 @@ export default function ComposePage() {
                         onDrop={handleDrop}
                         className={`transition-all ${dragging ? 'ring-2 ring-primary border-primary' : ''}`}
                     >
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <ImageIcon className="h-4 w-4" /> Media
@@ -1462,7 +1462,7 @@ export default function ComposePage() {
                                 ))}
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-2 px-3 pb-3">
                             {attachedMedia.length > 0 && (
                                 <div className={`grid gap-2 ${mediaRatio === '9:16' ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'
                                     }`}>
@@ -1505,15 +1505,15 @@ export default function ComposePage() {
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`border-2 border-dashed rounded-lg text-center cursor-pointer transition-all ${dragging
-                                    ? 'border-primary bg-primary/5 p-8'
+                                    ? 'border-primary bg-primary/5 p-4'
                                     : attachedMedia.length > 0
-                                        ? 'p-4 hover:border-primary/30'
-                                        : 'p-8 hover:border-primary/30'
+                                        ? 'p-2.5 hover:border-primary/30'
+                                        : 'p-4 hover:border-primary/30'
                                     }`}
                             >
                                 {dragging ? (
                                     <>
-                                        <Upload className="h-10 w-10 mx-auto text-primary mb-2 animate-bounce" />
+                                        <Upload className="h-6 w-6 mx-auto text-primary mb-1 animate-bounce" />
                                         <p className="text-sm font-medium text-primary">Drop files here</p>
                                     </>
                                 ) : (
@@ -1534,7 +1534,7 @@ export default function ComposePage() {
                     {/* Facebook Settings — only when Facebook platform is selected */}
                     {selectedChannel?.platforms?.some(p => p.platform === 'facebook' && selectedPlatformIds.has(p.id)) && (
                         <Card>
-                            <CardHeader className="pb-2">
+                            <CardHeader className="pb-1 pt-2.5 px-3">
                                 <button
                                     type="button"
                                     className="flex items-center justify-between w-full cursor-pointer"
@@ -1548,7 +1548,7 @@ export default function ComposePage() {
                                 </button>
                             </CardHeader>
                             {fbSettingsOpen && (
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-2.5 px-3 pb-3">
                                     {/* Post Type */}
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground">Post Type</Label>
@@ -1628,7 +1628,7 @@ export default function ComposePage() {
                     {/* Instagram Settings — only when Instagram platform is selected */}
                     {selectedChannel?.platforms?.some(p => p.platform === 'instagram' && selectedPlatformIds.has(p.id)) && (
                         <Card>
-                            <CardHeader className="pb-2">
+                            <CardHeader className="pb-1 pt-2.5 px-3">
                                 <button
                                     type="button"
                                     className="flex items-center justify-between w-full cursor-pointer"
@@ -1642,7 +1642,7 @@ export default function ComposePage() {
                                 </button>
                             </CardHeader>
                             {igSettingsOpen && (
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-2.5 px-3 pb-3">
                                     {/* Post Type */}
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground">Post Type</Label>
@@ -1716,7 +1716,7 @@ export default function ComposePage() {
                     {/* YouTube Settings — only when YouTube platform is selected */}
                     {selectedChannel?.platforms?.some(p => p.platform === 'youtube' && selectedPlatformIds.has(p.id)) && (
                         <Card>
-                            <CardHeader className="pb-2">
+                            <CardHeader className="pb-1 pt-2.5 px-3">
                                 <button
                                     type="button"
                                     className="flex items-center justify-between w-full cursor-pointer"
@@ -1730,7 +1730,7 @@ export default function ComposePage() {
                                 </button>
                             </CardHeader>
                             {ytSettingsOpen && (
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-2.5 px-3 pb-3">
                                     {/* Post Type */}
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground">Post Type</Label>
@@ -1983,9 +1983,9 @@ export default function ComposePage() {
                 </div >
 
                 {/* ── Right: Realistic Previews ── */}
-                < div className="lg:col-span-4 space-y-4" >
+                < div className="lg:col-span-4 space-y-2" >
                     <Card>
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-1.5 pt-3 px-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm">Post Preview</CardTitle>
                                 {content.trim() && uniqueSelectedPlatforms.length > 1 && (
@@ -2060,7 +2060,7 @@ export default function ComposePage() {
                                     </>
                                 )
                             })() : (
-                                <div className="text-center py-10">
+                                <div className="text-center py-6">
                                     <Hash className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
                                     <p className="text-sm text-muted-foreground">
                                         {selectedEntries.length === 0 ? 'Select platforms to see preview' : 'Start typing to see preview'}
@@ -2073,10 +2073,10 @@ export default function ComposePage() {
                     {
                         scheduleDate && (
                             <Card>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                            <Clock className="h-5 w-5 text-primary" />
+                                <CardContent className="p-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <Clock className="h-4 w-4 text-primary" />
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium">Scheduled for</p>
