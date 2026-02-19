@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { useWorkspace } from '@/lib/workspace-context'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -100,9 +101,22 @@ function formatDate(d: string) {
 export default function MediaLibraryPage() {
     const { data: session } = useSession()
 
-    // Channel selection
-    const [channels, setChannels] = useState<Channel[]>([])
+    // Channel selection — driven by workspace context
+    const { activeChannelId, channels: wsChannels } = useWorkspace()
+    const channels = wsChannels  // reuse workspace channels
     const [selectedChannelId, setSelectedChannelId] = useState<string>('')
+
+    // Sync selectedChannelId whenever workspace or channels list changes
+    useEffect(() => {
+        if (activeChannelId) {
+            setSelectedChannelId(activeChannelId)
+            setCurrentFolderId(null)  // reset to root when workspace changes
+            setBreadcrumbs([{ id: null, name: 'All Files' }])
+        } else if (channels.length > 0 && !selectedChannelId) {
+            setSelectedChannelId(channels[0].id)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeChannelId, channels])
 
     // Folders
     const [folders, setFolders] = useState<MediaFolder[]>([])
@@ -139,18 +153,7 @@ export default function MediaLibraryPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
 
-    /* ─── Fetch channels ─── */
-    useEffect(() => {
-        if (!session?.user) return
-        fetch('/api/admin/channels')
-            .then((r) => r.json())
-            .then((d) => {
-                const ch = d.channels || d || []
-                setChannels(ch)
-                if (ch.length > 0 && !selectedChannelId) setSelectedChannelId(ch[0].id)
-            })
-            .catch(() => toast.error('Failed to load channels'))
-    }, [session])
+    /* ─── channels come from workspace context — no local fetch needed ─── */
 
     /* ─── Fetch folders ─── */
     const fetchFolders = useCallback(async () => {
