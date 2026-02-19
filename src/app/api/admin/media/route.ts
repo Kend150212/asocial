@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const channelId = formData.get('channelId') as string
     const file = formData.get('file') as File | null
+    console.log('POST /api/admin/media — channelId:', channelId, 'file:', file?.name, 'size:', file?.size, 'type:', file?.type)
 
     if (!channelId) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })

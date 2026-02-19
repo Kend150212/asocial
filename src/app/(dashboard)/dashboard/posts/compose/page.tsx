@@ -1114,7 +1114,9 @@ export default function ComposePage() {
                                 const formData = new FormData()
                                 formData.append('file', file)
                                 formData.append('channelId', channelId)
-                                console.log('Uploading Canva export, channelId:', channelId, 'replacing mediaId:', existingMediaId)
+
+                                // Log to server for debugging (client console.log not visible in PM2)
+                                fetch(`/api/canva/designs?_debug=1&step=uploading&channelId=${channelId}&fileSize=${file.size}&mediaId=${existingMediaId || 'new'}`).catch(() => { })
 
                                 const uploadRes = await fetch('/api/admin/media', {
                                     method: 'POST',

@@ -229,6 +229,17 @@ export async function POST(req: NextRequest) {
 
 // GET /api/canva/designs?designId=xxx — Export a design as PNG (proxied through server)
 export async function GET(req: NextRequest) {
+    // Debug beacon from client — log and return early
+    const debugStep = req.nextUrl.searchParams.get('_debug')
+    if (debugStep) {
+        const step = req.nextUrl.searchParams.get('step')
+        const chId = req.nextUrl.searchParams.get('channelId')
+        const fileSize = req.nextUrl.searchParams.get('fileSize')
+        const mediaId = req.nextUrl.searchParams.get('mediaId')
+        console.log(`[CLIENT DEBUG] step=${step} channelId=${chId} fileSize=${fileSize} mediaId=${mediaId}`)
+        return NextResponse.json({ ok: true })
+    }
+
     const session = await auth()
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
