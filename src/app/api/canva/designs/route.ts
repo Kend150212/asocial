@@ -1,16 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { decrypt } from '@/lib/encryption'
+import { decrypt, encrypt } from '@/lib/encryption'
 
-// Helper: get Canva access token for the current user
+// Helper: get Canva access token for the current user, auto-refresh if expired
 async function getCanvaToken(userId: string): Promise<{ token: string | null; connected: boolean }> {
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'canva' } })
     if (!integration) return { token: null, connected: false }
     const config = (integration.config || {}) as Record<string, string | null>
     const encryptedToken = config[`canvaToken_${userId}`]
     if (!encryptedToken) return { token: null, connected: false }
-    return { token: decrypt(encryptedToken), connected: true }
+
+    const token = decrypt(encryptedToken)
+
+    // Quick-check if token is still valid
+    const testRes = await fetch('https://api.canva.com/rest/v1/users/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+    })
+
+    if (testRes.ok) return { token, connected: true }
+
+    // Token expired — try to refresh
+    console.log('Canva token expired for user', userId, '— attempting refresh')
+    const encryptedRefresh = config[`canvaRefresh_${userId}`]
+    if (!encryptedRefresh) {
+        console.error('No Canva refresh token available')
+        return { token: null, connected: false }
+    }
+
+    const refreshToken = decrypt(encryptedRefresh)
+    const clientId = config.canvaClientId || process.env.CANVA_CLIENT_ID || ''
+    const clientSecret = config.canvaClientSecret ? decrypt(config.canvaClientSecret) : (process.env.CANVA_CLIENT_SECRET || '')
+
+    const refreshRes = await fetch('https://api.canva.com/rest/v1/oauth/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+        },
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+        }),
+    })
+
+    if (!refreshRes.ok) {
+        const errText = await refreshRes.text()
+        console.error('Canva token refresh failed:', errText)
+        return { token: null, connected: false }
+    }
+
+    const refreshData = await refreshRes.json()
+    const newAccessToken = refreshData.access_token
+    const newRefreshToken = refreshData.refresh_token
+
+    // Save new tokens to database
+    const updatedConfig = {
+        ...config,
+        [`canvaToken_${userId}`]: encrypt(newAccessToken),
+        ...(newRefreshToken ? { [`canvaRefresh_${userId}`]: encrypt(newRefreshToken) } : {}),
+    }
+
+    await prisma.apiIntegration.update({
+        where: { id: integration.id },
+        data: { config: updatedConfig },
+    })
+
+    console.log('Canva token refreshed successfully for user', userId)
+    return { token: newAccessToken, connected: true }
 }
 
 // Helper: Upload an image to Canva as an asset, return asset ID

@@ -50,7 +50,8 @@ export async function DELETE(
         }
     }
 
-    // Delete from database (cascade will remove PostMedia references)
+    // Delete from database — first remove post_media references, then the media item
+    await prisma.postMedia.deleteMany({ where: { mediaItemId: id } })
     await prisma.mediaItem.delete({ where: { id } })
 
     return NextResponse.json({ success: true })
