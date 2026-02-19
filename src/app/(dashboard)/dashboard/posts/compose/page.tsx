@@ -1604,6 +1604,9 @@ export default function ComposePage() {
                     if (igPostType === 'story' && !hasVideo && !hasImage) errors.push('📸 Instagram Stories require media (image or video).')
                     if (igPostType === 'feed' && attachedMedia.length === 0) errors.push('📸 Instagram Feed requires at least one image or video.')
                     break
+                case 'pinterest':
+                    if (!hasImage) errors.push('📌 Pinterest requires an image. Please attach an image to your post.')
+                    break
             }
         }
 

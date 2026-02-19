@@ -284,6 +284,42 @@ export default function PostEditPage({
     // Publish
     const handlePublish = async () => {
         if (!post) return
+
+        // ── Pre-publish validation ──────────────────────────────────────
+        const isVideo = (m: MediaItem) => {
+            if (m.type === 'video') return true
+            return /\.(mp4|mov|webm|avi|mkv|ogg|3gp|flv|wmv|mpeg)(\?|$)/i.test(m.originalName || m.url || '')
+        }
+        const hasVideo = attachedMedia.some(isVideo)
+        const hasImage = attachedMedia.some(m => !isVideo(m))
+
+        const selectedPlatformList = Array.from(selectedPlatforms).map(key => key.split(':')[0])
+        const validationErrors: string[] = []
+
+        for (const platform of selectedPlatformList) {
+            switch (platform) {
+                case 'pinterest':
+                    if (!hasImage) validationErrors.push('📌 Pinterest requires an image. Please attach an image before publishing.')
+                    break
+                case 'tiktok':
+                    if (!hasVideo) validationErrors.push('🎵 TikTok requires a video. Please attach a video before publishing.')
+                    break
+                case 'youtube':
+                    if (!hasVideo) validationErrors.push('▶️ YouTube requires a video. Please attach a video before publishing.')
+                    break
+                case 'instagram':
+                    if (attachedMedia.length === 0) validationErrors.push('📸 Instagram requires at least one image or video.')
+                    break
+            }
+        }
+
+        const uniqueErrors = [...new Set(validationErrors)]
+        if (uniqueErrors.length > 0) {
+            uniqueErrors.forEach(err => toast.error(err, { duration: 6000 }))
+            return
+        }
+        // ────────────────────────────────────────────────────────────────
+
         setPublishing(true)
         try {
             // Update platforms first
