@@ -442,7 +442,7 @@ export default function CalendarPage() {
     useEffect(() => {
         fetch('/api/admin/channels')
             .then(r => r.json())
-            .then(data => setChannels(data.channels || []))
+            .then(data => setChannels(Array.isArray(data) ? data : data.channels || []))
             .catch(() => { })
     }, [])
 
