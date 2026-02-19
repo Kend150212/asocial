@@ -1683,20 +1683,29 @@ export default function ComposePage() {
 
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={handleSaveDraft} disabled={saving || !content.trim()}>
-                        {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                        {scheduleDate ? 'Schedule' : 'Save Draft'}
-                    </Button>
                     {scheduleDate ? (
-                        <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md px-2 h-7">
-                            <Calendar className="h-3.5 w-3.5" />
-                            <span>Click &quot;Schedule&quot; to save</span>
-                        </div>
-                    ) : (
-                        <Button size="sm" className="h-7 text-xs cursor-pointer" onClick={handlePublishNow} disabled={publishing || !content.trim() || selectedPlatformIds.size === 0}>
-                            {publishing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
-                            Publish Now
+                        // Schedule mode — amber button
+                        <Button
+                            size="sm"
+                            className="h-7 text-xs cursor-pointer bg-amber-500 hover:bg-amber-600 text-white border-0"
+                            onClick={handleSaveDraft}
+                            disabled={saving || !content.trim()}
+                        >
+                            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Calendar className="h-3.5 w-3.5 mr-1" />}
+                            Schedule
                         </Button>
+                    ) : (
+                        // Normal mode — Save Draft + Publish Now
+                        <>
+                            <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={handleSaveDraft} disabled={saving || !content.trim()}>
+                                {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                                Save Draft
+                            </Button>
+                            <Button size="sm" className="h-7 text-xs cursor-pointer" onClick={handlePublishNow} disabled={publishing || !content.trim() || selectedPlatformIds.size === 0}>
+                                {publishing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                                Publish Now
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
