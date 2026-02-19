@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, PostStatus } from '@prisma/client'
 
 /**
  * GET /api/admin/posts/calendar?from=ISO&to=ISO&channelId=&platform=
@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from')
     const to = searchParams.get('to')
     const channelId = searchParams.get('channelId')
-    const platform = searchParams.get('platform') // optional single platform filter
+    const platform = searchParams.get('platform')
+    const statusParam = searchParams.get('status') // comma-separated e.g. "PUBLISHED,SCHEDULED,FAILED"
 
     if (!from || !to) {
         return NextResponse.json({ error: 'from and to are required' }, { status: 400 })
@@ -28,14 +29,14 @@ export async function GET(req: NextRequest) {
 
     const fromDate = new Date(from)
     const toDate = new Date(to)
+    const allowedStatuses = statusParam ? statusParam.split(',') : ['PUBLISHED', 'SCHEDULED', 'FAILED']
 
     const isAdmin = session.user.role === 'ADMIN'
 
     const where: Prisma.PostWhereInput = {
-        // Restrict non-admins to assigned channels
         ...(isAdmin ? {} : { channel: { members: { some: { userId: session.user.id } } } }),
         ...(channelId ? { channelId } : {}),
-        // Match if any of the date fields fall in range
+        status: { in: allowedStatuses as PostStatus[] },
         OR: [
             { scheduledAt: { gte: fromDate, lte: toDate } },
             { publishedAt: { gte: fromDate, lte: toDate } },
@@ -45,10 +46,7 @@ export async function GET(req: NextRequest) {
                 createdAt: { gte: fromDate, lte: toDate },
             },
         ],
-        // Platform filter: only posts that have a platformStatus for the requested platform
-        ...(platform ? {
-            platformStatuses: { some: { platform } },
-        } : {}),
+        ...(platform ? { platformStatuses: { some: { platform } } } : {}),
     }
 
     const posts = await prisma.post.findMany({

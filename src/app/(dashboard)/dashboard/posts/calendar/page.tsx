@@ -411,6 +411,7 @@ export default function CalendarPage() {
     const [channels, setChannels] = useState<Channel[]>([])
     const [channelId, setChannelId] = useState<string>('all')
     const [activePlatforms, setActivePlatforms] = useState<Set<string>>(new Set())
+    const [showFailed, setShowFailed] = useState(false)
 
     // Compute from/to for the current view window
     const { from, to, title } = useMemo(() => {
@@ -453,9 +454,11 @@ export default function CalendarPage() {
     const fetchPosts = useCallback(async () => {
         setLoading(true)
         try {
+            const statuses = ['PUBLISHED', 'SCHEDULED', ...(showFailed ? ['FAILED'] : [])].join(',')
             const params = new URLSearchParams({
                 from: from.toISOString(),
                 to: to.toISOString(),
+                status: statuses,
             })
             if (channelId !== 'all') params.set('channelId', channelId)
             const res = await fetch(`/api/admin/posts/calendar?${params}`)
@@ -465,9 +468,9 @@ export default function CalendarPage() {
         } catch { /* ignore */ } finally {
             setLoading(false)
         }
-    }, [from, to, channelId])
+    }, [from, to, channelId, showFailed])
 
-    useEffect(() => { fetchPosts() }, [fetchPosts])
+    useEffect(() => { fetchPosts() }, [fetchPosts, showFailed])
 
     // Filter posts by selected platforms
     const filteredPosts = useMemo(() => {
@@ -624,6 +627,20 @@ export default function CalendarPage() {
                             </button>
                         )}
                     </div>
+
+                    {/* Failed toggle */}
+                    <button
+                        onClick={() => setShowFailed(v => !v)}
+                        className={cn(
+                            'flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer ml-auto',
+                            showFailed
+                                ? 'bg-red-500 text-white border-transparent'
+                                : 'bg-transparent text-red-500 border-red-500/40 hover:border-red-500'
+                        )}
+                    >
+                        <span className="w-2 h-2 rounded-full bg-red-500" style={showFailed ? { background: 'rgba(255,255,255,0.7)' } : {}} />
+                        {locale === 'vi' ? 'Thất bại' : 'Failed'}
+                    </button>
                 </div>
             </div>
 
