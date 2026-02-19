@@ -1,8 +1,9 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react'
 
 const STORAGE_KEY = 'asocial_workspace'
+const SWITCH_DELAY_MS = 350  // duration of the transition
 
 interface WorkspaceChannel {
     id: string
@@ -11,11 +12,12 @@ interface WorkspaceChannel {
 }
 
 interface WorkspaceContextType {
-    activeChannelId: string | null   // null = all channels
+    activeChannelId: string | null
     activeChannel: WorkspaceChannel | null
     channels: WorkspaceChannel[]
     setActiveChannel: (channel: WorkspaceChannel | null) => void
     loadingChannels: boolean
+    isSwitching: boolean  // true briefly when workspace changes
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType>({
@@ -24,14 +26,16 @@ const WorkspaceContext = createContext<WorkspaceContextType>({
     channels: [],
     setActiveChannel: () => { },
     loadingChannels: true,
+    isSwitching: false,
 })
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const [channels, setChannels] = useState<WorkspaceChannel[]>([])
     const [activeChannel, setActiveChannelState] = useState<WorkspaceChannel | null>(null)
     const [loadingChannels, setLoadingChannels] = useState(true)
+    const [isSwitching, setIsSwitching] = useState(false)
+    const switchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    // Load channels on mount
     useEffect(() => {
         const fetchChannels = async () => {
             try {
@@ -39,17 +43,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 if (res.ok) {
                     const data: WorkspaceChannel[] = await res.json()
                     setChannels(data)
-
-                    // Restore saved workspace from localStorage
                     const saved = localStorage.getItem(STORAGE_KEY)
                     if (saved) {
                         const found = data.find((c) => c.id === saved)
                         if (found) setActiveChannelState(found)
                     }
                 }
-            } catch {
-                // silently ignore
-            } finally {
+            } catch { /* silently ignore */ } finally {
                 setLoadingChannels(false)
             }
         }
@@ -57,6 +57,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const setActiveChannel = useCallback((channel: WorkspaceChannel | null) => {
+        // Trigger switching animation
+        setIsSwitching(true)
+        if (switchTimer.current) clearTimeout(switchTimer.current)
+        switchTimer.current = setTimeout(() => setIsSwitching(false), SWITCH_DELAY_MS)
+
         setActiveChannelState(channel)
         if (channel) {
             localStorage.setItem(STORAGE_KEY, channel.id)
@@ -73,6 +78,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                 channels,
                 setActiveChannel,
                 loadingChannels,
+                isSwitching,
             }}
         >
             {children}
