@@ -4,21 +4,24 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
 
-    // Allow all requests to pass through
-    // Auth is handled by the dashboard layout (server component)
-    // This avoids edge runtime cookie issues with server actions
+    const hasSession =
+        req.cookies.has('__Secure-authjs.session-token') ||
+        req.cookies.has('authjs.session-token') ||
+        req.cookies.has('next-auth.session-token')
 
-    // Redirect logged-in users away from public pages (landing, login)
+    // ── Redirect logged-in users away from public pages ───────────────
     const isPublicPage = pathname === '/' || pathname === '/login'
-    if (isPublicPage) {
-        // Check for session cookie existence (simple check, no JWT verification)
-        const hasSession = req.cookies.has('__Secure-authjs.session-token') ||
-            req.cookies.has('authjs.session-token') ||
-            req.cookies.has('next-auth.session-token')
+    if (isPublicPage && hasSession) {
+        return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
 
-        if (hasSession) {
-            return NextResponse.redirect(new URL('/dashboard', req.url))
-        }
+    // ── Protect dashboard routes — redirect to login with callbackUrl ─
+    const isDashboardRoute = pathname.startsWith('/dashboard')
+    if (isDashboardRoute && !hasSession) {
+        const loginUrl = new URL('/login', req.url)
+        // Preserve the full path (including query string) as callbackUrl
+        loginUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search)
+        return NextResponse.redirect(loginUrl)
     }
 
     return NextResponse.next()

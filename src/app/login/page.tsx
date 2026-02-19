@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,12 +12,15 @@ import { Loader2 } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/language-switcher'
 
-export default function LoginPage() {
+function LoginForm() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [isPending, setIsPending] = useState(false)
     const t = useTranslation()
+    const searchParams = useSearchParams()
+    // After login, go to callbackUrl if present, otherwise /dashboard
+    const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -33,8 +37,8 @@ export default function LoginPage() {
             if (result?.error) {
                 setError('Invalid email or password')
             } else {
-                // Full page redirect to ensure SessionProvider re-initializes
-                window.location.href = '/dashboard'
+                // Redirect to callbackUrl (from webhook link) or /dashboard
+                window.location.href = callbackUrl
             }
         } catch {
             setError('Something went wrong. Please try again.')
@@ -134,5 +138,14 @@ export default function LoginPage() {
                 </p>
             </div>
         </div>
+    )
+}
+
+// Suspense wrapper required for useSearchParams in Next.js
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginForm />
+        </Suspense>
     )
 }
