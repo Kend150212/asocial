@@ -45,6 +45,7 @@ model User {
   preference     UserPreference?
   channelMembers ChannelMember[]
   posts          Post[]           @relation("PostAuthor")
+  postApprovals  PostApproval[]
   notifications  Notification[]
   activityLogs   ActivityLog[]
   apiKeys        UserApiKey[]
@@ -228,6 +229,7 @@ model Channel {
   posts                Post[]
   mediaItems           MediaItem[]
   mediaFolders         MediaFolder[]
+  invites              ChannelInvite[]
 
   @@map("channels")
 }
@@ -391,11 +393,12 @@ model PostApproval {
   id        String   @id @default(cuid())
   postId    String   @map("post_id")
   userId    String   @map("user_id")
-  action    String   // approved, rejected
+  action    String   // APPROVED | REJECTED
   comment   String?  @db.Text
   createdAt DateTime @default(now()) @map("created_at")
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
 
   @@map("post_approvals")
 }
@@ -415,6 +418,28 @@ model PostPlatformStatus {
 
   @@unique([postId, platform, accountId])
   @@map("post_platform_statuses")
+}
+
+// ==========================================
+// CHANNEL INVITES (Customer portal)
+// ==========================================
+
+model ChannelInvite {
+  id          String    @id @default(cuid())
+  channelId   String    @map("channel_id")
+  email       String
+  name        String?
+  token       String    @unique
+  expiresAt   DateTime  @map("expires_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  userId      String?   @map("user_id")   // set after invite accepted
+  invitedBy   String    @map("invited_by") // staff user id
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, email])
+  @@map("channel_invites")
 }
 
 // ==========================================

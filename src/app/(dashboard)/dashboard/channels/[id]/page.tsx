@@ -1034,6 +1034,10 @@ export default function ChannelDetailPage({
                         <Users className="h-3.5 w-3.5" />
                         <span className="hidden lg:inline">{t('channels.tabs.members')}</span>
                     </TabsTrigger>
+                    <TabsTrigger value="customers" className="gap-1.5 text-xs">
+                        <UserPlus className="h-3.5 w-3.5" />
+                        <span className="hidden lg:inline">Customers</span>
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* ─── General Tab ───────────────────── */}
@@ -2395,7 +2399,194 @@ export default function ChannelDetailPage({
                     </Card>
                 </TabsContent>
 
+                {/* ─── Customers Tab ───────────────────── */}
+                <TabsContent value="customers" className="space-y-4">
+                    <CustomersTab channelId={id} />
+                </TabsContent>
+
             </Tabs>
         </div>
+    )
+}
+
+// ─────────────────────────────────────────────────────────
+// Customers Tab Component
+// ─────────────────────────────────────────────────────────
+function CustomersTab({ channelId }: { channelId: string }) {
+    const [customers, setCustomers] = useState<{ user: { id: string; name: string | null; email: string; isActive: boolean } }[]>([])
+    const [invites, setInvites] = useState<{ id: string; email: string; name: string | null; expiresAt: string; token: string }[]>([])
+    const [loading, setLoading] = useState(true)
+    const [email, setEmail] = useState('')
+    const [name, setName] = useState('')
+    const [inviting, setInviting] = useState(false)
+    const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+
+    const load = useCallback(async () => {
+        if (!channelId) return
+        setLoading(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${channelId}/customers`)
+            const data = await res.json()
+            setCustomers(data.members || [])
+            setInvites(data.invites || [])
+        } finally {
+            setLoading(false)
+        }
+    }, [channelId])
+
+    useEffect(() => { load() }, [load])
+
+    async function handleInvite(e: React.FormEvent) {
+        e.preventDefault()
+        if (!email) return
+        setInviting(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${channelId}/customers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, name }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setInviteUrl(data.inviteUrl)
+                setEmail('')
+                setName('')
+                load()
+            }
+        } finally {
+            setInviting(false)
+        }
+    }
+
+    async function toggleActive(customerId: string, isActive: boolean) {
+        await fetch(`/api/admin/channels/${channelId}/customers/${customerId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: isActive ? 'deactivate' : 'activate' }),
+        })
+        load()
+    }
+
+    async function removeCustomer(customerId: string) {
+        if (!confirm('Remove this customer from the channel?')) return
+        await fetch(`/api/admin/channels/${channelId}/customers/${customerId}`, { method: 'DELETE' })
+        load()
+    }
+
+    async function removeInvite(inviteId: string) {
+        if (!confirm('Cancel this invite?')) return
+        await fetch(`/api/admin/channels/${channelId}/customers/${inviteId}`, { method: 'DELETE' })
+        load()
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" /> Customers</CardTitle>
+                <CardDescription>Invite clients to review and approve posts in this channel</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+
+                {/* Invite form */}
+                <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-2">
+                    <input
+                        type="text"
+                        placeholder="Name (optional)"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="border border-border rounded-md px-3 py-2 text-sm bg-background flex-1"
+                    />
+                    <input
+                        type="email"
+                        placeholder="Email address *"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="border border-border rounded-md px-3 py-2 text-sm bg-background flex-1"
+                    />
+                    <Button type="submit" disabled={inviting || !email} size="sm" className="gap-1.5">
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {inviting ? 'Sending...' : 'Send Invite'}
+                    </Button>
+                </form>
+
+                {/* Show invite URL after sending */}
+                {inviteUrl && (
+                    <div className="bg-muted rounded-lg px-4 py-3 text-sm">
+                        <p className="text-muted-foreground mb-1">Invite link sent. Copy to share manually:</p>
+                        <div className="flex items-center gap-2">
+                            <code className="text-xs bg-background border border-border rounded px-2 py-1 flex-1 overflow-x-auto">{inviteUrl}</code>
+                            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(inviteUrl); setInviteUrl(null) }}>
+                                Copy &amp; Close
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                <Separator />
+
+                {/* Active customers */}
+                <div>
+                    <h4 className="text-sm font-medium mb-3">Active Customers ({customers.length})</h4>
+                    {loading ? (
+                        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                    ) : customers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground italic">No customers yet. Send your first invite above.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {customers.map(({ user }) => (
+                                <div key={user.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
+                                    <div>
+                                        <p className="text-sm font-medium">{user.name || user.email}</p>
+                                        {user.name && <p className="text-xs text-muted-foreground">{user.email}</p>}\
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant={user.isActive ? 'default' : 'secondary'} className="text-xs">
+                                            {user.isActive ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                        <Button size="sm" variant="ghost" onClick={() => toggleActive(user.id, user.isActive)}>
+                                            {user.isActive ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}\
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => removeCustomer(user.id)}>
+                                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Pending invites */}
+                {invites.length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-medium mb-3">Pending Invites ({invites.length})</h4>
+                        <div className="space-y-2">
+                            {invites.map((inv) => (
+                                <div key={inv.id} className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border px-4 py-2.5">
+                                    <div>
+                                        <p className="text-sm font-medium">{inv.name || inv.email}</p>
+                                        {inv.name && <p className="text-xs text-muted-foreground">{inv.email}</p>}
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-xs">Pending</Badge>
+                                        <Button size="sm" variant="ghost" title="Copy invite link" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/invite/${inv.token}`)}>
+                                            <LinkIcon className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => removeInvite(inv.id)}>
+                                            <X className="h-3.5 w-3.5 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+            </CardContent>
+        </Card>
     )
 }
