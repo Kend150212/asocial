@@ -256,3 +256,137 @@ export async function sendPublishWebhooks(
         await Promise.allSettled(tasks)
     }
 }
+
+// ─── Approval notification helpers ───────────────────────────────────
+
+export interface ApprovalNotificationData {
+    postId: string
+    content: string
+    action: 'approved' | 'rejected'
+    reviewedBy: string
+    reviewedAt: Date
+    channelName: string
+    authorName: string
+    comment?: string
+    scheduledAt?: Date | null
+}
+
+function buildApprovalDiscordPayload(data: ApprovalNotificationData) {
+    const isApproved = data.action === 'approved'
+    const color = isApproved ? 0x22c55e : 0xef4444
+    const title = isApproved ? '✅ Post Approved' : '❌ Post Rejected'
+    const truncated = data.content.length > 200 ? data.content.slice(0, 200) + '…' : data.content
+    const fields: { name: string; value: string; inline: boolean }[] = [
+        { name: '📡 Channel', value: data.channelName, inline: true },
+        { name: '👤 Author', value: data.authorName, inline: true },
+        { name: '🔍 Reviewed by', value: data.reviewedBy, inline: true },
+        { name: '🕐 Time', value: `<t:${Math.floor(data.reviewedAt.getTime() / 1000)}:R>`, inline: true },
+    ]
+    if (data.scheduledAt && isApproved) {
+        fields.push({ name: '📅 Scheduled for', value: `<t:${Math.floor(data.scheduledAt.getTime() / 1000)}:f>`, inline: true })
+    }
+    if (data.comment) fields.push({ name: '💬 Comment', value: data.comment, inline: false })
+    return {
+        username: 'ASocial',
+        embeds: [{ title, color, description: truncated, fields, footer: { text: `Post ID: ${data.postId}` }, timestamp: data.reviewedAt.toISOString() }],
+    }
+}
+
+function buildApprovalTelegramMessage(data: ApprovalNotificationData): string {
+    const isApproved = data.action === 'approved'
+    const truncated = data.content.length > 200 ? data.content.slice(0, 200) + '…' : data.content
+    let msg = isApproved ? `✅ *Post Approved*\n\n` : `❌ *Post Rejected*\n\n`
+    msg += `📝 ${truncated}\n\n`
+    msg += `📡 *Channel:* ${data.channelName}\n`
+    msg += `👤 *Author:* ${data.authorName}\n`
+    msg += `🔍 *Reviewed by:* ${data.reviewedBy}\n`
+    if (data.scheduledAt && isApproved) {
+        msg += `📅 *Scheduled:* ${data.scheduledAt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+    }
+    if (data.comment) msg += `💬 *Comment:* ${data.comment}\n`
+    return msg
+}
+
+function buildApprovalSlackPayload(data: ApprovalNotificationData) {
+    const isApproved = data.action === 'approved'
+    const truncated = data.content.length > 200 ? data.content.slice(0, 200) + '…' : data.content
+    const headerText = isApproved ? '✅ Post Approved' : '❌ Post Rejected'
+    const fields = [
+        { type: 'mrkdwn', text: `*📡 Channel:*\n${data.channelName}` },
+        { type: 'mrkdwn', text: `*👤 Author:*\n${data.authorName}` },
+        { type: 'mrkdwn', text: `*🔍 Reviewed by:*\n${data.reviewedBy}` },
+    ]
+    const blocks: unknown[] = [
+        { type: 'header', text: { type: 'plain_text', text: headerText, emoji: true } },
+        { type: 'section', text: { type: 'mrkdwn', text: truncated } },
+        { type: 'section', fields },
+    ]
+    if (data.comment) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*💬 Comment:*\n${data.comment}` } })
+    blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: `Post ID: ${data.postId}` }] })
+    return { blocks }
+}
+
+function buildApprovalCustomPayload(data: ApprovalNotificationData) {
+    return {
+        event: `post.${data.action}`,
+        source: 'asocial',
+        timestamp: data.reviewedAt.toISOString(),
+        post: { id: data.postId, content: data.content },
+        channel: data.channelName,
+        author: data.authorName,
+        reviewedBy: data.reviewedBy,
+        comment: data.comment || null,
+        scheduledAt: data.scheduledAt?.toISOString() || null,
+    }
+}
+
+export async function sendApprovalWebhooks(
+    webhookConfig: WebhookConfig,
+    data: ApprovalNotificationData,
+): Promise<void> {
+    const tasks: Promise<void>[] = []
+
+    const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
+    if (discordUrl) {
+        tasks.push(
+            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalDiscordPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Discord failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Approval Discord error:', err.message))
+        )
+    }
+
+    const tgConfig = webhookConfig.webhookTelegram as Record<string, string> | null
+    if (tgConfig?.botToken && tgConfig?.chatId) {
+        tasks.push(
+            fetch(`https://api.telegram.org/bot${tgConfig.botToken}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: tgConfig.chatId, text: buildApprovalTelegramMessage(data), parse_mode: 'Markdown' }),
+            })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Telegram failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Approval Telegram error:', err.message))
+        )
+    }
+
+    const slackUrl = (webhookConfig.webhookSlack as Record<string, string> | null)?.url
+    if (slackUrl) {
+        tasks.push(
+            fetch(slackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalSlackPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Slack failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Approval Slack error:', err.message))
+        )
+    }
+
+    const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
+    if (customUrl) {
+        tasks.push(
+            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalCustomPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Custom failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Approval Custom error:', err.message))
+        )
+    }
+
+    if (tasks.length > 0) {
+        console.log(`[Webhook] Sending ${tasks.length} approval notification(s) for action=${data.action}...`)
+        await Promise.allSettled(tasks)
+    }
+}

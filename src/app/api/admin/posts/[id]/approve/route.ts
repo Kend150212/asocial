@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendApprovalWebhooks } from '@/lib/webhook-notify'
 
 /**
  * POST /api/admin/posts/[id]/approve
  * Body: { action: 'approved' | 'rejected', comment?: string }
- * Creates a PostApproval record and updates post status.
+ * Creates a PostApproval record, updates post status, fires webhook.
  */
 export async function POST(
     req: NextRequest,
@@ -22,7 +23,13 @@ export async function POST(
         return NextResponse.json({ error: 'action must be approved or rejected' }, { status: 400 })
     }
 
-    const post = await prisma.post.findUnique({ where: { id } })
+    const post = await prisma.post.findUnique({
+        where: { id },
+        include: {
+            channel: true,
+            author: true,
+        },
+    })
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
 
     // Create approval record
@@ -36,9 +43,9 @@ export async function POST(
     })
 
     // Update post status
-    // → if approved AND has a schedule → promote to SCHEDULED so queue/calendar pick it up
-    // → if approved but no schedule → set APPROVED (will be published manually / immediately)
-    // → if rejected → set REJECTED
+    // → approved + has scheduledAt → SCHEDULED (shows in Queue + Calendar)
+    // → approved + no scheduledAt → APPROVED (manual/immediate publish)
+    // → rejected → REJECTED
     let newStatus: string
     if (action === 'rejected') {
         newStatus = 'REJECTED'
@@ -50,7 +57,7 @@ export async function POST(
         data: { status: newStatus as never },
     })
 
-    // Send notification to author
+    // Send notification to author (in-app)
     try {
         await prisma.notification.create({
             data: {
@@ -62,6 +69,32 @@ export async function POST(
             },
         })
     } catch { /* notifications are optional */ }
+
+    // Fire webhook notifications (Discord / Telegram / Slack / Custom)
+    try {
+        await sendApprovalWebhooks(
+            {
+                webhookDiscord: post.channel.webhookDiscord as Record<string, string> | null,
+                webhookTelegram: post.channel.webhookTelegram as Record<string, string> | null,
+                webhookSlack: post.channel.webhookSlack as Record<string, string> | null,
+                webhookCustom: post.channel.webhookCustom as Record<string, string> | null,
+                webhookEvents: post.channel.webhookEvents as string[] | null,
+            },
+            {
+                postId: id,
+                content: post.content || '',
+                action,
+                reviewedBy: session.user.name || session.user.email || 'Unknown',
+                reviewedAt: new Date(),
+                channelName: post.channel.name,
+                authorName: post.author?.name || post.author?.email || 'Unknown',
+                comment: comment || undefined,
+                scheduledAt: post.scheduledAt || null,
+            },
+        )
+    } catch (err) {
+        console.warn('[Webhook] Approval notification error:', err)
+    }
 
     return NextResponse.json({ status: newStatus })
 }
