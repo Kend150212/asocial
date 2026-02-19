@@ -36,10 +36,18 @@ export async function POST(
     })
 
     // Update post status
-    const newStatus = action === 'approved' ? 'APPROVED' : 'REJECTED'
+    // → if approved AND has a schedule → promote to SCHEDULED so queue/calendar pick it up
+    // → if approved but no schedule → set APPROVED (will be published manually / immediately)
+    // → if rejected → set REJECTED
+    let newStatus: string
+    if (action === 'rejected') {
+        newStatus = 'REJECTED'
+    } else {
+        newStatus = post.scheduledAt ? 'SCHEDULED' : 'APPROVED'
+    }
     await prisma.post.update({
         where: { id },
-        data: { status: newStatus },
+        data: { status: newStatus as never },
     })
 
     // Send notification to author
