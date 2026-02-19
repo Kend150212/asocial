@@ -92,6 +92,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { THUMBNAIL_STYLES, DEFAULT_THUMBNAIL_STYLE_ID } from '@/lib/thumbnail-styles'
 import Image from 'next/image'
 
@@ -538,6 +548,7 @@ export default function ComposePage() {
     const [scheduleTime, setScheduleTime] = useState('')
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [generating, setGenerating] = useState(false)
     const [generatingMeta, setGeneratingMeta] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -1658,6 +1669,19 @@ export default function ComposePage() {
         }
     }
 
+    // Delete post
+    const handleDeletePost = async () => {
+        const targetId = editPostId || postIdRef.current
+        if (!targetId) return
+        try {
+            await fetch(`/api/admin/posts/${targetId}`, { method: 'DELETE' })
+            toast.success('Post deleted')
+            router.push('/dashboard/posts')
+        } catch {
+            toast.error('Failed to delete post')
+        }
+    }
+
     const charCount = content.length
 
     // Get selected platform entries for preview
@@ -1706,6 +1730,17 @@ export default function ComposePage() {
                                 Publish Now
                             </Button>
                         </>
+                    )}
+                    {/* Delete button — only in edit mode */}
+                    {editPostId && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setShowDeleteDialog(true)}
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                     )}
                 </div>
             </div>
@@ -3880,6 +3915,20 @@ export default function ComposePage() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div >
+
+            {/* Delete Post Confirmation */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Post?</AlertDialogTitle>
+                        <AlertDialogDescription>This action cannot be undone. The post and all associated media links will be permanently deleted.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeletePost} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
     )
 }

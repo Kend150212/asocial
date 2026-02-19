@@ -707,28 +707,44 @@ export default function PostEditPage({
                         </CardContent>
                     </Card>
 
-                    {/* Post Info */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm">Info</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-xs space-y-2 text-muted-foreground">
-                            <div className="flex justify-between">
-                                <span>Author</span>
-                                <span className="font-medium text-foreground">{post.author.name || post.author.email}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>Created</span>
-                                <span>{new Date(post.createdAt).toLocaleString('vi-VN')}</span>
-                            </div>
-                            {post.publishedAt && (
-                                <div className="flex justify-between">
-                                    <span>Published</span>
-                                    <span>{new Date(post.publishedAt).toLocaleString('vi-VN')}</span>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    {/* Approval History */}
+                    {post.approvals && post.approvals.length > 0 && (
+                        <Card className={post.approvals.some(a => a.action === 'rejected') ? 'border-destructive/40' : 'border-green-500/40'}>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                    {post.approvals[post.approvals.length - 1]?.action === 'approved'
+                                        ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                        : <XCircle className="h-4 w-4 text-destructive" />}
+                                    Approval History
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {post.approvals.map((a) => (
+                                    <div key={a.id} className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <Badge
+                                                variant={a.action === 'approved' ? 'default' : 'destructive'}
+                                                className="text-[10px]"
+                                            >
+                                                {a.action === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                                            </Badge>
+                                            <span className="text-[10px] text-muted-foreground">
+                                                {new Date(a.createdAt).toLocaleString('vi-VN')}
+                                            </span>
+                                        </div>
+                                        {a.comment && (
+                                            <div className={`rounded-md px-3 py-2 text-xs ${a.action === 'rejected'
+                                                ? 'bg-destructive/10 border border-destructive/20 text-destructive'
+                                                : 'bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400'
+                                                }`}>
+                                                💬 {a.comment}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 

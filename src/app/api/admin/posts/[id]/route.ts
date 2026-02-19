@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { sendPendingApprovalWebhooks, sendScheduledWebhooks } from '@/lib/webhook-notify'
+import { sendPendingApprovalWebhooks } from '@/lib/webhook-notify'
 
 // GET /api/admin/posts/[id] — single post with full relations
 export async function GET(
@@ -183,49 +183,36 @@ export async function PUT(
         })
     })
 
-    // ── Webhook notifications ──────────────────────────────────────────
-    const appBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const firstImage = post.media?.[0]?.mediaItem?.url || null
-    const fullImageUrl = firstImage && !firstImage.startsWith('http') ? `${appBaseUrl}${firstImage}` : firstImage
-    const webhookConfig = {
-        webhookDiscord: existing.channel.webhookDiscord as Record<string, string> | null,
-        webhookTelegram: existing.channel.webhookTelegram as Record<string, string> | null,
-        webhookSlack: existing.channel.webhookSlack as Record<string, string> | null,
-        webhookCustom: existing.channel.webhookCustom as Record<string, string> | null,
-        webhookEvents: existing.channel.webhookEvents as string[] | null,
-    }
-    console.log('[Webhook] PUT status:', post.status, '| prev:', existing.status, '| Discord URL:', (webhookConfig.webhookDiscord as Record<string, string> | null)?.url ? 'SET' : 'NOT SET')
-
-    // PENDING_APPROVAL: fire whenever post enters this status (not just from DRAFT)
-    if (post.status === 'PENDING_APPROVAL' && existing.status !== 'PENDING_APPROVAL') {
+    // Fire webhook notification when post transitions to PENDING_APPROVAL
+    if (post.status === 'PENDING_APPROVAL' && existing.status === 'DRAFT') {
         try {
-            await sendPendingApprovalWebhooks(webhookConfig, {
-                postId: post.id,
-                content: post.content || '',
-                authorName: post.author?.name || post.author?.email || 'Unknown',
-                channelName: existing.channel.name,
-                platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
-                scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
-                imageUrl: fullImageUrl,
-                appBaseUrl,
-            })
-        } catch (err) { console.warn('[Webhook] Pending approval error:', err) }
-    }
-
-    // SCHEDULED: fire when post transitions to SCHEDULED status
-    if (post.status === 'SCHEDULED' && existing.status !== 'SCHEDULED') {
-        try {
-            await sendScheduledWebhooks(webhookConfig, {
-                postId: post.id,
-                content: post.content || '',
-                authorName: post.author?.name || post.author?.email || 'Unknown',
-                channelName: existing.channel.name,
-                platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
-                scheduledAt: new Date(post.scheduledAt!),
-                imageUrl: fullImageUrl,
-                appBaseUrl,
-            })
-        } catch (err) { console.warn('[Webhook] Scheduled error:', err) }
+            const appBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+            const firstImage = post.media?.[0]?.mediaItem?.url || null
+            const fullImageUrl = firstImage && !firstImage.startsWith('http')
+                ? `${appBaseUrl}${firstImage}` : firstImage
+            const channel = existing.channel
+            await sendPendingApprovalWebhooks(
+                {
+                    webhookDiscord: channel.webhookDiscord as Record<string, string> | null,
+                    webhookTelegram: channel.webhookTelegram as Record<string, string> | null,
+                    webhookSlack: channel.webhookSlack as Record<string, string> | null,
+                    webhookCustom: channel.webhookCustom as Record<string, string> | null,
+                    webhookEvents: channel.webhookEvents as string[] | null,
+                },
+                {
+                    postId: post.id,
+                    content: post.content || '',
+                    authorName: post.author?.name || post.author?.email || 'Unknown',
+                    channelName: channel.name,
+                    platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
+                    scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
+                    imageUrl: fullImageUrl,
+                    appBaseUrl,
+                },
+            )
+        } catch (err) {
+            console.warn('[Webhook] Pending approval notification error:', err)
+        }
     }
 
     return NextResponse.json(post)
