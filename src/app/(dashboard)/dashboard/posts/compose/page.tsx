@@ -3572,7 +3572,7 @@ export default function ComposePage() {
                             )}
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {content.trim() && effectivePreviewPlatform ? (() => {
+                            {(content.trim() || attachedMedia.length > 0) && effectivePreviewPlatform ? (() => {
                                 // Find the first account of the currently previewed platform
                                 const entry = selectedEntries.find((e) => e.platform === effectivePreviewPlatform)
                                 if (!entry) return null

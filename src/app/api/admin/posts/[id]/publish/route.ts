@@ -780,9 +780,118 @@ async function publishToLinkedIn(
     return { externalId: postUrn }
 }
 
+// ─── TikTok publisher ───────────────────────────────────────────────
+
+async function publishToTikTok(
+    accessToken: string,
+    content: string,
+    mediaItems: MediaInfo[],
+    config?: Record<string, unknown>,
+): Promise<{ externalId: string }> {
+    const postType = (config?.postType as string) || 'video'
+    const publishMode = (config?.publishMode as string) || 'direct'   // 'direct' | 'inbox'
+    const privacy = (config?.privacy as string) || 'PUBLIC_TO_EVERYONE'
+    const disableComment = config?.allowComment === false
+    const disableDuet = config?.allowDuet === true ? false : true      // TikTok param is disable_*
+    const disableStitch = config?.allowStitch === true ? false : true
+    const brandedContent = config?.brandedContent === true
+    const aiGenerated = config?.aiGenerated === true
+
+    // ── Video post ──────────────────────────────────────────────────
+    if (postType === 'video') {
+        const videoMedia = mediaItems.find((m) => isVideoMedia(m))
+        if (!videoMedia) throw new Error('TikTok requires a video. Please attach a video to your post.')
+
+        // Step 1: Initialize upload
+        const initBody: Record<string, unknown> = {
+            post_info: {
+                title: content.slice(0, 2200),
+                privacy_level: privacy,
+                disable_comment: disableComment,
+                disable_duet: disableDuet,
+                disable_stitch: disableStitch,
+                ...(brandedContent ? { brand_content_toggle: true } : {}),
+                ...(aiGenerated ? { ai_generated_content: true } : {}),
+            },
+            source_info: {
+                source: 'PULL_FROM_URL',
+                video_url: videoMedia.url,
+            },
+        }
+
+        const endpoint = publishMode === 'inbox'
+            ? 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
+            : 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+
+        const initRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: JSON.stringify(initBody),
+        })
+
+        const initData = await initRes.json()
+        console.log('[TikTok] Init response:', JSON.stringify(initData))
+
+        if (initData.error?.code && initData.error.code !== 'ok') {
+            throw new Error(initData.error.message || `TikTok init failed: ${initData.error.code}`)
+        }
+
+        const publishId: string = initData.data?.publish_id
+        if (!publishId) throw new Error('TikTok: no publish_id returned')
+
+        return { externalId: publishId }
+    }
+
+    // ── Photo/carousel post ─────────────────────────────────────────
+    if (postType === 'carousel') {
+        const imageItems = mediaItems.filter((m) => !isVideoMedia(m))
+        if (imageItems.length === 0) throw new Error('TikTok carousel requires at least one image.')
+
+        const photoBody: Record<string, unknown> = {
+            media_type: 'PHOTO',
+            post_info: {
+                title: content.slice(0, 2200),
+                privacy_level: privacy,
+                disable_comment: disableComment,
+            },
+            source_info: {
+                source: 'PULL_FROM_URL',
+                photo_images: imageItems.slice(0, 35).map((m) => m.url),
+                photo_cover_index: 0,
+            },
+        }
+
+        const photoRes = await fetch('https://open.tiktokapis.com/v2/post/publish/content/init/', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: JSON.stringify(photoBody),
+        })
+
+        const photoData = await photoRes.json()
+        console.log('[TikTok] Photo init response:', JSON.stringify(photoData))
+
+        if (photoData.error?.code && photoData.error.code !== 'ok') {
+            throw new Error(photoData.error.message || `TikTok photo init failed: ${photoData.error.code}`)
+        }
+
+        const publishId: string = photoData.data?.publish_id
+        if (!publishId) throw new Error('TikTok: no publish_id returned')
+
+        return { externalId: publishId }
+    }
+
+    throw new Error(`TikTok unsupported post type: ${postType}`)
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
-    // TODO: Implement TikTok, X publishing
+    // TODO: Implement X publishing
     throw new Error(`${platform} publishing not yet integrated. Coming soon!`)
 }
 
@@ -938,6 +1047,15 @@ export async function POST(
                         platformConn.accountId,
                         getContent('linkedin'),
                         mediaItems,
+                    )
+                    break
+
+                case 'tiktok':
+                    publishResult = await publishToTikTok(
+                        platformConn.accessToken,
+                        getContent('tiktok'),
+                        mediaItems,
+                        psConfig,
                     )
                     break
 
