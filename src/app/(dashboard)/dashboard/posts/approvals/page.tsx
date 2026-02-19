@@ -166,7 +166,7 @@ export default function ApprovalsPage() {
                                     <Button
                                         size="sm"
                                         className="cursor-pointer h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                        onClick={() => setActionPost({ post, action: 'approved' })}
+                                        onClick={e => { e.stopPropagation(); setActionPost({ post, action: 'approved' }) }}
                                     >
                                         <CheckCircle2 className="h-3.5 w-3.5" />
                                         {t('approvals.approve')}
@@ -175,7 +175,7 @@ export default function ApprovalsPage() {
                                         size="sm"
                                         variant="outline"
                                         className="cursor-pointer h-8 gap-1.5 border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                        onClick={() => setActionPost({ post, action: 'rejected' })}
+                                        onClick={e => { e.stopPropagation(); setActionPost({ post, action: 'rejected' }) }}
                                     >
                                         <XCircle className="h-3.5 w-3.5" />
                                         {t('approvals.reject')}
