@@ -599,21 +599,24 @@ async function publishToPinterest(
     if (pinLink) pinBody.link = pinLink
 
     // Add media source — Pinterest requires an image
-    if (mediaItems.length > 0) {
-        const imageMedia = mediaItems.find(m => !isVideoMedia(m))
-        if (imageMedia) {
-            pinBody.media_source = {
-                source_type: 'image_url',
-                url: imageMedia.url,
-            }
-        } else if (isVideoMedia(mediaItems[0])) {
-            // Video pins require a more complex flow, but try with video URL
-            pinBody.media_source = {
-                source_type: 'video_url',
-                url: mediaItems[0].url,
-                cover_image_url: mediaItems[0].url, // fallback
-            }
+    const imageMedia = mediaItems.find(m => !isVideoMedia(m))
+    const videoMedia = mediaItems.find(m => isVideoMedia(m))
+
+    if (imageMedia) {
+        pinBody.media_source = {
+            source_type: 'image_url',
+            url: imageMedia.url,
         }
+    } else if (videoMedia) {
+        // Video pins require a more complex flow, but try with video URL
+        pinBody.media_source = {
+            source_type: 'video_url',
+            url: videoMedia.url,
+            cover_image_url: videoMedia.url, // fallback
+        }
+    } else {
+        // Pinterest requires an image or video — fail early with a clear message
+        throw new Error('Pinterest requires an image. Please attach an image to your post before publishing to Pinterest.')
     }
 
     const res = await fetch(`${pinterestBase}/v5/pins`, {
