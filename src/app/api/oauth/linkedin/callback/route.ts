@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+/** Auto-generate LinkedIn API version (YYYYMM) — uses 1 month behind current date for safety */
+function getLinkedInVersion(): string {
+    const now = new Date()
+    now.setMonth(now.getMonth() - 1)
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    return `${y}${m}`
+}
+
 // GET /api/oauth/linkedin/callback
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
@@ -83,7 +92,7 @@ export async function GET(req: NextRequest) {
             const orgsRes = await fetch('https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,vanityName,logoV2(original~:playableStreams))))', {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
-                    'LinkedIn-Version': '202602',
+                    'LinkedIn-Version': getLinkedInVersion(),
                     'X-Restli-Protocol-Version': '2.0.0',
                 },
             })

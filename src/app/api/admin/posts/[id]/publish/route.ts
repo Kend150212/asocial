@@ -636,6 +636,16 @@ async function publishToPinterest(
 
 // ─── LinkedIn publisher ──────────────────────────────────────────────
 
+/** Auto-generate LinkedIn API version (YYYYMM) — uses 1 month behind current date for safety */
+function getLinkedInVersion(): string {
+    const now = new Date()
+    // Use previous month to ensure it's always an active version
+    now.setMonth(now.getMonth() - 1)
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    return `${y}${m}`
+}
+
 async function publishToLinkedIn(
     accessToken: string,
     accountId: string,
@@ -661,7 +671,7 @@ async function publishToLinkedIn(
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${accessToken}`,
-                    'LinkedIn-Version': '202602',
+                    'LinkedIn-Version': getLinkedInVersion(),
                     'X-Restli-Protocol-Version': '2.0.0',
                 },
                 body: JSON.stringify({
@@ -748,7 +758,7 @@ async function publishToLinkedIn(
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
-            'LinkedIn-Version': '202602',
+            'LinkedIn-Version': getLinkedInVersion(),
             'X-Restli-Protocol-Version': '2.0.0',
         },
         body: JSON.stringify(postBody),
