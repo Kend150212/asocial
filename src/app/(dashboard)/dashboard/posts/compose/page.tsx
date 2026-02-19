@@ -593,6 +593,7 @@ export default function ComposePage() {
     const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
     const [canvaLoading, setCanvaLoading] = useState(false)
     const handleFileUploadRef = useRef<((files: FileList | null) => Promise<void>) | null>(null)
+    const selectedChannelRef = useRef<Channel | null>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
 
@@ -667,6 +668,9 @@ export default function ComposePage() {
             setFbPostTypes(fbTypes)
         }
     }, [selectedChannel, editPostId])
+
+    // Keep ref in sync for async callbacks (Canva export etc.)
+    useEffect(() => { selectedChannelRef.current = selectedChannel }, [selectedChannel])
 
     // ── Auto-fetch Pinterest boards when Pinterest is selected ──
     useEffect(() => {
@@ -975,8 +979,9 @@ export default function ComposePage() {
     // ─── Canva design handler ────────────────────────────────────
     const openCanvaDesign = useCallback(async (existingMediaUrl?: string, existingMediaId?: string) => {
         if (canvaLoading) return // prevent double-click
-        const channelId = selectedChannel?.id // capture before async
-        if (!channelId) { toast.error('Please select a channel first'); return }
+        const channel = selectedChannelRef.current
+        if (!channel?.id) { toast.error('Please select a channel first'); return }
+        const channelId = channel.id
         setCanvaLoading(true)
         try {
             // Determine dimensions from current ratio
