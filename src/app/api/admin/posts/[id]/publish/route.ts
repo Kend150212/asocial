@@ -634,9 +634,137 @@ async function publishToPinterest(
     return { externalId: data.id }
 }
 
+// ─── LinkedIn publisher ──────────────────────────────────────────────
+
+async function publishToLinkedIn(
+    accessToken: string,
+    accountId: string,
+    content: string,
+    mediaItems: MediaInfo[],
+): Promise<{ externalId: string }> {
+    const authorUrn = `urn:li:person:${accountId}`
+
+    // If we have images, upload them first
+    const imageUrns: string[] = []
+    for (const media of mediaItems) {
+        if (isVideoMedia(media)) continue // LinkedIn video requires different flow
+
+        try {
+            // Step 1: Register image upload
+            const registerRes = await fetch('https://api.linkedin.com/rest/images?action=initializeUpload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${accessToken}`,
+                    'LinkedIn-Version': '202401',
+                    'X-Restli-Protocol-Version': '2.0.0',
+                },
+                body: JSON.stringify({
+                    initializeUploadRequest: {
+                        owner: authorUrn,
+                    },
+                }),
+            })
+
+            if (!registerRes.ok) {
+                const errText = await registerRes.text()
+                console.error('[LinkedIn] Image register failed:', errText)
+                continue
+            }
+
+            const registerData = await registerRes.json()
+            const uploadUrl = registerData.value?.uploadUrl
+            const imageUrn = registerData.value?.image
+
+            if (!uploadUrl || !imageUrn) {
+                console.error('[LinkedIn] Missing uploadUrl or image URN')
+                continue
+            }
+
+            // Step 2: Download image and upload binary to LinkedIn
+            const imageRes = await fetch(media.url)
+            if (!imageRes.ok) {
+                console.error('[LinkedIn] Failed to download image:', media.url)
+                continue
+            }
+            const imageBuffer = Buffer.from(await imageRes.arrayBuffer())
+
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': imageRes.headers.get('content-type') || 'image/jpeg',
+                },
+                body: imageBuffer,
+            })
+
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text()
+                console.error('[LinkedIn] Image upload failed:', errText)
+                continue
+            }
+
+            imageUrns.push(imageUrn)
+        } catch (err) {
+            console.error('[LinkedIn] Image upload error:', err)
+        }
+    }
+
+    // Build LinkedIn post body using Community Management API
+    const postBody: Record<string, unknown> = {
+        author: authorUrn,
+        commentary: content,
+        visibility: 'PUBLIC',
+        distribution: {
+            feedDistribution: 'MAIN_FEED',
+            targetEntities: [],
+            thirdPartyDistributionChannels: [],
+        },
+        lifecycleState: 'PUBLISHED',
+    }
+
+    // Add media content if we have uploaded images
+    if (imageUrns.length === 1) {
+        postBody.content = {
+            media: {
+                id: imageUrns[0],
+            },
+        }
+    } else if (imageUrns.length > 1) {
+        postBody.content = {
+            multiImage: {
+                images: imageUrns.map(urn => ({ id: urn })),
+            },
+        }
+    }
+
+    const res = await fetch('https://api.linkedin.com/rest/posts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            'LinkedIn-Version': '202401',
+            'X-Restli-Protocol-Version': '2.0.0',
+        },
+        body: JSON.stringify(postBody),
+    })
+
+    if (!res.ok) {
+        const errText = await res.text()
+        console.error('[LinkedIn] Create post error:', errText)
+        throw new Error(`LinkedIn publish failed: ${errText}`)
+    }
+
+    // LinkedIn returns the post URN in x-restli-id header
+    const postUrn = res.headers.get('x-restli-id') || res.headers.get('x-linkedin-id') || ''
+    console.log('[LinkedIn] Published successfully, URN:', postUrn)
+
+    return { externalId: postUrn }
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
-    // TODO: Implement TikTok, LinkedIn, X publishing
+    // TODO: Implement TikTok, X publishing
     throw new Error(`${platform} publishing not yet integrated. Coming soon!`)
 }
 
@@ -783,6 +911,15 @@ export async function POST(
                         getContent('pinterest'),
                         mediaItems,
                         psConfig,
+                    )
+                    break
+
+                case 'linkedin':
+                    publishResult = await publishToLinkedIn(
+                        platformConn.accessToken,
+                        platformConn.accountId,
+                        getContent('linkedin'),
+                        mediaItems,
                     )
                     break
 
