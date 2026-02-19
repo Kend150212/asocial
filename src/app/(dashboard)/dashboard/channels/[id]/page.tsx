@@ -188,6 +188,8 @@ interface ChannelDetail {
     _count: { posts: number; mediaItems: number }
     defaultAiProvider: string | null
     defaultAiModel: string | null
+    defaultImageProvider: string | null
+    defaultImageModel: string | null
 }
 
 const sourceTypeIcons: Record<string, typeof Type> = {
@@ -257,6 +259,8 @@ export default function ChannelDetailPage({
     // AI provider/model
     const [aiProvider, setAiProvider] = useState('')
     const [aiModel, setAiModel] = useState('')
+    const [imageProvider, setImageProvider] = useState('')
+    const [imageModel, setImageModel] = useState('')
     const [requireOwnApiKey, setRequireOwnApiKey] = useState(false)
     const [generatingDesc, setGeneratingDesc] = useState(false)
     const [generatingVibe, setGeneratingVibe] = useState(false)
@@ -264,7 +268,9 @@ export default function ChannelDetailPage({
     const [addingVibeField, setAddingVibeField] = useState(false)
     const [availableProviders, setAvailableProviders] = useState<AiProviderInfo[]>([])
     const [availableModels, setAvailableModels] = useState<AiModelInfo[]>([])
+    const [availableImageModels, setAvailableImageModels] = useState<AiModelInfo[]>([])
     const [loadingModels, setLoadingModels] = useState(false)
+    const [loadingImageModels, setLoadingImageModels] = useState(false)
     const [userConfiguredProviders, setUserConfiguredProviders] = useState<string[]>([])
 
     // Webhook state
@@ -316,6 +322,8 @@ export default function ChannelDetailPage({
                 // AI defaults
                 setAiProvider(data.defaultAiProvider || '')
                 setAiModel(data.defaultAiModel || '')
+                setImageProvider(data.defaultImageProvider || '')
+                setImageModel(data.defaultImageModel || '')
                 setRequireOwnApiKey(data.requireOwnApiKey ?? false)
                 // Webhooks
                 setWebhookDiscordUrl(data.webhookDiscord?.url || '')
@@ -433,6 +441,36 @@ export default function ChannelDetailPage({
         fetchModels()
     }, [aiProvider, userConfiguredProviders])
 
+    // Fetch image models when image provider changes
+    useEffect(() => {
+        if (!imageProvider) {
+            setAvailableImageModels([])
+            return
+        }
+        if (!userConfiguredProviders.includes(imageProvider)) {
+            setAvailableImageModels([])
+            return
+        }
+        const fetchImageModels = async () => {
+            setLoadingImageModels(true)
+            try {
+                const res = await fetch('/api/user/api-keys/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: imageProvider }),
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    setAvailableImageModels(
+                        (data.models || []).filter((m: AiModelInfo) => m.type === 'image')
+                    )
+                }
+            } catch { /* silently ignore */ }
+            setLoadingImageModels(false)
+        }
+        fetchImageModels()
+    }, [imageProvider, userConfiguredProviders])
+
     // ─── Save General Settings ──────────────────────
     const handleSave = async () => {
         setSaving(true)
@@ -450,6 +488,8 @@ export default function ChannelDetailPage({
                     vibeTone,
                     defaultAiProvider: aiProvider || null,
                     defaultAiModel: aiModel || null,
+                    defaultImageProvider: imageProvider || null,
+                    defaultImageModel: imageModel || null,
 
                     ...(isAdmin ? { requireOwnApiKey } : {}),
                     webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
@@ -489,6 +529,8 @@ export default function ChannelDetailPage({
                     vibeTone,
                     defaultAiProvider: aiProvider || null,
                     defaultAiModel: aiModel || null,
+                    defaultImageProvider: imageProvider || null,
+                    defaultImageModel: imageModel || null,
                     ...(isAdmin ? { requireOwnApiKey } : {}),
                 }),
             })
@@ -1140,6 +1182,58 @@ export default function ChannelDetailPage({
                                                     </SelectContent>
                                                 </Select>
                                                 <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Image AI Configuration */}
+                                    <Separator />
+                                    <div className="space-y-4">
+                                        <Label className="text-base font-semibold flex items-center gap-2">
+                                            🖼️ AI Image Provider
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground -mt-2">
+                                            Choose which AI provider to use for image generation. Providers with image models: Runware, OpenAI (DALL-E), Gemini (Imagen).
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Image Provider</Label>
+                                                <Select value={imageProvider || '__default__'} onValueChange={(v) => { setImageProvider(v === '__default__' ? '' : v); setImageModel('') }}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Auto-detect" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">Auto-detect (use any available)</SelectItem>
+                                                        {availableProviders
+                                                            .filter(p => userConfiguredProviders.includes(p.provider) && ['runware', 'openai', 'gemini'].includes(p.provider))
+                                                            .map((p) => (
+                                                                <SelectItem key={p.provider} value={p.provider}>
+                                                                    {p.name} ✓
+                                                                </SelectItem>
+                                                            ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">Only shows image-capable providers</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="flex items-center gap-2">
+                                                    Image Model
+                                                    {loadingImageModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                                </Label>
+                                                <Select value={imageModel || '__default__'} onValueChange={(v) => setImageModel(v === '__default__' ? '' : v)} disabled={loadingImageModels || !imageProvider}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={imageProvider ? 'Select a model...' : 'Select provider first'} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">Default model</SelectItem>
+                                                        {availableImageModels.map((m) => (
+                                                            <SelectItem key={m.id} value={m.id}>
+                                                                {m.name} {m.description ? `— ${m.description}` : ''}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">e.g. FLUX.1 Dev, DALL-E 3, Imagen 3</p>
                                             </div>
                                         </div>
                                     </div>

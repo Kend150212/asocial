@@ -101,6 +101,7 @@ export async function PUT(
         'colorPalette', 'logoPrompts', 'bannerPrompts',
         'notificationEmail', 'requireApproval',
         'defaultAiProvider', 'defaultAiModel',
+        'defaultImageProvider', 'defaultImageModel',
         'storageProvider', 'storageConfig', 'useDefaultStorage',
         'webhookDiscord', 'webhookTelegram', 'webhookSlack',
         'webhookCustom', 'webhookEvents',
