@@ -975,6 +975,8 @@ export default function ComposePage() {
     // ─── Canva design handler ────────────────────────────────────
     const openCanvaDesign = useCallback(async (existingMediaUrl?: string, existingMediaId?: string) => {
         if (canvaLoading) return // prevent double-click
+        const channelId = selectedChannel?.id // capture before async
+        if (!channelId) { toast.error('Please select a channel first'); return }
         setCanvaLoading(true)
         try {
             // Determine dimensions from current ratio
@@ -1111,8 +1113,8 @@ export default function ComposePage() {
                                 // Upload the file to the server
                                 const formData = new FormData()
                                 formData.append('file', file)
-                                formData.append('channelId', selectedChannel?.id || '')
-                                console.log('Uploading Canva export, channelId:', selectedChannel?.id, 'replacing mediaId:', existingMediaId)
+                                formData.append('channelId', channelId)
+                                console.log('Uploading Canva export, channelId:', channelId, 'replacing mediaId:', existingMediaId)
 
                                 const uploadRes = await fetch('/api/admin/media', {
                                     method: 'POST',
