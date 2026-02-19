@@ -590,6 +590,10 @@ export default function ComposePage() {
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
     const [libraryMedia, setLibraryMedia] = useState<MediaItem[]>([])
     const [loadingLibrary, setLoadingLibrary] = useState(false)
+    const [libFolders, setLibFolders] = useState<{ id: string; name: string; _count: { media: number; children: number } }[]>([])
+    const [libFolderId, setLibFolderId] = useState<string | null>(null)
+    const [libBreadcrumbs, setLibBreadcrumbs] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'All Files' }])
+    const [libSearch, setLibSearch] = useState('')
     const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
     const [canvaLoading, setCanvaLoading] = useState(false)
     const handleFileUploadRef = useRef<((files: FileList | null) => Promise<void>) | null>(null)
@@ -767,23 +771,59 @@ export default function ComposePage() {
     }, [handleFileUpload])
 
     // Fetch media library for current channel
-    const fetchLibrary = useCallback(async () => {
+    const fetchLibrary = useCallback(async (folderId?: string | null, search?: string) => {
         if (!selectedChannel) return
         setLoadingLibrary(true)
         try {
-            const res = await fetch(`/api/admin/media?channelId=${selectedChannel.id}&limit=50`)
-            const data = await res.json()
-            setLibraryMedia(data.media || [])
+            const params = new URLSearchParams({ channelId: selectedChannel.id, limit: '50' })
+            const fid = folderId !== undefined ? folderId : libFolderId
+            if (fid) params.set('folderId', fid)
+            else params.set('folderId', 'root')
+            const sq = search !== undefined ? search : libSearch
+            if (sq) params.set('search', sq)
+
+            // Fetch media + folders in parallel
+            const [mediaRes, foldersRes] = await Promise.all([
+                fetch(`/api/admin/media?${params}`),
+                fetch(`/api/admin/media/folders?channelId=${selectedChannel.id}${fid ? `&parentId=${fid}` : ''}`),
+            ])
+            const mediaData = await mediaRes.json()
+            const foldersData = await foldersRes.json()
+            setLibraryMedia(mediaData.media || [])
+            setLibFolders(foldersData.folders || [])
         } catch {
             toast.error('Failed to load media library')
         } finally {
             setLoadingLibrary(false)
         }
-    }, [selectedChannel])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChannel, libFolderId, libSearch])
 
     const openLibrary = useCallback(() => {
         setShowMediaLibrary(true)
-        fetchLibrary()
+        setLibFolderId(null)
+        setLibBreadcrumbs([{ id: null, name: 'All Files' }])
+        setLibSearch('')
+        fetchLibrary(null, '')
+    }, [fetchLibrary])
+
+    const navigateLibFolder = useCallback((folderId: string | null, folderName?: string) => {
+        if (folderId === null) {
+            setLibBreadcrumbs([{ id: null, name: 'All Files' }])
+        } else {
+            setLibBreadcrumbs(prev => [...prev, { id: folderId, name: folderName || 'Folder' }])
+        }
+        setLibFolderId(folderId)
+        fetchLibrary(folderId)
+    }, [fetchLibrary])
+
+    const navigateLibBreadcrumb = useCallback((index: number) => {
+        setLibBreadcrumbs(prev => {
+            const bc = prev[index]
+            setLibFolderId(bc.id)
+            fetchLibrary(bc.id)
+            return prev.slice(0, index + 1)
+        })
     }, [fetchLibrary])
 
     // Google Picker API — opens Google's native file picker
@@ -2780,8 +2820,8 @@ export default function ComposePage() {
                     {/* Media Library Modal */}
                     {showMediaLibrary && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-                            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                                <CardHeader className="pb-3 border-b">
+                            <Card className="w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                                <CardHeader className="pb-2 border-b space-y-2">
                                     <div className="flex items-center justify-between">
                                         <CardTitle className="text-sm flex items-center gap-2">
                                             <FolderOpen className="h-4 w-4" />
@@ -2796,92 +2836,148 @@ export default function ComposePage() {
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <CardDescription className="text-xs">Click to add media. Hover to delete. Already attached items are marked with ✓.</CardDescription>
+                                    {/* Search bar */}
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by filename..."
+                                            value={libSearch}
+                                            onChange={(e) => {
+                                                setLibSearch(e.target.value)
+                                                fetchLibrary(libFolderId, e.target.value)
+                                            }}
+                                            className="w-full h-7 pl-7 pr-3 text-xs rounded-md border bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                    </div>
+                                    {/* Breadcrumbs */}
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        {libBreadcrumbs.map((bc, i) => (
+                                            <span key={i} className="flex items-center gap-0.5">
+                                                {i > 0 && <ChevronRight className="h-2.5 w-2.5" />}
+                                                <button
+                                                    onClick={() => navigateLibBreadcrumb(i)}
+                                                    className={`hover:text-foreground transition-colors ${i === libBreadcrumbs.length - 1 ? 'text-foreground font-medium' : ''}`}
+                                                >
+                                                    {bc.name}
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <CardDescription className="text-[10px]">Click to add media. Hover to delete. Already attached items are marked with ✓.</CardDescription>
                                 </CardHeader>
-                                <CardContent className="overflow-y-auto flex-1 py-4">
+                                <CardContent className="overflow-y-auto flex-1 py-3">
                                     {loadingLibrary ? (
                                         <div className="flex items-center justify-center py-12">
                                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                         </div>
-                                    ) : libraryMedia.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground text-center py-12">No media uploaded yet for this channel.</p>
                                     ) : (
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {libraryMedia.map((media) => {
-                                                const isAttached = attachedMedia.some((m) => m.id === media.id)
-                                                return (
-                                                    <div
-                                                        key={media.id}
-                                                        className={`relative rounded-lg overflow-hidden bg-muted aspect-square group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
-                                                            }`}
-                                                    >
-                                                        {/* Media content — click to add */}
-                                                        <div
-                                                            className="h-full w-full cursor-pointer"
-                                                            onClick={() => !isAttached && addFromLibrary(media)}
-                                                        >
-                                                            {isVideo(media) ? (
-                                                                <div className="relative h-full w-full bg-muted">
-                                                                    <img
-                                                                        src={media.thumbnailUrl || media.url}
-                                                                        alt={media.originalName || ''}
-                                                                        className="h-full w-full object-cover"
-                                                                    />
-                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                        <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
-                                                                            <Play className="h-3 w-3 text-white ml-0.5" />
-                                                                        </div>
-                                                                    </div>
+                                        <>
+                                            {/* Folders */}
+                                            {libFolders.length > 0 && (
+                                                <div className="mb-3">
+                                                    <p className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Folders</p>
+                                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                                                        {libFolders.map((folder) => (
+                                                            <button
+                                                                key={folder.id}
+                                                                onClick={() => navigateLibFolder(folder.id, folder.name)}
+                                                                className="flex items-center gap-1.5 p-2 rounded-md border bg-card hover:bg-accent/50 transition-colors text-left"
+                                                            >
+                                                                <Folder className="h-4 w-4 text-amber-500 shrink-0" />
+                                                                <div className="min-w-0">
+                                                                    <p className="text-[10px] font-medium truncate">{folder.name}</p>
+                                                                    <p className="text-[9px] text-muted-foreground">{folder._count.media} files</p>
                                                                 </div>
-                                                            ) : (
-                                                                <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
-                                                            )}
-                                                        </div>
-
-                                                        {/* Attached check overlay */}
-                                                        {isAttached && (
-                                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
-                                                                <Check className="h-5 w-5 text-primary" />
-                                                            </div>
-                                                        )}
-
-                                                        {/* Delete button — top right on hover */}
-                                                        <button
-                                                            onClick={async (e) => {
-                                                                e.stopPropagation()
-                                                                if (!confirm(`Delete "${media.originalName}"? This will also remove it from Google Drive.`)) return
-                                                                try {
-                                                                    const res = await fetch(`/api/admin/media/${media.id}`, { method: 'DELETE' })
-                                                                    if (!res.ok) throw new Error()
-                                                                    // Remove from library list
-                                                                    setLibraryMedia((prev) => prev.filter((m) => m.id !== media.id))
-                                                                    // Remove from attached if it was attached
-                                                                    setAttachedMedia((prev) => prev.filter((m) => m.id !== media.id))
-                                                                    toast.success('Media deleted')
-                                                                } catch {
-                                                                    toast.error('Failed to delete media')
-                                                                }
-                                                            }}
-                                                            className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-
-                                                        {/* Filename */}
-                                                        <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
-                                                            {media.originalName}
-                                                        </span>
+                                                            </button>
+                                                        ))}
                                                     </div>
-                                                )
-                                            })}
-                                        </div>
+                                                </div>
+                                            )}
+
+                                            {/* Media grid */}
+                                            {libraryMedia.length === 0 && libFolders.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground text-center py-12">No media found{libSearch ? ` for "${libSearch}"` : ''}.</p>
+                                            ) : libraryMedia.length > 0 && (
+                                                <>
+                                                    {libFolders.length > 0 && <p className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Files</p>}
+                                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                                        {libraryMedia.map((media) => {
+                                                            const isAttached = attachedMedia.some((m) => m.id === media.id)
+                                                            return (
+                                                                <div
+                                                                    key={media.id}
+                                                                    className={`relative rounded-lg overflow-hidden bg-muted aspect-square group transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
+                                                                        }`}
+                                                                >
+                                                                    {/* Media content — click to add */}
+                                                                    <div
+                                                                        className="h-full w-full cursor-pointer"
+                                                                        onClick={() => !isAttached && addFromLibrary(media)}
+                                                                    >
+                                                                        {isVideo(media) ? (
+                                                                            <div className="relative h-full w-full bg-muted">
+                                                                                <img
+                                                                                    src={media.thumbnailUrl || media.url}
+                                                                                    alt={media.originalName || ''}
+                                                                                    className="h-full w-full object-cover"
+                                                                                />
+                                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                    <div className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center">
+                                                                                        <Play className="h-3 w-3 text-white ml-0.5" />
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="h-full w-full object-cover" />
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Attached check overlay */}
+                                                                    {isAttached && (
+                                                                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center pointer-events-none">
+                                                                            <Check className="h-5 w-5 text-primary" />
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Delete button — top right on hover */}
+                                                                    <button
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation()
+                                                                            if (!confirm(`Delete "${media.originalName}"? This will also remove it from Google Drive.`)) return
+                                                                            try {
+                                                                                const res = await fetch(`/api/admin/media/${media.id}`, { method: 'DELETE' })
+                                                                                if (!res.ok) throw new Error()
+                                                                                setLibraryMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                                setAttachedMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                                toast.success('Media deleted')
+                                                                            } catch {
+                                                                                toast.error('Failed to delete media')
+                                                                            }
+                                                                        }}
+                                                                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </button>
+
+                                                                    {/* Filename */}
+                                                                    <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
+                                                                        {media.originalName}
+                                                                    </span>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </>
                                     )}
                                 </CardContent>
 
                                 {/* Done button footer */}
                                 <div className="border-t px-4 py-3 flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">
-                                        {libraryMedia.length} item{libraryMedia.length !== 1 ? 's' : ''} in library
+                                        {libraryMedia.length} file{libraryMedia.length !== 1 ? 's' : ''}{libFolders.length > 0 ? `, ${libFolders.length} folder${libFolders.length !== 1 ? 's' : ''}` : ''}
                                     </span>
                                     <Button
                                         size="sm"
