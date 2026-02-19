@@ -59,6 +59,9 @@ import {
     Palette,
     Search,
     CheckCircle2,
+    Pencil,
+    FolderPlus,
+    Trash2,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -594,6 +597,13 @@ export default function ComposePage() {
     const [libFolderId, setLibFolderId] = useState<string | null>(null)
     const [libBreadcrumbs, setLibBreadcrumbs] = useState<{ id: string | null; name: string }[]>([{ id: null, name: 'All Files' }])
     const [libSearch, setLibSearch] = useState('')
+    const [libDragging, setLibDragging] = useState(false)
+    const [libUploading, setLibUploading] = useState(false)
+    const [libRenameItem, setLibRenameItem] = useState<MediaItem | null>(null)
+    const [libRenameName, setLibRenameName] = useState('')
+    const [libNewFolderName, setLibNewFolderName] = useState('')
+    const [libShowNewFolder, setLibShowNewFolder] = useState(false)
+    const libFileInputRef = useRef<HTMLInputElement>(null)
     const [loadingDrivePicker, setLoadingDrivePicker] = useState(false)
     const [canvaLoading, setCanvaLoading] = useState(false)
     const handleFileUploadRef = useRef<((files: FileList | null) => Promise<void>) | null>(null)
@@ -825,6 +835,72 @@ export default function ComposePage() {
             return prev.slice(0, index + 1)
         })
     }, [fetchLibrary])
+
+    // Library-specific upload (uploads into current folder)
+    const handleLibUpload = useCallback(async (files: FileList | null) => {
+        if (!files || !selectedChannel) return
+        setLibUploading(true)
+        let count = 0
+        try {
+            for (const file of Array.from(files)) {
+                toast.info(`Uploading ${file.name}...`)
+                const formData = new FormData()
+                formData.append('file', file)
+                formData.append('channelId', selectedChannel.id)
+                if (libFolderId) formData.append('folderId', libFolderId)
+                const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
+                if (!res.ok) {
+                    const err = await res.json()
+                    toast.error(err.error || `Failed: ${file.name}`)
+                    continue
+                }
+                count++
+            }
+            if (count > 0) {
+                toast.success(`${count} file(s) uploaded!`)
+                fetchLibrary()
+            }
+        } finally {
+            setLibUploading(false)
+        }
+    }, [selectedChannel, libFolderId, fetchLibrary])
+
+    // Library rename media
+    const handleLibRename = useCallback(async () => {
+        if (!libRenameItem || !libRenameName.trim()) return
+        try {
+            const res = await fetch(`/api/admin/media/${libRenameItem.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ originalName: libRenameName.trim() }),
+            })
+            if (!res.ok) throw new Error()
+            setLibraryMedia(prev => prev.map(m => m.id === libRenameItem.id ? { ...m, originalName: libRenameName.trim() } : m))
+            toast.success('Renamed!')
+            setLibRenameItem(null)
+        } catch {
+            toast.error('Rename failed')
+        }
+    }, [libRenameItem, libRenameName])
+
+    // Library create folder
+    const handleLibCreateFolder = useCallback(async () => {
+        if (!libNewFolderName.trim() || !selectedChannel) return
+        try {
+            const res = await fetch('/api/admin/media/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: libNewFolderName.trim(), channelId: selectedChannel.id, parentId: libFolderId }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success('Folder created!')
+            setLibNewFolderName('')
+            setLibShowNewFolder(false)
+            fetchLibrary()
+        } catch {
+            toast.error('Failed to create folder')
+        }
+    }, [libNewFolderName, selectedChannel, libFolderId, fetchLibrary])
 
     // Google Picker API — opens Google's native file picker
     const openGooglePicker = useCallback(async () => {
@@ -2832,9 +2908,18 @@ export default function ComposePage() {
                                                 </span>
                                             )}
                                         </CardTitle>
-                                        <Button variant="ghost" size="sm" onClick={() => setShowMediaLibrary(false)} className="cursor-pointer">
-                                            <X className="h-4 w-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            <Button variant="ghost" size="sm" onClick={() => setLibShowNewFolder(true)} className="cursor-pointer h-7 px-2 text-[10px]" title="New Folder">
+                                                <FolderPlus className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button variant="ghost" size="sm" onClick={() => libFileInputRef.current?.click()} disabled={libUploading} className="cursor-pointer h-7 px-2 text-[10px]" title="Upload">
+                                                {libUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                            </Button>
+                                            <input ref={libFileInputRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { handleLibUpload(e.target.files); if (e.target) e.target.value = '' }} />
+                                            <Button variant="ghost" size="sm" onClick={() => setShowMediaLibrary(false)} className="cursor-pointer h-7 px-2">
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                     {/* Search bar */}
                                     <div className="relative">
@@ -2864,9 +2949,45 @@ export default function ComposePage() {
                                             </span>
                                         ))}
                                     </div>
-                                    <CardDescription className="text-[10px]">Click to add media. Hover to delete. Already attached items are marked with ✓.</CardDescription>
+                                    <CardDescription className="text-[10px]">Click to add media. Hover for actions. Drag & drop files to upload.</CardDescription>
                                 </CardHeader>
-                                <CardContent className="overflow-y-auto flex-1 py-3">
+
+                                {/* Content area with drag-drop */}
+                                <CardContent
+                                    className={`overflow-y-auto flex-1 py-3 relative transition-colors ${libDragging ? 'bg-primary/5' : ''}`}
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setLibDragging(true) }}
+                                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setLibDragging(false) }}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setLibDragging(false); if (e.dataTransfer.files?.length) handleLibUpload(e.dataTransfer.files) }}
+                                >
+                                    {/* Drag overlay */}
+                                    {libDragging && (
+                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg pointer-events-none">
+                                            <div className="text-center">
+                                                <Upload className="h-8 w-8 text-primary mx-auto mb-2" />
+                                                <p className="text-sm font-medium text-primary">Drop files here to upload</p>
+                                                {libFolderId && <p className="text-xs text-muted-foreground">Into current folder</p>}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Create folder inline */}
+                                    {libShowNewFolder && (
+                                        <div className="mb-3 flex items-center gap-2 p-2 rounded-md border bg-muted/30">
+                                            <FolderPlus className="h-4 w-4 text-amber-500 shrink-0" />
+                                            <input
+                                                type="text"
+                                                placeholder="Folder name..."
+                                                value={libNewFolderName}
+                                                onChange={(e) => setLibNewFolderName(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleLibCreateFolder()}
+                                                className="flex-1 h-6 text-xs bg-transparent border-none focus:outline-none"
+                                                autoFocus
+                                            />
+                                            <Button size="sm" className="h-6 px-2 text-[10px] cursor-pointer" onClick={handleLibCreateFolder} disabled={!libNewFolderName.trim()}>Create</Button>
+                                            <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] cursor-pointer" onClick={() => { setLibShowNewFolder(false); setLibNewFolderName('') }}>Cancel</Button>
+                                        </div>
+                                    )}
+
                                     {loadingLibrary ? (
                                         <div className="flex items-center justify-center py-12">
                                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -2879,17 +3000,36 @@ export default function ComposePage() {
                                                     <p className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Folders</p>
                                                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
                                                         {libFolders.map((folder) => (
-                                                            <button
-                                                                key={folder.id}
-                                                                onClick={() => navigateLibFolder(folder.id, folder.name)}
-                                                                className="flex items-center gap-1.5 p-2 rounded-md border bg-card hover:bg-accent/50 transition-colors text-left"
-                                                            >
-                                                                <Folder className="h-4 w-4 text-amber-500 shrink-0" />
-                                                                <div className="min-w-0">
-                                                                    <p className="text-[10px] font-medium truncate">{folder.name}</p>
-                                                                    <p className="text-[9px] text-muted-foreground">{folder._count.media} files</p>
-                                                                </div>
-                                                            </button>
+                                                            <div key={folder.id} className="group relative">
+                                                                <button
+                                                                    onClick={() => navigateLibFolder(folder.id, folder.name)}
+                                                                    className="w-full flex items-center gap-1.5 p-2 rounded-md border bg-card hover:bg-accent/50 transition-colors text-left"
+                                                                >
+                                                                    <Folder className="h-4 w-4 text-amber-500 shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[10px] font-medium truncate">{folder.name}</p>
+                                                                        <p className="text-[9px] text-muted-foreground">{folder._count.media} files</p>
+                                                                    </div>
+                                                                </button>
+                                                                {/* Delete folder button */}
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation()
+                                                                        if (!confirm(`Delete folder "${folder.name}"? Contents will be moved to parent.`)) return
+                                                                        try {
+                                                                            const res = await fetch(`/api/admin/media/folders/${folder.id}`, { method: 'DELETE' })
+                                                                            if (!res.ok) throw new Error()
+                                                                            toast.success('Folder deleted')
+                                                                            fetchLibrary()
+                                                                        } catch {
+                                                                            toast.error('Failed to delete folder')
+                                                                        }
+                                                                    }}
+                                                                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                                                                >
+                                                                    <X className="h-2.5 w-2.5" />
+                                                                </button>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </div>
@@ -2897,7 +3037,11 @@ export default function ComposePage() {
 
                                             {/* Media grid */}
                                             {libraryMedia.length === 0 && libFolders.length === 0 ? (
-                                                <p className="text-sm text-muted-foreground text-center py-12">No media found{libSearch ? ` for "${libSearch}"` : ''}.</p>
+                                                <div className="text-center py-12">
+                                                    <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                                    <p className="text-sm text-muted-foreground">No media found{libSearch ? ` for "${libSearch}"` : ''}.</p>
+                                                    <p className="text-xs text-muted-foreground mt-1">Drag & drop files here or click the upload button.</p>
+                                                </div>
                                             ) : libraryMedia.length > 0 && (
                                                 <>
                                                     {libFolders.length > 0 && <p className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Files</p>}
@@ -2940,25 +3084,41 @@ export default function ComposePage() {
                                                                         </div>
                                                                     )}
 
-                                                                    {/* Delete button — top right on hover */}
-                                                                    <button
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation()
-                                                                            if (!confirm(`Delete "${media.originalName}"? This will also remove it from Google Drive.`)) return
-                                                                            try {
-                                                                                const res = await fetch(`/api/admin/media/${media.id}`, { method: 'DELETE' })
-                                                                                if (!res.ok) throw new Error()
-                                                                                setLibraryMedia((prev) => prev.filter((m) => m.id !== media.id))
-                                                                                setAttachedMedia((prev) => prev.filter((m) => m.id !== media.id))
-                                                                                toast.success('Media deleted')
-                                                                            } catch {
-                                                                                toast.error('Failed to delete media')
-                                                                            }
-                                                                        }}
-                                                                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
-                                                                    >
-                                                                        <X className="h-3 w-3" />
-                                                                    </button>
+                                                                    {/* Action buttons — top right on hover */}
+                                                                    <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                                        {/* Rename */}
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                setLibRenameItem(media)
+                                                                                setLibRenameName(media.originalName || '')
+                                                                            }}
+                                                                            className="h-5 w-5 rounded-full bg-foreground/80 text-background flex items-center justify-center cursor-pointer"
+                                                                            title="Rename"
+                                                                        >
+                                                                            <Pencil className="h-2.5 w-2.5" />
+                                                                        </button>
+                                                                        {/* Delete */}
+                                                                        <button
+                                                                            onClick={async (e) => {
+                                                                                e.stopPropagation()
+                                                                                if (!confirm(`Delete "${media.originalName}"? This cannot be undone.`)) return
+                                                                                try {
+                                                                                    const res = await fetch(`/api/admin/media/${media.id}`, { method: 'DELETE' })
+                                                                                    if (!res.ok) throw new Error()
+                                                                                    setLibraryMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                                    setAttachedMedia((prev) => prev.filter((m) => m.id !== media.id))
+                                                                                    toast.success('Media deleted')
+                                                                                } catch {
+                                                                                    toast.error('Failed to delete media')
+                                                                                }
+                                                                            }}
+                                                                            className="h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center cursor-pointer"
+                                                                            title="Delete"
+                                                                        >
+                                                                            <Trash2 className="h-2.5 w-2.5" />
+                                                                        </button>
+                                                                    </div>
 
                                                                     {/* Filename */}
                                                                     <span className="absolute bottom-0 inset-x-0 text-[8px] bg-black/60 text-white px-1 py-0.5 truncate">
@@ -2974,7 +3134,7 @@ export default function ComposePage() {
                                     )}
                                 </CardContent>
 
-                                {/* Done button footer */}
+                                {/* Footer */}
                                 <div className="border-t px-4 py-3 flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">
                                         {libraryMedia.length} file{libraryMedia.length !== 1 ? 's' : ''}{libFolders.length > 0 ? `, ${libFolders.length} folder${libFolders.length !== 1 ? 's' : ''}` : ''}
@@ -2988,6 +3148,31 @@ export default function ComposePage() {
                                         Done
                                     </Button>
                                 </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Rename Media Dialog */}
+                    {libRenameItem && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60">
+                            <Card className="w-full max-w-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm">Rename Media</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <input
+                                        type="text"
+                                        value={libRenameName}
+                                        onChange={(e) => setLibRenameName(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleLibRename()}
+                                        className="w-full h-8 px-3 text-xs rounded-md border bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                                        autoFocus
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <Button size="sm" variant="ghost" onClick={() => setLibRenameItem(null)} className="cursor-pointer">Cancel</Button>
+                                        <Button size="sm" onClick={handleLibRename} disabled={!libRenameName.trim()} className="cursor-pointer">Rename</Button>
+                                    </div>
+                                </CardContent>
                             </Card>
                         </div>
                     )}
