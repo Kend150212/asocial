@@ -78,7 +78,6 @@ async function handleVideoStatusUpdate(payload: {
             data: {
                 status: platformStatus,
                 ...(error_message ? { errorMessage: error_message } : {}),
-                updatedAt: new Date(),
             },
         })
 
