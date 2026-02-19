@@ -30,13 +30,20 @@ async function getCanvaToken(userId: string): Promise<{ token: string | null; co
 
     const refreshToken = decrypt(encryptedRefresh)
     const clientId = config.canvaClientId || process.env.CANVA_CLIENT_ID || ''
-    const clientSecret = config.canvaClientSecret ? decrypt(config.canvaClientSecret) : (process.env.CANVA_CLIENT_SECRET || '')
+    // Get client secret the same way as the OAuth callback
+    let clientSecret = process.env.CANVA_CLIENT_SECRET || ''
+    if (!clientSecret && integration.apiKeyEncrypted) {
+        clientSecret = decrypt(integration.apiKeyEncrypted)
+    }
+
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    console.log('Canva refresh: clientId length:', clientId.length, 'secret length:', clientSecret.length)
 
     const refreshRes = await fetch('https://api.canva.com/rest/v1/oauth/token', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+            'Authorization': `Basic ${basicAuth}`,
         },
         body: new URLSearchParams({
             grant_type: 'refresh_token',
