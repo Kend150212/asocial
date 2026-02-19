@@ -552,7 +552,8 @@ export default function ComposePage() {
     const [trendingKeywords, setTrendingKeywords] = useState('')
     // Image Picker
     const [showImagePicker, setShowImagePicker] = useState(false)
-    const [imagePickerTab, setImagePickerTab] = useState<'ai' | 'article' | 'stock' | 'library'>('ai')
+    const [imagePickerTab, setImagePickerTab] = useState<'ai' | 'article'>('ai')
+    const [useContentAsPrompt, setUseContentAsPrompt] = useState(true)
     const [aiImagePrompt, setAiImagePrompt] = useState('')
     const [generatingImage, setGeneratingImage] = useState(false)
     const [aiGeneratedPreview, setAiGeneratedPreview] = useState<string | null>(null)
@@ -2028,7 +2029,16 @@ export default function ComposePage() {
                                 className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-500 bg-blue-500/10 hover:bg-blue-500/15 rounded-md py-1.5 transition-colors cursor-pointer"
                                 onClick={() => {
                                     setShowImagePicker(true)
-                                    if (aiTopic.trim() && !aiImagePrompt) setAiImagePrompt(aiTopic)
+                                    // Auto-fill prompt from content if available
+                                    if (content.trim()) {
+                                        setUseContentAsPrompt(true)
+                                        setAiImagePrompt(content.substring(0, 500))
+                                    } else if (aiTopic.trim() && !aiImagePrompt) {
+                                        setUseContentAsPrompt(false)
+                                        setAiImagePrompt(aiTopic)
+                                    } else {
+                                        setUseContentAsPrompt(false)
+                                    }
                                 }}
                             >
                                 <ImageIcon className="h-3.5 w-3.5" />
@@ -3553,16 +3563,14 @@ export default function ComposePage() {
                     <div className="flex gap-1 bg-muted rounded-lg p-1">
                         {([
                             { id: 'ai' as const, label: '🎨 AI Generate' },
-                            { id: 'article' as const, label: '📰 Article' },
-                            { id: 'stock' as const, label: '📷 Stock' },
-                            { id: 'library' as const, label: '📂 Library' },
+                            { id: 'article' as const, label: '📰 From Article' },
                         ]).map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setImagePickerTab(tab.id)}
                                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${imagePickerTab === tab.id
-                                        ? 'bg-background shadow-sm text-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-background shadow-sm text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground'
                                     }`}
                             >
                                 {tab.label}
@@ -3576,31 +3584,71 @@ export default function ComposePage() {
                         {/* 🎨 AI Generate */}
                         {imagePickerTab === 'ai' && (
                             <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>Image prompt</Label>
+                                {/* Option: Use content as prompt or custom */}
+                                {content.trim() && (
                                     <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setUseContentAsPrompt(true); setAiImagePrompt(content.substring(0, 500)) }}
+                                            className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${useContentAsPrompt
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                                                }`}
+                                        >
+                                            <Sparkles className="h-4 w-4 mx-auto mb-1" />
+                                            Auto from Content
+                                            <p className="text-[10px] mt-0.5 font-normal opacity-70">Generate based on post content</p>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setUseContentAsPrompt(false); setAiImagePrompt('') }}
+                                            className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${!useContentAsPrompt
+                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                    : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                                                }`}
+                                        >
+                                            <Pencil className="h-4 w-4 mx-auto mb-1" />
+                                            Custom Prompt
+                                            <p className="text-[10px] mt-0.5 font-normal opacity-70">Type your own image description</p>
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label>{useContentAsPrompt && content.trim() ? 'Generated from your post content' : 'Image prompt'}</Label>
+                                    {useContentAsPrompt && content.trim() ? (
+                                        <div className="rounded-lg border bg-muted/50 p-3">
+                                            <p className="text-xs text-muted-foreground line-clamp-4">{content.substring(0, 300)}{content.length > 300 ? '...' : ''}</p>
+                                            <p className="text-[10px] text-muted-foreground/70 mt-2">AI will generate an image that matches this content</p>
+                                        </div>
+                                    ) : (
                                         <Input
                                             placeholder="Describe the image you want to generate..."
                                             value={aiImagePrompt}
                                             onChange={(e) => setAiImagePrompt(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && aiImagePrompt.trim() && handleAiImageGenerate()}
                                         />
-                                        <Button
-                                            onClick={handleAiImageGenerate}
-                                            disabled={generatingImage || !aiImagePrompt.trim() || !selectedChannel}
-                                            size="sm"
-                                            className="shrink-0 cursor-pointer"
-                                        >
-                                            {generatingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                                        </Button>
-                                    </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground">Uses your channel&apos;s AI image provider (Runware, DALL-E, Imagen)</p>
                                 </div>
 
+                                {/* Generate Button */}
+                                <Button
+                                    onClick={handleAiImageGenerate}
+                                    disabled={generatingImage || (!aiImagePrompt.trim() && !useContentAsPrompt) || !selectedChannel}
+                                    className="w-full cursor-pointer"
+                                >
+                                    {generatingImage ? (
+                                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Generating...</>
+                                    ) : (
+                                        <><Sparkles className="h-4 w-4 mr-2" /> Generate Image</>
+                                    )}
+                                </Button>
+
                                 {generatingImage && (
-                                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                    <div className="flex flex-col items-center justify-center py-8 gap-3">
                                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                        <p className="text-sm text-muted-foreground">Generating image...</p>
+                                        <p className="text-sm text-muted-foreground">Creating your image...</p>
                                     </div>
                                 )}
 
@@ -3612,6 +3660,9 @@ export default function ComposePage() {
                                         <div className="flex gap-2">
                                             <Button size="sm" variant="outline" className="flex-1 cursor-pointer" onClick={handleAiImageGenerate} disabled={generatingImage}>
                                                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Regenerate
+                                            </Button>
+                                            <Button size="sm" className="flex-1 cursor-pointer" onClick={() => setShowImagePicker(false)}>
+                                                <Check className="h-3.5 w-3.5 mr-1.5" /> Done
                                             </Button>
                                         </div>
                                         <p className="text-xs text-emerald-500">✓ Image saved to media library and attached to post</p>
@@ -3675,127 +3726,13 @@ export default function ComposePage() {
                                 )}
                             </div>
                         )}
+                    </div>
 
-                        {/* 📷 Stock Photos */}
-                        {imagePickerTab === 'stock' && (
-                            <div className="space-y-4">
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Search free stock photos (Pexels)..."
-                                        value={stockQuery}
-                                        onChange={(e) => setStockQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && stockQuery.trim() && handleStockSearch()}
-                                    />
-                                    <Button onClick={handleStockSearch} disabled={searchingStock || !stockQuery.trim()} size="sm" className="shrink-0 cursor-pointer">
-                                        {searchingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    </Button>
-                                </div>
-
-                                {searchingStock && (
-                                    <div className="flex items-center justify-center py-12 gap-2">
-                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                        <span className="text-sm text-muted-foreground">Searching...</span>
-                                    </div>
-                                )}
-
-                                {!searchingStock && stockPhotos.length > 0 && (
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {stockPhotos.map((photo) => (
-                                            <div key={photo.id} className="relative group rounded-lg overflow-hidden bg-muted aspect-square cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
-                                                <img src={photo.src.medium} alt={photo.alt} className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs"
-                                                        disabled={downloadingStock === photo.id}
-                                                        onClick={async () => {
-                                                            if (!selectedChannel) return
-                                                            setDownloadingStock(photo.id)
-                                                            try {
-                                                                const res = await fetch('/api/admin/posts/stock-images', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        action: 'download',
-                                                                        channelId: selectedChannel.id,
-                                                                        photoUrl: photo.src.original,
-                                                                        photographer: photo.photographer,
-                                                                        alt: photo.alt,
-                                                                    }),
-                                                                })
-                                                                const data = await res.json()
-                                                                if (!res.ok) throw new Error(data.error)
-                                                                addFromLibrary(data.mediaItem)
-                                                                toast.success(`Photo by ${photo.photographer} added!`)
-                                                                setShowImagePicker(false)
-                                                            } catch (err) {
-                                                                toast.error(err instanceof Error ? err.message : 'Failed to download')
-                                                            } finally {
-                                                                setDownloadingStock(null)
-                                                            }
-                                                        }}
-                                                    >
-                                                        {downloadingStock === photo.id ? <Loader2 className="h-3 w-3 animate-spin" /> : '+ Use'}
-                                                    </Button>
-                                                </div>
-                                                <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] px-1.5 py-0.5 truncate">
-                                                    📷 {photo.photographer}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {!searchingStock && stockPhotos.length === 0 && (
-                                    <div className="text-center py-12">
-                                        <Camera className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                        <p className="text-sm text-muted-foreground">Search for free stock photos from Pexels</p>
-                                        <p className="text-xs text-muted-foreground mt-1">High quality, free for commercial use</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* 📂 Media Library */}
-                        {imagePickerTab === 'library' && (
-                            <div className="space-y-3">
-                                <p className="text-xs text-muted-foreground">Click any image from your media library to attach it to this post.</p>
-                                {libraryMedia.length > 0 ? (
-                                    <div className="grid grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
-                                        {libraryMedia.filter(m => m.type === 'image').map((media) => {
-                                            const isAttached = attachedMedia.some((m) => m.id === media.id)
-                                            return (
-                                                <div
-                                                    key={media.id}
-                                                    className={`relative rounded-lg overflow-hidden bg-muted aspect-square group cursor-pointer transition-all ${isAttached ? 'ring-2 ring-primary opacity-60' : 'hover:ring-2 hover:ring-primary/50'
-                                                        }`}
-                                                    onClick={() => {
-                                                        if (!isAttached) {
-                                                            addFromLibrary(media)
-                                                            toast.success('Image attached!')
-                                                        }
-                                                    }}
-                                                >
-                                                    <img src={media.thumbnailUrl || media.url} alt={media.originalName || ''} className="w-full h-full object-cover" />
-                                                    {isAttached && (
-                                                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                                                            <Check className="h-5 w-5 text-primary" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12">
-                                        <FolderOpen className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                                        <p className="text-sm text-muted-foreground">No images in library yet.</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Upload images via the media section first.</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                    {/* Done Button — always visible at bottom */}
+                    <div className="pt-3 border-t mt-4">
+                        <Button variant="outline" className="w-full cursor-pointer" onClick={() => setShowImagePicker(false)}>
+                            <Check className="h-4 w-4 mr-2" /> Done
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
