@@ -1548,7 +1548,11 @@ export default function ComposePage() {
         setSaving(true)
         try {
             let scheduledAt: string | null = null
-            if (scheduleDate && scheduleTime) scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+            if (scheduleDate) {
+                // Default time to 09:00 if user picked a date but left time blank
+                const time = scheduleTime || '09:00'
+                scheduledAt = new Date(`${scheduleDate}T${time}`).toISOString()
+            }
 
             const existingId = editPostId || postIdRef.current
             const url = existingId ? `/api/admin/posts/${existingId}` : '/api/admin/posts'
