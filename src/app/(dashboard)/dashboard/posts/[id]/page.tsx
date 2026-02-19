@@ -182,9 +182,9 @@ export default function PostEditPage({
         fetchPost()
     }, [fetchPost])
 
-    // Redirect editable posts to compose page for full editing experience
+    // Redirect all non-published posts to compose page for consistent editing UI
     useEffect(() => {
-        if (post && ['DRAFT', 'SCHEDULED', 'FAILED'].includes(post.status)) {
+        if (post && !['PUBLISHED', 'PUBLISHING'].includes(post.status)) {
             router.replace(`/dashboard/posts/compose?edit=${id}`)
         }
     }, [post, id, router])
