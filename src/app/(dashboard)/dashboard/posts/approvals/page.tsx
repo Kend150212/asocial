@@ -125,7 +125,8 @@ export default function ApprovalsPage() {
                         return (
                             <div
                                 key={post.id}
-                                className="rounded-xl border bg-card hover:shadow-sm transition-shadow flex gap-4 p-4"
+                                className="rounded-xl border bg-card hover:shadow-sm transition-shadow flex gap-4 p-4 cursor-pointer"
+                                onClick={() => router.push(`/dashboard/posts/compose?edit=${post.id}`)}
                             >
                                 {/* Thumbnail */}
                                 <div className="h-20 w-20 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center">
@@ -152,7 +153,7 @@ export default function ApprovalsPage() {
                                     <div className="flex items-center gap-1.5">
                                         {platforms.map(p => <PlatformIcon key={p} platform={p} size="sm" />)}
                                         <button
-                                            onClick={() => router.push(`/dashboard/posts/${post.id}`)}
+                                            onClick={e => { e.stopPropagation(); router.push(`/dashboard/posts/compose?edit=${post.id}`) }}
                                             className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
                                         >
                                             {t('approvals.viewFullPost')} <ChevronRight className="h-3 w-3" />
