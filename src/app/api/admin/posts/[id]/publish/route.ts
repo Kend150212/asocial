@@ -790,10 +790,11 @@ async function publishToTikTok(
 ): Promise<{ externalId: string }> {
     const postType = (config?.postType as string) || 'video'
     const publishMode = (config?.publishMode as string) || 'direct'   // 'direct' | 'inbox'
-    const privacy = (config?.privacy as string) || 'PUBLIC_TO_EVERYONE'
-    const disableComment = config?.allowComment === false
-    const disableDuet = config?.allowDuet === true ? false : true      // TikTok param is disable_*
-    const disableStitch = config?.allowStitch === true ? false : true
+    // UI saves 'visibility', fallback to 'privacy' for backward compat
+    const privacy = (config?.visibility as string) || (config?.privacy as string) || 'PUBLIC_TO_EVERYONE'
+    const disableComment = config?.allowComment === false                  // allowComment=true → disable_comment=false
+    const disableDuet = config?.allowDuet !== true                      // allowDuet=true → disable_duet=false
+    const disableStitch = config?.allowStitch !== true                    // allowStitch=true → disable_stitch=false
     const brandedContent = config?.brandedContent === true
     const aiGenerated = config?.aiGenerated === true
 
