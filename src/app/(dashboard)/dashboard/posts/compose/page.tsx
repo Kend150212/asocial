@@ -973,7 +973,8 @@ export default function ComposePage() {
     }, [attachedMedia])
 
     // ─── Canva design handler ────────────────────────────────────
-    const openCanvaDesign = useCallback(async (existingMediaUrl?: string) => {
+    const openCanvaDesign = useCallback(async (existingMediaUrl?: string, existingMediaId?: string) => {
+        if (canvaLoading) return // prevent double-click
         setCanvaLoading(true)
         try {
             // Determine dimensions from current ratio
@@ -1107,17 +1108,32 @@ export default function ComposePage() {
                             if (blob && blob.size > 0) {
                                 const file = new File([blob], `canva-design-${Date.now()}.png`, { type: 'image/png' })
 
-                                // Upload via handleFileUpload (use ref to avoid stale closure)
-                                const uploadFn = handleFileUploadRef.current
-                                console.log('Upload function available:', !!uploadFn, 'selectedChannel:', !!selectedChannel)
-                                if (uploadFn) {
-                                    const dt = new DataTransfer()
-                                    dt.items.add(file)
-                                    console.log('Calling handleFileUpload with file:', file.name, file.size)
-                                    await uploadFn(dt.files)
+                                // Upload the file to the server
+                                const formData = new FormData()
+                                formData.append('file', file)
+                                formData.append('channelId', selectedChannel?.id || '')
+                                console.log('Uploading Canva export, channelId:', selectedChannel?.id, 'replacing mediaId:', existingMediaId)
+
+                                const uploadRes = await fetch('/api/admin/media', {
+                                    method: 'POST',
+                                    body: formData,
+                                })
+
+                                if (uploadRes.ok) {
+                                    const newMedia = await uploadRes.json()
+                                    if (existingMediaId) {
+                                        // REPLACE the original media at the same position
+                                        setAttachedMedia((prev) =>
+                                            prev.map((m) => m.id === existingMediaId ? newMedia : m)
+                                        )
+                                    } else {
+                                        // NEW design — add to list
+                                        setAttachedMedia((prev) => [...prev, newMedia])
+                                    }
                                     toast.success('🎨 Canva design imported!', { id: 'canva-export' })
                                 } else {
-                                    toast.error('Upload function not available. Please try again.', { id: 'canva-export' })
+                                    const err = await uploadRes.json().catch(() => ({}))
+                                    toast.error(err.error || 'Failed to upload design', { id: 'canva-export' })
                                 }
 
                                 // Show success + close button in popup
@@ -2147,7 +2163,7 @@ export default function ComposePage() {
                                             {/* Edit in Canva — only for images */}
                                             {!isVideo(media) && (
                                                 <button
-                                                    onClick={() => openCanvaDesign(media.url)}
+                                                    onClick={() => openCanvaDesign(media.url, media.id)}
                                                     title="Edit in Canva"
                                                     className="absolute top-1 left-1 h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                 >
