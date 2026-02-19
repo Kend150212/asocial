@@ -661,7 +661,7 @@ async function publishToLinkedIn(
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${accessToken}`,
-                    'LinkedIn-Version': '202401',
+                    'LinkedIn-Version': '202501',
                     'X-Restli-Protocol-Version': '2.0.0',
                 },
                 body: JSON.stringify({
@@ -748,7 +748,7 @@ async function publishToLinkedIn(
         headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
-            'LinkedIn-Version': '202401',
+            'LinkedIn-Version': '202501',
             'X-Restli-Protocol-Version': '2.0.0',
         },
         body: JSON.stringify(postBody),
