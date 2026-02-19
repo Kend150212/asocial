@@ -797,12 +797,24 @@ async function publishToTikTok(
     const brandedContent = config?.brandedContent === true
     const aiGenerated = config?.aiGenerated === true
 
-    // ── Video post ──────────────────────────────────────────────────
+    // ── Video post — PUSH_BY_FILE (no domain verify needed) ─────────
     if (postType === 'video') {
         const videoMedia = mediaItems.find((m) => isVideoMedia(m))
         if (!videoMedia) throw new Error('TikTok requires a video. Please attach a video to your post.')
 
-        // Step 1: Initialize upload
+        // Step 1: Download video to memory
+        console.log('[TikTok] Downloading video from:', videoMedia.url)
+        const videoRes = await fetch(videoMedia.url)
+        if (!videoRes.ok) throw new Error(`TikTok: failed to download video (${videoRes.status})`)
+        const videoBuffer = Buffer.from(await videoRes.arrayBuffer())
+        const videoSize = videoBuffer.length
+        console.log(`[TikTok] Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`)
+
+        // Step 2: Init upload — get publish_id + upload_url
+        const endpoint = publishMode === 'inbox'
+            ? 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
+            : 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+
         const initBody: Record<string, unknown> = {
             post_info: {
                 title: content.slice(0, 2200),
@@ -814,14 +826,12 @@ async function publishToTikTok(
                 ...(aiGenerated ? { ai_generated_content: true } : {}),
             },
             source_info: {
-                source: 'PULL_FROM_URL',
-                video_url: videoMedia.url,
+                source: 'FILE_UPLOAD',
+                video_size: videoSize,
+                chunk_size: videoSize,   // single chunk upload
+                total_chunk_count: 1,
             },
         }
-
-        const endpoint = publishMode === 'inbox'
-            ? 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
-            : 'https://open.tiktokapis.com/v2/post/publish/video/init/'
 
         const initRes = await fetch(endpoint, {
             method: 'POST',
@@ -840,8 +850,26 @@ async function publishToTikTok(
         }
 
         const publishId: string = initData.data?.publish_id
-        if (!publishId) throw new Error('TikTok: no publish_id returned')
+        const uploadUrl: string = initData.data?.upload_url
+        if (!publishId || !uploadUrl) throw new Error('TikTok: missing publish_id or upload_url')
 
+        // Step 3: Upload video bytes (single chunk)
+        const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'video/mp4',
+                'Content-Length': String(videoSize),
+                'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+            },
+            body: videoBuffer,
+        })
+
+        if (!uploadRes.ok) {
+            const errText = await uploadRes.text()
+            throw new Error(`TikTok video upload failed: ${uploadRes.status} ${errText}`)
+        }
+
+        console.log('[TikTok] Video uploaded successfully, publish_id:', publishId)
         return { externalId: publishId }
     }
 
