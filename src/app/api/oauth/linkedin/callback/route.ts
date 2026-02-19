@@ -76,9 +76,10 @@ export async function GET(req: NextRequest) {
             },
         })
 
-        // Fetch organizations the user manages (Company Pages)
+        // Fetch organizations the user manages (Company Pages) — only if org scopes were requested
         let importedCount = 1 // personal profile already imported
-        try {
+        const orgEnabled = config.linkedinOrgEnabled === 'true'
+        if (orgEnabled) try {
             const orgsRes = await fetch('https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,vanityName,logoV2(original~:playableStreams))))', {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,

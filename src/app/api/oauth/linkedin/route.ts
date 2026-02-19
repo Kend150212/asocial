@@ -23,11 +23,18 @@ export async function GET(req: NextRequest) {
 
     const state = Buffer.from(JSON.stringify({ channelId, userId: session.user.id })).toString('base64url')
 
+    // Base scopes for personal posting
+    let scopes = 'openid profile w_member_social'
+    // Add organization scopes if company is verified (set linkedinOrgEnabled in config)
+    if (config.linkedinOrgEnabled === 'true') {
+        scopes += ' w_organization_social r_organization_social'
+    }
+
     const authUrl = new URL('https://www.linkedin.com/oauth/v2/authorization')
     authUrl.searchParams.set('client_id', clientId)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', 'openid profile w_member_social w_organization_social r_organization_social')
+    authUrl.searchParams.set('scope', scopes)
     authUrl.searchParams.set('state', state)
 
     return NextResponse.redirect(authUrl.toString())
