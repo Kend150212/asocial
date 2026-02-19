@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('client_id', clientId)
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', 'boards:read,pins:read,pins:write,user_accounts:read')
+    authUrl.searchParams.set('scope', 'boards:read,boards:write,pins:read,pins:write,user_accounts:read')
     authUrl.searchParams.set('state', state)
 
     return NextResponse.redirect(authUrl.toString())

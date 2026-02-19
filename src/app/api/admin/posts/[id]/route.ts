@@ -158,6 +158,7 @@ export async function PUT(
                             ...(config ? { config } : {}),
                         }
                     }),
+                    skipDuplicates: true,
                 })
             }
         }
