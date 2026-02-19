@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
             const orgsRes = await fetch('https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,vanityName,logoV2(original~:playableStreams))))', {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
-                    'LinkedIn-Version': '202501',
+                    'LinkedIn-Version': '202602',
                     'X-Restli-Protocol-Version': '2.0.0',
                 },
             })
