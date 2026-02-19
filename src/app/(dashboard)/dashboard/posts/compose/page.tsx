@@ -1090,10 +1090,12 @@ export default function ComposePage() {
 
                             // Prefer server-proxied base64 (avoids CORS issues)
                             if (exportData.imageBase64) {
+                                console.log('Decoding base64 image...')
                                 const binary = atob(exportData.imageBase64)
                                 const bytes = new Uint8Array(binary.length)
                                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
                                 blob = new Blob([bytes], { type: exportData.contentType || 'image/png' })
+                                console.log('Blob created, size:', blob.size)
                             } else if (exportData.urls?.length > 0) {
                                 // Fallback: try fetching URL directly
                                 try {
@@ -1107,9 +1109,11 @@ export default function ComposePage() {
 
                                 // Upload via handleFileUpload (use ref to avoid stale closure)
                                 const uploadFn = handleFileUploadRef.current
+                                console.log('Upload function available:', !!uploadFn, 'selectedChannel:', !!selectedChannel)
                                 if (uploadFn) {
                                     const dt = new DataTransfer()
                                     dt.items.add(file)
+                                    console.log('Calling handleFileUpload with file:', file.name, file.size)
                                     await uploadFn(dt.files)
                                     toast.success('🎨 Canva design imported!', { id: 'canva-export' })
                                 } else {
@@ -1136,17 +1140,19 @@ export default function ComposePage() {
                         } else {
                             toast.error(exportData.error || 'Export failed after retries', { id: 'canva-export' })
                         }
-                    } catch {
+                    } catch (err: unknown) {
+                        const errMsg = err instanceof Error ? err.message : String(err)
+                        console.error('Canva export attempt error:', errMsg, err)
                         if (attempt >= 2) {
-                            toast.error('Failed to export from Canva', { id: 'canva-export' })
+                            toast.error(`Export error: ${errMsg}`, { id: 'canva-export' })
                         } else {
                             await new Promise(r => setTimeout(r, 3000))
                         }
                     }
                 }
-                // Show failure in popup
+                // Show failure in popup — include hint to check browser console
                 if (popupRef && !popupRef.closed) {
-                    writePopupStatus(popupRef, 'error', 'Export failed. You can close this window and try again.')
+                    writePopupStatus(popupRef, 'error', 'Export failed. Check browser console (F12) for details.')
                 }
                 setCanvaLoading(false)
             }
