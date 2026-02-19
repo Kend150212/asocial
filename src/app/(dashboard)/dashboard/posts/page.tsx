@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 import {
@@ -11,7 +11,6 @@ import {
     Copy,
     MoreHorizontal,
     Calendar,
-    Clock,
     CheckCircle2,
     XCircle,
     Send,
@@ -19,17 +18,13 @@ import {
     Loader2,
     Filter,
     Eye,
+    Clock,
+    CheckSquare,
+    Square,
+    CalendarClock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -54,28 +49,21 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
+import { PlatformIcon } from '@/components/platform-icons'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────
 
-interface Channel {
-    id: string
-    displayName: string
-}
+interface Channel { id: string; displayName: string }
 
 interface PostMedia {
     mediaItem: {
-        id: string
-        url: string
-        thumbnailUrl: string | null
-        type: string
-        originalName: string | null
+        id: string; url: string; thumbnailUrl: string | null
+        type: string; originalName: string | null
     }
 }
 
-interface PlatformStatus {
-    platform: string
-    status: string
-}
+interface PlatformStatus { platform: string; status: string }
 
 interface Post {
     id: string
@@ -91,20 +79,41 @@ interface Post {
     _count: { approvals: number }
 }
 
-// ─── Status Config ──────────────────────────────────
+// ─── Status Config ───────────────────────────────────
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CheckCircle2 }> = {
-    DRAFT: { label: 'Draft', variant: 'secondary', icon: FileEdit },
-    PENDING_APPROVAL: { label: 'Pending', variant: 'outline', icon: Clock },
-    APPROVED: { label: 'Approved', variant: 'default', icon: CheckCircle2 },
-    REJECTED: { label: 'Rejected', variant: 'destructive', icon: XCircle },
-    SCHEDULED: { label: 'Scheduled', variant: 'outline', icon: Calendar },
-    PUBLISHING: { label: 'Publishing', variant: 'default', icon: Send },
-    PUBLISHED: { label: 'Published', variant: 'default', icon: CheckCircle2 },
-    FAILED: { label: 'Failed', variant: 'destructive', icon: XCircle },
+const statusConfig: Record<string, {
+    label: string
+    labelVi: string
+    color: string          // left border + dot color (Tailwind bg class)
+    textColor: string      // text color class
+    bgColor: string        // subtle background
+    icon: typeof CheckCircle2
+}> = {
+    DRAFT: { label: 'Draft', labelVi: 'Nháp', color: 'bg-slate-400', textColor: 'text-slate-500', bgColor: 'bg-slate-50 dark:bg-slate-900/20', icon: FileEdit },
+    PENDING_APPROVAL: { label: 'Pending', labelVi: 'Chờ duyệt', color: 'bg-amber-400', textColor: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-900/20', icon: Clock },
+    APPROVED: { label: 'Approved', labelVi: 'Đã duyệt', color: 'bg-teal-500', textColor: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-900/20', icon: CheckCircle2 },
+    REJECTED: { label: 'Rejected', labelVi: 'Từ chối', color: 'bg-red-400', textColor: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-900/20', icon: XCircle },
+    SCHEDULED: { label: 'Scheduled', labelVi: 'Lên lịch', color: 'bg-blue-500', textColor: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-900/20', icon: CalendarClock },
+    PUBLISHING: { label: 'Publishing', labelVi: 'Đang đăng', color: 'bg-violet-500', textColor: 'text-violet-600', bgColor: 'bg-violet-50 dark:bg-violet-900/20', icon: Send },
+    PUBLISHED: { label: 'Published', labelVi: 'Đã đăng', color: 'bg-emerald-500', textColor: 'text-emerald-600', bgColor: 'bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle2 },
+    FAILED: { label: 'Failed', labelVi: 'Thất bại', color: 'bg-rose-600', textColor: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-900/20', icon: XCircle },
 }
 
-// ─── Page ───────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────
+
+function formatDate(d: string) {
+    return new Date(d).toLocaleString('vi-VN', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    })
+}
+
+function truncate(text: string | null, len: number) {
+    if (!text) return '—'
+    return text.length > len ? text.slice(0, len) + '…' : text
+}
+
+// ─── Page ────────────────────────────────────────────
 
 export default function PostsPage() {
     const t = useTranslation()
@@ -119,13 +128,23 @@ export default function PostsPage() {
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [total, setTotal] = useState(0)
-    const [deleteTarget, setDeleteTarget] = useState<Post | null>(null)
 
-    // Fetch channels for filter
+    // Bulk selection
+    const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState<Post | null>(null)
+    const [bulkDeleting, setBulkDeleting] = useState(false)
+
+    const allSelected = useMemo(
+        () => posts.length > 0 && posts.every(p => selected.has(p.id)),
+        [posts, selected]
+    )
+
+    // Fetch channels
     useEffect(() => {
         fetch('/api/admin/channels')
-            .then((r) => r.json())
-            .then((data) => setChannels(data))
+            .then(r => r.json())
+            .then(data => setChannels(data.channels || data || []))
             .catch(() => { })
     }, [])
 
@@ -137,7 +156,6 @@ export default function PostsPage() {
             if (filterChannel !== 'all') params.set('channelId', filterChannel)
             if (filterStatus !== 'all') params.set('status', filterStatus)
             if (search.trim()) params.set('search', search.trim())
-
             const res = await fetch(`/api/admin/posts?${params}`)
             const data = await res.json()
             setPosts(data.posts || [])
@@ -150,16 +168,34 @@ export default function PostsPage() {
         }
     }, [page, filterChannel, filterStatus, search])
 
-    useEffect(() => {
-        fetchPosts()
-    }, [fetchPosts])
+    useEffect(() => { fetchPosts() }, [fetchPosts])
 
-    // Delete post
+    // Clear selection when page changes
+    useEffect(() => { setSelected(new Set()) }, [page, filterChannel, filterStatus])
+
+    // Toggle one
+    const toggleSelect = (id: string) => {
+        setSelected(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+        })
+    }
+
+    // Toggle all
+    const toggleAll = () => {
+        if (allSelected) {
+            setSelected(new Set())
+        } else {
+            setSelected(new Set(posts.map(p => p.id)))
+        }
+    }
+
+    // Delete single
     const handleDelete = async () => {
         if (!deleteTarget) return
         try {
-            const res = await fetch(`/api/admin/posts/${deleteTarget.id}`, { method: 'DELETE' })
-            if (!res.ok) throw new Error()
+            await fetch(`/api/admin/posts/${deleteTarget.id}`, { method: 'DELETE' })
             toast.success('Post deleted')
             fetchPosts()
         } catch {
@@ -169,20 +205,37 @@ export default function PostsPage() {
         }
     }
 
-    // Duplicate post
+    // Bulk delete
+    const handleBulkDelete = async () => {
+        setBulkDeleting(true)
+        try {
+            await Promise.all(
+                [...selected].map(id => fetch(`/api/admin/posts/${id}`, { method: 'DELETE' }))
+            )
+            toast.success(`Deleted ${selected.size} post${selected.size > 1 ? 's' : ''}`)
+            setSelected(new Set())
+            fetchPosts()
+        } catch {
+            toast.error('Some deletions failed')
+        } finally {
+            setBulkDeleting(false)
+            setBulkDeleteOpen(false)
+        }
+    }
+
+    // Duplicate
     const handleDuplicate = async (post: Post) => {
         try {
-            const res = await fetch('/api/admin/posts', {
+            await fetch('/api/admin/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     channelId: post.channel.id,
                     content: post.content,
                     status: 'DRAFT',
-                    mediaIds: post.media.map((m) => m.mediaItem.id),
+                    mediaIds: post.media.map(m => m.mediaItem.id),
                 }),
             })
-            if (!res.ok) throw new Error()
             toast.success('Post duplicated as draft')
             fetchPosts()
         } catch {
@@ -190,245 +243,286 @@ export default function PostsPage() {
         }
     }
 
-    const formatDate = (d: string) => {
-        return new Date(d).toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        })
-    }
-
-    const truncate = (text: string | null, len: number) => {
-        if (!text) return '—'
-        return text.length > len ? text.slice(0, len) + '…' : text
-    }
-
     return (
-        <div className="space-y-6">
-            {/* Header */}
+        <div className="space-y-4">
+            {/* ── Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
                         <PenSquare className="h-5 w-5 sm:h-6 sm:w-6" />
                         {t('nav.posts') || 'Posts'}
                     </h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        {total} post{total !== 1 ? 's' : ''} total
-                    </p>
+                    <p className="text-muted-foreground text-sm mt-1">{total} post{total !== 1 ? 's' : ''}</p>
                 </div>
-                <Button
-                    onClick={() => router.push('/dashboard/posts/compose')}
-                    className="cursor-pointer w-full sm:w-auto"
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Post
+                <Button onClick={() => router.push('/dashboard/posts/compose')} className="cursor-pointer w-full sm:w-auto">
+                    <Plus className="h-4 w-4 mr-2" />New Post
                 </Button>
             </div>
 
-            {/* Filters */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search posts..."
-                                value={search}
-                                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                                className="pl-10"
-                            />
-                        </div>
-                        <Select value={filterChannel} onValueChange={(v) => { setFilterChannel(v); setPage(1) }}>
-                            <SelectTrigger className="w-full sm:w-[200px]">
-                                <Filter className="h-4 w-4 mr-2" />
-                                <SelectValue placeholder="All Channels" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Channels</SelectItem>
-                                {channels.map((ch) => (
-                                    <SelectItem key={ch.id} value={ch.id}>{ch.displayName}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }}>
-                            <SelectTrigger className="w-full sm:w-[180px]">
-                                <SelectValue placeholder="All Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Status</SelectItem>
-                                {Object.entries(statusConfig).map(([key, cfg]) => (
-                                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* ── Filters ── */}
+            <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search posts..."
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(1) }}
+                        className="pl-10 h-9"
+                    />
+                </div>
+                <Select value={filterChannel} onValueChange={v => { setFilterChannel(v); setPage(1) }}>
+                    <SelectTrigger className="w-full sm:w-[180px] h-9">
+                        <Filter className="h-4 w-4 mr-2 shrink-0" />
+                        <SelectValue placeholder="All Channels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Channels</SelectItem>
+                        {channels.map(ch => (
+                            <SelectItem key={ch.id} value={ch.id}>{ch.displayName}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); setPage(1) }}>
+                    <SelectTrigger className="w-full sm:w-[160px] h-9">
+                        <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        {Object.entries(statusConfig).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn('w-2 h-2 rounded-full', cfg.color)} />
+                                    {cfg.label}
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
-            {/* Posts List */}
+            {/* ── Bulk toolbar ── */}
+            {selected.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-card shadow-sm">
+                    <span className="text-sm font-medium">{selected.size} selected</span>
+                    <div className="ml-auto flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="cursor-pointer h-8 text-xs">
+                            Clear
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            className="cursor-pointer h-8 text-xs gap-1.5"
+                            onClick={() => setBulkDeleteOpen(true)}
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete {selected.size}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Posts List ── */}
             {loading ? (
                 <div className="flex items-center justify-center py-20">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             ) : posts.length === 0 ? (
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-20">
-                        <PenSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                        <CardTitle className="text-lg mb-1">No posts yet</CardTitle>
-                        <CardDescription>Create your first post to get started</CardDescription>
-                        <Button
-                            onClick={() => router.push('/dashboard/posts/compose')}
-                            className="mt-4 cursor-pointer"
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Post
-                        </Button>
-                    </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <PenSquare className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                    <p className="text-lg font-semibold mb-1">No posts yet</p>
+                    <p className="text-sm text-muted-foreground mb-4">Create your first post to get started</p>
+                    <Button onClick={() => router.push('/dashboard/posts/compose')} className="cursor-pointer">
+                        <Plus className="h-4 w-4 mr-2" />Create Post
+                    </Button>
+                </div>
             ) : (
-                <div className="space-y-3">
-                    {posts.map((post) => {
+                <div className="rounded-xl border overflow-hidden">
+                    {/* Select-all row */}
+                    <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30">
+                        <button
+                            onClick={toggleAll}
+                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        >
+                            {allSelected
+                                ? <CheckSquare className="h-4 w-4 text-primary" />
+                                : <Square className="h-4 w-4" />}
+                            Select all
+                        </button>
+                        <span className="text-xs text-muted-foreground ml-auto">{posts.length} posts</span>
+                    </div>
+
+                    {posts.map((post, idx) => {
                         const sc = statusConfig[post.status] || statusConfig.DRAFT
                         const StatusIcon = sc.icon
+                        const isSelected = selected.has(post.id)
+                        const platforms = [...new Set(post.platformStatuses.map(ps => ps.platform))]
+
                         return (
-                            <Card
+                            <div
                                 key={post.id}
-                                className="hover:border-primary/30 hover:shadow-sm transition-all duration-200 cursor-pointer"
-                                onClick={() => router.push(`/dashboard/posts/${post.id}`)}
+                                className={cn(
+                                    'flex items-start gap-3 px-4 py-3 border-b last:border-b-0 transition-colors group',
+                                    'hover:bg-accent/40',
+                                    isSelected && 'bg-primary/5',
+                                    idx % 2 === 0 ? '' : 'bg-muted/10',
+                                )}
                             >
-                                <CardContent className="p-4">
-                                    <div className="flex items-start gap-4">
-                                        {/* Thumbnail */}
-                                        {post.media.length > 0 ? (
-                                            <div className="h-16 w-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                                                <img
-                                                    src={post.media[0].mediaItem.thumbnailUrl || post.media[0].mediaItem.url}
-                                                    alt=""
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                                <PenSquare className="h-6 w-6 text-muted-foreground/30" />
-                                            </div>
+                                {/* Checkbox */}
+                                <button
+                                    onClick={e => { e.stopPropagation(); toggleSelect(post.id) }}
+                                    className="mt-1 shrink-0 cursor-pointer"
+                                >
+                                    {isSelected
+                                        ? <CheckSquare className="h-4 w-4 text-primary" />
+                                        : <Square className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground" />}
+                                </button>
+
+                                {/* Status color bar */}
+                                <div className={cn('w-1 self-stretch rounded-full shrink-0 mt-0.5', sc.color)} />
+
+                                {/* Thumbnail */}
+                                <div
+                                    className="h-14 w-14 rounded-lg overflow-hidden bg-muted shrink-0 cursor-pointer"
+                                    onClick={() => router.push(`/dashboard/posts/${post.id}`)}
+                                >
+                                    {post.media.length > 0 ? (
+                                        <img
+                                            src={post.media[0].mediaItem.thumbnailUrl || post.media[0].mediaItem.url}
+                                            alt=""
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="h-full w-full flex items-center justify-center">
+                                            <PenSquare className="h-5 w-5 text-muted-foreground/30" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div
+                                    className="flex-1 min-w-0 cursor-pointer"
+                                    onClick={() => router.push(`/dashboard/posts/${post.id}`)}
+                                >
+                                    {/* Status + channel */}
+                                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                        <span className={cn(
+                                            'inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded',
+                                            sc.textColor, sc.bgColor
+                                        )}>
+                                            <StatusIcon className="h-3 w-3" />
+                                            {sc.label}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">{post.channel.displayName}</span>
+                                        {post.media.length > 0 && (
+                                            <span className="text-xs text-muted-foreground">📎 {post.media.length}</span>
+                                        )}
+                                    </div>
+
+                                    {/* Post content */}
+                                    <p className="text-sm font-medium leading-snug line-clamp-1">
+                                        {truncate(post.content, 120)}
+                                    </p>
+
+                                    {/* Meta row */}
+                                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                                        <span className="text-[11px] text-muted-foreground">{formatDate(post.createdAt)}</span>
+
+                                        {/* Schedule time */}
+                                        {post.scheduledAt && (
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
+                                                <Calendar className="h-3 w-3" />
+                                                {formatDate(post.scheduledAt)}
+                                            </span>
                                         )}
 
-                                        {/* Content */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Badge variant={sc.variant} className="text-xs gap-1">
-                                                    <StatusIcon className="h-3 w-3" />
-                                                    {sc.label}
-                                                </Badge>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {post.channel.displayName}
-                                                </span>
-                                                {post.media.length > 0 && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        📎 {post.media.length}
-                                                    </span>
-                                                )}
+                                        {/* Platform icons */}
+                                        {platforms.length > 0 && (
+                                            <div className="flex items-center gap-1">
+                                                {platforms.map(p => (
+                                                    <PlatformIcon key={p} platform={p} size="sm" />
+                                                ))}
                                             </div>
-                                            <p className="text-sm font-medium truncate">
-                                                {truncate(post.content, 120)}
-                                            </p>
-                                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                <span>{formatDate(post.createdAt)}</span>
-                                                {post.scheduledAt && (
-                                                    <span className="flex items-center gap-1">
-                                                        <Calendar className="h-3 w-3" />
-                                                        {formatDate(post.scheduledAt)}
-                                                    </span>
-                                                )}
-                                                {post.platformStatuses.length > 0 && (
-                                                    <span>
-                                                        {post.platformStatuses.map((ps) => ps.platform).join(', ')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 cursor-pointer">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/posts/${post.id}`) }}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <Eye className="h-4 w-4 mr-2" />
-                                                    View / Edit
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={(e) => { e.stopPropagation(); handleDuplicate(post) }}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <Copy className="h-4 w-4 mr-2" />
-                                                    Duplicate
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(post) }}
-                                                    className="cursor-pointer text-destructive"
-                                                >
-                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                        )}
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+
+                                {/* Actions */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            onClick={e => { e.stopPropagation(); router.push(`/dashboard/posts/${post.id}`) }}
+                                            className="cursor-pointer"
+                                        >
+                                            <Eye className="h-4 w-4 mr-2" />View / Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={e => { e.stopPropagation(); handleDuplicate(post) }}
+                                            className="cursor-pointer"
+                                        >
+                                            <Copy className="h-4 w-4 mr-2" />Duplicate
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={e => { e.stopPropagation(); setDeleteTarget(post) }}
+                                            className="cursor-pointer text-destructive"
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-2" />Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         )
                     })}
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page <= 1}
-                                onClick={() => setPage((p) => p - 1)}
-                                className="cursor-pointer"
-                            >
-                                Previous
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                                Page {page} of {totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page >= totalPages}
-                                onClick={() => setPage((p) => p + 1)}
-                                className="cursor-pointer"
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    )}
                 </div>
             )}
 
-            {/* Delete Dialog */}
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="cursor-pointer">Previous</Button>
+                    <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="cursor-pointer">Next</Button>
+                </div>
+            )}
+
+            {/* Single delete dialog */}
             <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Post?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete this post and all its media attachments. This action cannot be undone.
+                            This will permanently delete this post. This action cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer">
-                            Delete
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Bulk delete dialog */}
+            <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {selected.size} Post{selected.size > 1 ? 's' : ''}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete {selected.size} selected post{selected.size > 1 ? 's' : ''}. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer" disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
+                        >
+                            {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Delete All
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

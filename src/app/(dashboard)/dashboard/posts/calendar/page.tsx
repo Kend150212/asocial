@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { PlatformIcon } from '@/components/platform-icons'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -176,8 +177,8 @@ function PostCard({
                     {post.content?.slice(0, 40) || '—'}
                 </span>
                 <div className="ml-auto flex gap-0.5 shrink-0">
-                    {platforms.slice(0, 2).map(p => (
-                        <span key={p} className={cn('w-2.5 h-2.5 rounded-full', PLATFORM_COLORS[p] || 'bg-muted')} />
+                    {platforms.slice(0, 3).map(p => (
+                        <PlatformIcon key={p} platform={p} size="xs" />
                     ))}
                 </div>
             </button>
@@ -216,12 +217,7 @@ function PostCard({
                 </p>
                 <div className="flex items-center gap-1 pt-0.5">
                     {platforms.map(p => (
-                        <span
-                            key={p}
-                            className={cn('text-[9px] font-bold text-white rounded px-1 py-0.5 leading-none', PLATFORM_COLORS[p] || 'bg-muted')}
-                        >
-                            {PLATFORM_LABELS[p] || p.slice(0, 2).toUpperCase()}
-                        </span>
+                        <PlatformIcon key={p} platform={p} size="xs" />
                     ))}
                     <span className="ml-auto text-[9px] text-muted-foreground truncate">
                         {post.channel.displayName}
@@ -613,8 +609,10 @@ export default function CalendarPage() {
                                             : 'bg-transparent text-muted-foreground border-muted hover:border-muted-foreground'
                                     )}
                                 >
-                                    <span className={cn('w-2 h-2 rounded-full', isActive ? 'bg-white/70' : PLATFORM_COLORS[platform])} />
-                                    {PLATFORM_LABELS[platform]}
+                                    <PlatformIcon platform={platform} size="xs" />
+                                    <span className={cn(
+                                        isActive ? 'text-foreground' : 'text-muted-foreground'
+                                    )}>{PLATFORM_LABELS[platform]}</span>
                                 </button>
                             )
                         })}
