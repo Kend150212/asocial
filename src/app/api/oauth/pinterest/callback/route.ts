@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import { getPinterestApiBase } from '@/lib/pinterest'
 
 // GET /api/oauth/pinterest/callback
 export async function GET(req: NextRequest) {
@@ -28,8 +29,9 @@ export async function GET(req: NextRequest) {
     const redirectUri = `${host}/api/oauth/pinterest/callback`
 
     try {
+        const pinterestBase = await getPinterestApiBase()
         const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-        const tokenRes = await fetch('https://api.pinterest.com/v5/oauth/token', {
+        const tokenRes = await fetch(`${pinterestBase}/v5/oauth/token`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest) {
         const expiresIn = tokens.expires_in
 
         // Get Pinterest user info
-        const userRes = await fetch('https://api.pinterest.com/v5/user_account', {
+        const userRes = await fetch(`${pinterestBase}/v5/user_account`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         let username = 'Pinterest Account'

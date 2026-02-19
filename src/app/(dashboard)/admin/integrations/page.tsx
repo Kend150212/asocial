@@ -448,6 +448,7 @@ export default function IntegrationsPage() {
                     oauthConfigMap[i.id] = {
                         clientId: config.pinterestClientId || '',
                         clientSecret: '',
+                        sandbox: config.pinterestSandbox === 'true' || config.pinterestSandbox === '1' ? 'true' : '',
                     }
                 }
                 if (i.provider === 'canva') {
@@ -575,7 +576,10 @@ export default function IntegrationsPage() {
             if (integration.provider === 'pinterest') {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
-                    body.config = { pinterestClientId: oauth.clientId }
+                    body.config = {
+                        pinterestClientId: oauth.clientId,
+                        pinterestSandbox: oauth.sandbox === 'true' ? 'true' : 'false',
+                    }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -818,6 +822,7 @@ interface GDriveConfig {
 interface OAuthConfig {
     clientId: string
     clientSecret: string
+    sandbox?: string
 }
 
 function IntegrationCard({
@@ -1264,6 +1269,23 @@ function IntegrationCard({
                                 }[integration.provider] || 'Configure OAuth credentials for this platform.'}
                             </p>
                         </div>
+
+                        {/* Pinterest Sandbox toggle */}
+                        {integration.provider === 'pinterest' && (
+                            <div className="pt-2 border-t border-dashed">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={oauthConfig.sandbox === 'true'}
+                                        onChange={(e) => onOauthChange('sandbox', e.target.checked ? 'true' : '')}
+                                        className="h-3.5 w-3.5 rounded border-white/20 accent-amber-500"
+                                    />
+                                    <span className="text-[11px] text-amber-400">
+                                        🏖️ Sandbox Mode (Trial apps — uses api-sandbox.pinterest.com)
+                                    </span>
+                                </label>
+                            </div>
+                        )}
 
                         {/* Canva Connect / Disconnect */}
                         {integration.provider === 'canva' && (() => {

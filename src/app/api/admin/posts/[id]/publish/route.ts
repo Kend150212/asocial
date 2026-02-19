@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getPinterestApiBase } from '@/lib/pinterest'
 import { sendPublishWebhooks } from '@/lib/webhook-notify'
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -570,13 +571,14 @@ async function publishToPinterest(
     config?: Record<string, unknown>,
 ): Promise<{ externalId: string }> {
     // Pinterest API v5 — Create a Pin
+    const pinterestBase = await getPinterestApiBase()
     let boardId = (config?.boardId as string) || ''
     const pinTitle = (config?.pinTitle as string) || ''
     const pinLink = (config?.pinLink as string) || ''
 
     // If no board selected, fetch user's first board
     if (!boardId) {
-        const boardsRes = await fetch('https://api.pinterest.com/v5/boards', {
+        const boardsRes = await fetch(`${pinterestBase}/v5/boards`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         if (boardsRes.ok) {
@@ -614,7 +616,7 @@ async function publishToPinterest(
         }
     }
 
-    const res = await fetch('https://api.pinterest.com/v5/pins', {
+    const res = await fetch(`${pinterestBase}/v5/pins`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

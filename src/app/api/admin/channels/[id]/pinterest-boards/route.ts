@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getPinterestApiBase } from '@/lib/pinterest'
 
 // GET /api/admin/channels/[id]/pinterest-boards?accountId=xxx
 // Fetches the user's Pinterest boards for the board selector in compose
@@ -31,7 +32,8 @@ export async function GET(
     }
 
     try {
-        const res = await fetch('https://api.pinterest.com/v5/boards?page_size=50', {
+        const pinterestBase = await getPinterestApiBase()
+        const res = await fetch(`${pinterestBase}/v5/boards?page_size=50`, {
             headers: { Authorization: `Bearer ${platform.accessToken}` },
         })
 
