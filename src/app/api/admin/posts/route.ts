@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
-import { sendPendingApprovalWebhooks } from '@/lib/webhook-notify'
+import { sendPendingApprovalWebhooks, sendScheduledWebhooks } from '@/lib/webhook-notify'
 
 // GET /api/admin/posts — list posts with filters
 export async function GET(req: NextRequest) {
@@ -171,36 +171,50 @@ export async function POST(req: NextRequest) {
         },
     })
 
-    // Fire webhook notification when post requires approval
+    // ── Webhook notifications ──────────────────────────────────────────
+    const appBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const firstImage = post.media?.[0]?.mediaItem?.url || null
+    const fullImageUrl = firstImage && !firstImage.startsWith('http') ? `${appBaseUrl}${firstImage}` : firstImage
+
+    // Load full channel for webhook config (post.channel only has id, displayName, name)
+    const channelFull = await prisma.channel.findUnique({ where: { id: post.channelId } })
+    const webhookConfig = {
+        webhookDiscord: channelFull?.webhookDiscord as Record<string, string> | null,
+        webhookTelegram: channelFull?.webhookTelegram as Record<string, string> | null,
+        webhookSlack: channelFull?.webhookSlack as Record<string, string> | null,
+        webhookCustom: channelFull?.webhookCustom as Record<string, string> | null,
+        webhookEvents: channelFull?.webhookEvents as string[] | null,
+    }
+    console.log('[Webhook] POST status:', post.status, '| Discord URL:', (webhookConfig.webhookDiscord as Record<string, string> | null)?.url ? 'SET' : 'NOT SET')
+
     if (post.status === 'PENDING_APPROVAL') {
         try {
-            const channel = await prisma.channel.findUnique({ where: { id: post.channelId } })
-            const appBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-            const firstImage = post.media?.[0]?.mediaItem?.url || null
-            const fullImageUrl = firstImage && !firstImage.startsWith('http')
-                ? `${appBaseUrl}${firstImage}` : firstImage
-            await sendPendingApprovalWebhooks(
-                {
-                    webhookDiscord: channel?.webhookDiscord as Record<string, string> | null,
-                    webhookTelegram: channel?.webhookTelegram as Record<string, string> | null,
-                    webhookSlack: channel?.webhookSlack as Record<string, string> | null,
-                    webhookCustom: channel?.webhookCustom as Record<string, string> | null,
-                    webhookEvents: channel?.webhookEvents as string[] | null,
-                },
-                {
-                    postId: post.id,
-                    content: post.content || '',
-                    authorName: post.author?.name || post.author?.email || 'Unknown',
-                    channelName: post.channel?.name || '',
-                    platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
-                    scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
-                    imageUrl: fullImageUrl,
-                    appBaseUrl,
-                },
-            )
-        } catch (err) {
-            console.warn('[Webhook] Pending approval notification error:', err)
-        }
+            await sendPendingApprovalWebhooks(webhookConfig, {
+                postId: post.id,
+                content: post.content || '',
+                authorName: post.author?.name || post.author?.email || 'Unknown',
+                channelName: post.channel?.name || '',
+                platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
+                scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
+                imageUrl: fullImageUrl,
+                appBaseUrl,
+            })
+        } catch (err) { console.warn('[Webhook] Pending approval error:', err) }
+    }
+
+    if (post.status === 'SCHEDULED') {
+        try {
+            await sendScheduledWebhooks(webhookConfig, {
+                postId: post.id,
+                content: post.content || '',
+                authorName: post.author?.name || post.author?.email || 'Unknown',
+                channelName: post.channel?.name || '',
+                platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
+                scheduledAt: new Date(post.scheduledAt!),
+                imageUrl: fullImageUrl,
+                appBaseUrl,
+            })
+        } catch (err) { console.warn('[Webhook] Scheduled error:', err) }
     }
 
     return NextResponse.json(post, { status: 201 })

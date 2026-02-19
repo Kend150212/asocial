@@ -576,6 +576,131 @@ export async function sendPendingApprovalWebhooks(
     if (tasks.length > 0) {
         console.log(`[Webhook] Sending ${tasks.length} pending-approval notification(s)...`)
         await Promise.allSettled(tasks)
+    } else {
+        console.log('[Webhook] Pending approval: no webhook URLs configured, skipping.')
+    }
+}
+
+// ─── Scheduled notification ──────────────────────────────────────────
+// Fires when a post is directly scheduled (no approval required).
+
+export interface ScheduledNotificationData {
+    postId: string
+    content: string
+    authorName: string
+    channelName: string
+    platforms: string[]
+    scheduledAt: Date
+    imageUrl?: string | null
+    appBaseUrl: string
+}
+
+export async function sendScheduledWebhooks(
+    webhookConfig: WebhookConfig,
+    data: ScheduledNotificationData,
+): Promise<void> {
+    const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
+    const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
+    const tasks: Promise<void>[] = []
+
+    // Discord
+    const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
+    console.log('[Webhook] Scheduled Discord URL:', discordUrl ? 'SET' : 'NOT SET')
+    if (discordUrl) {
+        const payload = {
+            username: 'ASocial',
+            embeds: [{
+                title: '📅 Post Scheduled',
+                color: 0x3b82f6, // blue
+                description: truncated,
+                fields: [
+                    { name: '📡 Channel', value: data.channelName, inline: true },
+                    { name: '👤 Author', value: data.authorName, inline: true },
+                    { name: '📱 Platforms', value: platformsLine, inline: false },
+                    { name: '🕐 Scheduled for', value: `<t:${Math.floor(data.scheduledAt.getTime() / 1000)}:f>`, inline: true },
+                ],
+                ...(data.imageUrl ? { image: { url: data.imageUrl } } : {}),
+                footer: { text: `Post ID: ${data.postId}` },
+                timestamp: new Date().toISOString(),
+            }],
+        }
+        tasks.push(
+            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(res => {
+                    if (!res.ok) console.warn(`[Webhook] Scheduled Discord failed: ${res.status}`)
+                    else console.log('[Webhook] Scheduled Discord sent')
+                })
+                .catch(err => console.warn('[Webhook] Scheduled Discord error:', err.message))
+        )
+    }
+
+    // Telegram
+    const tgConfig = webhookConfig.webhookTelegram as Record<string, string> | null
+    console.log('[Webhook] Scheduled Telegram botToken:', tgConfig?.botToken ? 'SET' : 'NOT SET')
+    if (tgConfig?.botToken && tgConfig?.chatId) {
+        let msg = `📅 *Post Scheduled*\n\n`
+        msg += `📝 ${truncated}\n\n`
+        msg += `📡 *Channel:* ${data.channelName}\n`
+        msg += `👤 *Author:* ${data.authorName}\n`
+        msg += `📱 *Platforms:* ${platformsLine}\n`
+        msg += `🕐 *Scheduled:* ${data.scheduledAt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+        const base = `https://api.telegram.org/bot${tgConfig.botToken}`
+        const sendFn = data.imageUrl
+            ? fetch(`${base}/sendPhoto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: tgConfig.chatId, photo: data.imageUrl, caption: msg.slice(0, 1024), parse_mode: 'Markdown' }) })
+            : fetch(`${base}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: tgConfig.chatId, text: msg, parse_mode: 'Markdown' }) })
+        tasks.push(
+            sendFn.then(res => {
+                if (!res.ok) console.warn(`[Webhook] Scheduled Telegram failed: ${res.status}`)
+                else console.log('[Webhook] Scheduled Telegram sent')
+            })
+                .catch(err => console.warn('[Webhook] Scheduled Telegram error:', err.message))
+        )
+    }
+
+    // Slack
+    const slackUrl = (webhookConfig.webhookSlack as Record<string, string> | null)?.url
+    console.log('[Webhook] Scheduled Slack URL:', slackUrl ? 'SET' : 'NOT SET')
+    if (slackUrl) {
+        const blocks = [
+            { type: 'header', text: { type: 'plain_text', text: '📅 Post Scheduled', emoji: true } },
+            { type: 'section', text: { type: 'mrkdwn', text: truncated } },
+            {
+                type: 'section',
+                fields: [
+                    { type: 'mrkdwn', text: `*📡 Channel:*\n${data.channelName}` },
+                    { type: 'mrkdwn', text: `*👤 Author:*\n${data.authorName}` },
+                    { type: 'mrkdwn', text: `*📱 Platforms:*\n${platformsLine}` },
+                    { type: 'mrkdwn', text: `*🕐 Scheduled:*\n<!date^${Math.floor(data.scheduledAt.getTime() / 1000)}^{date_short_pretty} {time}|${data.scheduledAt.toISOString()}>` },
+                ],
+            },
+            ...(data.imageUrl ? [{ type: 'image', image_url: data.imageUrl, alt_text: 'Post image' }] : []),
+            { type: 'context', elements: [{ type: 'mrkdwn', text: `Post ID: ${data.postId}` }] },
+        ]
+        tasks.push(
+            fetch(slackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) })
+                .then(res => {
+                    if (!res.ok) console.warn(`[Webhook] Scheduled Slack failed: ${res.status}`)
+                    else console.log('[Webhook] Scheduled Slack sent')
+                })
+                .catch(err => console.warn('[Webhook] Scheduled Slack error:', err.message))
+        )
+    }
+
+    // Custom
+    const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
+    if (customUrl) {
+        tasks.push(
+            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'post.scheduled', source: 'asocial', timestamp: new Date().toISOString(), post: { id: data.postId, content: data.content, imageUrl: data.imageUrl || null }, channel: data.channelName, author: data.authorName, platforms: data.platforms, scheduledAt: data.scheduledAt.toISOString() }) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Scheduled Custom failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Scheduled Custom error:', err.message))
+        )
+    }
+
+    if (tasks.length > 0) {
+        console.log(`[Webhook] Sending ${tasks.length} scheduled notification(s)...`)
+        await Promise.allSettled(tasks)
+    } else {
+        console.log('[Webhook] Scheduled: no webhook URLs configured, skipping.')
     }
 }
 
