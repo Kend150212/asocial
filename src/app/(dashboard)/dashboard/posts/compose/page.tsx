@@ -62,6 +62,10 @@ import {
     Pencil,
     FolderPlus,
     Trash2,
+    Newspaper,
+    RefreshCw,
+    Lightbulb,
+    ExternalLink,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { Button } from '@/components/ui/button'
@@ -537,6 +541,15 @@ export default function ComposePage() {
     const [uploading, setUploading] = useState(false)
     const [dragging, setDragging] = useState(false)
     const [aiTopic, setAiTopic] = useState('')
+    // AI Suggestions & Trending
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [suggestions, setSuggestions] = useState<{ topic: string; emoji: string }[]>([])
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+    const [showTrending, setShowTrending] = useState(false)
+    const [trendingArticles, setTrendingArticles] = useState<{ title: string; source: string; link: string; publishedAt: string }[]>([])
+    const [loadingTrending, setLoadingTrending] = useState(false)
+    const [trendingCategory, setTrendingCategory] = useState('general')
+    const [trendingKeywords, setTrendingKeywords] = useState('')
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story' | 'reel'>>({})
     const [fbCarousel, setFbCarousel] = useState(false)
@@ -1249,6 +1262,48 @@ export default function ComposePage() {
         setAttachedMedia((prev) => [...prev, media])
     }
 
+    // Fetch AI topic suggestions
+    const fetchSuggestions = useCallback(async () => {
+        if (!selectedChannel) return
+        setLoadingSuggestions(true)
+        try {
+            const res = await fetch('/api/admin/posts/suggest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId: selectedChannel.id }),
+            })
+            const data = await res.json()
+            if (res.ok && data.suggestions) {
+                setSuggestions(data.suggestions)
+            } else {
+                toast.error(data.error || 'Failed to get suggestions')
+            }
+        } catch { toast.error('Failed to fetch suggestions') }
+        finally { setLoadingSuggestions(false) }
+    }, [selectedChannel])
+
+    // Fetch trending news
+    const fetchTrending = useCallback(async (cat?: string) => {
+        if (!selectedChannel) return
+        const category = cat || trendingCategory
+        setLoadingTrending(true)
+        try {
+            const res = await fetch('/api/admin/posts/trending', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId: selectedChannel.id, category }),
+            })
+            const data = await res.json()
+            if (data.articles) {
+                setTrendingArticles(data.articles)
+                if (data.keywords) setTrendingKeywords(data.keywords)
+            } else {
+                toast.error('No articles found')
+            }
+        } catch { toast.error('Failed to fetch trending news') }
+        finally { setLoadingTrending(false) }
+    }, [selectedChannel, trendingCategory])
+
     // AI Generate
     const handleGenerate = async () => {
         if (!selectedChannel || !aiTopic.trim()) {
@@ -1770,6 +1825,135 @@ export default function ComposePage() {
                                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                                 </Button>
                             </div>
+
+                            {/* Suggested Topics */}
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowSuggestions(!showSuggestions); if (!showSuggestions && suggestions.length === 0) fetchSuggestions() }}
+                                    className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                    <Lightbulb className="h-3 w-3" />
+                                    Suggested Topics
+                                    <ChevronDown className={`h-2.5 w-2.5 transition-transform ${showSuggestions ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showSuggestions && (
+                                    <div className="mt-1.5">
+                                        {loadingSuggestions ? (
+                                            <div className="flex items-center gap-1.5 py-2">
+                                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                                <span className="text-[10px] text-muted-foreground">Generating suggestions...</span>
+                                            </div>
+                                        ) : suggestions.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {suggestions.map((s, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => { setAiTopic(s.topic); setShowSuggestions(false) }}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full border bg-card hover:bg-accent/50 text-[10px] transition-colors cursor-pointer"
+                                                    >
+                                                        <span>{s.emoji}</span>
+                                                        <span>{s.topic}</span>
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={fetchSuggestions}
+                                                    disabled={loadingSuggestions}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                                >
+                                                    <RefreshCw className="h-2.5 w-2.5" /> Refresh
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground py-1">No suggestions yet. Click Refresh to get ideas.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Trending News */}
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowTrending(!showTrending); if (!showTrending && trendingArticles.length === 0) fetchTrending() }}
+                                    className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                    <Newspaper className="h-3 w-3" />
+                                    Trending News
+                                    <ChevronDown className={`h-2.5 w-2.5 transition-transform ${showTrending ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showTrending && (
+                                    <div className="mt-1.5 space-y-1.5">
+                                        {/* Category selector */}
+                                        <div className="flex items-center gap-1.5">
+                                            <select
+                                                value={trendingCategory}
+                                                onChange={(e) => { setTrendingCategory(e.target.value); fetchTrending(e.target.value) }}
+                                                className="h-6 text-[10px] rounded border bg-muted/50 px-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                                            >
+                                                <option value="general">General</option>
+                                                <option value="technology">Technology</option>
+                                                <option value="business">Business</option>
+                                                <option value="health">Health</option>
+                                                <option value="science">Science</option>
+                                                <option value="entertainment">Entertainment</option>
+                                                <option value="sports">Sports</option>
+                                            </select>
+                                            {trendingKeywords && (
+                                                <span className="text-[9px] text-muted-foreground truncate">Keywords: {trendingKeywords}</span>
+                                            )}
+                                            <button
+                                                onClick={() => fetchTrending()}
+                                                disabled={loadingTrending}
+                                                className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                            >
+                                                <RefreshCw className={`h-2.5 w-2.5 ${loadingTrending ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </div>
+
+                                        {/* Articles list */}
+                                        {loadingTrending ? (
+                                            <div className="flex items-center gap-1.5 py-3">
+                                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                                <span className="text-[10px] text-muted-foreground">Fetching news...</span>
+                                            </div>
+                                        ) : trendingArticles.length > 0 ? (
+                                            <div className="space-y-0.5 max-h-[200px] overflow-y-auto">
+                                                {trendingArticles.map((article, i) => {
+                                                    const timeAgo = article.publishedAt
+                                                        ? (() => {
+                                                            const diff = Date.now() - new Date(article.publishedAt).getTime()
+                                                            const hours = Math.floor(diff / 3600000)
+                                                            if (hours < 1) return `${Math.floor(diff / 60000)}m ago`
+                                                            if (hours < 24) return `${hours}h ago`
+                                                            return `${Math.floor(hours / 24)}d ago`
+                                                        })()
+                                                        : ''
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => { setAiTopic(article.link); setShowTrending(false); toast.success('Article URL added — click ✨ to generate!') }}
+                                                            className="w-full flex items-start gap-2 p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left group cursor-pointer"
+                                                        >
+                                                            <Newspaper className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[10px] font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">{article.title}</p>
+                                                                <p className="text-[9px] text-muted-foreground mt-0.5">
+                                                                    {article.source}{article.source && timeAgo ? ' • ' : ''}{timeAgo}
+                                                                </p>
+                                                            </div>
+                                                            <ExternalLink className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 shrink-0" />
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground py-2">No articles found. Try a different category.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* AI Fill All Platforms — shown when content exists and platforms are selected */}
                             {content.trim() && activePlatforms.some(p => selectedPlatformIds.has(p.id) && ['facebook', 'pinterest', 'youtube'].includes(p.platform)) && (
                                 <button
