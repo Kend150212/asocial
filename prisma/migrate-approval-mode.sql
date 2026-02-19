@@ -1,17 +1,12 @@
--- Migration: Change require_approval from BOOLEAN to VARCHAR(10)
--- Run once on the server: psql $DATABASE_URL -f prisma/migrate-approval-mode.sql
+-- Migration: Normalize require_approval values to 'none'/'optional'/'required'
+-- Safe to run even if column is already text type
 
--- Step 1: Add a temp column
-ALTER TABLE "channels" ADD COLUMN "require_approval_new" VARCHAR(10) NOT NULL DEFAULT 'none';
-
--- Step 2: Convert existing boolean data
-UPDATE "channels" SET "require_approval_new" = CASE
-  WHEN "require_approval" = true THEN 'required'
+-- Set any remaining boolean-string 'true' to 'required', everything else to 'none'
+UPDATE "channels"
+SET "require_approval" = CASE
+  WHEN "require_approval"::text IN ('true', 'required') THEN 'required'
+  WHEN "require_approval"::text = 'optional' THEN 'optional'
   ELSE 'none'
-END;
-
--- Step 3: Drop old boolean column
-ALTER TABLE "channels" DROP COLUMN "require_approval";
-
--- Step 4: Rename new column
-ALTER TABLE "channels" RENAME COLUMN "require_approval_new" TO "require_approval";
+END
+WHERE "require_approval"::text NOT IN ('none', 'optional', 'required')
+   OR "require_approval" IS NULL;
