@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
                 break
             }
             case 'gemini': {
-                const model = imageModel || 'imagen-3.0-generate-002'
+                const model = imageModel || 'gemini-2.0-flash-exp'
                 const result = await generateWithGemini(apiKey, prompt, model)
                 imageUrl = result.url
                 mimeType = result.mimeType || 'image/png'
@@ -109,18 +109,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-    // ─── Download to disk (streaming) → upload to GDrive → cleanup ───
+    // ─── Download / decode to disk → upload to GDrive → cleanup ───
     const tmpPath = path.join(os.tmpdir(), `asoc_img_${randomUUID()}.png`)
     try {
-        // Download image to temp file (streaming, minimal RAM)
-        const downloadRes = await fetch(imageUrl)
-        if (!downloadRes.ok || !downloadRes.body) {
-            throw new Error('Failed to download generated image')
+        if (imageUrl.startsWith('data:')) {
+            // Base64 data URI — decode directly to file
+            const base64Data = imageUrl.split(',')[1]
+            fs.writeFileSync(tmpPath, Buffer.from(base64Data, 'base64'))
+        } else {
+            // Remote URL — stream download to disk
+            const downloadRes = await fetch(imageUrl)
+            if (!downloadRes.ok || !downloadRes.body) {
+                throw new Error('Failed to download generated image')
+            }
+            const writer = fs.createWriteStream(tmpPath)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await pipeline(Readable.fromWeb(downloadRes.body as any), writer)
         }
-
-        const writer = fs.createWriteStream(tmpPath)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await pipeline(Readable.fromWeb(downloadRes.body as any), writer)
 
         // Read file for upload
         const fileBuffer = fs.readFileSync(tmpPath)
@@ -161,6 +166,7 @@ export async function POST(req: NextRequest) {
         const shortId = randomUUID().slice(0, 6)
         const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png'
         const uniqueName = `ai-image ${shortId} - ${dateStr}.${ext}`
+        const usedModel = imageModel || (resolvedProvider === 'gemini' ? 'gemini-2.0-flash-exp' : resolvedProvider === 'openai' ? 'dall-e-3' : 'runware:100@1')
 
         const driveFile = await uploadFile(accessToken, uniqueName, mimeType, fileBuffer, targetFolderId)
         const publicUrl = await makeFilePublic(accessToken, driveFile.id, mimeType)
@@ -180,7 +186,7 @@ export async function POST(req: NextRequest) {
                 mimeType,
                 aiMetadata: {
                     provider: resolvedProvider,
-                    model: imageModel || 'default',
+                    model: usedModel,
                     prompt,
                     gdriveFolderId: targetFolderId,
                     webViewLink: driveFile.webViewLink,
@@ -188,7 +194,7 @@ export async function POST(req: NextRequest) {
             },
         })
 
-        return NextResponse.json({ mediaItem, provider: resolvedProvider })
+        return NextResponse.json({ mediaItem, provider: resolvedProvider, model: usedModel })
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to process image'
         return NextResponse.json({ error: msg }, { status: 500 })
@@ -281,32 +287,71 @@ async function generateWithGemini(
     prompt: string,
     model: string,
 ): Promise<{ url: string; mimeType?: string }> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`
+    // Imagen models use :predict endpoint, Gemini models use :generateContent
+    const isImagen = model.includes('imagen')
 
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            instances: [{ prompt }],
-            parameters: {
-                sampleCount: 1,
-            },
-        }),
-    })
+    if (isImagen) {
+        // Imagen API — uses :predict with instances
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                instances: [{ prompt }],
+                parameters: { sampleCount: 1 },
+            }),
+        })
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(`Gemini Imagen error: ${err.error?.message || res.statusText}`)
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(`Gemini Imagen error: ${err.error?.message || res.statusText}`)
+        }
+
+        const data = await res.json()
+        const prediction = data.predictions?.[0]
+        if (!prediction?.bytesBase64Encoded) {
+            throw new Error('Gemini Imagen returned no image')
+        }
+
+        const mime = prediction.mimeType || 'image/png'
+        const dataUrl = `data:${mime};base64,${prediction.bytesBase64Encoded}`
+        return { url: dataUrl, mimeType: mime }
+    } else {
+        // Gemini generateContent API — for gemini-2.0-flash-exp, gemini-2.5-flash-image, etc.
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: `Generate an image: ${prompt}` }],
+                }],
+                generationConfig: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                },
+            }),
+        })
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            throw new Error(`Gemini error: ${err.error?.message || res.statusText}`)
+        }
+
+        const data = await res.json()
+        const candidates = data.candidates
+        if (!candidates?.[0]?.content?.parts) {
+            throw new Error('Gemini returned no content')
+        }
+
+        // Find the image part in the response
+        for (const part of candidates[0].content.parts) {
+            if (part.inlineData) {
+                const mime = part.inlineData.mimeType || 'image/png'
+                const dataUrl = `data:${mime};base64,${part.inlineData.data}`
+                return { url: dataUrl, mimeType: mime }
+            }
+        }
+
+        throw new Error('Gemini returned no image in response')
     }
-
-    const data = await res.json()
-    const prediction = data.predictions?.[0]
-    if (!prediction?.bytesBase64Encoded) {
-        throw new Error('Gemini returned no image')
-    }
-
-    // Gemini returns base64 — write to a temp data URI for the download step
-    const mime = prediction.mimeType || 'image/png'
-    const dataUrl = `data:${mime};base64,${prediction.bytesBase64Encoded}`
-    return { url: dataUrl, mimeType: mime }
 }

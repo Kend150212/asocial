@@ -114,6 +114,8 @@ interface Channel {
     language: string
     defaultAiProvider: string | null
     defaultAiModel: string | null
+    defaultImageProvider: string | null
+    defaultImageModel: string | null
     platforms: ChannelPlatform[]
 }
 
@@ -557,6 +559,7 @@ export default function ComposePage() {
     const [aiImagePrompt, setAiImagePrompt] = useState('')
     const [generatingImage, setGeneratingImage] = useState(false)
     const [aiGeneratedPreview, setAiGeneratedPreview] = useState<string | null>(null)
+    const [lastUsedImageModel, setLastUsedImageModel] = useState<string | null>(null)
     const [stockQuery, setStockQuery] = useState('')
     const [stockPhotos, setStockPhotos] = useState<{ id: number; src: { original: string; medium: string; small: string }; photographer: string; alt: string }[]>([])
     const [searchingStock, setSearchingStock] = useState(false)
@@ -1348,21 +1351,23 @@ export default function ComposePage() {
 
     // AI Image Generation — generates image and auto-attaches to post
     const handleAiImageGenerate = async () => {
-        if (!selectedChannel || !aiImagePrompt.trim()) return
+        if (!selectedChannel || (!aiImagePrompt.trim() && !useContentAsPrompt)) return
         setGeneratingImage(true)
         setAiGeneratedPreview(null)
         try {
+            const promptToUse = useContentAsPrompt && content.trim() ? content.substring(0, 500) : aiImagePrompt
             const res = await fetch('/api/admin/posts/generate-image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId: selectedChannel.id, prompt: aiImagePrompt }),
+                body: JSON.stringify({ channelId: selectedChannel.id, prompt: promptToUse }),
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error)
             // Auto-attach the media item
             addFromLibrary(data.mediaItem)
             setAiGeneratedPreview(data.mediaItem.url || data.mediaItem.thumbnailUrl)
-            toast.success(`Image generated with ${data.provider}!`)
+            setLastUsedImageModel(data.model || data.provider)
+            toast.success(`Image generated with ${data.model || data.provider}!`)
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Image generation failed')
         } finally {
@@ -2023,12 +2028,13 @@ export default function ComposePage() {
                                 </button>
                             )}
 
-                            {/* Find Images Button */}
+                            {/* Generate Image Button */}
                             <button
                                 type="button"
-                                className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-500 bg-blue-500/10 hover:bg-blue-500/15 rounded-md py-1.5 transition-colors cursor-pointer"
+                                className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-500 bg-purple-500/10 hover:bg-purple-500/15 rounded-md py-1.5 transition-colors cursor-pointer"
                                 onClick={() => {
                                     setShowImagePicker(true)
+                                    setAiGeneratedPreview(null)
                                     // Auto-fill prompt from content if available
                                     if (content.trim()) {
                                         setUseContentAsPrompt(true)
@@ -2041,8 +2047,8 @@ export default function ComposePage() {
                                     }
                                 }}
                             >
-                                <ImageIcon className="h-3.5 w-3.5" />
-                                🖼 Find Images
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Generate Image
                             </button>
                         </CardContent>
                     </Card >
@@ -3552,38 +3558,56 @@ export default function ComposePage() {
                 </div >
             </div >
 
-            {/* ── Image Picker Dialog ── */}
+            {/* ── Generate Image Dialog ── */}
             <Dialog open={showImagePicker} onOpenChange={setShowImagePicker}>
                 <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">🖼 Find Images</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-purple-500" />
+                            Generate Image
+                        </DialogTitle>
                     </DialogHeader>
 
                     {/* Tabs */}
                     <div className="flex gap-1 bg-muted rounded-lg p-1">
-                        {([
-                            { id: 'ai' as const, label: '🎨 AI Generate' },
-                            { id: 'article' as const, label: '📰 From Article' },
-                        ]).map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setImagePickerTab(tab.id)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${imagePickerTab === tab.id
-                                    ? 'bg-background shadow-sm text-foreground'
-                                    : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                        <button
+                            onClick={() => setImagePickerTab('ai')}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${imagePickerTab === 'ai'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            AI Generate
+                        </button>
+                        <button
+                            onClick={() => setImagePickerTab('article')}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer ${imagePickerTab === 'article'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Newspaper className="h-3.5 w-3.5" />
+                            From Article
+                        </button>
                     </div>
 
                     {/* Tab Content */}
                     <div className="mt-4 min-h-[300px]">
 
-                        {/* 🎨 AI Generate */}
+                        {/* AI Generate */}
                         {imagePickerTab === 'ai' && (
                             <div className="space-y-4">
+                                {/* Model badge */}
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                                        {selectedChannel?.defaultImageProvider
+                                            ? `${selectedChannel.defaultImageProvider}${selectedChannel.defaultImageModel ? ' / ' + selectedChannel.defaultImageModel : ''}`
+                                            : 'Auto-detect provider'
+                                        }
+                                    </Badge>
+                                </div>
+
                                 {/* Option: Use content as prompt or custom */}
                                 {content.trim() && (
                                     <div className="flex gap-2">
@@ -3591,8 +3615,8 @@ export default function ComposePage() {
                                             type="button"
                                             onClick={() => { setUseContentAsPrompt(true); setAiImagePrompt(content.substring(0, 500)) }}
                                             className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${useContentAsPrompt
-                                                    ? 'border-primary bg-primary/10 text-primary'
-                                                    : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                                                ? 'border-primary bg-primary/10 text-primary'
+                                                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
                                                 }`}
                                         >
                                             <Sparkles className="h-4 w-4 mx-auto mb-1" />
@@ -3603,8 +3627,8 @@ export default function ComposePage() {
                                             type="button"
                                             onClick={() => { setUseContentAsPrompt(false); setAiImagePrompt('') }}
                                             className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${!useContentAsPrompt
-                                                    ? 'border-primary bg-primary/10 text-primary'
-                                                    : 'border-border bg-card text-muted-foreground hover:border-primary/50'
+                                                ? 'border-primary bg-primary/10 text-primary'
+                                                : 'border-border bg-card text-muted-foreground hover:border-primary/50'
                                                 }`}
                                         >
                                             <Pencil className="h-4 w-4 mx-auto mb-1" />
@@ -3629,7 +3653,6 @@ export default function ComposePage() {
                                             onKeyDown={(e) => e.key === 'Enter' && aiImagePrompt.trim() && handleAiImageGenerate()}
                                         />
                                     )}
-                                    <p className="text-xs text-muted-foreground">Uses your channel&apos;s AI image provider (Runware, DALL-E, Imagen)</p>
                                 </div>
 
                                 {/* Generate Button */}
@@ -3657,6 +3680,14 @@ export default function ComposePage() {
                                         <div className="relative rounded-lg overflow-hidden bg-muted aspect-video">
                                             <img src={aiGeneratedPreview} alt="AI Generated" className="w-full h-full object-contain" />
                                         </div>
+                                        {lastUsedImageModel && (
+                                            <div className="flex items-center gap-1.5">
+                                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                                                    <Check className="h-3 w-3 mr-1" />
+                                                    Generated with {lastUsedImageModel}
+                                                </Badge>
+                                            </div>
+                                        )}
                                         <div className="flex gap-2">
                                             <Button size="sm" variant="outline" className="flex-1 cursor-pointer" onClick={handleAiImageGenerate} disabled={generatingImage}>
                                                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Regenerate
@@ -3665,7 +3696,9 @@ export default function ComposePage() {
                                                 <Check className="h-3.5 w-3.5 mr-1.5" /> Done
                                             </Button>
                                         </div>
-                                        <p className="text-xs text-emerald-500">✓ Image saved to media library and attached to post</p>
+                                        <p className="text-xs text-emerald-500 flex items-center gap-1">
+                                            <Check className="h-3 w-3" /> Image saved to media library and attached to post
+                                        </p>
                                     </div>
                                 )}
                             </div>
