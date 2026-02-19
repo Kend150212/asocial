@@ -879,6 +879,49 @@ async function publishToTikTok(
             const initData = await initRes.json()
             console.log('[TikTok] Init response:', JSON.stringify(initData))
 
+            // Unaudited apps (Sandbox) can only post to private accounts — auto-retry with SELF_ONLY
+            if (initData.error?.code === 'unaudited_client_can_only_post_to_private_accounts') {
+                console.warn('[TikTok] App not yet audited — retrying with SELF_ONLY privacy')
+                initBody.post_info = {
+                    ...(initBody.post_info as Record<string, unknown>),
+                    privacy_level: 'SELF_ONLY',
+                }
+                const retryRes = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json; charset=UTF-8',
+                    },
+                    body: JSON.stringify(initBody),
+                })
+                const retryData = await retryRes.json()
+                console.log('[TikTok] Retry (SELF_ONLY) response:', JSON.stringify(retryData))
+                if (retryData.error?.code && retryData.error.code !== 'ok') {
+                    throw new Error(retryData.error.message || `TikTok init failed: ${retryData.error.code}`)
+                }
+                const retryPublishId: string = retryData.data?.publish_id
+                const retryUploadUrl: string = retryData.data?.upload_url
+                if (!retryPublishId || !retryUploadUrl) throw new Error('TikTok: missing publish_id or upload_url (retry)')
+                // Upload with new upload_url
+                const retryUploadRes = await fetch(retryUploadUrl, {
+                    method: 'PUT',
+                    // @ts-expect-error Node.js ReadStream is valid as fetch body
+                    body: fs.createReadStream(tmpPath),
+                    headers: {
+                        'Content-Type': 'video/mp4',
+                        'Content-Length': String(videoSize),
+                        'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+                    },
+                    duplex: 'half',
+                })
+                if (!retryUploadRes.ok) {
+                    const errText = await retryUploadRes.text()
+                    throw new Error(`TikTok video upload (retry) failed: ${retryUploadRes.status} ${errText}`)
+                }
+                console.log('[TikTok] Video uploaded (SELF_ONLY), publish_id:', retryPublishId)
+                return { externalId: retryPublishId }
+            }
+
             if (initData.error?.code && initData.error.code !== 'ok') {
                 throw new Error(initData.error.message || `TikTok init failed: ${initData.error.code}`)
             }
