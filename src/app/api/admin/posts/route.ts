@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
+import { sendPendingApprovalWebhooks } from '@/lib/webhook-notify'
 
 // GET /api/admin/posts — list posts with filters
 export async function GET(req: NextRequest) {
@@ -169,6 +170,38 @@ export async function POST(req: NextRequest) {
             platformStatuses: true,
         },
     })
+
+    // Fire webhook notification when post requires approval
+    if (post.status === 'PENDING_APPROVAL') {
+        try {
+            const channel = await prisma.channel.findUnique({ where: { id: post.channelId } })
+            const appBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+            const firstImage = post.media?.[0]?.mediaItem?.url || null
+            const fullImageUrl = firstImage && !firstImage.startsWith('http')
+                ? `${appBaseUrl}${firstImage}` : firstImage
+            await sendPendingApprovalWebhooks(
+                {
+                    webhookDiscord: channel?.webhookDiscord as Record<string, string> | null,
+                    webhookTelegram: channel?.webhookTelegram as Record<string, string> | null,
+                    webhookSlack: channel?.webhookSlack as Record<string, string> | null,
+                    webhookCustom: channel?.webhookCustom as Record<string, string> | null,
+                    webhookEvents: channel?.webhookEvents as string[] | null,
+                },
+                {
+                    postId: post.id,
+                    content: post.content || '',
+                    authorName: post.author?.name || post.author?.email || 'Unknown',
+                    channelName: post.channel?.name || '',
+                    platforms: post.platformStatuses.map((ps: { platform: string }) => ps.platform),
+                    scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
+                    imageUrl: fullImageUrl,
+                    appBaseUrl,
+                },
+            )
+        } catch (err) {
+            console.warn('[Webhook] Pending approval notification error:', err)
+        }
+    }
 
     return NextResponse.json(post, { status: 201 })
 }

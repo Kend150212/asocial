@@ -390,3 +390,192 @@ export async function sendApprovalWebhooks(
         await Promise.allSettled(tasks)
     }
 }
+
+// ─── Pending Approval notification ───────────────────────────────────
+// Fires when a post is submitted for review (PENDING_APPROVAL status).
+// Includes full post content, first image thumbnail, and a link to the Approvals page.
+
+export interface PendingApprovalNotificationData {
+    postId: string
+    content: string
+    authorName: string
+    channelName: string
+    platforms: string[]          // platform names selected for this post
+    scheduledAt?: Date | null
+    imageUrl?: string | null     // first media image URL (if any)
+    appBaseUrl: string           // e.g. https://app.asocial.com
+}
+
+function approvalsUrl(base: string) {
+    return `${base}/dashboard/posts/approvals`
+}
+
+function buildPendingDiscordPayload(data: PendingApprovalNotificationData) {
+    const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
+    const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
+    const url = approvalsUrl(data.appBaseUrl)
+    const fields: { name: string; value: string; inline: boolean }[] = [
+        { name: '📡 Channel', value: data.channelName, inline: true },
+        { name: '👤 Author', value: data.authorName, inline: true },
+        { name: '📱 Platforms', value: platformsLine, inline: false },
+    ]
+    if (data.scheduledAt) {
+        fields.push({ name: '📅 Scheduled for', value: `<t:${Math.floor(data.scheduledAt.getTime() / 1000)}:f>`, inline: true })
+    }
+    // Discord webhook can't do buttons, but a clickable title link is the best option
+    return {
+        username: 'ASocial',
+        embeds: [{
+            title: '🔔 Post Pending Approval — Click to Review',
+            url,               // ← makes the embed title a hyperlink to the Approvals page
+            color: 0xf59e0b,   // amber
+            description: truncated,
+            fields,
+            ...(data.imageUrl ? { image: { url: data.imageUrl } } : {}),
+            footer: { text: `Post ID: ${data.postId} • Click the title to open Approvals` },
+            timestamp: new Date().toISOString(),
+        }],
+    }
+}
+
+async function sendPendingTelegram(tgConfig: Record<string, string>, data: PendingApprovalNotificationData): Promise<void> {
+    const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
+    const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
+    let caption = `🔔 *Post Pending Approval*\n\n`
+    caption += `📝 ${truncated}\n\n`
+    caption += `📡 *Channel:* ${data.channelName}\n`
+    caption += `👤 *Author:* ${data.authorName}\n`
+    caption += `📱 *Platforms:* ${platformsLine}\n`
+    if (data.scheduledAt) {
+        caption += `📅 *Scheduled:* ${data.scheduledAt.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+    }
+
+    const inlineKeyboard = {
+        inline_keyboard: [[
+            { text: '🔍 Review & Approve', url: approvalsUrl(data.appBaseUrl) },
+        ]],
+    }
+
+    const base = `https://api.telegram.org/bot${tgConfig.botToken}`
+
+    // If there's an image, send as photo with caption; otherwise plain message
+    if (data.imageUrl) {
+        await fetch(`${base}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: tgConfig.chatId,
+                photo: data.imageUrl,
+                caption: caption.slice(0, 1024), // Telegram photo caption limit
+                parse_mode: 'Markdown',
+                reply_markup: inlineKeyboard,
+            }),
+        }).then(res => { if (!res.ok) console.warn(`[Webhook] Pending Telegram sendPhoto failed: ${res.status}`) })
+    } else {
+        await fetch(`${base}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: tgConfig.chatId,
+                text: caption,
+                parse_mode: 'Markdown',
+                reply_markup: inlineKeyboard,
+            }),
+        }).then(res => { if (!res.ok) console.warn(`[Webhook] Pending Telegram sendMessage failed: ${res.status}`) })
+    }
+}
+
+function buildPendingSlackPayload(data: PendingApprovalNotificationData) {
+    const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
+    const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
+    const url = approvalsUrl(data.appBaseUrl)
+
+    const blocks: unknown[] = [
+        { type: 'header', text: { type: 'plain_text', text: '🔔 Post Pending Approval', emoji: true } },
+        { type: 'section', text: { type: 'mrkdwn', text: truncated } },
+        {
+            type: 'section',
+            fields: [
+                { type: 'mrkdwn', text: `*📡 Channel:*\n${data.channelName}` },
+                { type: 'mrkdwn', text: `*👤 Author:*\n${data.authorName}` },
+                { type: 'mrkdwn', text: `*📱 Platforms:*\n${platformsLine}` },
+                ...(data.scheduledAt ? [{ type: 'mrkdwn', text: `*📅 Scheduled:*\n<!date^${Math.floor(data.scheduledAt.getTime() / 1000)}^{date_short_pretty} {time}|${data.scheduledAt.toISOString()}>` }] : []),
+            ],
+        },
+        // Image block if available
+        ...(data.imageUrl ? [{ type: 'image', image_url: data.imageUrl, alt_text: 'Post image' }] : []),
+        // ← Action button with URL
+        {
+            type: 'actions',
+            elements: [{
+                type: 'button',
+                text: { type: 'plain_text', text: '🔍 Review & Approve', emoji: true },
+                url,
+                style: 'primary',
+            }],
+        },
+        { type: 'context', elements: [{ type: 'mrkdwn', text: `Post ID: ${data.postId}` }] },
+    ]
+    return { blocks }
+}
+
+function buildPendingCustomPayload(data: PendingApprovalNotificationData) {
+    return {
+        event: 'post.pending_approval',
+        source: 'asocial',
+        timestamp: new Date().toISOString(),
+        post: { id: data.postId, content: data.content, imageUrl: data.imageUrl || null },
+        channel: data.channelName,
+        author: data.authorName,
+        platforms: data.platforms,
+        scheduledAt: data.scheduledAt?.toISOString() || null,
+        approvalsUrl: approvalsUrl(data.appBaseUrl),
+    }
+}
+
+export async function sendPendingApprovalWebhooks(
+    webhookConfig: WebhookConfig,
+    data: PendingApprovalNotificationData,
+): Promise<void> {
+    const tasks: Promise<void>[] = []
+
+    const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
+    if (discordUrl) {
+        tasks.push(
+            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingDiscordPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Discord failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Pending Discord error:', err.message))
+        )
+    }
+
+    const tgConfig = webhookConfig.webhookTelegram as Record<string, string> | null
+    if (tgConfig?.botToken && tgConfig?.chatId) {
+        tasks.push(
+            sendPendingTelegram(tgConfig, data).catch(err => console.warn('[Webhook] Pending Telegram error:', err.message))
+        )
+    }
+
+    const slackUrl = (webhookConfig.webhookSlack as Record<string, string> | null)?.url
+    if (slackUrl) {
+        tasks.push(
+            fetch(slackUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingSlackPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Slack failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Pending Slack error:', err.message))
+        )
+    }
+
+    const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
+    if (customUrl) {
+        tasks.push(
+            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingCustomPayload(data)) })
+                .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Custom failed: ${res.status}`) })
+                .catch(err => console.warn('[Webhook] Pending Custom error:', err.message))
+        )
+    }
+
+    if (tasks.length > 0) {
+        console.log(`[Webhook] Sending ${tasks.length} pending-approval notification(s)...`)
+        await Promise.allSettled(tasks)
+    }
+}
+
