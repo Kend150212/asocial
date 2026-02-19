@@ -967,7 +967,7 @@ export default function ChannelDetailPage({
     if (!channel) return null
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 max-w-6xl">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -1001,7 +1001,7 @@ export default function ChannelDetailPage({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList>
+                <TabsList className="flex-wrap h-auto gap-1">
                     <TabsTrigger value="general" className="gap-1.5 text-xs">
                         <Settings className="h-3.5 w-3.5" />
                         <span className="hidden lg:inline">{t('channels.tabs.general')}</span>
