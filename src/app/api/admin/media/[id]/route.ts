@@ -56,3 +56,35 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
 }
+
+// PATCH /api/admin/media/[id] — rename or move a media item
+export async function PATCH(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth()
+    if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const body = await req.json()
+    const { originalName, folderId } = body as { originalName?: string; folderId?: string | null }
+
+    const media = await prisma.mediaItem.findUnique({ where: { id } })
+    if (!media) {
+        return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    }
+
+    const data: Record<string, unknown> = {}
+    if (originalName !== undefined) data.originalName = originalName.trim()
+    if (folderId !== undefined) data.folderId = folderId || null
+
+    if (Object.keys(data).length === 0) {
+        return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+
+    const updated = await prisma.mediaItem.update({ where: { id }, data })
+
+    return NextResponse.json({ media: updated })
+}

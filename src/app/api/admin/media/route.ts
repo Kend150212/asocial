@@ -80,24 +80,42 @@ export async function GET(req: NextRequest) {
     const channelId = searchParams.get('channelId')
     const type = searchParams.get('type') // image, video
     const source = searchParams.get('source') // upload, ai_generated
+    const folderId = searchParams.get('folderId') // null = root
+    const search = searchParams.get('search')
+    const sort = searchParams.get('sort') || 'newest' // newest, oldest, name, size
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '30')
+    const limit = parseInt(searchParams.get('limit') || '50')
     const skip = (page - 1) * limit
 
     if (!channelId) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    const where: Record<string, unknown> = { channelId }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: Record<string, any> = { channelId }
     if (type) where.type = type
     if (source) where.source = source
+    if (folderId === 'root') {
+        where.folderId = null
+    } else if (folderId) {
+        where.folderId = folderId
+    }
+    if (search) {
+        where.originalName = { contains: search, mode: 'insensitive' }
+    }
+
+    // Sorting
+    let orderBy: Record<string, string> = { createdAt: 'desc' }
+    if (sort === 'oldest') orderBy = { createdAt: 'asc' }
+    else if (sort === 'name') orderBy = { originalName: 'asc' }
+    else if (sort === 'size') orderBy = { fileSize: 'desc' }
 
     const [media, total] = await Promise.all([
         prisma.mediaItem.findMany({
             where,
             skip,
             take: limit,
-            orderBy: { createdAt: 'desc' },
+            orderBy,
         }),
         prisma.mediaItem.count({ where }),
     ])

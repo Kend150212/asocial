@@ -1,0 +1,992 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
+import { toast } from 'sonner'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog'
+import {
+    Image as ImageIcon,
+    FolderPlus,
+    Folder,
+    FolderOpen,
+    Trash2,
+    Pencil,
+    Search,
+    Upload,
+    ChevronRight,
+    Home,
+    MoreVertical,
+    Play,
+    Loader2,
+    LayoutGrid,
+    List,
+    ArrowUpDown,
+    CheckSquare,
+    Square,
+    X,
+    FolderInput,
+    FileVideo,
+    File,
+} from 'lucide-react'
+
+/* ─── Types ─── */
+interface MediaItem {
+    id: string
+    channelId: string
+    folderId: string | null
+    url: string
+    thumbnailUrl: string | null
+    storageFileId: string | null
+    type: string
+    source: string
+    originalName: string | null
+    fileSize: number | null
+    mimeType: string | null
+    tags: string[]
+    createdAt: string
+}
+
+interface MediaFolder {
+    id: string
+    channelId: string
+    parentId: string | null
+    name: string
+    _count: { media: number; children: number }
+}
+
+interface Channel {
+    id: string
+    name: string
+    displayName: string
+}
+
+/* ─── Helpers ─── */
+function formatBytes(bytes: number | null) {
+    if (!bytes) return '—'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDate(d: string) {
+    return new Date(d).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    })
+}
+
+/* ═══════════════════════════════════════════════ */
+export default function MediaLibraryPage() {
+    const { data: session } = useSession()
+
+    // Channel selection
+    const [channels, setChannels] = useState<Channel[]>([])
+    const [selectedChannelId, setSelectedChannelId] = useState<string>('')
+
+    // Folders
+    const [folders, setFolders] = useState<MediaFolder[]>([])
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+    const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null; name: string }[]>([
+        { id: null, name: 'All Files' },
+    ])
+
+    // Media
+    const [media, setMedia] = useState<MediaItem[]>([])
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
+    const [loading, setLoading] = useState(false)
+
+    // Selection
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+    const [lastClickedId, setLastClickedId] = useState<string | null>(null)
+
+    // UI State
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [sortBy, setSortBy] = useState('newest')
+    const [typeFilter, setTypeFilter] = useState<string>('')
+
+    // Dialogs
+    const [showCreateFolder, setShowCreateFolder] = useState(false)
+    const [newFolderName, setNewFolderName] = useState('')
+    const [renamingItem, setRenamingItem] = useState<{ id: string; type: 'folder' | 'media'; name: string } | null>(null)
+    const [showMoveDialog, setShowMoveDialog] = useState(false)
+    const [moveTargetFolder, setMoveTargetFolder] = useState<string | null>(null)
+    const [allFolders, setAllFolders] = useState<MediaFolder[]>([])
+
+    // Upload
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const [uploading, setUploading] = useState(false)
+
+    /* ─── Fetch channels ─── */
+    useEffect(() => {
+        if (!session?.user) return
+        fetch('/api/admin/channels')
+            .then((r) => r.json())
+            .then((d) => {
+                const ch = d.channels || d || []
+                setChannels(ch)
+                if (ch.length > 0 && !selectedChannelId) setSelectedChannelId(ch[0].id)
+            })
+            .catch(() => toast.error('Failed to load channels'))
+    }, [session])
+
+    /* ─── Fetch folders ─── */
+    const fetchFolders = useCallback(async () => {
+        if (!selectedChannelId) return
+        const params = new URLSearchParams({ channelId: selectedChannelId })
+        if (currentFolderId) params.set('parentId', currentFolderId)
+        const res = await fetch(`/api/admin/media/folders?${params}`)
+        const d = await res.json()
+        setFolders(d.folders || [])
+    }, [selectedChannelId, currentFolderId])
+
+    /* ─── Fetch media ─── */
+    const fetchMedia = useCallback(async () => {
+        if (!selectedChannelId) return
+        setLoading(true)
+        const params = new URLSearchParams({
+            channelId: selectedChannelId,
+            page: String(page),
+            limit: '50',
+            sort: sortBy,
+        })
+        if (currentFolderId) {
+            params.set('folderId', currentFolderId)
+        } else {
+            params.set('folderId', 'root')
+        }
+        if (searchQuery) params.set('search', searchQuery)
+        if (typeFilter) params.set('type', typeFilter)
+
+        const res = await fetch(`/api/admin/media?${params}`)
+        const d = await res.json()
+        setMedia(d.media || [])
+        setTotal(d.pagination?.total || 0)
+        setLoading(false)
+    }, [selectedChannelId, currentFolderId, page, sortBy, searchQuery, typeFilter])
+
+    useEffect(() => {
+        fetchFolders()
+        fetchMedia()
+        setSelectedIds(new Set())
+    }, [fetchFolders, fetchMedia])
+
+    /* ─── Navigate folder ─── */
+    const navigateToFolder = (folderId: string | null, folderName?: string) => {
+        if (folderId === null) {
+            setBreadcrumbs([{ id: null, name: 'All Files' }])
+        } else {
+            setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName || 'Folder' }])
+        }
+        setCurrentFolderId(folderId)
+        setPage(1)
+        setSelectedIds(new Set())
+    }
+
+    const navigateToBreadcrumb = (index: number) => {
+        const bc = breadcrumbs[index]
+        setBreadcrumbs((prev) => prev.slice(0, index + 1))
+        setCurrentFolderId(bc.id)
+        setPage(1)
+        setSelectedIds(new Set())
+    }
+
+    /* ─── Selection ─── */
+    const allMediaIds = media.map((m) => m.id)
+    const allSelected = allMediaIds.length > 0 && allMediaIds.every((id) => selectedIds.has(id))
+    const someSelected = selectedIds.size > 0
+
+    const toggleSelect = (id: string, shiftKey?: boolean) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+
+            if (shiftKey && lastClickedId) {
+                // Shift+click: select range
+                const allIds = media.map((m) => m.id)
+                const start = allIds.indexOf(lastClickedId)
+                const end = allIds.indexOf(id)
+                const range = allIds.slice(Math.min(start, end), Math.max(start, end) + 1)
+                range.forEach((rid) => next.add(rid))
+            } else {
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+            }
+
+            return next
+        })
+        setLastClickedId(id)
+    }
+
+    const toggleSelectAll = () => {
+        if (allSelected) {
+            setSelectedIds(new Set())
+        } else {
+            setSelectedIds(new Set(allMediaIds))
+        }
+    }
+
+    /* ─── Create Folder ─── */
+    const handleCreateFolder = async () => {
+        if (!newFolderName.trim()) return
+        try {
+            const res = await fetch('/api/admin/media/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelId: selectedChannelId,
+                    name: newFolderName.trim(),
+                    parentId: currentFolderId,
+                }),
+            })
+            if (!res.ok) {
+                const e = await res.json()
+                throw new Error(e.error || 'Failed')
+            }
+            toast.success('Folder created')
+            setShowCreateFolder(false)
+            setNewFolderName('')
+            fetchFolders()
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to create folder')
+        }
+    }
+
+    /* ─── Rename ─── */
+    const handleRename = async () => {
+        if (!renamingItem || !renamingItem.name.trim()) return
+        try {
+            const url =
+                renamingItem.type === 'folder'
+                    ? `/api/admin/media/folders/${renamingItem.id}`
+                    : `/api/admin/media/${renamingItem.id}`
+            const body =
+                renamingItem.type === 'folder'
+                    ? { name: renamingItem.name.trim() }
+                    : { originalName: renamingItem.name.trim() }
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (!res.ok) throw new Error()
+            toast.success('Renamed successfully')
+            setRenamingItem(null)
+            fetchFolders()
+            fetchMedia()
+        } catch {
+            toast.error('Failed to rename')
+        }
+    }
+
+    /* ─── Delete folder ─── */
+    const handleDeleteFolder = async (folderId: string) => {
+        if (!confirm('Delete this folder? Media inside will be moved to the parent folder.')) return
+        try {
+            const res = await fetch(`/api/admin/media/folders/${folderId}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error()
+            toast.success('Folder deleted')
+            fetchFolders()
+            fetchMedia()
+        } catch {
+            toast.error('Failed to delete folder')
+        }
+    }
+
+    /* ─── Bulk delete ─── */
+    const handleBulkDelete = async () => {
+        if (!confirm(`Delete ${selectedIds.size} item(s)? This cannot be undone.`)) return
+        try {
+            const res = await fetch('/api/admin/media/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', ids: Array.from(selectedIds) }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success(`${selectedIds.size} item(s) deleted`)
+            setSelectedIds(new Set())
+            fetchMedia()
+        } catch {
+            toast.error('Failed to delete')
+        }
+    }
+
+    /* ─── Single delete ─── */
+    const handleDeleteMedia = async (id: string, name: string) => {
+        if (!confirm(`Delete "${name}"?`)) return
+        try {
+            const res = await fetch(`/api/admin/media/${id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error()
+            toast.success('Deleted')
+            setSelectedIds((prev) => {
+                const next = new Set(prev)
+                next.delete(id)
+                return next
+            })
+            fetchMedia()
+        } catch {
+            toast.error('Failed to delete')
+        }
+    }
+
+    /* ─── Bulk move ─── */
+    const handleBulkMove = async () => {
+        try {
+            const res = await fetch('/api/admin/media/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'move',
+                    ids: Array.from(selectedIds),
+                    folderId: moveTargetFolder,
+                }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success(`Moved ${selectedIds.size} item(s)`)
+            setShowMoveDialog(false)
+            setSelectedIds(new Set())
+            fetchMedia()
+        } catch {
+            toast.error('Failed to move')
+        }
+    }
+
+    const openMoveDialog = async () => {
+        // Fetch all folders for this channel
+        const res = await fetch(`/api/admin/media/folders?channelId=${selectedChannelId}`)
+        const d = await res.json()
+        setAllFolders(d.folders || [])
+        setMoveTargetFolder(null)
+        setShowMoveDialog(true)
+    }
+
+    /* ─── Upload ─── */
+    const handleUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0 || !selectedChannelId) return
+        setUploading(true)
+        let successCount = 0
+
+        for (const file of Array.from(files)) {
+            try {
+                const formData = new FormData()
+                formData.append('file', file)
+                formData.append('channelId', selectedChannelId)
+                if (currentFolderId) formData.append('folderId', currentFolderId)
+
+                const res = await fetch('/api/admin/media', {
+                    method: 'POST',
+                    body: formData,
+                })
+                if (res.ok) successCount++
+                else console.error('Upload failed for', file.name)
+            } catch (err) {
+                console.error('Upload error:', err)
+            }
+        }
+
+        setUploading(false)
+        if (successCount > 0) {
+            toast.success(`Uploaded ${successCount} file(s)`)
+            fetchMedia()
+        }
+    }
+
+    /* ─── Drag & Drop ─── */
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+    }
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        handleUpload(e.dataTransfer.files)
+    }
+
+    const totalPages = Math.ceil(total / 50)
+    const isVideo = (m: MediaItem) => m.type === 'video'
+
+    /* ═══════════════════════════════════════════════ */
+    return (
+        <div className="flex flex-col h-full">
+            {/* ─── Header ─── */}
+            <div className="border-b bg-card px-6 py-4">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                        <ImageIcon className="h-5 w-5 text-primary" />
+                        <h1 className="text-xl font-bold">Media Library</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select value={selectedChannelId} onValueChange={(v) => {
+                            setSelectedChannelId(v)
+                            setCurrentFolderId(null)
+                            setBreadcrumbs([{ id: null, name: 'All Files' }])
+                            setPage(1)
+                        }}>
+                            <SelectTrigger className="w-[180px] h-8 text-xs">
+                                <SelectValue placeholder="Select channel" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {channels.map((ch) => (
+                                    <SelectItem key={ch.id} value={ch.id}>
+                                        {ch.displayName}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Toolbar */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by filename..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value)
+                                setPage(1)
+                            }}
+                            className="h-8 pl-8 text-xs"
+                        />
+                    </div>
+
+                    {/* Type filter */}
+                    <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v === 'all' ? '' : v); setPage(1) }}>
+                        <SelectTrigger className="w-[110px] h-8 text-xs">
+                            <SelectValue placeholder="All types" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All types</SelectItem>
+                            <SelectItem value="image">Images</SelectItem>
+                            <SelectItem value="video">Videos</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* Sort */}
+                    <Select value={sortBy} onValueChange={(v) => { setSortBy(v); setPage(1) }}>
+                        <SelectTrigger className="w-[120px] h-8 text-xs">
+                            <ArrowUpDown className="h-3 w-3 mr-1" />
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="newest">Newest</SelectItem>
+                            <SelectItem value="oldest">Oldest</SelectItem>
+                            <SelectItem value="name">Name</SelectItem>
+                            <SelectItem value="size">Size</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Separator orientation="vertical" className="h-6" />
+
+                    {/* View mode */}
+                    <div className="flex border rounded-md">
+                        <Button
+                            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                            size="icon"
+                            className="h-8 w-8 rounded-r-none"
+                            onClick={() => setViewMode('grid')}
+                        >
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                            size="icon"
+                            className="h-8 w-8 rounded-l-none"
+                            onClick={() => setViewMode('list')}
+                        >
+                            <List className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+
+                    <Separator orientation="vertical" className="h-6" />
+
+                    {/* Actions */}
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={() => setShowCreateFolder(true)}
+                    >
+                        <FolderPlus className="h-3.5 w-3.5 mr-1" />
+                        New Folder
+                    </Button>
+                    <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                    >
+                        {uploading ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                            <Upload className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Upload
+                    </Button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={(e) => handleUpload(e.target.files)}
+                    />
+                </div>
+            </div>
+
+            {/* ─── Bulk Action Bar ─── */}
+            {someSelected && (
+                <div className="border-b bg-primary/5 px-6 py-2 flex items-center gap-3">
+                    <Badge variant="secondary" className="text-xs">
+                        {selectedIds.size} selected
+                    </Badge>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={toggleSelectAll}>
+                        {allSelected ? 'Deselect All' : 'Select All'}
+                    </Button>
+                    <Separator orientation="vertical" className="h-5" />
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={handleBulkDelete}>
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={openMoveDialog}>
+                        <FolderInput className="h-3 w-3 mr-1" />
+                        Move
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs ml-auto"
+                        onClick={() => setSelectedIds(new Set())}
+                    >
+                        <X className="h-3 w-3 mr-1" />
+                        Clear
+                    </Button>
+                </div>
+            )}
+
+            {/* ─── Breadcrumbs ─── */}
+            <div className="px-6 py-2 flex items-center gap-1 text-xs text-muted-foreground border-b bg-muted/30">
+                {breadcrumbs.map((bc, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                        {i > 0 && <ChevronRight className="h-3 w-3" />}
+                        <button
+                            onClick={() => navigateToBreadcrumb(i)}
+                            className={`hover:text-foreground transition-colors ${i === breadcrumbs.length - 1 ? 'text-foreground font-medium' : ''}`}
+                        >
+                            {i === 0 ? <Home className="h-3 w-3 inline mr-1" /> : null}
+                            {bc.name}
+                        </button>
+                    </span>
+                ))}
+                <span className="ml-auto text-muted-foreground">
+                    {folders.length} folder{folders.length !== 1 ? 's' : ''}, {total} file{total !== 1 ? 's' : ''}
+                </span>
+            </div>
+
+            {/* ─── Content ─── */}
+            <div
+                className="flex-1 overflow-y-auto px-6 py-4"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+            >
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Folders */}
+                        {folders.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Folders</p>
+                                <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2' : 'space-y-1'}>
+                                    {folders.map((folder) => (
+                                        <div
+                                            key={folder.id}
+                                            className={`group relative rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer ${viewMode === 'grid' ? 'p-3 text-center' : 'p-2 flex items-center gap-3'}`}
+                                            onDoubleClick={() => navigateToFolder(folder.id, folder.name)}
+                                        >
+                                            <div
+                                                className={viewMode === 'grid' ? 'flex flex-col items-center gap-1' : 'flex items-center gap-3 flex-1'}
+                                                onClick={() => navigateToFolder(folder.id, folder.name)}
+                                            >
+                                                <FolderOpen className={`text-amber-500 ${viewMode === 'grid' ? 'h-8 w-8' : 'h-4 w-4'}`} />
+                                                <span className="text-xs font-medium truncate max-w-full">{folder.name}</span>
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {folder._count.media} files
+                                                </span>
+                                            </div>
+                                            {/* Folder context menu */}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button className="absolute top-1 right-1 h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-opacity">
+                                                        <MoreVertical className="h-3 w-3" />
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-36">
+                                                    <DropdownMenuItem onClick={() => setRenamingItem({ id: folder.id, type: 'folder', name: folder.name })}>
+                                                        <Pencil className="h-3 w-3 mr-2" />
+                                                        Rename
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-destructive">
+                                                        <Trash2 className="h-3 w-3 mr-2" />
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Media Grid/List */}
+                        {media.length === 0 && folders.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                                <ImageIcon className="h-12 w-12 mb-3 opacity-30" />
+                                <p className="text-sm font-medium">No media found</p>
+                                <p className="text-xs mt-1">Upload files or create a folder to get started</p>
+                                <Button
+                                    size="sm"
+                                    className="mt-4"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Upload className="h-3.5 w-3.5 mr-1" />
+                                    Upload Files
+                                </Button>
+                            </div>
+                        ) : media.length > 0 && (
+                            <>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Files</p>
+                                    <button
+                                        onClick={toggleSelectAll}
+                                        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                                    >
+                                        {allSelected ? (
+                                            <CheckSquare className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <Square className="h-3.5 w-3.5" />
+                                        )}
+                                        {allSelected ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+
+                                {viewMode === 'grid' ? (
+                                    /* ── Grid View ── */
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                                        {media.map((item) => {
+                                            const selected = selectedIds.has(item.id)
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    className={`group relative rounded-lg overflow-hidden bg-muted aspect-square transition-all border-2 ${selected
+                                                        ? 'border-primary ring-1 ring-primary/30'
+                                                        : 'border-transparent hover:border-border'
+                                                        }`}
+                                                >
+                                                    {/* Checkbox */}
+                                                    <div className={`absolute top-1.5 left-1.5 z-10 transition-opacity ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                                        <Checkbox
+                                                            checked={selected}
+                                                            onCheckedChange={() => toggleSelect(item.id)}
+                                                            onClick={(e) => toggleSelect(item.id, (e as unknown as MouseEvent).shiftKey)}
+                                                            className="h-4 w-4 bg-background/80 backdrop-blur"
+                                                        />
+                                                    </div>
+
+                                                    {/* Image/Video */}
+                                                    <div className="h-full w-full">
+                                                        {isVideo(item) ? (
+                                                            <div className="relative h-full w-full bg-muted">
+                                                                <img
+                                                                    src={item.thumbnailUrl || item.url}
+                                                                    alt={item.originalName || ''}
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                    <div className="h-7 w-7 rounded-full bg-black/60 flex items-center justify-center">
+                                                                        <Play className="h-3.5 w-3.5 text-white ml-0.5" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <img
+                                                                src={item.thumbnailUrl || item.url}
+                                                                alt={item.originalName || ''}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Context menu */}
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button className="absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                                <MoreVertical className="h-3 w-3" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-36">
+                                                            <DropdownMenuItem onClick={() => setRenamingItem({ id: item.id, type: 'media', name: item.originalName || '' })}>
+                                                                <Pencil className="h-3 w-3 mr-2" />
+                                                                Rename
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleDeleteMedia(item.id, item.originalName || 'media')}
+                                                                className="text-destructive"
+                                                            >
+                                                                <Trash2 className="h-3 w-3 mr-2" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+
+                                                    {/* Filename */}
+                                                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 pt-4">
+                                                        <p className="text-[9px] text-white truncate">{item.originalName}</p>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                ) : (
+                                    /* ── List View ── */
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-muted/50">
+                                                <tr>
+                                                    <th className="p-2 w-8">
+                                                        <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="h-3.5 w-3.5" />
+                                                    </th>
+                                                    <th className="p-2 text-left w-10"></th>
+                                                    <th className="p-2 text-left font-medium">Name</th>
+                                                    <th className="p-2 text-left font-medium w-20">Type</th>
+                                                    <th className="p-2 text-left font-medium w-20">Size</th>
+                                                    <th className="p-2 text-left font-medium w-24">Date</th>
+                                                    <th className="p-2 w-10"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {media.map((item) => {
+                                                    const selected = selectedIds.has(item.id)
+                                                    return (
+                                                        <tr
+                                                            key={item.id}
+                                                            className={`border-t hover:bg-accent/30 transition-colors ${selected ? 'bg-primary/5' : ''}`}
+                                                        >
+                                                            <td className="p-2">
+                                                                <Checkbox
+                                                                    checked={selected}
+                                                                    onCheckedChange={() => toggleSelect(item.id)}
+                                                                    className="h-3.5 w-3.5"
+                                                                />
+                                                            </td>
+                                                            <td className="p-2">
+                                                                <div className="h-8 w-8 rounded bg-muted overflow-hidden">
+                                                                    <img
+                                                                        src={item.thumbnailUrl || item.url}
+                                                                        alt=""
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-2 font-medium truncate max-w-[200px]">
+                                                                {item.originalName}
+                                                            </td>
+                                                            <td className="p-2 text-muted-foreground">
+                                                                <Badge variant="outline" className="text-[10px] px-1.5">
+                                                                    {isVideo(item) ? (
+                                                                        <><FileVideo className="h-2.5 w-2.5 mr-0.5" /> Video</>
+                                                                    ) : (
+                                                                        <><ImageIcon className="h-2.5 w-2.5 mr-0.5" /> Image</>
+                                                                    )}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="p-2 text-muted-foreground">{formatBytes(item.fileSize)}</td>
+                                                            <td className="p-2 text-muted-foreground">{formatDate(item.createdAt)}</td>
+                                                            <td className="p-2">
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                                                            <MoreVertical className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" className="w-36">
+                                                                        <DropdownMenuItem onClick={() => setRenamingItem({ id: item.id, type: 'media', name: item.originalName || '' })}>
+                                                                            <Pencil className="h-3 w-3 mr-2" />
+                                                                            Rename
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => handleDeleteMedia(item.id, item.originalName || '')}
+                                                                            className="text-destructive"
+                                                                        >
+                                                                            <Trash2 className="h-3 w-3 mr-2" />
+                                                                            Delete
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-center gap-2 mt-4">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={page <= 1}
+                                            onClick={() => setPage((p) => p - 1)}
+                                            className="h-7 text-xs"
+                                        >
+                                            Previous
+                                        </Button>
+                                        <span className="text-xs text-muted-foreground">
+                                            Page {page} of {totalPages}
+                                        </span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={page >= totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            className="h-7 text-xs"
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* ─── Create Folder Dialog ─── */}
+            <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm flex items-center gap-2">
+                            <FolderPlus className="h-4 w-4" />
+                            New Folder
+                        </DialogTitle>
+                    </DialogHeader>
+                    <Input
+                        placeholder="Folder name..."
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                        autoFocus
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(false)}>
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                            Create
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ─── Rename Dialog ─── */}
+            <Dialog open={!!renamingItem} onOpenChange={(open) => !open && setRenamingItem(null)}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm flex items-center gap-2">
+                            <Pencil className="h-4 w-4" />
+                            Rename {renamingItem?.type === 'folder' ? 'Folder' : 'File'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <Input
+                        value={renamingItem?.name || ''}
+                        onChange={(e) =>
+                            setRenamingItem((prev) => (prev ? { ...prev, name: e.target.value } : null))
+                        }
+                        onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                        autoFocus
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" size="sm" onClick={() => setRenamingItem(null)}>
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleRename}>
+                            Rename
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ─── Move Dialog ─── */}
+            <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm flex items-center gap-2">
+                            <FolderInput className="h-4 w-4" />
+                            Move {selectedIds.size} item(s) to folder
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                        <button
+                            onClick={() => setMoveTargetFolder(null)}
+                            className={`w-full text-left px-3 py-2 rounded-md text-xs flex items-center gap-2 transition-colors ${moveTargetFolder === null ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                        >
+                            <Home className="h-3 w-3" />
+                            Root (All Files)
+                        </button>
+                        {allFolders.map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => setMoveTargetFolder(f.id)}
+                                className={`w-full text-left px-3 py-2 rounded-md text-xs flex items-center gap-2 transition-colors ${moveTargetFolder === f.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                            >
+                                <Folder className="h-3 w-3 text-amber-500" />
+                                {f.name}
+                                <span className="text-muted-foreground ml-auto">{f._count.media} files</span>
+                            </button>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" size="sm" onClick={() => setShowMoveDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleBulkMove}>
+                            Move Here
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    )
+}

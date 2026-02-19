@@ -55,6 +55,7 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
     { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
+    { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
 ]
 

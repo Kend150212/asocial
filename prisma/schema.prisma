@@ -224,6 +224,7 @@ model Channel {
   platforms            ChannelPlatform[]
   posts                Post[]
   mediaItems           MediaItem[]
+  mediaFolders         MediaFolder[]
 
   @@map("channels")
 }
@@ -417,9 +418,27 @@ model PostPlatformStatus {
 // MEDIA
 // ==========================================
 
+model MediaFolder {
+  id        String   @id @default(cuid())
+  channelId String   @map("channel_id")
+  parentId  String?  @map("parent_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  channel  Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  parent   MediaFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children MediaFolder[] @relation("FolderTree")
+  media    MediaItem[]
+
+  @@unique([channelId, parentId, name])
+  @@map("media_folders")
+}
+
 model MediaItem {
   id            String   @id @default(cuid())
   channelId     String   @map("channel_id")
+  folderId      String?  @map("folder_id")
   url           String
   thumbnailUrl  String?  @map("thumbnail_url")
   storageFileId String?  @map("storage_file_id")
@@ -432,10 +451,12 @@ model MediaItem {
   aiMetadata    Json?    @map("ai_metadata") @default("{}") // provider, model, ratio, prompt
   createdAt     DateTime @default(now()) @map("created_at")
 
-  channel Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  folder  MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   posts   PostMedia[]
 
   @@index([channelId, type])
+  @@index([folderId])
   @@map("media_items")
 }
 
