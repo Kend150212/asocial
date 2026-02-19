@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
         scheduledAt,
         mediaIds,
         platforms,
+        requestApproval,  // boolean — used when channel.requireApproval === 'optional'
     } = body
 
     if (!channelId) {
@@ -112,12 +113,15 @@ export async function POST(req: NextRequest) {
         ? Buffer.from(content).toString('base64').slice(0, 32)
         : undefined
 
-    // Determine post status
+    // Determine post status based on channel approval mode
     let finalStatus = status
     if (status === 'SCHEDULED' && !scheduledAt) {
         finalStatus = 'DRAFT'
     }
-    if (channel.requireApproval && status !== 'DRAFT') {
+    const approvalMode = channel.requireApproval as unknown as string // 'none'|'optional'|'required'
+    if (approvalMode === 'required' && status !== 'DRAFT') {
+        finalStatus = 'PENDING_APPROVAL'
+    } else if (approvalMode === 'optional' && requestApproval && status !== 'DRAFT') {
         finalStatus = 'PENDING_APPROVAL'
     }
 

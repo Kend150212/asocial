@@ -83,6 +83,7 @@ export async function PUT(
         scheduledAt,
         mediaIds,
         platforms,
+        requestApproval,  // boolean — used when channel.requireApproval === 'optional'
     } = body
 
     // Verify post exists
@@ -114,8 +115,12 @@ export async function PUT(
     if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null
 
     if (status) {
-        // If channel requires approval and moving from draft
-        if (existing.channel.requireApproval && status !== 'DRAFT' && existing.status === 'DRAFT') {
+        const approvalMode = existing.channel.requireApproval as unknown as string // 'none'|'optional'|'required'
+        const fromDraft = existing.status === 'DRAFT'
+        if (
+            (approvalMode === 'required' && status !== 'DRAFT') ||
+            (approvalMode === 'optional' && requestApproval && status !== 'DRAFT' && fromDraft)
+        ) {
             updateData.status = 'PENDING_APPROVAL'
         } else {
             updateData.status = status

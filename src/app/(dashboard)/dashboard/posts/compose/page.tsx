@@ -126,6 +126,7 @@ interface Channel {
     defaultAiModel: string | null
     defaultImageProvider: string | null
     defaultImageModel: string | null
+    requireApproval: 'none' | 'optional' | 'required'
     platforms: ChannelPlatform[]
 }
 
@@ -549,6 +550,7 @@ export default function ComposePage() {
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+    const [requestApproval, setRequestApproval] = useState(false) // for 'optional' approval mode
     const [generating, setGenerating] = useState(false)
     const [generatingMeta, setGeneratingMeta] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -1579,6 +1581,7 @@ export default function ComposePage() {
                     scheduledAt,
                     mediaIds: attachedMedia.map((m) => m.id),
                     platforms: buildPlatformsPayload(),
+                    requestApproval,  // used when channel.requireApproval === 'optional'
                 }),
             })
             if (!res.ok) { const err = await res.json(); toast.error(err.error || 'Failed to save'); return }
@@ -1730,6 +1733,26 @@ export default function ComposePage() {
                                 Publish Now
                             </Button>
                         </>
+                    )}
+                    {/* Approval indicator */}
+                    {selectedChannel?.requireApproval === 'required' && (
+                        <Badge className="h-6 text-[10px] bg-amber-500/20 text-amber-600 border-amber-500/30 gap-1 px-2">
+                            <ShieldCheck className="h-3 w-3" />
+                            Approval required
+                        </Badge>
+                    )}
+                    {selectedChannel?.requireApproval === 'optional' && (
+                        <button
+                            type="button"
+                            onClick={() => setRequestApproval(!requestApproval)}
+                            className={`flex items-center gap-1 h-6 px-2 rounded text-[10px] font-medium border transition-colors cursor-pointer ${requestApproval
+                                    ? 'bg-amber-500/20 text-amber-600 border-amber-500/30'
+                                    : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                                }`}
+                        >
+                            <ShieldCheck className="h-3 w-3" />
+                            {requestApproval ? 'Needs approval' : 'No approval'}
+                        </button>
                     )}
                     {/* Delete button — only in edit mode */}
                     {editPostId && (

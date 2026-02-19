@@ -175,7 +175,7 @@ interface ChannelDetail {
     seoTags: string[]
     colorPalette: string[]
     notificationEmail: string | null
-    requireApproval: boolean
+    requireApproval: string  // 'none' | 'optional' | 'required'
     storageProvider: string | null
     useDefaultStorage: boolean
     webhookDiscord: Record<string, string>
@@ -233,7 +233,7 @@ export default function ChannelDetailPage({
     const [language, setLanguage] = useState('en')
     const [isActive, setIsActive] = useState(true)
     const [notificationEmail, setNotificationEmail] = useState('')
-    const [requireApproval, setRequireApproval] = useState(false)
+    const [requireApproval, setRequireApproval] = useState<'none' | 'optional' | 'required'>('none')
     const [vibeTone, setVibeTone] = useState<Record<string, string>>({})
 
     // Knowledge Base state
@@ -314,7 +314,7 @@ export default function ChannelDetailPage({
                 setLanguage(data.language)
                 setIsActive(data.isActive)
                 setNotificationEmail(data.notificationEmail || '')
-                setRequireApproval(data.requireApproval)
+                setRequireApproval((data.requireApproval as 'none' | 'optional' | 'required') || 'none')
                 setVibeTone(data.vibeTone || {})
                 setKnowledgeEntries(data.knowledgeBase || [])
                 setTemplates(data.contentTemplates || [])
@@ -1269,12 +1269,36 @@ export default function ChannelDetailPage({
                                 </div>
                                 <Switch checked={isActive} onCheckedChange={setIsActive} />
                             </div>
-                            <div className="flex items-center justify-between">
+                            <div className="space-y-2">
                                 <div>
-                                    <Label>{t('channels.requireApproval')}</Label>
-                                    <p className="text-xs text-muted-foreground">{t('channels.requireApprovalDesc')}</p>
+                                    <Label>Approval Mode</Label>
+                                    <p className="text-xs text-muted-foreground">Control whether posts need to be approved before publishing</p>
                                 </div>
-                                <Switch checked={requireApproval} onCheckedChange={setRequireApproval} />
+                                <Select value={requireApproval} onValueChange={(v) => setRequireApproval(v as 'none' | 'optional' | 'required')}>
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">None</span>
+                                                <span className="text-[10px] text-muted-foreground">Posts publish directly, no approval needed</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="optional">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Optional</span>
+                                                <span className="text-[10px] text-muted-foreground">Users choose per post whether to request approval</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="required">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Required</span>
+                                                <span className="text-[10px] text-muted-foreground">All posts must be approved before publishing</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </CardContent>
                     </Card>
