@@ -1128,26 +1128,42 @@ export default function ComposePage() {
                                     body: formData,
                                 })
 
+                                // Debug beacon: upload result
+                                fetch(`/api/canva/designs?_debug=1&step=upload_result&status=${uploadRes.status}&ok=${uploadRes.ok}`).catch(() => { })
+
                                 if (uploadRes.ok) {
                                     const newMedia = await uploadRes.json()
+                                    // Debug beacon: media received
+                                    fetch(`/api/canva/designs?_debug=1&step=media_received&mediaId=${newMedia.id}&url=${encodeURIComponent(newMedia.url || '')}&existingId=${existingMediaId || 'new'}`).catch(() => { })
+
                                     if (existingMediaId) {
                                         // REPLACE the original media at the same position
-                                        setAttachedMedia((prev) =>
-                                            prev.map((m) => m.id === existingMediaId ? newMedia : m)
-                                        )
+                                        setAttachedMedia((prev) => {
+                                            const updated = prev.map((m) => m.id === existingMediaId ? newMedia : m)
+                                            fetch(`/api/canva/designs?_debug=1&step=replace_done&prevLen=${prev.length}&updatedLen=${updated.length}&foundMatch=${prev.some(m => m.id === existingMediaId)}`).catch(() => { })
+                                            return updated
+                                        })
                                     } else {
                                         // NEW design — add to list
-                                        setAttachedMedia((prev) => [...prev, newMedia])
+                                        setAttachedMedia((prev) => {
+                                            fetch(`/api/canva/designs?_debug=1&step=append_done&prevLen=${prev.length}&newLen=${prev.length + 1}`).catch(() => { })
+                                            return [...prev, newMedia]
+                                        })
                                     }
                                     toast.success('🎨 Canva design imported!', { id: 'canva-export' })
+
+                                    // Show success + close button in popup
+                                    if (popupRef && !popupRef.closed) {
+                                        writePopupStatus(popupRef, 'success', 'Design imported successfully! 🎉')
+                                    }
                                 } else {
                                     const err = await uploadRes.json().catch(() => ({}))
+                                    fetch(`/api/canva/designs?_debug=1&step=upload_failed&error=${encodeURIComponent(err.error || 'unknown')}`).catch(() => { })
                                     toast.error(err.error || 'Failed to upload design', { id: 'canva-export' })
-                                }
 
-                                // Show success + close button in popup
-                                if (popupRef && !popupRef.closed) {
-                                    writePopupStatus(popupRef, 'success', 'Design imported successfully! 🎉')
+                                    if (popupRef && !popupRef.closed) {
+                                        writePopupStatus(popupRef, 'error', err.error || 'Upload failed')
+                                    }
                                 }
 
                                 setCanvaLoading(false)
