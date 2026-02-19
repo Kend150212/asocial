@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
             profileId = profile.sub || profileId
         }
 
+        // Save personal profile
         await prisma.channelPlatform.upsert({
             where: {
                 channelId_platform_accountId: {
@@ -67,21 +68,80 @@ export async function GET(req: NextRequest) {
                     accountId: profileId,
                 },
             },
-            update: { accountName: profileName, accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null, connectedBy: state.userId, isActive: true },
+            update: { accountName: `👤 ${profileName}`, accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null, connectedBy: state.userId, isActive: true },
             create: {
-                channelId: state.channelId, platform: 'linkedin', accountId: profileId, accountName: profileName,
+                channelId: state.channelId, platform: 'linkedin', accountId: profileId, accountName: `👤 ${profileName}`,
                 accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-                connectedBy: state.userId, isActive: true, config: { source: 'oauth' },
+                connectedBy: state.userId, isActive: true, config: { source: 'oauth', type: 'person' },
             },
         })
 
-        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=linkedin&imported=1`
+        // Fetch organizations the user manages (Company Pages)
+        let importedCount = 1 // personal profile already imported
+        try {
+            const orgsRes = await fetch('https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(id,localizedName,vanityName,logoV2(original~:playableStreams))))', {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'LinkedIn-Version': '202401',
+                    'X-Restli-Protocol-Version': '2.0.0',
+                },
+            })
+
+            if (orgsRes.ok) {
+                const orgsData = await orgsRes.json()
+                const elements = orgsData.elements || []
+                console.log(`[LinkedIn] Found ${elements.length} managed organization(s)`)
+
+                for (const el of elements) {
+                    const org = el['organization~']
+                    if (!org) continue
+                    const orgId = String(org.id)
+                    const orgName = org.localizedName || org.vanityName || `Org ${orgId}`
+
+                    await prisma.channelPlatform.upsert({
+                        where: {
+                            channelId_platform_accountId: {
+                                channelId: state.channelId,
+                                platform: 'linkedin',
+                                accountId: `org_${orgId}`,
+                            },
+                        },
+                        update: {
+                            accountName: `🏢 ${orgName}`,
+                            accessToken,
+                            tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
+                            connectedBy: state.userId,
+                            isActive: true,
+                        },
+                        create: {
+                            channelId: state.channelId,
+                            platform: 'linkedin',
+                            accountId: `org_${orgId}`,
+                            accountName: `🏢 ${orgName}`,
+                            accessToken,
+                            tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
+                            connectedBy: state.userId,
+                            isActive: true,
+                            config: { source: 'oauth', type: 'organization', orgId },
+                        },
+                    })
+                    importedCount++
+                    console.log(`[LinkedIn] Imported organization: ${orgName} (${orgId})`)
+                }
+            } else {
+                console.warn('[LinkedIn] Failed to fetch organizations:', await orgsRes.text())
+            }
+        } catch (orgErr) {
+            console.warn('[LinkedIn] Error fetching organizations:', orgErr)
+        }
+
+        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=linkedin&imported=${importedCount}`
         return new NextResponse(
             `<!DOCTYPE html><html><head><title>LinkedIn Connected</title></head><body>
             <script>
                 if (window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'linkedin' }, '*'); window.close(); }
                 else { window.location.href = '${successUrl}'; }
-            </script><p>LinkedIn connected! Redirecting...</p></body></html>`,
+            </script><p>LinkedIn connected! ${importedCount} account(s) imported. Redirecting...</p></body></html>`,
             { headers: { 'Content-Type': 'text/html' } }
         )
     } catch (err) {

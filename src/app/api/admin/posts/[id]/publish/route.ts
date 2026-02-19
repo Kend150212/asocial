@@ -642,7 +642,12 @@ async function publishToLinkedIn(
     content: string,
     mediaItems: MediaInfo[],
 ): Promise<{ externalId: string }> {
-    const authorUrn = `urn:li:person:${accountId}`
+    // Determine if this is an organization or personal account
+    const isOrg = accountId.startsWith('org_')
+    const authorUrn = isOrg
+        ? `urn:li:organization:${accountId.replace('org_', '')}`
+        : `urn:li:person:${accountId}`
+    console.log(`[LinkedIn] Publishing as ${isOrg ? 'organization' : 'person'}: ${authorUrn}`)
 
     // If we have images, upload them first
     const imageUrns: string[] = []
