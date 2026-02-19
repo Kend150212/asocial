@@ -26,6 +26,8 @@ import {
     Megaphone,
     PenSquare,
     CalendarDays,
+    CalendarClock,
+    CheckCircle2,
     Image,
     Mail,
     BarChart3,
@@ -56,6 +58,8 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
     { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
     { titleKey: 'nav.calendar', href: '/dashboard/posts/calendar', icon: CalendarDays },
+    { titleKey: 'nav.queue', href: '/dashboard/posts/queue', icon: CalendarClock },
+    { titleKey: 'nav.approvals', href: '/dashboard/posts/approvals', icon: CheckCircle2 },
     { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
 ]

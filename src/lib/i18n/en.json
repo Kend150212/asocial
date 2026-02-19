@@ -27,6 +27,8 @@
         "channels": "Channels",
         "posts": "Posts",
         "calendar": "Calendar",
+        "queue": "Queue",
+        "approvals": "Approvals",
         "media": "Media",
         "email": "Email",
         "reports": "Reports",
