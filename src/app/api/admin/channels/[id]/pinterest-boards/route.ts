@@ -44,12 +44,42 @@ export async function GET(
         }
 
         const data = await res.json()
-        const boards = (data.items || []).map((b: { id: string; name: string; description?: string; privacy?: string }) => ({
+        let boards = (data.items || []).map((b: { id: string; name: string; description?: string; privacy?: string }) => ({
             id: b.id,
             name: b.name,
             description: b.description || '',
             privacy: b.privacy || 'PUBLIC',
         }))
+
+        // Auto-create a default board if none exist (e.g. in sandbox mode)
+        if (boards.length === 0) {
+            console.log('[Pinterest Boards] No boards found, auto-creating default board...')
+            const createRes = await fetch(`${pinterestBase}/v5/boards`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${platform.accessToken}`,
+                },
+                body: JSON.stringify({
+                    name: 'ASocial',
+                    description: 'Auto-created board for ASocial publishing',
+                    privacy: 'PUBLIC',
+                }),
+            })
+            if (createRes.ok) {
+                const newBoard = await createRes.json()
+                console.log('[Pinterest Boards] Created default board:', newBoard.id, newBoard.name)
+                boards = [{
+                    id: newBoard.id,
+                    name: newBoard.name || 'ASocial',
+                    description: newBoard.description || '',
+                    privacy: newBoard.privacy || 'PUBLIC',
+                }]
+            } else {
+                const errText = await createRes.text()
+                console.error('[Pinterest Boards] Failed to create default board:', errText)
+            }
+        }
 
         return NextResponse.json({ boards })
     } catch (err) {
