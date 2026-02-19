@@ -51,12 +51,13 @@ interface NavItem {
     icon: React.ComponentType<{ className?: string }>
     badge?: string
     roles?: string[]
+    exact?: boolean  // use exact pathname match instead of startsWith
 }
 
 const mainNav: NavItem[] = [
-    { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { titleKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
     { titleKey: 'nav.channels', href: '/dashboard/channels', icon: Megaphone },
-    { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare },
+    { titleKey: 'nav.posts', href: '/dashboard/posts', icon: PenSquare, exact: true },
     { titleKey: 'nav.calendar', href: '/dashboard/posts/calendar', icon: CalendarDays },
     { titleKey: 'nav.queue', href: '/dashboard/posts/queue', icon: CalendarClock },
     { titleKey: 'nav.approvals', href: '/dashboard/posts/approvals', icon: CheckCircle2 },
@@ -120,7 +121,7 @@ export function Sidebar({ session }: { session: Session }) {
                             className={cn(
                                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                                 'hover:bg-accent hover:text-accent-foreground',
-                                pathname === item.href || pathname?.startsWith(item.href + '/')
+                                item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                     ? 'bg-accent text-accent-foreground'
                                     : 'text-muted-foreground',
                             )}
@@ -151,7 +152,7 @@ export function Sidebar({ session }: { session: Session }) {
                                         className={cn(
                                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                                             'hover:bg-accent hover:text-accent-foreground',
-                                            pathname === item.href || pathname?.startsWith(item.href + '/')
+                                            item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                                 ? 'bg-accent text-accent-foreground'
                                                 : 'text-muted-foreground',
                                         )}
@@ -234,7 +235,7 @@ export function Sidebar({ session }: { session: Session }) {
                             className={cn(
                                 'flex items-center justify-center rounded-lg p-2 transition-colors',
                                 'hover:bg-accent hover:text-accent-foreground',
-                                pathname === item.href || pathname?.startsWith(item.href + '/')
+                                item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                     ? 'bg-accent text-accent-foreground'
                                     : 'text-muted-foreground',
                             )}
@@ -256,7 +257,7 @@ export function Sidebar({ session }: { session: Session }) {
                                     className={cn(
                                         'flex items-center justify-center rounded-lg p-2 transition-colors',
                                         'hover:bg-accent hover:text-accent-foreground',
-                                        pathname === item.href || pathname?.startsWith(item.href + '/')
+                                        item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                             ? 'bg-accent text-accent-foreground'
                                             : 'text-muted-foreground',
                                     )}
@@ -304,7 +305,7 @@ export function Sidebar({ session }: { session: Session }) {
                                 className={cn(
                                     'flex items-center justify-center rounded-lg p-2 transition-colors',
                                     'hover:bg-accent hover:text-accent-foreground',
-                                    pathname === item.href || pathname?.startsWith(item.href + '/')
+                                    item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                         ? 'bg-accent text-accent-foreground'
                                         : 'text-muted-foreground',
                                 )}
@@ -325,7 +326,7 @@ export function Sidebar({ session }: { session: Session }) {
                                         className={cn(
                                             'flex items-center justify-center rounded-lg p-2 transition-colors',
                                             'hover:bg-accent hover:text-accent-foreground',
-                                            pathname === item.href || pathname?.startsWith(item.href + '/')
+                                            item.exact ? pathname === item.href : (pathname === item.href || pathname?.startsWith(item.href + '/'))
                                                 ? 'bg-accent text-accent-foreground'
                                                 : 'text-muted-foreground',
                                         )}
