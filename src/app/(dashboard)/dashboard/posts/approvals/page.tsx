@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
 import {
-    CheckCircle2, XCircle, MessageSquare, Clock, Loader2,
-    PenSquare, ChevronRight, Filter, RefreshCw,
+    CheckCircle2, XCircle, Clock, Loader2,
+    PenSquare, ChevronRight, RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import { PlatformIcon } from '@/components/platform-icons'
 import { cn } from '@/lib/utils'
 
-// ─── Types ────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────
 
 interface PlatformStatus { platform: string; status: string }
 interface PostMedia { mediaItem: { url: string; thumbnailUrl: string | null } }
@@ -33,7 +33,7 @@ interface ApprovalPost {
     _count: { approvals: number }
 }
 
-// ─── Page ──────────────────────────────────────────────────────
+// ─── Page ──────────────────────────────────────────────────────────
 
 export default function ApprovalsPage() {
     const router = useRouter()
@@ -51,11 +51,11 @@ export default function ApprovalsPage() {
             const data = await res.json()
             setPosts(data.posts || [])
         } catch {
-            toast.error('Failed to load pending posts')
+            toast.error(t('approvals.loadFailed'))
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [t])
 
     useEffect(() => { fetchPosts() }, [fetchPosts])
 
@@ -69,19 +69,26 @@ export default function ApprovalsPage() {
                 body: JSON.stringify({ action: actionPost.action, comment }),
             })
             if (!res.ok) throw new Error()
-            toast.success(actionPost.action === 'approved' ? 'Post approved ✅' : 'Post rejected ❌')
+            toast.success(actionPost.action === 'approved' ? t('approvals.approved') : t('approvals.rejected'))
             setActionPost(null)
             setComment('')
             fetchPosts()
         } catch {
-            toast.error('Action failed')
+            toast.error(t('approvals.actionFailed'))
         } finally {
             setSubmitting(false)
         }
     }
 
     const formatDate = (d: string) =>
-        new Date(d).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        new Date(d).toLocaleString('vi-VN', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        })
+
+    const subtitle = posts.length === 1
+        ? t('approvals.subtitle').replace('{count}', '1')
+        : t('approvals.subtitlePlural').replace('{count}', String(posts.length))
 
     return (
         <div className="space-y-5">
@@ -90,14 +97,12 @@ export default function ApprovalsPage() {
                 <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5" />
-                        Approval Queue
+                        {t('approvals.title')}
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                        {posts.length} post{posts.length !== 1 ? 's' : ''} awaiting review
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={fetchPosts} className="cursor-pointer h-8 gap-1.5">
-                    <RefreshCw className="h-3.5 w-3.5" />Refresh
+                    <RefreshCw className="h-3.5 w-3.5" />{t('common.refresh')}
                 </Button>
             </div>
 
@@ -109,8 +114,8 @@ export default function ApprovalsPage() {
             ) : posts.length === 0 ? (
                 <div className="flex flex-col items-center py-20 text-center">
                     <CheckCircle2 className="h-12 w-12 text-emerald-400 mb-3" />
-                    <p className="text-lg font-semibold">All caught up!</p>
-                    <p className="text-sm text-muted-foreground">No posts waiting for approval.</p>
+                    <p className="text-lg font-semibold">{t('approvals.allClear')}</p>
+                    <p className="text-sm text-muted-foreground">{t('approvals.allClearDesc')}</p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -142,7 +147,7 @@ export default function ApprovalsPage() {
                                         <span>{post.channel.displayName}</span>
                                     </div>
                                     <p className="text-sm leading-snug line-clamp-2">
-                                        {post.content || <span className="text-muted-foreground italic">No content</span>}
+                                        {post.content || <span className="text-muted-foreground italic">{t('common.loading')}</span>}
                                     </p>
                                     <div className="flex items-center gap-1.5">
                                         {platforms.map(p => <PlatformIcon key={p} platform={p} size="sm" />)}
@@ -150,7 +155,7 @@ export default function ApprovalsPage() {
                                             onClick={() => router.push(`/dashboard/posts/${post.id}`)}
                                             className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline cursor-pointer"
                                         >
-                                            View full post <ChevronRight className="h-3 w-3" />
+                                            {t('approvals.viewFullPost')} <ChevronRight className="h-3 w-3" />
                                         </button>
                                     </div>
                                 </div>
@@ -163,7 +168,7 @@ export default function ApprovalsPage() {
                                         onClick={() => setActionPost({ post, action: 'approved' })}
                                     >
                                         <CheckCircle2 className="h-3.5 w-3.5" />
-                                        Approve
+                                        {t('approvals.approve')}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -172,7 +177,7 @@ export default function ApprovalsPage() {
                                         onClick={() => setActionPost({ post, action: 'rejected' })}
                                     >
                                         <XCircle className="h-3.5 w-3.5" />
-                                        Reject
+                                        {t('approvals.reject')}
                                     </Button>
                                 </div>
                             </div>
@@ -190,28 +195,24 @@ export default function ApprovalsPage() {
                             actionPost?.action === 'approved' ? 'text-emerald-600' : 'text-red-500'
                         )}>
                             {actionPost?.action === 'approved'
-                                ? <><CheckCircle2 className="h-5 w-5" />Approve Post</>
-                                : <><XCircle className="h-5 w-5" />Reject Post</>
+                                ? <><CheckCircle2 className="h-5 w-5" />{t('approvals.approveTitle')}</>
+                                : <><XCircle className="h-5 w-5" />{t('approvals.rejectTitle')}</>
                             }
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            {actionPost?.action === 'approved'
-                                ? 'This post will be marked as approved and the author will be notified.'
-                                : 'This post will be rejected. Please provide a reason for the author.'}
+                            {actionPost?.action === 'approved' ? t('approvals.approveDesc') : t('approvals.rejectDesc')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <div className="px-0 pb-2">
+                    <div className="pb-2">
                         <Textarea
-                            placeholder={actionPost?.action === 'approved'
-                                ? 'Optional comment...'
-                                : 'Reason for rejection (recommended)...'}
+                            placeholder={actionPost?.action === 'approved' ? t('approvals.approveComment') : t('approvals.rejectComment')}
                             value={comment}
                             onChange={e => setComment(e.target.value)}
                             className="min-h-[80px] text-sm"
                         />
                     </div>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={submitting} className="cursor-pointer">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={submitting} className="cursor-pointer">{t('common.cancel')}</AlertDialogCancel>
                         <Button
                             onClick={handleAction}
                             disabled={submitting}
@@ -223,7 +224,7 @@ export default function ApprovalsPage() {
                             )}
                         >
                             {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                            {actionPost?.action === 'approved' ? 'Approve' : 'Reject'}
+                            {actionPost?.action === 'approved' ? t('approvals.approve') : t('approvals.reject')}
                         </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>

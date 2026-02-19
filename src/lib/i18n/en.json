@@ -463,5 +463,39 @@
                 "canEditSettings": "Edit Settings"
             }
         }
+    },
+    "queue": {
+        "title": "Content Queue",
+        "subtitle": "{count} post scheduled",
+        "subtitlePlural": "{count} posts scheduled",
+        "empty": "Queue is empty",
+        "emptyDesc": "No scheduled posts upcoming.",
+        "schedulePost": "Schedule a Post",
+        "today": "📅 Today",
+        "tomorrow": "📅 Tomorrow",
+        "thisWeek": "📅 This Week",
+        "nextWeek": "📅 Next Week",
+        "later": "📅 Later",
+        "noContent": "No content"
+    },
+    "approvals": {
+        "title": "Approval Queue",
+        "subtitle": "{count} post awaiting review",
+        "subtitlePlural": "{count} posts awaiting review",
+        "allClear": "All caught up!",
+        "allClearDesc": "No posts waiting for approval.",
+        "viewFullPost": "View full post",
+        "approve": "Approve",
+        "reject": "Reject",
+        "approveTitle": "Approve Post",
+        "rejectTitle": "Reject Post",
+        "approveDesc": "This post will be marked as approved and the author will be notified.",
+        "rejectDesc": "This post will be rejected. Please provide a reason for the author.",
+        "approveComment": "Optional comment...",
+        "rejectComment": "Reason for rejection (recommended)...",
+        "approved": "Post approved ✅",
+        "rejected": "Post rejected ❌",
+        "actionFailed": "Action failed",
+        "loadFailed": "Failed to load pending posts"
     }
 }

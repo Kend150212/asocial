@@ -463,5 +463,39 @@
                 "canEditSettings": "Sửa cài đặt"
             }
         }
+    },
+    "queue": {
+        "title": "Hàng đợi nội dung",
+        "subtitle": "{count} bài đã lên lịch",
+        "subtitlePlural": "{count} bài đã lên lịch",
+        "empty": "Hàng đợi trống",
+        "emptyDesc": "Không có bài viết nào sắp đăng.",
+        "schedulePost": "Lên lịch bài viết",
+        "today": "📅 Hôm nay",
+        "tomorrow": "📅 Ngày mai",
+        "thisWeek": "📅 Tuần này",
+        "nextWeek": "📅 Tuần tới",
+        "later": "📅 Sau đó",
+        "noContent": "Không có nội dung"
+    },
+    "approvals": {
+        "title": "Hàng đợi duyệt",
+        "subtitle": "{count} bài chờ duyệt",
+        "subtitlePlural": "{count} bài chờ duyệt",
+        "allClear": "Không có gì cần duyệt!",
+        "allClearDesc": "Không có bài viết nào đang chờ duyệt.",
+        "viewFullPost": "Xem bài đầy đủ",
+        "approve": "Duyệt",
+        "reject": "Từ chối",
+        "approveTitle": "Duyệt bài viết",
+        "rejectTitle": "Từ chối bài viết",
+        "approveDesc": "Bài viết sẽ được đánh dấu là đã duyệt và tác giả sẽ được thông báo.",
+        "rejectDesc": "Bài viết sẽ bị từ chối. Vui lòng cung cấp lý do cho tác giả.",
+        "approveComment": "Ghi chú (tùy chọn)...",
+        "rejectComment": "Lý do từ chối (khuyến nghị)...",
+        "approved": "Đã duyệt bài ✅",
+        "rejected": "Đã từ chối bài ❌",
+        "actionFailed": "Hành động thất bại",
+        "loadFailed": "Không thể tải bài chờ duyệt"
     }
 }
