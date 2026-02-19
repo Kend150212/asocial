@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useWorkspace } from '@/lib/workspace-context'
 import {
     ArrowLeft,
     Send,
@@ -525,6 +526,7 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
 export default function ComposePage() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const { activeChannelId } = useWorkspace()
     const editPostId = searchParams.get('edit')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -662,9 +664,10 @@ export default function ComposePage() {
                     platforms: (ch.platforms || []).filter((p) => p.isActive),
                 }))
                 setChannels(filtered)
-                // If editing, don't auto-select channel — wait for post load
+                // Auto-select: prefer workspace channel, then first with platforms
                 if (!editPostId) {
-                    const first = filtered.find((ch) => ch.platforms.length > 0)
+                    const workspaceCh = activeChannelId ? filtered.find((ch) => ch.id === activeChannelId) : null
+                    const first = workspaceCh || filtered.find((ch) => ch.platforms.length > 0)
                     if (first) setSelectedChannel(first)
                 }
             })
@@ -1746,8 +1749,8 @@ export default function ComposePage() {
                             type="button"
                             onClick={() => setRequestApproval(!requestApproval)}
                             className={`flex items-center gap-1 h-6 px-2 rounded text-[10px] font-medium border transition-colors cursor-pointer ${requestApproval
-                                    ? 'bg-amber-500/20 text-amber-600 border-amber-500/30'
-                                    : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                                ? 'bg-amber-500/20 text-amber-600 border-amber-500/30'
+                                : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                                 }`}
                         >
                             <ShieldCheck className="h-3 w-3" />

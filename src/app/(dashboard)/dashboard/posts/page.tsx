@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
+import { useWorkspace } from '@/lib/workspace-context'
 import {
     Plus, Search, PenSquare, Trash2, Copy, MoreHorizontal,
     Calendar, CheckCircle2, XCircle, Send, FileEdit, Loader2,
@@ -132,7 +133,6 @@ export default function PostsPage() {
     const router = useRouter()
 
     const [posts, setPosts] = useState<Post[]>([])
-    const [channels, setChannels] = useState<Channel[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [filterChannel, setFilterChannel] = useState<string>('all')
@@ -140,6 +140,15 @@ export default function PostsPage() {
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [total, setTotal] = useState(0)
+
+    // Workspace context
+    const { activeChannelId, channels } = useWorkspace()
+
+    // Sync filterChannel with workspace on mount + when workspace changes
+    useEffect(() => {
+        setFilterChannel(activeChannelId ?? 'all')
+        setPage(1)
+    }, [activeChannelId])
 
     // Bulk selection
     const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -161,12 +170,7 @@ export default function PostsPage() {
         [posts, selected]
     )
 
-    useEffect(() => {
-        fetch('/api/admin/channels')
-            .then(r => r.json())
-            .then(data => setChannels(data.channels || data || []))
-            .catch(() => { })
-    }, [])
+    // channels come from workspace context — no need to refetch
 
     const fetchPosts = useCallback(async () => {
         setLoading(true)

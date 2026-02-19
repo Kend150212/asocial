@@ -1,4 +1,10 @@
 {
+    "workspace": {
+        "label": "Workspace",
+        "allChannels": "All Channels",
+        "loading": "Loading...",
+        "tooltip": "Switch workspace"
+    },
     "common": {
         "save": "Save",
         "cancel": "Cancel",

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
+import { useWorkspace } from '@/lib/workspace-context'
 import {
     CalendarClock, Loader2, PenSquare, Plus, RefreshCw,
     ChevronRight, CalendarDays,
@@ -48,6 +49,7 @@ export default function QueuePage() {
     const t = useTranslation()
     const [posts, setPosts] = useState<QueuePost[]>([])
     const [loading, setLoading] = useState(true)
+    const { activeChannelId } = useWorkspace()
 
     // i18n group labels map
     const GROUP_LABELS_MAP: Record<string, string> = {
@@ -78,6 +80,7 @@ export default function QueuePage() {
         setLoading(true)
         try {
             const params = new URLSearchParams({ status: 'SCHEDULED', limit: '100' })
+            if (activeChannelId) params.set('channelId', activeChannelId)
             const res = await fetch(`/api/admin/posts?${params}`)
             const data = await res.json()
             setPosts(data.posts || [])
@@ -86,7 +89,7 @@ export default function QueuePage() {
         } finally {
             setLoading(false)
         }
-    }, [t])
+    }, [t, activeChannelId])
 
     useEffect(() => { fetchPosts() }, [fetchPosts])
 

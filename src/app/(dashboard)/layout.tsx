@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Toaster } from '@/components/ui/sonner'
+import { WorkspaceProvider } from '@/lib/workspace-context'
 
 export default async function DashboardLayout({
     children,
@@ -16,13 +17,16 @@ export default async function DashboardLayout({
 
     return (
         <div className="flex h-screen overflow-hidden bg-background">
-            <Sidebar session={session} />
-            <main className="flex-1 min-w-0 overflow-y-auto">
-                <div className="px-3 py-4 sm:p-6 max-w-full overflow-hidden">
-                    {children}
-                </div>
-            </main>
+            <WorkspaceProvider>
+                <Sidebar session={session} />
+                <main className="flex-1 min-w-0 overflow-y-auto">
+                    <div className="px-3 py-4 sm:p-6 max-w-full overflow-hidden">
+                        {children}
+                    </div>
+                </main>
+            </WorkspaceProvider>
             <Toaster richColors position="top-right" />
         </div>
     )
 }
+

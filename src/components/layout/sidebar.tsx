@@ -42,8 +42,12 @@ import {
     Zap,
     Key,
     X,
+    Layers,
+    ChevronDown,
+    Check,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useWorkspace } from '@/lib/workspace-context'
 
 interface NavItem {
     titleKey: string
@@ -76,6 +80,7 @@ export function Sidebar({ session }: { session: Session }) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const isAdmin = session?.user?.role === 'ADMIN'
     const t = useTranslation()
+    const { activeChannel, channels, setActiveChannel, loadingChannels } = useWorkspace()
 
     // Close mobile expanded sidebar on route change
     useEffect(() => {
@@ -107,6 +112,48 @@ export function Sidebar({ session }: { session: Session }) {
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
                 )}
+            </div>
+
+            <Separator />
+
+            {/* Workspace Picker */}
+            <div className="px-3 py-2">
+                <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('workspace.label')}
+                </p>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-accent/50 hover:bg-accent transition-colors cursor-pointer">
+                            <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span className="flex-1 text-left truncate text-xs">
+                                {loadingChannels ? t('workspace.loading') : (activeChannel?.displayName || t('workspace.allChannels'))}
+                            </span>
+                            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                        <DropdownMenuItem
+                            onClick={() => setActiveChannel(null)}
+                            className="flex items-center gap-2 cursor-pointer"
+                        >
+                            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="flex-1">{t('workspace.allChannels')}</span>
+                            {!activeChannel && <Check className="h-3.5 w-3.5 text-primary" />}
+                        </DropdownMenuItem>
+                        {channels.length > 0 && <DropdownMenuSeparator />}
+                        {channels.map((ch) => (
+                            <DropdownMenuItem
+                                key={ch.id}
+                                onClick={() => setActiveChannel(ch)}
+                                className="flex items-center gap-2 cursor-pointer"
+                            >
+                                <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="flex-1 truncate">{ch.displayName}</span>
+                                {activeChannel?.id === ch.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <Separator />

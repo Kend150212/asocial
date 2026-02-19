@@ -1,4 +1,10 @@
 {
+    "workspace": {
+        "label": "Workspace",
+        "allChannels": "Tất cả kênh",
+        "loading": "Đang tải...",
+        "tooltip": "Đổi workspace"
+    },
     "common": {
         "save": "Lưu",
         "cancel": "Hủy",

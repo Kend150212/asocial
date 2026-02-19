@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
+import { useWorkspace } from '@/lib/workspace-context'
 import {
     CheckCircle2, XCircle, Clock, Loader2,
     PenSquare, ChevronRight, RefreshCw,
@@ -43,11 +44,14 @@ export default function ApprovalsPage() {
     const [actionPost, setActionPost] = useState<{ post: ApprovalPost; action: 'approved' | 'rejected' } | null>(null)
     const [comment, setComment] = useState('')
     const [submitting, setSubmitting] = useState(false)
+    const { activeChannelId } = useWorkspace()
 
     const fetchPosts = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/admin/posts?status=PENDING_APPROVAL&limit=50')
+            const params = new URLSearchParams({ status: 'PENDING_APPROVAL', limit: '50' })
+            if (activeChannelId) params.set('channelId', activeChannelId)
+            const res = await fetch(`/api/admin/posts?${params}`)
             const data = await res.json()
             setPosts(data.posts || [])
         } catch {
@@ -55,7 +59,7 @@ export default function ApprovalsPage() {
         } finally {
             setLoading(false)
         }
-    }, [t])
+    }, [t, activeChannelId])
 
     useEffect(() => { fetchPosts() }, [fetchPosts])
 
