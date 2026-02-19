@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
+import { useWorkspace } from '@/lib/workspace-context'
 import {
     ChevronLeft,
     ChevronRight,
@@ -404,10 +405,16 @@ export default function CalendarPage() {
     const [currentDate, setCurrentDate] = useState(() => new Date())
     const [posts, setPosts] = useState<CalendarPost[]>([])
     const [loading, setLoading] = useState(false)
-    const [channels, setChannels] = useState<Channel[]>([])
+    // channels + channelId driven by workspace context
+    const { activeChannelId, channels } = useWorkspace()
     const [channelId, setChannelId] = useState<string>('all')
     const [activePlatforms, setActivePlatforms] = useState<Set<string>>(new Set())
     const [showFailed, setShowFailed] = useState(false)
+
+    // Sync channelId from workspace
+    useEffect(() => {
+        setChannelId(activeChannelId ?? 'all')
+    }, [activeChannelId])
 
     // Compute from/to for the current view window
     const { from, to, title } = useMemo(() => {
@@ -438,13 +445,7 @@ export default function CalendarPage() {
         }
     }, [view, currentDate, L])
 
-    // Fetch channels
-    useEffect(() => {
-        fetch('/api/admin/channels')
-            .then(r => r.json())
-            .then(data => setChannels(Array.isArray(data) ? data : data.channels || []))
-            .catch(() => { })
-    }, [])
+    // channels come from workspace context — no local fetch needed
 
     // Fetch posts
     const fetchPosts = useCallback(async () => {
