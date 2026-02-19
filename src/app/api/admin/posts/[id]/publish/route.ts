@@ -797,79 +797,122 @@ async function publishToTikTok(
     const brandedContent = config?.brandedContent === true
     const aiGenerated = config?.aiGenerated === true
 
-    // ── Video post — FILE_UPLOAD (push bytes directly, no domain verify) ─
+    // ── Video post — FILE_UPLOAD via temp disk file ───────────────────
+    // Download to /tmp → get size from disk → stream to TikTok → delete
+    // This avoids holding the entire video in RAM for concurrent requests.
     if (postType === 'video') {
         const videoMedia = mediaItems.find((m) => isVideoMedia(m))
         if (!videoMedia) throw new Error('TikTok requires a video. Please attach a video to your post.')
 
-        // Download video to memory (video may be on Google Drive / external storage)
-        console.log('[TikTok] Downloading video from:', videoMedia.url)
-        const videoRes = await fetch(videoMedia.url)
-        if (!videoRes.ok) throw new Error(`TikTok: failed to download video (${videoRes.status})`)
-        const videoBuffer = Buffer.from(await videoRes.arrayBuffer())
-        const videoSize = videoBuffer.length
-        console.log(`[TikTok] Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`)
+        const fs = await import('fs')
+        const fsPromises = await import('fs/promises')
+        const os = await import('os')
+        const path = await import('path')
+        const { randomUUID } = await import('crypto')
 
-        const endpoint = publishMode === 'inbox'
-            ? 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
-            : 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+        const tmpPath = path.join(os.tmpdir(), `tiktok-${randomUUID()}.mp4`)
+        console.log('[TikTok] Downloading video to temp file:', tmpPath)
 
-        const initBody: Record<string, unknown> = {
-            post_info: {
-                title: content.slice(0, 2200),
-                privacy_level: privacy,
-                disable_comment: disableComment,
-                disable_duet: disableDuet,
-                disable_stitch: disableStitch,
-                ...(brandedContent ? { brand_content_toggle: true } : {}),
-                ...(aiGenerated ? { ai_generated_content: true } : {}),
-            },
-            source_info: {
-                source: 'FILE_UPLOAD',
-                video_size: videoSize,
-                chunk_size: videoSize,
-                total_chunk_count: 1,
-            },
+        try {
+            // ── Step 1: Download → write to disk (streaming) ───────────
+            const videoRes = await fetch(videoMedia.url)
+            if (!videoRes.ok) throw new Error(`TikTok: failed to download video (${videoRes.status})`)
+
+            // Stream response body to temp file
+            const fileStream = fs.createWriteStream(tmpPath)
+            const reader = videoRes.body!.getReader()
+            await new Promise<void>((resolve, reject) => {
+                const pump = async () => {
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read()
+                            if (done) { fileStream.end(); break }
+                            if (!fileStream.write(value)) {
+                                await new Promise<void>(r => fileStream.once('drain', r))
+                            }
+                        }
+                        fileStream.once('finish', resolve)
+                        fileStream.once('error', reject)
+                    } catch (err) {
+                        fileStream.destroy()
+                        reject(err)
+                    }
+                }
+                pump()
+            })
+
+            const { size: videoSize } = await fsPromises.stat(tmpPath)
+            console.log(`[TikTok] Downloaded ${(videoSize / 1024 / 1024).toFixed(2)} MB`)
+
+            // ── Step 2: Init upload ─────────────────────────────────────
+            const endpoint = publishMode === 'inbox'
+                ? 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
+                : 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+
+            const initBody: Record<string, unknown> = {
+                post_info: {
+                    title: content.slice(0, 2200),
+                    privacy_level: privacy,
+                    disable_comment: disableComment,
+                    disable_duet: disableDuet,
+                    disable_stitch: disableStitch,
+                    ...(brandedContent ? { brand_content_toggle: true } : {}),
+                    ...(aiGenerated ? { ai_generated_content: true } : {}),
+                },
+                source_info: {
+                    source: 'FILE_UPLOAD',
+                    video_size: videoSize,
+                    chunk_size: videoSize,
+                    total_chunk_count: 1,
+                },
+            }
+
+            const initRes = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json; charset=UTF-8',
+                },
+                body: JSON.stringify(initBody),
+            })
+
+            const initData = await initRes.json()
+            console.log('[TikTok] Init response:', JSON.stringify(initData))
+
+            if (initData.error?.code && initData.error.code !== 'ok') {
+                throw new Error(initData.error.message || `TikTok init failed: ${initData.error.code}`)
+            }
+
+            const publishId: string = initData.data?.publish_id
+            const uploadUrl: string = initData.data?.upload_url
+            if (!publishId || !uploadUrl) throw new Error('TikTok: missing publish_id or upload_url')
+
+            // ── Step 3: Stream from disk to TikTok ─────────────────────
+            const readStream = fs.createReadStream(tmpPath)
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                // @ts-expect-error Node.js ReadStream is valid as fetch body
+                body: readStream,
+                headers: {
+                    'Content-Type': 'video/mp4',
+                    'Content-Length': String(videoSize),
+                    'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+                },
+                duplex: 'half',
+            })
+
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text()
+                throw new Error(`TikTok video upload failed: ${uploadRes.status} ${errText}`)
+            }
+
+            console.log('[TikTok] Video uploaded, publish_id:', publishId)
+            return { externalId: publishId }
+
+        } finally {
+            // Always clean up temp file
+            try { await fsPromises.unlink(tmpPath) } catch { /* already gone */ }
         }
-
-        const initRes = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json; charset=UTF-8',
-            },
-            body: JSON.stringify(initBody),
-        })
-
-        const initData = await initRes.json()
-        console.log('[TikTok] Init response:', JSON.stringify(initData))
-
-        if (initData.error?.code && initData.error.code !== 'ok') {
-            throw new Error(initData.error.message || `TikTok init failed: ${initData.error.code}`)
-        }
-
-        const publishId: string = initData.data?.publish_id
-        const uploadUrl: string = initData.data?.upload_url
-        if (!publishId || !uploadUrl) throw new Error('TikTok: missing publish_id or upload_url')
-
-        // Upload video bytes in a single chunk
-        const uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'video/mp4',
-                'Content-Length': String(videoSize),
-                'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
-            },
-            body: videoBuffer,
-        })
-
-        if (!uploadRes.ok) {
-            const errText = await uploadRes.text()
-            throw new Error(`TikTok video upload failed: ${uploadRes.status} ${errText}`)
-        }
-
-        console.log('[TikTok] Video uploaded, publish_id:', publishId)
-        return { externalId: publishId }
     }
 
     // ── Photo/carousel post ─────────────────────────────────────────
