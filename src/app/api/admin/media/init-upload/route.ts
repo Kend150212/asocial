@@ -43,8 +43,16 @@ export async function POST(req: NextRequest) {
             // ─── User's own Google Drive ───
             accessToken = await getUserGDriveAccessToken(session.user.id)
 
-            // Get or create monthly subfolder (e.g. 2026-02)
-            const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, user.gdriveFolderId)
+            // Get channel name for subfolder
+            const channel = await prisma.channel.findUnique({
+                where: { id: channelId },
+                select: { name: true, displayName: true },
+            })
+            const channelName = channel?.displayName || channel?.name || 'General'
+
+            // Folder structure: ASocial - User → Channel Name → YYYY-MM
+            const channelFolder = await getOrCreateChannelFolder(accessToken, user.gdriveFolderId, channelName)
+            const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, channelFolder.id)
             targetFolderId = monthlyFolder.id
         } else {
             // ─── Fallback: Admin's Google Drive (legacy) ───

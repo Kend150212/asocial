@@ -73,8 +73,25 @@ export async function GET(req: NextRequest) {
         const userName = user?.name || user?.email?.split('@')[0] || 'User'
         const folderName = `ASocial - ${userName}`
 
-        // Auto-create root folder in user's Google Drive
-        const folder = await createFolder(accessToken, folderName)
+        // Search for existing root folder to avoid duplicates on reconnect
+        const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3'
+        const searchQuery = `name='${folderName.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false and 'root' in parents`
+        const searchRes = await fetch(
+            `${GOOGLE_DRIVE_API}/files?q=${encodeURIComponent(searchQuery)}&fields=files(id,name)`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+        const searchData = await searchRes.json()
+
+        let folder: { id: string; name: string }
+        if (searchData.files && searchData.files.length > 0) {
+            // Reuse existing folder
+            folder = { id: searchData.files[0].id, name: searchData.files[0].name }
+            console.log('GDrive connect: reusing existing folder', folder.name, folder.id)
+        } else {
+            // Create new folder only if none exists
+            folder = await createFolder(accessToken, folderName)
+            console.log('GDrive connect: created new folder', folder.name, folder.id)
+        }
 
         // Store refresh token and folder info on User record
         await prisma.user.update({
