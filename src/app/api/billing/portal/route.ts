@@ -16,7 +16,9 @@ export async function POST(_req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const sub = await prisma.subscription.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const sub = await db.subscription.findUnique({
         where: { userId: session.user.id },
         select: { stripeCustomerId: true },
     })

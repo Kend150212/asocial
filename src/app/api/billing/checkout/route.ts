@@ -24,7 +24,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'planId is required' }, { status: 400 })
     }
 
-    const plan = await prisma.plan.findUnique({ where: { id: planId } })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const plan = await db.plan.findUnique({ where: { id: planId } })
     if (!plan || !plan.isActive) {
         return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
     }
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     // Get or create Stripe customer
     let stripeCustomerId: string | undefined
-    const existingSub = await prisma.subscription.findUnique({
+    const existingSub = await db.subscription.findUnique({
         where: { userId: session.user.id },
         select: { stripeCustomerId: true },
     })

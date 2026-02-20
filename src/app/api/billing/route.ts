@@ -16,7 +16,9 @@ export async function GET(_req: NextRequest) {
     const plan = await getUserPlan(userId)
 
     // Get usage this month
-    const sub = await prisma.subscription.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const sub = await db.subscription.findUnique({
         where: { userId },
         include: { plan: true },
     })
@@ -25,7 +27,7 @@ export async function GET(_req: NextRequest) {
     let postsThisMonth = 0
 
     if (sub) {
-        const usage = await prisma.usage.findUnique({
+        const usage = await db.usage.findUnique({
             where: { subscriptionId_month: { subscriptionId: sub.id, month } },
         })
         postsThisMonth = usage?.postsCreated ?? 0

@@ -27,16 +27,17 @@ export async function POST(req: NextRequest) {
                 await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
                 break
             case 'customer.subscription.updated':
-                await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await handleSubscriptionUpdated(event.data.object as any)
                 break
             case 'customer.subscription.deleted':
-                await handleSubscriptionDeleted(event.data.object as Stripe.Subscription)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await handleSubscriptionDeleted(event.data.object as any)
                 break
             case 'invoice.payment_failed':
                 await handlePaymentFailed(event.data.object as Stripe.Invoice)
                 break
             default:
-                // Ignore unhandled events
                 break
         }
     } catch (err) {
@@ -63,18 +64,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const stripeCustomerId = session.customer as string
 
     // Fetch full subscription to get period dates
-    const stripeSub = await stripe.subscriptions.retrieve(stripeSubId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stripeSub = await stripe.subscriptions.retrieve(stripeSubId) as any
+    const periodEnd = stripeSub.current_period_end ?? stripeSub.items?.data?.[0]?.current_period_end ?? 0
+    const couponId = (stripeSub.discounts as Array<{ coupon?: { id?: string } }>)?.[0]?.coupon?.id ?? null
 
-    await prisma.subscription.upsert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    await db.subscription.upsert({
         where: { userId },
         update: {
             planId,
             stripeCustomerId,
             stripeSubscriptionId: stripeSubId,
-            stripeCouponId: (stripeSub.discount?.coupon?.id) ?? null,
+            stripeCouponId: couponId,
             billingInterval: interval,
             status: stripeSub.status,
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodEnd: new Date(periodEnd * 1000),
             cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         },
         create: {
@@ -82,10 +88,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
             planId,
             stripeCustomerId,
             stripeSubscriptionId: stripeSubId,
-            stripeCouponId: (stripeSub.discount?.coupon?.id) ?? null,
+            stripeCouponId: couponId,
             billingInterval: interval,
             status: stripeSub.status,
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodEnd: new Date(periodEnd * 1000),
             cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         },
     })
@@ -93,16 +99,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log(`[BillingWebhook] Subscription activated for user ${userId}, plan ${planId}`)
 }
 
-async function handleSubscriptionUpdated(stripeSub: Stripe.Subscription) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleSubscriptionUpdated(stripeSub: any) {
     const userId = stripeSub.metadata?.userId
     if (!userId) return
 
-    // Find new plan by Stripe price ID
-    const priceId = stripeSub.items.data[0]?.price?.id
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const priceId = stripeSub.items?.data?.[0]?.price?.id
     let planId: string | undefined
 
     if (priceId) {
-        const plan = await prisma.plan.findFirst({
+        const plan = await db.plan.findFirst({
             where: {
                 OR: [
                     { stripePriceIdMonthly: priceId },
@@ -115,19 +123,19 @@ async function handleSubscriptionUpdated(stripeSub: Stripe.Subscription) {
     }
 
     const interval = priceId
-        ? ((await prisma.plan.findFirst({
-            where: { stripePriceIdAnnual: priceId },
-            select: { id: true },
-        })) ? 'annual' : 'monthly')
+        ? ((await db.plan.findFirst({ where: { stripePriceIdAnnual: priceId }, select: { id: true } }))
+            ? 'annual' : 'monthly')
         : undefined
 
-    await prisma.subscription.updateMany({
+    const periodEnd = stripeSub.current_period_end ?? stripeSub.items?.data?.[0]?.current_period_end ?? 0
+
+    await db.subscription.updateMany({
         where: { userId },
         data: {
             ...(planId ? { planId } : {}),
             ...(interval ? { billingInterval: interval } : {}),
             status: stripeSub.status,
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodEnd: new Date(periodEnd * 1000),
             cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         },
     })
@@ -135,25 +143,29 @@ async function handleSubscriptionUpdated(stripeSub: Stripe.Subscription) {
     console.log(`[BillingWebhook] Subscription updated for user ${userId}`)
 }
 
-async function handleSubscriptionDeleted(stripeSub: Stripe.Subscription) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleSubscriptionDeleted(stripeSub: any) {
     const userId = stripeSub.metadata?.userId
     if (!userId) return
 
-    // Find FREE plan to downgrade to
-    const freePlan = await prisma.plan.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const freePlan = await db.plan.findFirst({
         where: { priceMonthly: 0 },
         orderBy: { sortOrder: 'asc' },
     })
 
+    const periodEnd = stripeSub.current_period_end ?? stripeSub.items?.data?.[0]?.current_period_end ?? 0
+
     if (freePlan) {
-        await prisma.subscription.updateMany({
+        await db.subscription.updateMany({
             where: { userId },
             data: {
                 planId: freePlan.id,
                 stripeSubscriptionId: null,
                 stripeCouponId: null,
                 status: 'canceled',
-                currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+                currentPeriodEnd: new Date(periodEnd * 1000),
             },
         })
     }
@@ -163,7 +175,9 @@ async function handleSubscriptionDeleted(stripeSub: Stripe.Subscription) {
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
     const customerId = invoice.customer as string
-    await prisma.subscription.updateMany({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    await db.subscription.updateMany({
         where: { stripeCustomerId: customerId },
         data: { status: 'past_due' },
     })
