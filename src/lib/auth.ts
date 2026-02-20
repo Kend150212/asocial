@@ -120,8 +120,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 if (!existing) {
                     // New user via Google — assign Free plan
                     const freePlan = await prisma.plan.findFirst({
-                        where: { OR: [{ name: 'Free' }, { price: 0 }] },
-                        orderBy: { price: 'asc' },
+                        where: { OR: [{ name: 'Free' }, { priceMonthly: 0 }] },
+                        orderBy: { priceMonthly: 'asc' },
                     })
                     const now = new Date()
 
@@ -145,8 +145,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                                             userId: newUser!.id,
                                             planId: freePlan.id,
                                             status: 'ACTIVE',
-                                            startDate: now,
-                                            currentPeriodStart: now,
                                             currentPeriodEnd: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
                                         },
                                     })
