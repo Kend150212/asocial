@@ -65,8 +65,8 @@ export function OnboardingChecklist() {
             icon: BrainCircuit,
             label: t('onboarding.steps.ai'),
             description: t('onboarding.steps.aiDesc'),
-            href: '/admin/integrations',
-            adminOnly: true,
+            // Admin → shared integrations hub; regular user → their own API key page
+            href: status.isAdmin ? '/admin/integrations' : '/dashboard/api-keys',
         },
         {
             key: 'hasGdrive',
@@ -74,8 +74,8 @@ export function OnboardingChecklist() {
             icon: HardDrive,
             label: t('onboarding.steps.gdrive'),
             description: t('onboarding.steps.gdriveDesc'),
-            href: '/admin/integrations',
-            adminOnly: true,
+            // Admin → integrations hub; regular user → their own api-keys page (has GDrive section)
+            href: status.isAdmin ? '/admin/integrations' : '/dashboard/api-keys',
         },
         {
             key: 'hasChannel',
@@ -84,7 +84,6 @@ export function OnboardingChecklist() {
             label: t('onboarding.steps.channel'),
             description: t('onboarding.steps.channelDesc'),
             href: '/dashboard/channels',
-            adminOnly: false,
         },
         {
             key: 'hasSocialPlatform',
@@ -93,9 +92,8 @@ export function OnboardingChecklist() {
             label: t('onboarding.steps.platform'),
             description: t('onboarding.steps.platformDesc'),
             href: '/dashboard/channels',
-            adminOnly: false,
         },
-    ].filter(s => !s.adminOnly || status.isAdmin)
+    ]
 
     const completed = steps.filter(s => s.done).length
     const total = steps.length

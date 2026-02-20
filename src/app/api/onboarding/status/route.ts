@@ -21,19 +21,20 @@ export async function GET() {
         aiIntegration,
         socialPlatformCount,
         userGdrive,
+        userAiKey,
     ] = await Promise.all([
         // Has the user created at least one channel?
         prisma.channelMember.count({
             where: { userId, role: { notIn: ['CUSTOMER'] } },
         }),
 
-        // Is Google Drive configured? (admin shared integration OR user's own)
+        // Is Google Drive configured? (admin shared integration)
         prisma.apiIntegration.findFirst({
             where: { provider: 'gdrive', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
             select: { id: true },
         }),
 
-        // Is any AI integration (OpenAI, Gemini, etc.) configured?
+        // Is any AI integration (admin-level shared) configured?
         prisma.apiIntegration.findFirst({
             where: { category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
             select: { id: true, provider: true },
@@ -54,11 +55,23 @@ export async function GET() {
             where: { id: userId },
             select: { gdriveRefreshToken: true, gdriveFolderId: true },
         }),
+
+        // Does the user have their own AI API key (user-level)?
+        prisma.userApiKey.findFirst({
+            where: {
+                userId,
+                provider: { in: ['openai', 'gemini', 'anthropic', 'openrouter', 'runware'] },
+                apiKeyEncrypted: { not: '' },
+            },
+            select: { id: true },
+        }),
     ])
 
     const hasChannel = channelCount > 0
+    // AI: shared admin integration OR user's own API key
+    const hasAI = !!aiIntegration || !!userAiKey
+    // GDrive: shared admin integration OR user's own OAuth token
     const hasGdrive = !!gdriveIntegration || !!(userGdrive?.gdriveRefreshToken && userGdrive?.gdriveFolderId)
-    const hasAI = !!aiIntegration
     const hasSocialPlatform = socialPlatformCount > 0
 
     // Onboarding is complete when all key steps are done
