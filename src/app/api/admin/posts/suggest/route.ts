@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    // Verify user has access to this channel (ADMIN role bypasses membership check)
+    // Verify user has access to this channel (session ADMIN bypasses; channel OWNER/MANAGER/ADMIN allowed)
     if (session.user.role !== 'ADMIN') {
         const membership = await prisma.channelMember.findFirst({
-            where: { channelId, userId: session.user.id, role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+            where: { channelId, userId: session.user.id, role: { in: [UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER] } },
         })
         if (!membership) {
             return NextResponse.json({ error: 'Access denied to this channel' }, { status: 403 })
