@@ -17,6 +17,7 @@ import { LanguageSwitcher } from '@/components/language-switcher'
 import { signOut } from 'next-auth/react'
 
 function SetupPasswordForm() {
+    const branding = useBranding()
     const searchParams = useSearchParams()
     const router = useRouter()
     const t = useTranslation()
@@ -246,7 +247,6 @@ function SetupPasswordForm() {
 }
 
 export default function SetupPasswordPage() {
-    const branding = useBranding()
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
             {/* Background effects */}
