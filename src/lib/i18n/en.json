@@ -726,6 +726,8 @@
         "highest": "Highest",
         "lowest": "Lowest",
         "vs": "Vs",
-        "subscribers": "Subscribers"
+        "subscribers": "Subscribers",
+        "selectChannelForInsights": "Select a specific channel to view platform engagement insights",
+        "selectChannelHint": "The overview above shows all channels. The sections below require a channel selection."
     }
 }

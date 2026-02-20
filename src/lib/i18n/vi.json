@@ -726,6 +726,8 @@
         "highest": "Cao nhất",
         "lowest": "Thấp nhất",
         "vs": "Vs",
-        "subscribers": "Người đăng ký"
+        "subscribers": "Người đăng ký",
+        "selectChannelForInsights": "Chọn một kênh cụ thể để xem dữ liệu tương tác theo nền tảng",
+        "selectChannelHint": "Dữ liệu tổng quan bên trên hiển thị tất cả kênh. Phần bên dưới yêu cầu chọn kênh."
     }
 }
