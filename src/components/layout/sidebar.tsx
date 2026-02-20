@@ -36,7 +36,6 @@ import {
     Settings,
     Plug,
     Activity,
-    Bell,
     LogOut,
     ChevronLeft,
     Menu,
@@ -105,18 +104,15 @@ export function Sidebar({ session }: { session: Session }) {
                     <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
                     <span className="text-lg font-bold tracking-tight">ASocial</span>
                 </Link>
-                <div className="flex items-center gap-1">
-                    <NotificationBell />
-                    {onClose ? (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                    ) : (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(true)}>
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                    )}
-                </div>
+                {onClose ? (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                ) : (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(true)}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
 
             <Separator />
@@ -226,10 +222,7 @@ export function Sidebar({ session }: { session: Session }) {
                 <div className="flex items-center gap-2">
                     <ThemeToggle />
                     <LanguageSwitcher />
-                    <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-                        <Bell className="h-4 w-4" />
-                        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
-                    </Button>
+                    <NotificationBell />
                 </div>
 
                 <Separator className="my-2" />
