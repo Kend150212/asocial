@@ -234,7 +234,8 @@ export default function AdminBillingPage() {
                                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                                 <Tooltip
-                                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12, color: 'hsl(var(--foreground))' }}
+                                    labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                                     formatter={(v: number | undefined) => [`$${v ?? 0}`, 'MRR']}
                                 />
                                 <Area type="monotone" dataKey="mrr" stroke="#7c3aed" fill="url(#mrrGrad)" strokeWidth={2} dot={false} />
@@ -260,9 +261,10 @@ export default function AdminBillingPage() {
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12, color: 'hsl(var(--foreground))' }}
+                                    labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                                 />
-                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: 'hsl(var(--foreground))' }} />
                             </PieChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -317,7 +319,8 @@ export default function AdminBillingPage() {
                                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                                     <YAxis hide allowDecimals={false} />
                                     <Tooltip
-                                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12, color: 'hsl(var(--foreground))' }}
+                                        labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
                                     />
                                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                                         {[{ fill: '#6366f1' }, { fill: '#71717a' }, { fill: '#10b981' }].map((c, i) => (
