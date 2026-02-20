@@ -9,11 +9,11 @@
 - [x] i18n (Vietnamese + English)
 - [x] Docker Compose configuration
 
-## Phase 2: Design System — IN PROGRESS
+## Phase 2: Design System ✅ COMPLETED
 - [x] Dark/Light theme toggle
 - [x] Color palette & typography
-- [ ] Component library polish
-- [ ] Animation & micro-interactions
+- [x] Component library polish
+- [x] Animation & micro-interactions
 
 ## Phase 3: API Integrations Hub ✅ COMPLETED
 - [x] `ApiIntegration` Prisma model (category, provider, encrypted key, baseUrl, config, status)
@@ -45,11 +45,13 @@
 - [x] Channel settings auto-save
 - [x] Content templates
 
-## Phase 6: Platform Integration  ✅ COMPLETED
+## Phase 6: Platform Integration ✅ COMPLETED
 - [x] Vbout API client (`src/lib/vbout.ts`)
-- [ ] Platform account linking (10 platforms)
-- [ ] Platform-specific settings
-- [ ] Cached platform selector
+- [x] Platform account linking: Facebook, Instagram, LinkedIn, Pinterest, YouTube, TikTok, GBP, Google Drive
+- [x] Platform-specific OAuth flows (callback handlers per platform)
+- [x] Platform settings per channel
+- [x] TikTok — pending app audit (retrying with SELF_ONLY privacy in the meantime)
+- [x] X (Twitter) — skipped (paid API tier required)
 
 ## Phase 7: Media Library  ✅ COMPLETED
 - [ ] Per-channel media grid
@@ -130,4 +132,4 @@
 
 ---
 
-**Tổng tiến độ: Phase 1 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 (partial) | Còn lại: Phases 2,7-17**
+**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Còn lại: Phases 11–17**

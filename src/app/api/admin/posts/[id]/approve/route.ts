@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendApprovalWebhooks } from '@/lib/webhook-notify'
+import { createNotification } from '@/lib/notify'
 
 /**
  * POST /api/admin/posts/[id]/approve
  * Body: { action: 'approved' | 'rejected', comment?: string }
- * Creates a PostApproval record, updates post status, fires webhook.
+ * Creates a PostApproval record, updates post status, fires webhook + in-app notification.
  */
 export async function POST(
     req: NextRequest,
@@ -43,9 +44,6 @@ export async function POST(
     })
 
     // Update post status
-    // → approved + has scheduledAt → SCHEDULED (shows in Queue + Calendar)
-    // → approved + no scheduledAt → APPROVED (manual/immediate publish)
-    // → rejected → REJECTED
     let newStatus: string
     if (action === 'rejected') {
         newStatus = 'REJECTED'
@@ -57,18 +55,18 @@ export async function POST(
         data: { status: newStatus as never },
     })
 
-    // Send notification to author (in-app)
+    // Send in-app notification to post author (with SSE broadcast)
     try {
-        await prisma.notification.create({
-            data: {
-                userId: post.authorId,
-                type: action === 'approved' ? 'approval_approved' : 'approval_rejected',
-                title: action === 'approved' ? 'Post Approved ✅' : 'Post Rejected ❌',
-                message: comment || (action === 'approved' ? 'Your post has been approved.' : 'Your post has been rejected.'),
-                data: { postId: id },
-            },
+        await createNotification({
+            userId: post.authorId,
+            type: action === 'approved' ? 'approval_approved' : 'approval_rejected',
+            title: action === 'approved' ? 'Post Approved ✅' : 'Post Rejected ❌',
+            message: comment || (action === 'approved' ? 'Your post has been approved.' : 'Your post has been rejected.'),
+            data: { postId: id, channelId: post.channelId },
+            link: `/dashboard/posts`,
         })
     } catch { /* notifications are optional */ }
+
 
     // Fire webhook notifications (Discord / Telegram / Slack / Custom)
     try {

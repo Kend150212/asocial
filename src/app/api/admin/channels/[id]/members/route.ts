@@ -274,6 +274,19 @@ export async function POST(
         },
     })
 
+    // Fire in-app notification for the invited user
+    try {
+        const { createNotification } = await import('@/lib/notify')
+        await createNotification({
+            userId: targetUserId,
+            type: 'member_invited',
+            title: `You've been added to ${channel.displayName} 👋`,
+            message: `${session.user.name || session.user.email || 'An admin'} added you as ${role || 'MANAGER'} to ${channel.displayName}.`,
+            data: { channelId: id },
+            link: `/dashboard/channels/${id}`,
+        })
+    } catch { /* notifications are non-blocking */ }
+
     return NextResponse.json(member, { status: 201 })
 }
 

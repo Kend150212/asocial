@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { NotificationBell } from '@/components/notification-bell'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -104,15 +105,18 @@ export function Sidebar({ session }: { session: Session }) {
                     <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
                     <span className="text-lg font-bold tracking-tight">ASocial</span>
                 </Link>
-                {onClose ? (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                ) : (
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(true)}>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                )}
+                <div className="flex items-center gap-1">
+                    <NotificationBell />
+                    {onClose ? (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    ) : (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(true)}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <Separator />
