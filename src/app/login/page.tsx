@@ -19,8 +19,8 @@ function LoginForm() {
     const [isPending, setIsPending] = useState(false)
     const t = useTranslation()
     const searchParams = useSearchParams()
-    // After login, go to callbackUrl if present, otherwise /dashboard
-    const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+    // After login, go to callbackUrl if present, otherwise /choose (role chooser)
+    const callbackUrl = searchParams.get('callbackUrl') || '/choose'
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

@@ -17,21 +17,19 @@ export async function middleware(req: NextRequest) {
         req.cookies.get('next-auth.session-token')
     if (jwtCookie?.value) {
         try {
-            // JWT is base64url encoded — decode the payload (2nd part)
             const parts = jwtCookie.value.split('.')
             if (parts.length >= 2) {
                 const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
                 userRole = payload.role || null
             }
-        } catch { /* ignore decode errors */ }
+        } catch { /* ignore */ }
     }
 
     // ── Redirect logged-in users away from public pages ───────────────
     const isPublicPage = pathname === '/' || pathname === '/login'
     if (isPublicPage && hasSession) {
-        // CUSTOMER → portal, others → dashboard
-        const dest = userRole === 'CUSTOMER' ? '/portal' : '/dashboard'
-        return NextResponse.redirect(new URL(dest, req.url))
+        // Redirect to /choose — the chooser page handles dual/single access
+        return NextResponse.redirect(new URL('/choose', req.url))
     }
 
     // ── CUSTOMER trying to access dashboard → redirect to portal ─────
@@ -43,9 +41,20 @@ export async function middleware(req: NextRequest) {
     // ── Protect dashboard routes — redirect to login with callbackUrl ─
     if (isDashboardRoute && !hasSession) {
         const loginUrl = new URL('/login', req.url)
-        // Preserve the full path (including query string) as callbackUrl
         loginUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search)
         return NextResponse.redirect(loginUrl)
+    }
+
+    // ── Protect portal routes — redirect to login ─────────────────────
+    if (pathname.startsWith('/portal') && !hasSession) {
+        const loginUrl = new URL('/login', req.url)
+        loginUrl.searchParams.set('callbackUrl', '/portal')
+        return NextResponse.redirect(loginUrl)
+    }
+
+    // ── Protect choose route ──────────────────────────────────────────
+    if (pathname === '/choose' && !hasSession) {
+        return NextResponse.redirect(new URL('/login', req.url))
     }
 
     return NextResponse.next()
