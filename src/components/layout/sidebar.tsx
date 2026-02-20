@@ -48,6 +48,7 @@ import {
     Check,
     CreditCard,
     LayoutList,
+    Plus,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -161,6 +162,24 @@ export function Sidebar({ session }: { session: Session }) {
                                 {activeChannel?.id === ch.id && <Check className="h-3.5 w-3.5 text-primary" />}
                             </DropdownMenuItem>
                         ))}
+                        {/* Empty state: no channels yet */}
+                        {!loadingChannels && channels.length === 0 && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <div className="px-2 py-3 text-center">
+                                    <p className="text-xs text-muted-foreground mb-2">
+                                        {t('workspace.noChannels')}
+                                    </p>
+                                    <Link
+                                        href="/dashboard/channels"
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        {t('workspace.createFirstChannel')}
+                                    </Link>
+                                </div>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>

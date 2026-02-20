@@ -3,7 +3,9 @@
         "label": "Workspace",
         "allChannels": "All Channels",
         "loading": "Loading...",
-        "tooltip": "Switch workspace"
+        "tooltip": "Switch workspace",
+        "noChannels": "No channels yet",
+        "createFirstChannel": "Create your first channel"
     },
     "common": {
         "save": "Save",

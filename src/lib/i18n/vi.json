@@ -3,7 +3,9 @@
         "label": "Workspace",
         "allChannels": "Tất cả kênh",
         "loading": "Đang tải...",
-        "tooltip": "Đổi workspace"
+        "tooltip": "Đổi workspace",
+        "noChannels": "Chưa có kênh nào",
+        "createFirstChannel": "Tạo kênh đầu tiên"
     },
     "common": {
         "save": "Lưu",
