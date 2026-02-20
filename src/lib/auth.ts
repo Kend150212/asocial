@@ -10,7 +10,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
-type UserRoleType = 'ADMIN' | 'MANAGER' | 'CUSTOMER'
+type UserRoleType = 'ADMIN' | 'MANAGER' | 'STAFF' | 'CUSTOMER'
 
 declare module 'next-auth' {
     interface User {

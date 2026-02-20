@@ -32,17 +32,22 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL('/choose', req.url))
     }
 
-    // ── CUSTOMER trying to access dashboard → redirect to portal ─────
-    const isDashboardRoute = pathname.startsWith('/dashboard')
-    if (isDashboardRoute && hasSession && userRole === 'CUSTOMER') {
-        return NextResponse.redirect(new URL('/portal', req.url))
-    }
-
     // ── Protect dashboard routes — redirect to login with callbackUrl ─
+    const isDashboardRoute = pathname.startsWith('/dashboard')
     if (isDashboardRoute && !hasSession) {
         const loginUrl = new URL('/login', req.url)
         loginUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search)
         return NextResponse.redirect(loginUrl)
+    }
+
+    // ── CUSTOMER (primary role) trying to access dashboard ────────────
+    // Only block if going to /dashboard directly (not /choose)
+    // The /choose page does a deeper check (channel memberships) for dual access
+    if (isDashboardRoute && hasSession && userRole === 'CUSTOMER') {
+        // Redirect to /choose — it will handle dual access detection
+        // If they have staff channel memberships, /choose will show both options
+        // If not, /choose will auto-redirect to /portal
+        return NextResponse.redirect(new URL('/choose', req.url))
     }
 
     // ── Protect portal routes — redirect to login ─────────────────────

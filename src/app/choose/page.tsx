@@ -19,8 +19,9 @@ export default function ChooseAccessPage() {
             .then(r => r.json())
             .then(data => {
                 if (!data.hasDualAccess) {
-                    // Not dual — redirect directly
-                    if (data.role === 'CUSTOMER') router.replace('/portal')
+                    // Not dual — redirect directly based on access type
+                    if (data.isStaff) router.replace('/dashboard')
+                    else if (data.isCustomer) router.replace('/portal')
                     else router.replace('/dashboard')
                 } else {
                     setChecking(false)

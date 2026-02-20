@@ -18,16 +18,25 @@ export async function GET() {
         return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is a CUSTOMER member of any channel
+    // Check channel memberships for dual access detection
     const customerMemberships = await prisma.channelMember.count({
         where: { userId: session.user.id, role: 'CUSTOMER' },
     })
 
-    // Check if user is a non-CUSTOMER member (staff) of any channel, or has staff role
-    const isStaff = user.role === 'ADMIN' || user.role === 'MANAGER'
-    const isCustomer = user.role === 'CUSTOMER' || customerMemberships > 0
+    const staffMemberships = await prisma.channelMember.count({
+        where: { userId: session.user.id, role: { not: 'CUSTOMER' } },
+    })
 
-    // Staff users who also have customer channel memberships → dual access
+    // Primary role check
+    const hasStaffRole = user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'STAFF'
+    const hasCustomerRole = user.role === 'CUSTOMER'
+
+    // A user has staff access if they have a staff role OR are a non-customer channel member
+    const isStaff = hasStaffRole || staffMemberships > 0
+    // A user has customer access if they are a CUSTOMER role OR have customer channel memberships
+    const isCustomer = hasCustomerRole || customerMemberships > 0
+
+    // Dual access = user can access BOTH dashboard and portal
     const hasDualAccess = isStaff && isCustomer
 
     return NextResponse.json({
@@ -36,5 +45,6 @@ export async function GET() {
         isCustomer,
         hasDualAccess,
         customerChannelCount: customerMemberships,
+        staffChannelCount: staffMemberships,
     })
 }
