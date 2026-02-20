@@ -3,29 +3,60 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/admin/channels — list channels (admin: all, others: assigned only)
-export async function GET() {
+export async function GET(req: NextRequest) {
     const session = await auth()
     if (!session?.user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const isAdmin = session.user.role === 'ADMIN'
+    const { searchParams } = new URL(req.url)
+    const q = searchParams.get('q')?.trim() || ''
+
+    // Build search/filter condition
+    const searchWhere = q ? {
+        OR: [
+            { displayName: { contains: q, mode: 'insensitive' as const } },
+            { name: { contains: q, mode: 'insensitive' as const } },
+            {
+                members: {
+                    some: {
+                        user: {
+                            OR: [
+                                { email: { contains: q, mode: 'insensitive' as const } },
+                                { name: { contains: q, mode: 'insensitive' as const } },
+                            ],
+                        },
+                    },
+                },
+            },
+        ],
+    } : {}
 
     const channels = await prisma.channel.findMany({
-        where: isAdmin ? {} : {
-            members: { some: { userId: session.user.id, role: { notIn: ['CUSTOMER'] } } },
-        },
+        where: isAdmin
+            ? searchWhere
+            : {
+                AND: [
+                    { members: { some: { userId: session.user.id, role: { notIn: ['CUSTOMER'] } } } },
+                    ...(q ? [searchWhere] : []),
+                ],
+            },
         orderBy: { createdAt: 'desc' },
         include: {
             _count: { select: { members: true, posts: true, knowledgeBase: true, platforms: true } },
             platforms: {
                 select: { id: true, platform: true, accountId: true, accountName: true, isActive: true },
             },
+            // Return OWNER first, fall back to ADMIN
             members: {
-                where: { role: 'ADMIN' },
-                take: 1,
+                where: { role: { in: ['OWNER', 'ADMIN'] } },
+                orderBy: [
+                    { role: 'asc' }, // ADMIN < OWNER alphabetically — we prioritise OWNER so we take all and sort in UI
+                ],
+                take: 3,
                 include: {
-                    user: { select: { name: true, email: true } },
+                    user: { select: { name: true, email: true, role: true } },
                 },
             },
         },
