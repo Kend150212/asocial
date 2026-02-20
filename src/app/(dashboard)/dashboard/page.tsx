@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Megaphone, PenSquare, Users, BarChart3 } from 'lucide-react'
+import { OnboardingChecklist } from '@/components/onboarding-checklist'
 
 export default async function DashboardPage() {
     const session = await auth()
@@ -13,7 +14,7 @@ export default async function DashboardPage() {
     ]
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -21,6 +22,9 @@ export default async function DashboardPage() {
                     Welcome back, {session?.user?.name || 'Admin'}
                 </p>
             </div>
+
+            {/* Onboarding Checklist — client component, only renders when setup is incomplete */}
+            <OnboardingChecklist />
 
             {/* Stats Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

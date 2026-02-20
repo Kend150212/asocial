@@ -7,6 +7,21 @@
         "noChannels": "No channels yet",
         "createFirstChannel": "Create your first channel"
     },
+    "onboarding": {
+        "title": "Get Started",
+        "subtitle": "Complete these steps to unlock the full power of ASocial",
+        "setup": "Set up",
+        "steps": {
+            "ai": "Configure AI integration",
+            "aiDesc": "Add your OpenAI or Gemini API key to enable AI content generation",
+            "gdrive": "Connect Google Drive",
+            "gdriveDesc": "Connect Google Drive to store and manage your media files",
+            "channel": "Create your first channel",
+            "channelDesc": "Create a channel to start managing your social media accounts",
+            "platform": "Connect a social platform",
+            "platformDesc": "Connect Facebook, Instagram, YouTube or another platform to a channel"
+        }
+    },
     "common": {
         "save": "Save",
         "cancel": "Cancel",
@@ -23,6 +38,7 @@
         "no": "No",
         "or": "or",
         "test": "Test",
+        "dismiss": "Dismiss",
         "refresh": "Refresh",
         "configured": "configured",
         "notConfigured": "Not configured",
@@ -670,7 +686,10 @@
         "newFolderName": "New folder name...",
         "renameTitle": "Rename",
         "newName": "New name...",
-        "selectChannel": "Select channel"
+        "selectChannel": "Select channel",
+        "gdriveRequired": "Google Drive not configured",
+        "gdriveRequiredDesc": "You need to connect Google Drive before you can upload and manage media files.",
+        "gdriveSetupBtn": "Set up Google Drive"
     },
     "apiKeys": {
         "title": "AI API Keys",

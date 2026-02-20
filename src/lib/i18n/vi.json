@@ -7,6 +7,21 @@
         "noChannels": "Chưa có kênh nào",
         "createFirstChannel": "Tạo kênh đầu tiên"
     },
+    "onboarding": {
+        "title": "Bắt đầu",
+        "subtitle": "Hoàn thành các bước sau để trải nghiệm đầy đủ tính năng của ASocial",
+        "setup": "Cài đặt",
+        "steps": {
+            "ai": "Cấu hình AI",
+            "aiDesc": "Thêm API key OpenAI hoặc Gemini để bật tính năng tạo nội dung bằng AI",
+            "gdrive": "Kết nối Google Drive",
+            "gdriveDesc": "Kết nối Google Drive để lưu trữ và quản lý tệp phương tiện của bạn",
+            "channel": "Tạo kênh đầu tiên",
+            "channelDesc": "Tạo một kênh để bắt đầu quản lý các tài khoản mạng xã hội của bạn",
+            "platform": "Kết nối mạng xã hội",
+            "platformDesc": "Kết nối Facebook, Instagram, YouTube hoặc nền tảng khác với kênh của bạn"
+        }
+    },
     "common": {
         "save": "Lưu",
         "cancel": "Hủy",
@@ -23,6 +38,7 @@
         "no": "Không",
         "or": "hoặc",
         "test": "Kiểm tra",
+        "dismiss": "Bỏ qua",
         "refresh": "Làm mới",
         "configured": "đã cấu hình",
         "notConfigured": "Chưa cấu hình",
@@ -670,7 +686,10 @@
         "newFolderName": "Tên thư mục mới...",
         "renameTitle": "Đổi tên",
         "newName": "Tên mới...",
-        "selectChannel": "Chọn kênh"
+        "selectChannel": "Chọn kênh",
+        "gdriveRequired": "Google Drive chưa được cấu hình",
+        "gdriveRequiredDesc": "Bạn cần kết nối Google Drive trước khi có thể tải lên và quản lý tệp phương tiện.",
+        "gdriveSetupBtn": "Cài đặt Google Drive"
     },
     "apiKeys": {
         "title": "AI API Keys",
