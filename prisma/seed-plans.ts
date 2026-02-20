@@ -26,6 +26,9 @@ const DEFAULT_PLANS = [
         maxChannels: 1,
         maxPostsPerMonth: 50,
         maxMembersPerChannel: 2,
+        maxAiImagesPerMonth: 0,
+        maxAiTextPerMonth: 20,
+        maxStorageMB: 512,          // 512 MB
         hasAutoSchedule: false,
         hasWebhooks: false,
         hasAdvancedReports: false,
@@ -45,6 +48,9 @@ const DEFAULT_PLANS = [
         maxChannels: 5,
         maxPostsPerMonth: -1,
         maxMembersPerChannel: 10,
+        maxAiImagesPerMonth: 50,
+        maxAiTextPerMonth: 1000,
+        maxStorageMB: 10240,        // 10 GB
         hasAutoSchedule: true,
         hasWebhooks: true,
         hasAdvancedReports: true,
@@ -64,6 +70,9 @@ const DEFAULT_PLANS = [
         maxChannels: 20,
         maxPostsPerMonth: -1,
         maxMembersPerChannel: 50,
+        maxAiImagesPerMonth: 200,
+        maxAiTextPerMonth: 5000,
+        maxStorageMB: 51200,        // 50 GB
         hasAutoSchedule: true,
         hasWebhooks: true,
         hasAdvancedReports: true,
@@ -83,6 +92,9 @@ const DEFAULT_PLANS = [
         maxChannels: -1,
         maxPostsPerMonth: -1,
         maxMembersPerChannel: -1,
+        maxAiImagesPerMonth: -1,
+        maxAiTextPerMonth: -1,
+        maxStorageMB: -1,           // Unlimited
         hasAutoSchedule: true,
         hasWebhooks: true,
         hasAdvancedReports: true,

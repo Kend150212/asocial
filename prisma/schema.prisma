@@ -628,6 +628,8 @@ model Plan {
   maxAiImagesPerMonth Int @default(0) @map("max_ai_images_per_month")
   // AI Text Generation quota — 1 unit = 1 generation request (-1 = unlimited, 0 = BYOK only)
   maxAiTextPerMonth   Int @default(20) @map("max_ai_text_per_month")
+  // Storage quota in MB (-1 = unlimited). All users must use own GDrive.
+  maxStorageMB        Int @default(512) @map("max_storage_mb")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

@@ -176,11 +176,18 @@ export async function POST(req: NextRequest) {
         // Check if user has their own Google Drive connected
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
-            select: { gdriveRefreshToken: true, gdriveFolderId: true },
+            select: { gdriveRefreshToken: true, gdriveFolderId: true, role: true },
         })
 
         if (user?.gdriveRefreshToken && user?.gdriveFolderId) {
-            // ─── User's own Google Drive ───
+            // ─── User's own Google Drive ───────────────────────────────────────
+            // Check storage quota before uploading
+            const { checkStorageQuota } = await import('@/lib/storage-quota')
+            const quota = await checkStorageQuota(session.user.id, file.size)
+            if (!quota.allowed) {
+                return NextResponse.json({ error: quota.reason }, { status: 429 })
+            }
+
             accessToken = await getUserGDriveAccessToken(session.user.id)
 
             // Get channel name for subfolder
@@ -195,8 +202,8 @@ export async function POST(req: NextRequest) {
             const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, channelFolder.id)
             targetFolderId = monthlyFolder.id
             console.log('Media upload: using USER GDrive, root:', user.gdriveFolderId, '→ channel:', channelFolder.id, '→ monthly:', monthlyFolder.id)
-        } else {
-            // ─── Fallback: Admin's Google Drive (legacy) ───
+        } else if (user?.role === 'ADMIN') {
+            // ─── Admin fallback: use shared GDrive if admin hasn't set up own ──
             accessToken = await getGDriveAccessToken()
 
             const integration = await prisma.apiIntegration.findFirst({
@@ -213,7 +220,6 @@ export async function POST(req: NextRequest) {
                 )
             }
 
-            // Get the channel name for subfolder creation
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
                 select: { name: true, displayName: true },
@@ -223,14 +229,22 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
             }
 
-            // Get or create channel-specific subfolder
             const channelFolder = await getOrCreateChannelFolder(
                 accessToken,
                 parentFolderId,
                 channel.displayName || channel.name,
             )
             targetFolderId = channelFolder.id
-            console.log('Media upload: using ADMIN GDrive (legacy), folder:', parentFolderId, '→ channel:', channelFolder.id)
+            console.log('Media upload: ADMIN using shared GDrive, folder:', parentFolderId, '→ channel:', channelFolder.id)
+        } else {
+            // ─── Regular user without own GDrive — block ──────────────────────
+            return NextResponse.json(
+                {
+                    error: 'You need to connect your Google Drive before uploading media. Set it up at /dashboard/api-keys.',
+                    code: 'GDRIVE_NOT_CONNECTED',
+                },
+                { status: 403 }
+            )
         }
 
         // Generate filename with date suffix: "image 1 - 02-17-2026.jpg"
