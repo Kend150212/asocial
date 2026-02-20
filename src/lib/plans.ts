@@ -26,50 +26,110 @@ export type PlanLimits = typeof FREE_PLAN_DEFAULTS & {
     status: string
     currentPeriodEnd: Date | null
     cancelAtPeriodEnd: boolean
+    isInTrial: boolean
+    trialEndsAt: Date | null
+    daysLeftInTrial: number
+}
+
+/**
+ * Days remaining in trial (0 if expired or no trial)
+ */
+export function getDaysLeftInTrial(trialEndsAt: Date | null | undefined): number {
+    if (!trialEndsAt) return 0
+    const diff = trialEndsAt.getTime() - Date.now()
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
 /**
  * Get user's current plan limits.
- * Falls back to FREE plan defaults if no active subscription.
+ * - Active paid subscription → use that plan's limits
+ * - 14-day trial active → apply Pro plan limits
+ * - Otherwise → FREE defaults
  */
 export async function getUserPlan(userId: string): Promise<PlanLimits> {
-    const sub = await prisma.subscription.findUnique({
-        where: { userId },
-        include: { plan: true },
-    })
+    const [sub, user] = await Promise.all([
+        prisma.subscription.findUnique({
+            where: { userId },
+            include: { plan: true },
+        }),
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { trialEndsAt: true },
+        }),
+    ])
 
-    if (!sub || (sub.status !== 'active' && sub.status !== 'trialing')) {
+    const trialEndsAt = user?.trialEndsAt ?? null
+    const daysLeftInTrial = getDaysLeftInTrial(trialEndsAt)
+    const isInTrial = daysLeftInTrial > 0
+
+    // ── Active paid subscription ─────────────────────────────────────────────
+    if (sub && (sub.status === 'active' || sub.status === 'trialing')) {
+        const p = sub.plan
         return {
-            ...FREE_PLAN_DEFAULTS,
-            planName: 'Free',
-            planNameVi: 'Miễn phí',
-            priceMonthly: 0,
-            priceAnnual: 0,
-            billingInterval: 'monthly',
-            status: sub?.status ?? 'active',
-            currentPeriodEnd: sub?.currentPeriodEnd ?? null,
-            cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
+            planName: p.name,
+            planNameVi: p.nameVi,
+            priceMonthly: p.priceMonthly,
+            priceAnnual: p.priceAnnual,
+            billingInterval: sub.billingInterval,
+            status: sub.status,
+            currentPeriodEnd: sub.currentPeriodEnd,
+            cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+            maxChannels: p.maxChannels,
+            maxPostsPerMonth: p.maxPostsPerMonth,
+            maxMembersPerChannel: p.maxMembersPerChannel,
+            hasAutoSchedule: p.hasAutoSchedule,
+            hasWebhooks: p.hasWebhooks,
+            hasAdvancedReports: p.hasAdvancedReports,
+            hasPrioritySupport: p.hasPrioritySupport,
+            hasWhiteLabel: p.hasWhiteLabel,
+            isInTrial: false,
+            trialEndsAt,
+            daysLeftInTrial: 0,
         }
     }
 
-    const p = sub.plan
+    // ── Free trial active — apply Pro limits ─────────────────────────────────
+    if (isInTrial) {
+        const proPlan = await prisma.plan.findFirst({ where: { name: 'Pro' } })
+        if (proPlan) {
+            return {
+                planName: 'Pro',
+                planNameVi: 'Pro (Dùng thử)',
+                priceMonthly: proPlan.priceMonthly,
+                priceAnnual: proPlan.priceAnnual,
+                billingInterval: 'monthly',
+                status: 'trialing',
+                currentPeriodEnd: trialEndsAt,
+                cancelAtPeriodEnd: false,
+                maxChannels: proPlan.maxChannels,
+                maxPostsPerMonth: proPlan.maxPostsPerMonth,
+                maxMembersPerChannel: proPlan.maxMembersPerChannel,
+                hasAutoSchedule: proPlan.hasAutoSchedule,
+                hasWebhooks: proPlan.hasWebhooks,
+                hasAdvancedReports: proPlan.hasAdvancedReports,
+                hasPrioritySupport: proPlan.hasPrioritySupport,
+                hasWhiteLabel: proPlan.hasWhiteLabel,
+                isInTrial: true,
+                trialEndsAt,
+                daysLeftInTrial,
+            }
+        }
+    }
+
+    // ── Free plan fallback ───────────────────────────────────────────────────
     return {
-        planName: p.name,
-        planNameVi: p.nameVi,
-        priceMonthly: p.priceMonthly,
-        priceAnnual: p.priceAnnual,
-        billingInterval: sub.billingInterval,
-        status: sub.status,
-        currentPeriodEnd: sub.currentPeriodEnd,
-        cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
-        maxChannels: p.maxChannels,
-        maxPostsPerMonth: p.maxPostsPerMonth,
-        maxMembersPerChannel: p.maxMembersPerChannel,
-        hasAutoSchedule: p.hasAutoSchedule,
-        hasWebhooks: p.hasWebhooks,
-        hasAdvancedReports: p.hasAdvancedReports,
-        hasPrioritySupport: p.hasPrioritySupport,
-        hasWhiteLabel: p.hasWhiteLabel,
+        ...FREE_PLAN_DEFAULTS,
+        planName: 'Free',
+        planNameVi: 'Miễn phí',
+        priceMonthly: 0,
+        priceAnnual: 0,
+        billingInterval: 'monthly',
+        status: sub?.status ?? 'active',
+        currentPeriodEnd: sub?.currentPeriodEnd ?? null,
+        cancelAtPeriodEnd: sub?.cancelAtPeriodEnd ?? false,
+        isInTrial: false,
+        trialEndsAt,
+        daysLeftInTrial: 0,
     }
 }
 

@@ -58,7 +58,10 @@ export async function POST(req: NextRequest) {
 
         // Create user + subscription in a transaction
         const user = await prisma.$transaction(async (tx) => {
-            // Create user
+            // Create user with 14-day trial
+            const trialEndsAt = new Date()
+            trialEndsAt.setDate(trialEndsAt.getDate() + 14)
+
             const newUser = await tx.user.create({
                 data: {
                     email: otp.email,
@@ -69,6 +72,7 @@ export async function POST(req: NextRequest) {
                     role: 'MANAGER',
                     isActive: true,
                     emailVerified: new Date(),
+                    trialEndsAt, // 14-day Pro trial
                 },
             })
 
