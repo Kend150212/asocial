@@ -81,10 +81,10 @@
 - [ ] Email + real-time notifications
 - [ ] Edit & resubmit on reject
 
-## Phase 11: Notifications 
-- [ ] WebSocket/SSE real-time
-- [ ] Bell icon + notification panel
-- [ ] Per-channel notification email
+## Phase 11: Notifications ✅ COMPLETED
+- [x] WebSocket/SSE real-time
+- [x] Bell icon + notification panel
+- [x] Per-channel notification email
 
 ## Phase 12: Reports & Analytics
 - [ ] Per-channel reports
@@ -132,4 +132,4 @@
 
 ---
 
-**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Còn lại: Phases 11–17**
+**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Còn lại: Phases 12–17**

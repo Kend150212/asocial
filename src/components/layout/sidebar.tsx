@@ -66,8 +66,10 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.queue', href: '/dashboard/posts/queue', icon: CalendarClock },
     { titleKey: 'nav.approvals', href: '/dashboard/posts/approvals', icon: CheckCircle2 },
     { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
+    { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
 ]
+
 
 const adminNav: NavItem[] = [
     { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
