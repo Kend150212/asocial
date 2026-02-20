@@ -26,6 +26,7 @@ export async function GET(
             image: true,
             lastLoginAt: true,
             createdAt: true,
+            trialEndsAt: true,
             channelMembers: {
                 include: {
                     channel: { select: { id: true, name: true, displayName: true } },

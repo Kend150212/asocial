@@ -142,6 +142,7 @@ interface ChannelMemberDetail {
 
 interface UserDetail extends Omit<UserRow, '_count'> {
     channelMembers: ChannelMemberDetail[]
+    trialEndsAt?: string | null
 }
 
 interface ChannelInfo {
@@ -1039,6 +1040,80 @@ export default function UsersPage() {
                                                 onClick={() => editingUser && handleSavePlan(editingUser.id)}
                                             >
                                                 {savingPlan ? 'Saving...' : 'Apply'}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Grant Free Trial */}
+                                    <div className="rounded-xl border bg-card p-4 space-y-3">
+                                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                                            🎁 Free Trial
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            Cấp hoặc gia hạn trial Pro cho user. Trong thời gian trial, user được dùng giới hạn Pro.
+                                        </p>
+                                        {editingUser && (() => {
+                                            const trialEndsAt = editingUser.trialEndsAt ? new Date(editingUser.trialEndsAt) : null
+                                            const now = new Date()
+                                            const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86400000)) : 0
+                                            const isActive = daysLeft > 0
+                                            return (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={`px-2 py-0.5 rounded-full font-medium ${isActive ? 'bg-indigo-500/20 text-indigo-400' : 'bg-muted text-muted-foreground'}`}>
+                                                        {isActive ? `⏳ Còn ${daysLeft} ngày (hết ${trialEndsAt?.toLocaleDateString('vi-VN')})` : 'Không có trial'}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })()}
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={90}
+                                                defaultValue={14}
+                                                id="trial-days-input"
+                                                className="w-20 h-8 rounded-md border bg-background px-2 text-sm"
+                                            />
+                                            <span className="text-xs text-muted-foreground">ngày</span>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 text-xs border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10"
+                                                onClick={async () => {
+                                                    if (!editingUser) return
+                                                    const days = Number((document.getElementById('trial-days-input') as HTMLInputElement)?.value ?? 14)
+                                                    const res = await fetch(`/api/admin/users/${editingUser.id}/grant-trial`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ days }),
+                                                    })
+                                                    if (res.ok) {
+                                                        const data = await res.json()
+                                                        setEditingUser(prev => prev ? { ...prev, trialEndsAt: data.trialEndsAt } : prev)
+                                                        toast.success(`Đã cấp ${days} ngày trial`)
+                                                    } else {
+                                                        toast.error('Lỗi khi cấp trial')
+                                                    }
+                                                }}
+                                            >
+                                                ✨ Cấp Trial
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                                                onClick={async () => {
+                                                    if (!editingUser) return
+                                                    const res = await fetch(`/api/admin/users/${editingUser.id}/grant-trial`, {
+                                                        method: 'DELETE',
+                                                    })
+                                                    if (res.ok) {
+                                                        setEditingUser(prev => prev ? { ...prev, trialEndsAt: null } : prev)
+                                                        toast.success('Đã thu hồi trial')
+                                                    }
+                                                }}
+                                            >
+                                                Huỷ Trial
                                             </Button>
                                         </div>
                                     </div>
