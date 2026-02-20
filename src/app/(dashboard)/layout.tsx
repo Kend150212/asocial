@@ -16,6 +16,11 @@ export default async function DashboardLayout({
         redirect('/login')
     }
 
+    // CUSTOMER users can only access /portal
+    if (session.user.role === 'CUSTOMER') {
+        redirect('/portal')
+    }
+
     return (
         <div className="flex h-screen overflow-hidden bg-background">
             <WorkspaceProvider>

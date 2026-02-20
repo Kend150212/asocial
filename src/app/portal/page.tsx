@@ -160,8 +160,8 @@ export default function PortalPage() {
                     <button
                         onClick={() => { setActiveTab('review'); setSidebarOpen(false) }}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${activeTab === 'review'
-                                ? 'bg-indigo-500/15 text-indigo-400 font-medium'
-                                : 'text-white/50 hover:text-white/80 hover:bg-white/[0.04]'
+                            ? 'bg-indigo-500/15 text-indigo-400 font-medium'
+                            : 'text-white/50 hover:text-white/80 hover:bg-white/[0.04]'
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -177,8 +177,8 @@ export default function PortalPage() {
                     <button
                         onClick={() => { setActiveTab('calendar'); setSidebarOpen(false) }}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${activeTab === 'calendar'
-                                ? 'bg-indigo-500/15 text-indigo-400 font-medium'
-                                : 'text-white/50 hover:text-white/80 hover:bg-white/[0.04]'
+                            ? 'bg-indigo-500/15 text-indigo-400 font-medium'
+                            : 'text-white/50 hover:text-white/80 hover:bg-white/[0.04]'
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -197,8 +197,8 @@ export default function PortalPage() {
                                 key={ch.id}
                                 onClick={() => setSelectedChannel(selectedChannel === ch.id ? 'all' : ch.id)}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${selectedChannel === ch.id
-                                        ? 'bg-white/[0.08] text-white font-medium'
-                                        : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
+                                    ? 'bg-white/[0.08] text-white font-medium'
+                                    : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
                                     }`}
                             >
                                 <span className={`w-2 h-2 rounded-full ${ch.isActive ? 'bg-emerald-500' : 'bg-white/20'}`} />
@@ -265,6 +265,7 @@ export default function PortalPage() {
                             setCalYear={setCalYear}
                             setCalMonth={setCalMonth}
                             postsByDay={postsByDay}
+                            done={done}
                         />
                     )}
                 </div>
@@ -421,11 +422,12 @@ function ReviewTab({
 // Calendar Tab
 // ─────────────────────────────────────────────────────────
 function CalendarTab({
-    calYear, calMonth, setCalYear, setCalMonth, postsByDay,
+    calYear, calMonth, setCalYear, setCalMonth, postsByDay, done,
 }: {
     calYear: number; calMonth: number
     setCalYear: (y: number) => void; setCalMonth: (m: number) => void
     postsByDay: Record<number, Post[]>
+    done: Record<string, string>
 }) {
     function prevMonth() {
         if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11) }
@@ -490,8 +492,8 @@ function CalendarTab({
                                     }`}
                             >
                                 <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${isToday
-                                        ? 'bg-indigo-500 text-white font-bold'
-                                        : 'text-white/50'
+                                    ? 'bg-indigo-500 text-white font-bold'
+                                    : 'text-white/50'
                                     }`}>
                                     {day}
                                 </span>
@@ -501,8 +503,8 @@ function CalendarTab({
                                             <div
                                                 key={p.id}
                                                 className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs truncate ${done[p.id] === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                        done[p.id] === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
-                                                            'bg-amber-500/15 text-amber-400'
+                                                    done[p.id] === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
+                                                        'bg-amber-500/15 text-amber-400'
                                                     }`}
                                                 title={p.content?.slice(0, 80) || p.channel.displayName}
                                             >
