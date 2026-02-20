@@ -1,998 +1,249 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { useEffect, useState } from 'react'
+import { Key, Plus, Trash2, Copy, Check, Loader2, AlertTriangle, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { useTranslation } from '@/lib/i18n'
-import {
-    Key,
-    Loader2,
-    Eye,
-    EyeOff,
-    CheckCircle,
-    Save,
-    Trash2,
-    BrainCircuit,
-    ExternalLink,
-    Info,
-    RefreshCw,
-    Star,
-    Zap,
-    HardDrive,
-    Link2,
-    Unlink,
-    FolderOpen,
-    Mail,
-    Calendar,
-    AlertCircle,
-    Palette,
-} from 'lucide-react'
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog'
 
-// ─── Provider metadata (guide info per provider) ───────────
-interface ProviderGuide {
-    description: string
-    placeholder: string
-    guideUrl: string
-    guideLabel: string
-    guideSteps: { title: string; detail: string }[]
-    tips?: string[]
-}
-
-const providerGuides: Record<string, ProviderGuide> = {
-    gemini: {
-        description: 'Google AI Studio — Gemini Pro, Flash, Ultra',
-        placeholder: 'AIza...',
-        guideUrl: 'https://aistudio.google.com/apikey',
-        guideLabel: 'Open Google AI Studio',
-        guideSteps: [
-            { title: 'Visit Google AI Studio', detail: 'Go to aistudio.google.com' },
-            { title: 'Get API Key', detail: 'Click "Get API Key" at the top' },
-            { title: 'Create or select project', detail: 'Create a new API key or select existing project' },
-            { title: 'Copy API key', detail: 'Copy the key — free tier with RPM limits' },
-        ],
-        tips: ['Free tier supports 15 RPM for Gemini Flash', 'Gemini Pro/Flash available'],
-    },
-    openai: {
-        description: 'GPT-4o, GPT-4o mini, o1, o3',
-        placeholder: 'sk-...',
-        guideUrl: 'https://platform.openai.com/api-keys',
-        guideLabel: 'Open OpenAI Platform',
-        guideSteps: [
-            { title: 'Sign in', detail: 'Sign in at platform.openai.com' },
-            { title: 'Navigate to API Keys', detail: 'Go to API Keys → Create new secret key' },
-            { title: 'Name and copy', detail: 'Name your key and copy it' },
-            { title: 'Billing required', detail: 'Note: Billing plan required for API usage' },
-        ],
-        tips: ['GPT-4o mini is most cost-effective for content generation'],
-    },
-    anthropic: {
-        description: 'Claude 3.5 Sonnet, Haiku, Opus',
-        placeholder: 'sk-ant-api...',
-        guideUrl: 'https://console.anthropic.com/settings/keys',
-        guideLabel: 'Open Anthropic Console',
-        guideSteps: [
-            { title: 'Create account', detail: 'Sign up at console.anthropic.com' },
-            { title: 'Go to API Keys', detail: 'Navigate to Settings → API Keys' },
-            { title: 'Create a key', detail: 'Click "Create Key" and copy it' },
-            { title: 'Add credits', detail: 'Add billing credits to activate' },
-        ],
-        tips: ['Claude 3.5 Sonnet is excellent for creative writing'],
-    },
-    openrouter: {
-        description: 'Access 100+ models via one API key',
-        placeholder: 'sk-or-v1-...',
-        guideUrl: 'https://openrouter.ai/keys',
-        guideLabel: 'Open OpenRouter',
-        guideSteps: [
-            { title: 'Create account', detail: 'Sign up at openrouter.ai' },
-            { title: 'Get API Key', detail: 'Go to Keys → Create Key' },
-            { title: 'Add credits', detail: 'Add credits to your account' },
-            { title: 'Choose models', detail: 'Access any model through a single API' },
-        ],
-        tips: ['One key for all models (GPT, Claude, Llama, Mistral...)'],
-    },
-    runware: {
-        description: 'Image generation — FLUX, SDXL, DALL-E',
-        placeholder: 'Enter API key...',
-        guideUrl: 'https://runware.ai',
-        guideLabel: 'Open Runware Dashboard',
-        guideSteps: [
-            { title: 'Sign up', detail: 'Sign up at runware.ai' },
-            { title: 'Go to API Keys', detail: 'Dashboard → API Keys' },
-            { title: 'Create and copy', detail: 'Create new key and copy' },
-        ],
-    },
-    synthetic: {
-        description: 'AI video and image generation',
-        placeholder: 'Enter API key...',
-        guideUrl: 'https://synthetic.new/api-keys',
-        guideLabel: 'Open Synthetic Dashboard',
-        guideSteps: [
-            { title: 'Sign up', detail: 'Sign up at synthetic.new' },
-            { title: 'Get API Key', detail: 'Go to API Keys section' },
-            { title: 'Copy key', detail: 'Create and copy your key' },
-        ],
-    },
-}
-
-const providerColors: Record<string, string> = {
-    gemini: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    openai: 'bg-green-500/10 text-green-500 border-green-500/20',
-    anthropic: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-    openrouter: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    runware: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
-    synthetic: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
-}
-
-// ─── Types ─────────────────────────────────────────────────
-interface AiProvider {
+interface ApiKey {
     id: string
-    provider: string
     name: string
-    status: string
-}
-
-interface UserApiKeyData {
-    id: string
-    provider: string
-    name: string
-    defaultModel: string | null
-    isDefault: boolean
+    keyPrefix: string
     isActive: boolean
+    lastUsedAt: string | null
+    createdAt: string
+    apiKey?: string
 }
 
-interface ModelInfo {
-    id: string
-    name: string
-    type: string
-    description?: string
-}
-
-// ─── Status Badge ──────────────────────────────────────────
-function StatusBadge({ hasKey, isDefault }: { hasKey: boolean; isDefault: boolean }) {
-    if (hasKey && isDefault) {
-        return (
-            <Badge variant="outline" className="text-[10px] px-1.5 gap-1 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                <Star className="h-3 w-3 fill-current" />
-                Default
-            </Badge>
-        )
-    }
-    if (hasKey) {
-        return (
-            <Badge variant="outline" className="text-[10px] px-1.5 gap-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                <CheckCircle className="h-3 w-3" />
-                Configured
-            </Badge>
-        )
-    }
-    return (
-        <Badge variant="outline" className="text-[10px] px-1.5 gap-1 bg-muted text-muted-foreground">
-            Not configured
-        </Badge>
-    )
-}
-
-// ─── Provider Card ─────────────────────────────────────────
-function ProviderCard({
-    provider,
-    existingKey,
-    apiKeyValue,
-    showKey,
-    isSaving,
-    isDeleting,
-    isTesting,
-    testResult,
-    showGuide,
-    models,
-    isLoadingModels,
-    selectedModel,
-    onApiKeyChange,
-    onToggleShow,
-    onSave,
-    onDelete,
-    onTest,
-    onToggleGuide,
-    onFetchModels,
-    onModelSelect,
-    onSetDefault,
-}: {
-    provider: AiProvider
-    existingKey: UserApiKeyData | undefined
-    apiKeyValue: string
-    showKey: boolean
-    isSaving: boolean
-    isDeleting: boolean
-    isTesting: boolean
-    testResult?: { success: boolean; message: string }
-    showGuide: boolean
-    models: ModelInfo[]
-    isLoadingModels: boolean
-    selectedModel: string
-    onApiKeyChange: (val: string) => void
-    onToggleShow: () => void
-    onSave: () => void
-    onDelete: () => void
-    onTest: () => void
-    onToggleGuide: () => void
-    onFetchModels: () => void
-    onModelSelect: (modelId: string) => void
-    onSetDefault: () => void
-}) {
-    const hasKey = !!existingKey
-    const guide = providerGuides[provider.provider]
-    const colorClass = providerColors[provider.provider] || 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-    const textModels = models.filter(m => m.type === 'text')
-    const hasModels = models.length > 0
-
-    return (
-        <Card className={`relative transition-all hover:shadow-md ${colorClass} border`}>
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{provider.name}</CardTitle>
-                    </div>
-                    <StatusBadge hasKey={hasKey} isDefault={existingKey?.isDefault || false} />
-                </div>
-                <CardDescription className="text-xs">
-                    {guide?.description || `${provider.provider} integration`}
-                </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-                {/* Setup Guide Link */}
-                {guide && (
-                    <div>
-                        <button
-                            type="button"
-                            onClick={onToggleGuide}
-                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                        >
-                            <Info className="h-3.5 w-3.5" />
-                            <span>{showGuide ? 'Hide guide' : 'How to get API Key'}</span>
-                        </button>
-
-                        <Dialog open={showGuide} onOpenChange={onToggleGuide}>
-                            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                                <DialogHeader>
-                                    <DialogTitle className="text-xl">{provider.name} API Key</DialogTitle>
-                                    <p className="text-sm text-muted-foreground mt-1">{guide.description}</p>
-                                </DialogHeader>
-
-                                <div className="space-y-3 mt-4">
-                                    {guide.guideSteps.map((step, i) => (
-                                        <div key={i} className="flex gap-3">
-                                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                                                {i + 1}
-                                            </div>
-                                            <div className="flex-1 pt-0.5">
-                                                <p className="text-sm font-medium">{step.title}</p>
-                                                <p className="text-xs text-muted-foreground mt-0.5">{step.detail}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {guide.tips && guide.tips.length > 0 && (
-                                    <div className="mt-5 rounded-lg border border-dashed p-3 bg-muted/30">
-                                        <p className="text-xs font-medium mb-2 flex items-center gap-1.5">
-                                            💡 Pro Tips
-                                        </p>
-                                        <ul className="space-y-1.5">
-                                            {guide.tips.map((tip, i) => (
-                                                <li key={i} className="text-[11px] text-muted-foreground flex gap-2">
-                                                    <span className="text-yellow-500 mt-0.5">•</span>
-                                                    <span>{tip}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                <div className="mt-4 flex justify-between items-center">
-                                    <a
-                                        href={guide.guideUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
-                                    >
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                        {guide.guideLabel}
-                                    </a>
-                                    <Button variant="outline" size="sm" onClick={onToggleGuide} className="cursor-pointer">
-                                        Close
-                                    </Button>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                )}
-
-                {/* API Key Input */}
-                <div className="space-y-1">
-                    <Label className="text-[11px]">API Key</Label>
-                    <div className="relative">
-                        <Input
-                            type={showKey ? 'text' : 'password'}
-                            value={apiKeyValue}
-                            onChange={(e) => onApiKeyChange(e.target.value)}
-                            placeholder={hasKey ? '••••••••••••••••' : (guide?.placeholder || 'Enter API key...')}
-                            className="pr-8 h-8 text-xs"
-                        />
-                        <button
-                            type="button"
-                            onClick={onToggleShow}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                            {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Save + Test + Delete buttons */}
-                <div className="flex gap-2">
-                    <Button
-                        size="sm"
-                        className="flex-1 h-8 text-xs gap-1.5 cursor-pointer"
-                        onClick={onSave}
-                        disabled={isSaving || !apiKeyValue.trim()}
-                    >
-                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                        {isSaving ? 'Saving...' : 'Save'}
-                    </Button>
-
-                    {hasKey && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs gap-1 cursor-pointer"
-                            onClick={onTest}
-                            disabled={isTesting}
-                        >
-                            {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                            Test
-                        </Button>
-                    )}
-
-                    {hasKey && (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs gap-1 text-destructive hover:text-destructive cursor-pointer"
-                            onClick={onDelete}
-                            disabled={isDeleting}
-                        >
-                            {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                        </Button>
-                    )}
-                </div>
-
-                {/* Test Result */}
-                {testResult && (
-                    <div className={`rounded-md p-2 text-xs ${testResult.success ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'}`}>
-                        {testResult.success ? <CheckCircle className="h-3.5 w-3.5 inline mr-1" /> : '⚠️ '}
-                        {testResult.message}
-                    </div>
-                )}
-
-                {/* Model Selection (only when key exists) */}
-                {hasKey && (
-                    <div className="space-y-2 pt-2 border-t border-dashed">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-[11px]">Default Model</Label>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 text-[10px] gap-1 px-2 cursor-pointer"
-                                onClick={onFetchModels}
-                                disabled={isLoadingModels}
-                            >
-                                {isLoadingModels ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                                {hasModels ? 'Refresh' : 'Load Models'}
-                            </Button>
-                        </div>
-
-                        {hasModels ? (
-                            <Select value={selectedModel} onValueChange={onModelSelect}>
-                                <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue placeholder="Select a model..." />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                    {textModels.length > 0 && (
-                                        <>
-                                            <SelectItem value="__text_label" disabled className="text-[10px] font-semibold text-muted-foreground">
-                                                Text Models
-                                            </SelectItem>
-                                            {textModels.map(m => (
-                                                <SelectItem key={m.id} value={m.id} className="text-xs">
-                                                    {m.name}
-                                                </SelectItem>
-                                            ))}
-                                        </>
-                                    )}
-                                    {models.filter(m => m.type === 'image').length > 0 && (
-                                        <>
-                                            <SelectItem value="__image_label" disabled className="text-[10px] font-semibold text-muted-foreground">
-                                                Image Models
-                                            </SelectItem>
-                                            {models.filter(m => m.type === 'image').map(m => (
-                                                <SelectItem key={m.id} value={m.id} className="text-xs">
-                                                    {m.name}
-                                                </SelectItem>
-                                            ))}
-                                        </>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                            <p className="text-[11px] text-muted-foreground">
-                                {existingKey?.defaultModel ? `Current: ${existingKey.defaultModel}` : 'Click "Load Models" to select'}
-                            </p>
-                        )}
-
-                        {/* Set as Default Provider */}
-                        {!existingKey?.isDefault && (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full h-7 text-[11px] gap-1.5 cursor-pointer"
-                                onClick={onSetDefault}
-                            >
-                                <Star className="h-3 w-3" />
-                                Set as Default Provider
-                            </Button>
-                        )}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
-}
-
-// ─── Google Drive Status Type ──────────────────────────────
-interface GDriveStatus {
-    connected: boolean
-    email: string | null
-    folderId: string | null
-    folderName: string | null
-    folderUrl: string | null
-    connectedAt: string | null
-    isAdminConfigured: boolean
-}
-
-// ─── Main Page ─────────────────────────────────────────────
-export default function UserApiKeysPage() {
-    const t = useTranslation()
-    const searchParams = useSearchParams()
-    const router = useRouter()
-    const [providers, setProviders] = useState<AiProvider[]>([])
-    const [keys, setKeys] = useState<UserApiKeyData[]>([])
+export default function ApiKeysPage() {
+    const [keys, setKeys] = useState<ApiKey[]>([])
     const [loading, setLoading] = useState(true)
-    const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({})
-    const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
-    const [saving, setSaving] = useState<Record<string, boolean>>({})
-    const [deleting, setDeleting] = useState<Record<string, boolean>>({})
-    const [testing, setTesting] = useState<Record<string, boolean>>({})
-    const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({})
-    const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
-    const [models, setModels] = useState<Record<string, ModelInfo[]>>({})
-    const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
-    const [selectedModels, setSelectedModels] = useState<Record<string, string>>({})
+    const [creating, setCreating] = useState(false)
+    const [newKeyName, setNewKeyName] = useState('')
+    const [showNewKey, setShowNewKey] = useState<string | null>(null)
+    const [copiedId, setCopiedId] = useState<string | null>(null)
 
-    // Google Drive state
-    const [gdriveStatus, setGdriveStatus] = useState<GDriveStatus | null>(null)
-    const [gdriveLoading, setGdriveLoading] = useState(false)
-    const [gdriveConnecting, setGdriveConnecting] = useState(false)
+    useEffect(() => { fetchKeys() }, [])
 
-    // Canva state
-    const [canvaStatus, setCanvaStatus] = useState<{ connected: boolean; isAdminConfigured: boolean; userName: string | null; connectedAt: string | null } | null>(null)
-    const [canvaLoading, setCanvaLoading] = useState(false)
-    const [canvaConnecting, setCanvaConnecting] = useState(false)
-
-    const fetchGDriveStatus = useCallback(async () => {
+    async function fetchKeys() {
         try {
-            const res = await fetch('/api/user/gdrive/status')
-            if (res.ok) setGdriveStatus(await res.json())
-        } catch { /* */ }
-    }, [])
-
-    const fetchCanvaStatus = useCallback(async () => {
-        try {
-            const res = await fetch('/api/user/canva/status')
-            if (res.ok) setCanvaStatus(await res.json())
-        } catch { /* */ }
-    }, [])
-
-    const handleGDriveConnect = async () => {
-        setGdriveConnecting(true)
-        try {
-            const res = await fetch('/api/user/gdrive/auth')
+            const res = await fetch('/api/v1/keys')
             const data = await res.json()
-            if (data.authUrl) {
-                window.location.href = data.authUrl
-            } else {
-                toast.error(data.error || t('apiKeys.gdriveFailed'))
-                setGdriveConnecting(false)
-            }
+            if (data.success) setKeys(data.data)
         } catch {
-            toast.error(t('apiKeys.gdriveFailed'))
-            setGdriveConnecting(false)
+            toast.error('Failed to load API keys')
+        } finally {
+            setLoading(false)
         }
     }
 
-    const handleCanvaConnect = async () => {
-        setCanvaConnecting(true)
-        window.location.href = `/api/oauth/canva?returnUrl=${encodeURIComponent('/dashboard/api-keys')}`
-    }
-
-    const handleCanvaDisconnect = async () => {
-        setCanvaLoading(true)
-        try {
-            const res = await fetch('/api/user/canva/disconnect', { method: 'POST' })
-            if (res.ok) {
-                toast.success(t('apiKeys.canvaDisconnected'))
-                fetchCanvaStatus()
-            } else {
-                toast.error(t('apiKeys.canvaFailed'))
-            }
-        } catch {
-            toast.error('Failed to disconnect')
+    async function createKey() {
+        if (!newKeyName.trim()) {
+            toast.error('Please enter a key name')
+            return
         }
-        setCanvaLoading(false)
-    }
-
-    const handleGDriveDisconnect = async () => {
-        setGdriveLoading(true)
+        setCreating(true)
         try {
-            const res = await fetch('/api/user/gdrive/disconnect', { method: 'POST' })
-            if (res.ok) {
-                toast.success(t('apiKeys.gdriveDisconnected'))
-                fetchGDriveStatus()
-            } else {
-                toast.error(t('apiKeys.gdriveFailed'))
-            }
-        } catch {
-            toast.error('Failed to disconnect')
-        }
-        setGdriveLoading(false)
-    }
-
-    // Handle OAuth redirect params
-    useEffect(() => {
-        const gdrive = searchParams.get('gdrive')
-        if (gdrive === 'connected') {
-            toast.success('Google Drive connected successfully!')
-            fetchGDriveStatus()
-            router.replace('/dashboard/api-keys')
-        } else if (gdrive === 'error') {
-            toast.error(searchParams.get('message') || 'Google Drive connection failed')
-            router.replace('/dashboard/api-keys')
-        }
-
-        const canva = searchParams.get('canva')
-        if (canva === 'connected') {
-            toast.success('🎨 Canva connected successfully!')
-            fetchCanvaStatus()
-            router.replace('/dashboard/api-keys')
-        } else if (canva === 'error') {
-            toast.error(searchParams.get('message') || 'Canva connection failed')
-            router.replace('/dashboard/api-keys')
-        }
-    }, [searchParams, router, fetchGDriveStatus, fetchCanvaStatus])
-
-    const fetchProviders = useCallback(async () => {
-        try {
-            const res = await fetch('/api/user/ai-providers')
-            if (res.ok) setProviders(await res.json())
-        } catch { /* */ }
-    }, [])
-
-    const fetchKeys = useCallback(async () => {
-        try {
-            const res = await fetch('/api/user/api-keys')
-            if (res.ok) {
-                const data: UserApiKeyData[] = await res.json()
-                setKeys(data)
-                const modelMap: Record<string, string> = {}
-                data.forEach(k => { if (k.defaultModel) modelMap[k.provider] = k.defaultModel })
-                setSelectedModels(prev => ({ ...prev, ...modelMap }))
-            }
-        } catch { /* */ }
-    }, [])
-
-    useEffect(() => {
-        Promise.all([fetchProviders(), fetchKeys(), fetchGDriveStatus(), fetchCanvaStatus()]).then(() => setLoading(false))
-    }, [fetchProviders, fetchKeys, fetchGDriveStatus, fetchCanvaStatus])
-
-    const handleSave = async (providerSlug: string) => {
-        const apiKey = apiKeyValues[providerSlug]
-        if (!apiKey?.trim()) return
-
-        setSaving(s => ({ ...s, [providerSlug]: true }))
-        try {
-            const prov = providers.find(p => p.provider === providerSlug)
-            const res = await fetch('/api/user/api-keys', {
+            const res = await fetch('/api/v1/keys', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider: providerSlug,
-                    name: prov?.name || providerSlug,
-                    apiKey: apiKey.trim(),
-                }),
-            })
-            if (res.ok) {
-                toast.success(t('apiKeys.keySaved'))
-                setApiKeyValues(v => ({ ...v, [providerSlug]: '' }))
-                fetchKeys()
-            } else {
-                const data = await res.json()
-                toast.error(data.error || t('apiKeys.saveFailed'))
-            }
-        } catch { toast.error(t('apiKeys.saveFailed')) }
-        setSaving(s => ({ ...s, [providerSlug]: false }))
-    }
-
-    const handleTest = async (providerSlug: string) => {
-        setTesting(s => ({ ...s, [providerSlug]: true }))
-        setTestResults(r => { const copy = { ...r }; delete copy[providerSlug]; return copy })
-        try {
-            const res = await fetch('/api/user/api-keys/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: providerSlug }),
-            })
-            const result = await res.json()
-            setTestResults(r => ({ ...r, [providerSlug]: result }))
-            if (result.success) toast.success(result.message)
-            else toast.error(result.message || t('apiKeys.testFailed'))
-        } catch { toast.error(t('apiKeys.testFailed')) }
-        setTesting(s => ({ ...s, [providerSlug]: false }))
-    }
-
-    const handleFetchModels = async (providerSlug: string) => {
-        setLoadingModels(l => ({ ...l, [providerSlug]: true }))
-        try {
-            const res = await fetch('/api/user/api-keys/models', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: providerSlug }),
+                body: JSON.stringify({ name: newKeyName }),
             })
             const data = await res.json()
-            if (data.models) {
-                setModels(m => ({ ...m, [providerSlug]: data.models }))
-                toast.success(`Loaded ${data.models.length} models`)
+            if (data.success) {
+                setShowNewKey(data.data.apiKey)
+                setNewKeyName('')
+                fetchKeys()
+                toast.success('API key created! Copy it now — it won\'t be shown again.')
             } else {
-                toast.error(data.error || t('apiKeys.loadModelsFailed'))
+                toast.error(data.error?.message || 'Failed to create API key')
             }
-        } catch { toast.error(t('apiKeys.loadModelsFailed')) }
-        setLoadingModels(l => ({ ...l, [providerSlug]: false }))
+        } catch {
+            toast.error('Failed to create API key')
+        } finally {
+            setCreating(false)
+        }
     }
 
-    const handleModelSelect = async (providerSlug: string, modelId: string) => {
-        setSelectedModels(s => ({ ...s, [providerSlug]: modelId }))
-        // Save default model to server
+    async function revokeKey(keyId: string) {
+        if (!confirm('Are you sure? This key will be permanently deactivated.')) return
         try {
-            await fetch('/api/user/api-keys', {
-                method: 'PATCH',
+            const res = await fetch('/api/v1/keys', {
+                method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: providerSlug, defaultModel: modelId }),
+                body: JSON.stringify({ keyId }),
             })
-            toast.success(t('apiKeys.defaultModelSaved'))
-            fetchKeys()
-        } catch { toast.error('Failed to save model') }
-    }
-
-    const handleSetDefault = async (providerSlug: string) => {
-        try {
-            const res = await fetch('/api/user/api-keys', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: providerSlug, isDefault: true }),
-            })
-            if (res.ok) {
-                toast.success(t('apiKeys.defaultProviderSet'))
+            const data = await res.json()
+            if (data.success) {
                 fetchKeys()
+                toast.success('API key revoked')
             }
-        } catch { toast.error('Failed to set default') }
+        } catch {
+            toast.error('Failed to revoke key')
+        }
     }
 
-    const handleDelete = async (providerSlug: string) => {
-        setDeleting(s => ({ ...s, [providerSlug]: true }))
-        try {
-            const res = await fetch(`/api/user/api-keys?provider=${providerSlug}`, { method: 'DELETE' })
-            if (res.ok) {
-                const prov = providers.find(p => p.provider === providerSlug)
-                toast.success(`${prov?.name || providerSlug} key removed`)
-                setModels(m => { const copy = { ...m }; delete copy[providerSlug]; return copy })
-                setTestResults(r => { const copy = { ...r }; delete copy[providerSlug]; return copy })
-                fetchKeys()
-            }
-        } catch { toast.error('Failed to delete') }
-        setDeleting(s => ({ ...s, [providerSlug]: false }))
+    function copyToClipboard(text: string, id: string) {
+        navigator.clipboard.writeText(text)
+        setCopiedId(id)
+        setTimeout(() => setCopiedId(null), 2000)
     }
 
-    const configuredCount = keys.length
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
-    }
+    const domain = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
 
     return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{t('apiKeys.title')}</h1>
-                    <p className="text-muted-foreground mt-1">
-                        {t('apiKeys.description')}
-                    </p>
-                </div>
-                <Badge variant="outline" className="gap-1">
-                    <Key className="h-3 w-3" />
-                    {configuredCount}/{providers.length} configured
-                </Badge>
+        <div className="space-y-6 max-w-3xl">
+            <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    <Key className="h-6 w-6" />
+                    API Keys
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Manage API keys for programmatic access to your account.
+                </p>
             </div>
 
-            {/* ─── Google Drive Storage Section ─── */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <HardDrive className="h-5 w-5" />
-                    <h2 className="text-xl font-semibold">{t('apiKeys.googleDrive')}</h2>
-                    {gdriveStatus?.connected && (
-                        <Badge variant="default" className="ml-2 gap-1 bg-green-500/10 text-green-600 border-green-500/20">
-                            <CheckCircle className="h-3 w-3" />
-                            Connected
-                        </Badge>
-                    )}
-                </div>
-
-                <Card className="border-dashed">
-                    <CardContent className="pt-6">
-                        {gdriveStatus?.connected ? (
-                            <div className="space-y-4">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="space-y-3 flex-1">
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Mail className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">{t('apiKeys.account')}</span>
-                                            <span className="font-medium">{gdriveStatus.email}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">{t('apiKeys.folder')}</span>
-                                            {gdriveStatus.folderUrl ? (
-                                                <a
-                                                    href={gdriveStatus.folderUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="font-medium text-blue-500 hover:underline inline-flex items-center gap-1"
-                                                >
-                                                    {gdriveStatus.folderName}
-                                                    <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                            ) : (
-                                                <span className="font-medium">{gdriveStatus.folderName}</span>
-                                            )}
-                                        </div>
-                                        {gdriveStatus.connectedAt && (
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <span className="text-muted-foreground">Connected:</span>
-                                                <span className="font-medium">
-                                                    {new Date(gdriveStatus.connectedAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleGDriveDisconnect}
-                                        disabled={gdriveLoading}
-                                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                                    >
-                                        {gdriveLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Unlink className="h-4 w-4" />
-                                        )}
-                                        <span className="ml-1.5">{gdriveLoading ? t('apiKeys.disconnecting') : t('apiKeys.disconnectGDrive')}</span>
-                                    </Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Media files are auto-organized into monthly folders (e.g. 2026-02/) inside your Drive.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 space-y-4">
-                                <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                                    <HardDrive className="h-6 w-6 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold">{t('apiKeys.connectGDrive')}</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        {t('apiKeys.gdriveDesc')}
-                                    </p>
-                                </div>
-                                {!gdriveStatus?.isAdminConfigured ? (
-                                    <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
-                                        <AlertCircle className="h-4 w-4" />
-                                        <span>{t('apiKeys.gdriveNotConfigured')}</span>
-                                    </div>
-                                ) : (
-                                    <Button onClick={handleGDriveConnect} disabled={gdriveConnecting}>
-                                        {gdriveConnecting ? (
-                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        ) : (
-                                            <Link2 className="h-4 w-4 mr-2" />
-                                        )}
-                                        {gdriveConnecting ? t('apiKeys.connecting') : t('apiKeys.connectGDrive')}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Separator />
-
-            {/* ─── Canva Design Tools Section ─── */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    <h2 className="text-xl font-semibold">Canva Design</h2>
-                    {canvaStatus?.connected && (
-                        <Badge variant="default" className="ml-2 gap-1 bg-violet-500/10 text-violet-600 border-violet-500/20">
-                            <CheckCircle className="h-3 w-3" />
-                            {t('apiKeys.connected')}
-                        </Badge>
-                    )}
-                </div>
-
-                <Card className="border-dashed">
-                    <CardContent className="pt-6">
-                        {canvaStatus?.connected ? (
-                            <div className="space-y-4">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="space-y-3 flex-1">
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Palette className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">{t('apiKeys.account')}</span>
-                                            <span className="font-medium">{canvaStatus.userName}</span>
-                                        </div>
-                                        {canvaStatus.connectedAt && (
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <span className="text-muted-foreground">{t('apiKeys.connectedOn')}</span>
-                                                <span className="font-medium">
-                                                    {new Date(canvaStatus.connectedAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleCanvaDisconnect}
-                                        disabled={canvaLoading}
-                                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                                    >
-                                        {canvaLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Unlink className="h-4 w-4" />
-                                        )}
-                                        <span className="ml-1.5">{canvaLoading ? t('apiKeys.disconnecting') : t('apiKeys.disconnectCanva')}</span>
-                                    </Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Create stunning social media graphics using Canva directly from the Compose page.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 space-y-4">
-                                <div className="mx-auto w-12 h-12 rounded-full bg-violet-500/10 flex items-center justify-center">
-                                    <Palette className="h-6 w-6 text-violet-500" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold">{t('apiKeys.connectCanva')}</h3>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        {t('apiKeys.canvaDesc')}
-                                    </p>
-                                </div>
-                                {!canvaStatus?.isAdminConfigured ? (
-                                    <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
-                                        <AlertCircle className="h-4 w-4" />
-                                        <span>{t('apiKeys.canvaNotConfigured')}</span>
-                                    </div>
-                                ) : (
-                                    <Button onClick={handleCanvaConnect} disabled={canvaConnecting} className="bg-violet-600 hover:bg-violet-700">
-                                        {canvaConnecting ? (
-                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        ) : (
-                                            <Palette className="h-4 w-4 mr-2" />
-                                        )}
-                                        {canvaConnecting ? t('apiKeys.connecting') : t('apiKeys.connectCanva')}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Separator />
-
-            {/* AI Providers Section */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <BrainCircuit className="h-5 w-5" />
-                    <h2 className="text-xl font-semibold">AI Providers</h2>
-                    <Badge variant="secondary" className="ml-2">
-                        {configuredCount}/{providers.length}
-                    </Badge>
-                </div>
-
-                {providers.length === 0 ? (
-                    <Card>
-                        <CardContent className="py-8 text-center text-muted-foreground">
-                            <BrainCircuit className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                            <p className="font-medium">No AI providers available</p>
-                            <p className="text-sm">Contact your admin to set up AI providers in the API Hub.</p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {providers.map(prov => {
-                            const existingKey = keys.find(k => k.provider === prov.provider)
-                            return (
-                                <ProviderCard
-                                    key={prov.id}
-                                    provider={prov}
-                                    existingKey={existingKey}
-                                    apiKeyValue={apiKeyValues[prov.provider] || ''}
-                                    showKey={showKeys[prov.provider] || false}
-                                    isSaving={saving[prov.provider] || false}
-                                    isDeleting={deleting[prov.provider] || false}
-                                    isTesting={testing[prov.provider] || false}
-                                    testResult={testResults[prov.provider]}
-                                    showGuide={showGuide[prov.provider] || false}
-                                    models={models[prov.provider] || []}
-                                    isLoadingModels={loadingModels[prov.provider] || false}
-                                    selectedModel={selectedModels[prov.provider] || ''}
-                                    onApiKeyChange={val => setApiKeyValues(v => ({ ...v, [prov.provider]: val }))}
-                                    onToggleShow={() => setShowKeys(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
-                                    onSave={() => handleSave(prov.provider)}
-                                    onDelete={() => handleDelete(prov.provider)}
-                                    onTest={() => handleTest(prov.provider)}
-                                    onToggleGuide={() => setShowGuide(s => ({ ...s, [prov.provider]: !s[prov.provider] }))}
-                                    onFetchModels={() => handleFetchModels(prov.provider)}
-                                    onModelSelect={modelId => handleModelSelect(prov.provider, modelId)}
-                                    onSetDefault={() => handleSetDefault(prov.provider)}
-                                />
-                            )
-                        })}
+            {/* Create New Key */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-sm font-medium">Create New API Key</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex gap-2">
+                        <Input
+                            placeholder="Key name (e.g. My Production App)"
+                            value={newKeyName}
+                            onChange={(e) => setNewKeyName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && createKey()}
+                            disabled={creating}
+                            className="flex-1"
+                        />
+                        <Button onClick={createKey} disabled={creating}>
+                            {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                            Create Key
+                        </Button>
                     </div>
-                )}
-            </div>
+                </CardContent>
+            </Card>
+
+            {/* Newly Created Key — Show Once */}
+            {showNewKey && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                        <Shield className="h-4 w-4" />
+                        New API Key Created — Copy Now!
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <code className="flex-1 bg-background rounded px-3 py-2 text-sm font-mono break-all">
+                            {showNewKey}
+                        </code>
+                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(showNewKey, 'new')}>
+                            {copiedId === 'new' ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                    <p className="text-xs text-amber-400 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        This key will not be shown again. Store it securely.
+                    </p>
+                    <Button variant="ghost" size="sm" onClick={() => setShowNewKey(null)} className="text-xs">
+                        I&apos;ve copied it, dismiss
+                    </Button>
+                </div>
+            )}
+
+            {/* Key List */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-sm font-medium">Your API Keys ({keys.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                            Loading...
+                        </div>
+                    ) : keys.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                            No API keys yet. Create one above to get started.
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {keys.map((key) => (
+                                <div
+                                    key={key.id}
+                                    className={`flex items-center gap-3 p-3 rounded-lg border ${key.isActive ? 'bg-background' : 'bg-muted/30 opacity-60'
+                                        }`}
+                                >
+                                    <Key className={`h-4 w-4 shrink-0 ${key.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium">{key.name}</div>
+                                        <div className="text-xs text-muted-foreground font-mono">
+                                            {key.keyPrefix}••••••••••••
+                                        </div>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground text-right shrink-0">
+                                        {key.lastUsedAt ? (
+                                            <div>Last used: {new Date(key.lastUsedAt).toLocaleDateString()}</div>
+                                        ) : (
+                                            <div>Never used</div>
+                                        )}
+                                        <div>Created: {new Date(key.createdAt).toLocaleDateString()}</div>
+                                    </div>
+                                    {key.isActive ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => revokeKey(key.id)}
+                                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    ) : (
+                                        <span className="text-xs text-red-400 font-medium px-2">Revoked</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Quick Reference */}
+            <Card className="border-dashed">
+                <CardHeader>
+                    <CardTitle className="text-sm font-medium">Quick Start</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                        Use your API key in the <code className="bg-muted px-1 rounded">X-API-Key</code> header:
+                    </p>
+                    <pre className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                        {`# List your channels
+curl -H "X-API-Key: ask_your_key_here" \\
+  ${domain}/api/v1/channels
+
+# Generate AI content for multiple platforms
+curl -X POST \\
+  -H "X-API-Key: ask_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"channelId":"...","topic":"Summer sale","platforms":["facebook","instagram"]}' \\
+  ${domain}/api/v1/ai/generate
+
+# Create & schedule a post
+curl -X POST \\
+  -H "X-API-Key: ask_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"channelId":"...","content":"...","platforms":["facebook"],"scheduledAt":"2026-03-01T10:00:00Z","status":"SCHEDULED"}' \\
+  ${domain}/api/v1/posts
+
+# Check your usage & limits
+curl -H "X-API-Key: ask_your_key_here" \\
+  ${domain}/api/v1/usage`}
+                    </pre>
+                </CardContent>
+            </Card>
         </div>
     )
 }
