@@ -1,7 +1,7 @@
 // Webhook notification helper — sends post-publish notifications to
 // Discord, Telegram, Slack, and custom webhook endpoints configured on a channel.
 
-import { getBrandingServer } from '@/lib/use-branding'
+import { getBrandingServer } from '@/lib/use-branding-server'
 
 // Cached app name for webhook payloads
 let _cachedAppName: string | null = null

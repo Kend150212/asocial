@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
-import { getBrandingServer } from '@/lib/use-branding'
+import { getBrandingServer } from '@/lib/use-branding-server'
 
 // ─── Get SMTP transporter from ApiIntegration ───────
 async function getTransporter() {

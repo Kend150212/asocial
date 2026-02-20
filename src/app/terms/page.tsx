@@ -1,4 +1,4 @@
-import { getBrandingServer } from '@/lib/use-branding'
+import { getBrandingServer } from '@/lib/use-branding-server'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {

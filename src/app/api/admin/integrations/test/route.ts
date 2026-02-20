@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
-import { getBrandingServer } from '@/lib/use-branding'
+import { getBrandingServer } from '@/lib/use-branding-server'
 import nodemailer from 'nodemailer'
 
 // POST /api/admin/integrations/test — test connection for a provider
