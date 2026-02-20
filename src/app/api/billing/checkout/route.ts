@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
         : plan.stripePriceIdMonthly
 
     if (!priceId) {
-        return NextResponse.json({ error: 'This plan has no Stripe price configured' }, { status: 400 })
+        return NextResponse.json(
+            { error: 'This plan has no Stripe price configured. Please contact support to activate Stripe pricing.', noStripePrice: true },
+            { status: 400 }
+        )
     }
 
     // Get or create Stripe customer

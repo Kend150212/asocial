@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import {
     CreditCard, Zap, Calendar, AlertCircle, CheckCircle2,
-    ExternalLink, ArrowUpRight, Clock
+    ExternalLink, ArrowUpRight, Clock, Check, X
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
 
@@ -28,6 +28,8 @@ type BillingInfo = {
         hasAutoSchedule: boolean
         hasWebhooks: boolean
         hasAdvancedReports: boolean
+        hasPrioritySupport: boolean
+        hasWhiteLabel: boolean
     }
     subscription: {
         status: string
@@ -219,6 +221,53 @@ export default function BillingPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Plan Features */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        {locale === 'vi' ? 'Tính năng gói' : 'Plan Features'}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+                        {[
+                            {
+                                label: locale === 'vi' ? 'Kênh tối đa' : 'Max channels',
+                                value: plan.maxChannels === -1 ? '∞' : plan.maxChannels,
+                            },
+                            {
+                                label: locale === 'vi' ? 'Bài đăng/tháng' : 'Posts per month',
+                                value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth,
+                            },
+                            {
+                                label: locale === 'vi' ? 'Thành viên/kênh' : 'Members per channel',
+                                value: plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel,
+                            },
+                        ].map(({ label, value }) => (
+                            <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                                <span className="text-sm text-muted-foreground">{label}</span>
+                                <span className="font-semibold text-sm">{value}</span>
+                            </div>
+                        ))}
+                        {[
+                            { label: locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling', value: plan.hasAutoSchedule },
+                            { label: 'Webhooks', value: plan.hasWebhooks },
+                            { label: locale === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reports', value: plan.hasAdvancedReports },
+                            { label: locale === 'vi' ? 'Hỗ trợ ưu tiên' : 'Priority support', value: plan.hasPrioritySupport },
+                            { label: 'White label', value: plan.hasWhiteLabel },
+                        ].map(({ label, value }) => (
+                            <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                                <span className="text-sm text-muted-foreground">{label}</span>
+                                {value
+                                    ? <Check className="h-4 w-4 text-emerald-500" />
+                                    : <X className="h-4 w-4 text-muted-foreground/40" />}
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Upgrade modal */}
             <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />

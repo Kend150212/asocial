@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Check, Zap, Building2, Rocket, Crown } from 'lucide-react'
+import { toast } from 'sonner'
 
 // Simple locale detection — reads from localStorage (same as sidebar lang switcher)
 function useLocale() {
@@ -124,15 +125,28 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
                 body: JSON.stringify({ planId, interval, couponCode: coupon || undefined }),
             })
             const data = await res.json()
-            if (data.url) window.location.href = data.url
+            if (data.url) {
+                window.location.href = data.url
+            } else if (data.noStripePrice) {
+                toast.error(
+                    locale === 'vi'
+                        ? 'Stripe chưa được thiết lập cho gói này. Vui lòng liên hệ admin.'
+                        : 'Stripe not configured for this plan. Please contact your admin or set up Stripe price IDs.'
+                )
+            } else {
+                toast.error(data.error ?? 'Checkout failed')
+            }
         } catch (err) {
             console.error('Checkout error:', err)
+            toast.error('Something went wrong')
         } finally {
             setLoading(null)
         }
     }
 
     const paidPlans = plans.filter((_p, i) => i > 0)
+    // A plan is "contact sales" only if it has no price at all (custom pricing)
+    const isContactSales = (plan: Plan) => plan.priceMonthly === 0 && !plan.stripePriceIdMonthly
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -191,6 +205,7 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
                             ? (locale === 'vi' ? '/năm' : '/yr')
                             : (locale === 'vi' ? '/tháng' : '/mo'))
                         const hasPriceId = interval === 'annual' ? !!plan.stripePriceIdAnnual : !!plan.stripePriceIdMonthly
+                        const contactSales = isContactSales(plan)
 
                         const features = [
                             plan.maxChannels === -1
@@ -261,16 +276,18 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
 
                                 {/* CTA */}
                                 <button
-                                    onClick={() => hasPriceId ? handleUpgrade(plan.id) : undefined}
-                                    disabled={!!loading || !hasPriceId}
-                                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${hasPriceId
-                                        ? style.button
-                                        : 'bg-white/5 text-muted-foreground cursor-not-allowed border border-white/10'
+                                    onClick={() => contactSales
+                                        ? window.open('mailto:sales@yourdomain.com', '_blank')
+                                        : handleUpgrade(plan.id)}
+                                    disabled={!!loading}
+                                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${contactSales
+                                        ? 'bg-white/5 text-muted-foreground border border-white/10 hover:bg-white/10'
+                                        : style.button
                                         } disabled:opacity-60`}
                                 >
                                     {loading === plan.id
                                         ? (locale === 'vi' ? 'Đang xử lý...' : 'Processing...')
-                                        : !hasPriceId
+                                        : contactSales
                                             ? (locale === 'vi' ? 'Liên hệ tư vấn' : 'Contact Sales')
                                             : (locale === 'vi' ? '🚀 Nâng cấp ngay' : '🚀 Upgrade Now')}
                                 </button>
