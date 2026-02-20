@@ -439,16 +439,9 @@ export default function ReportsPage() {
                                     ))}
                                 </div>
                             </CardHeader>
-                            <CardContent className="px-2 pb-4 relative">
-                                {/* Y-axis label */}
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground tracking-widest uppercase" style={{ writingMode: 'vertical-rl' }}>
-                                    {t('reports.highest')}
-                                </div>
-                                <div className="absolute left-0 bottom-8 -rotate-90 text-[10px] text-muted-foreground tracking-widest" style={{ writingMode: 'vertical-rl' }}>
-                                    {t('reports.lowest')}
-                                </div>
+                            <CardContent className="px-2 pb-4">
                                 <ResponsiveContainer width="100%" height={300}>
-                                    <ScatterChart margin={{ top: 20, right: 20, left: 30, bottom: 40 }}>
+                                    <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 40 }}>
                                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                                         <XAxis
                                             type="number" dataKey="x"
@@ -456,7 +449,11 @@ export default function ReportsPage() {
                                             tick={{ fontSize: 10 }}
                                             label={{ value: PLATFORM_LABELS[scatterX] || scatterX, position: 'insideBottom', offset: -10, fontSize: 11 }}
                                         />
-                                        <YAxis type="number" dataKey="y" name={scatterY} tick={{ fontSize: 10 }} />
+                                        <YAxis
+                                            type="number" dataKey="y" name={scatterY}
+                                            tick={{ fontSize: 10 }}
+                                            label={{ value: PLATFORM_LABELS[scatterY] || scatterY, angle: -90, position: 'insideLeft', offset: 10, fontSize: 11 }}
+                                        />
                                         <ZAxis range={[800, 800]} />
                                         <Tooltip
                                             cursor={{ strokeDasharray: '3 3' }}
@@ -477,16 +474,16 @@ export default function ReportsPage() {
                                                 key={i}
                                                 data={[d]}
                                                 name={d.name}
+                                                legendType="none"
                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                 shape={(props: any) => <ScatterDot {...props} platform={d.platform} />}
                                             />
                                         ))}
                                     </ScatterChart>
                                 </ResponsiveContainer>
-                                {/* X-axis labels */}
-                                <div className="flex justify-between px-8 -mt-2 text-[10px] text-muted-foreground">
+                                {/* X-axis lowest/highest labels */}
+                                <div className="flex justify-between px-4 text-[10px] text-muted-foreground">
                                     <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded">{t('reports.lowest')}</span>
-                                    <span>{PLATFORM_LABELS[scatterX] || scatterX}</span>
                                     <span className="bg-muted px-2 py-0.5 rounded">{t('reports.highest')}</span>
                                 </div>
                             </CardContent>
