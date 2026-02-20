@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 select: { id: true, platform: true, accountId: true, status: true, externalId: true, errorMsg: true, config: true, publishedAt: true },
             },
             media: {
-                select: { mediaItem: { select: { id: true, url: true, thumbnailUrl: true, mimeType: true, fileName: true } } },
+                select: { mediaItem: { select: { id: true, url: true, thumbnailUrl: true, mimeType: true } } },
                 orderBy: { sortOrder: 'asc' },
             },
             approvals: {
