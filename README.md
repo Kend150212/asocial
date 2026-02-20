@@ -38,10 +38,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 
 Understand this error
-/admin/settings?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/admin/automation?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/admin/activity?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/dashboard/reports?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/dashboard/email?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/dashboard/media?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
-/dashboard/calendar?_rsc=1xmg9:1  Failed to load resource: the server responded with a status of 404 ()
+/admin/settings
+/admin/automation
+/admin/activity
+/dashboard/reports
+/dashboard/email

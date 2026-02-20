@@ -81,6 +81,12 @@ export async function POST(
             data: { channelId, email, name, token, expiresAt, userId: user.id, invitedBy: session.user.id! },
         })
 
+    // Also set User.inviteToken so legacy /setup-password flow works too
+    await prisma.user.update({
+        where: { id: user.id },
+        data: { inviteToken: token, inviteExpiresAt: expiresAt },
+    })
+
     const appUrl = process.env.NEXTAUTH_URL || 'https://asocial.kendymarketing.com'
 
     try {

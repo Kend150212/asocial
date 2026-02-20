@@ -54,17 +54,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Token expired' }, { status: 410 })
     }
 
-    // Set password and clear invite token
+    // Set password, activate account, and clear invite token
     const passwordHash = await bcrypt.hash(password, 12)
 
     await prisma.user.update({
         where: { id: user.id },
         data: {
             passwordHash,
+            isActive: true,
             inviteToken: null,
             inviteExpiresAt: null,
         },
     })
 
-    return NextResponse.json({ success: true, email: user.email })
+    return NextResponse.json({ success: true, email: user.email, role: user.role })
 }
