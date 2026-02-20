@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
+import { getChannelOwnerKey } from '@/lib/channel-owner-key'
 
 // ─── URL detection & article scraping ────────────────────────────────
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi
@@ -89,56 +90,21 @@ export async function POST(req: NextRequest) {
     // Find AI provider
     const providerToUse = requestedProvider || channel.defaultAiProvider
 
-    // Check if channel has its own API key
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channelData = channel as any
-    const channelAiKey = channelData.aiApiKeyEncrypted
-    const mustUseOwnKey = channelData.requireOwnApiKey === true
     let apiKey: string
     let providerName: string
     let config: Record<string, string> = {}
     let baseUrl: string | undefined | null
     let integrationId: string | null = null
 
-    // Priority 1: User's own API key
-    // First try specific provider, then fall back to user's default
-    let userApiKey = providerToUse
-        ? await prisma.userApiKey.findFirst({
-            where: { userId: session.user.id!, provider: providerToUse, isActive: true },
-        })
-        : null
+    // ─── Key resolution: Channel Owner's BYOK (staff/manager share owner key) ───
+    const ownerKey = await getChannelOwnerKey(channelId, providerToUse || null)
 
-    if (!userApiKey) {
-        // Try user's default provider
-        userApiKey = await prisma.userApiKey.findFirst({
-            where: { userId: session.user.id!, isDefault: true, isActive: true },
-        })
-    }
-
-    if (!userApiKey) {
-        // Try any active user key
-        userApiKey = await prisma.userApiKey.findFirst({
-            where: { userId: session.user.id!, isActive: true },
-            orderBy: { provider: 'asc' },
-        })
-    }
-
-    if (userApiKey) {
-        // Use user's key + user's default model if available
-        apiKey = decrypt(userApiKey.apiKeyEncrypted)
-        providerName = userApiKey.provider
-    } else if (channelAiKey) {
-        // Priority 2: Channel-level API key
-        apiKey = decrypt(channelAiKey)
-        providerName = providerToUse || 'gemini'
-    } else if (mustUseOwnKey) {
-        // Channel requires own key but neither user nor channel has one
-        return NextResponse.json(
-            { error: 'No API key found. Please set up your AI API Key in the API Keys page, or contact your admin.' },
-            { status: 400 }
-        )
+    if (!ownerKey.error) {
+        // Owner has a key — use it
+        apiKey = ownerKey.apiKey!
+        providerName = ownerKey.provider!
     } else if (session.user.role === 'ADMIN') {
-        // Priority 3: Fall back to global API integration (Admin only)
+        // Admin users only: fall back to global API Hub
         let aiIntegration
         if (providerToUse) {
             aiIntegration = await prisma.apiIntegration.findFirst({
@@ -151,28 +117,27 @@ export async function POST(req: NextRequest) {
                 orderBy: { provider: 'asc' },
             })
         }
-
-        if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
+        if (!aiIntegration?.apiKeyEncrypted) {
             return NextResponse.json(
                 { error: 'No AI provider configured in API Hub. Set up a provider in the Admin API Hub.' },
                 { status: 400 }
             )
         }
-
         apiKey = decrypt(aiIntegration.apiKeyEncrypted)
         providerName = aiIntegration.provider
         config = (aiIntegration.config as Record<string, string>) || {}
         baseUrl = aiIntegration.baseUrl
         integrationId = aiIntegration.id
     } else {
-        // Non-admin users must set up their own key
+        // No key found — tell user the owner must configure a key
         return NextResponse.json(
-            { error: 'No AI API key found. Please set up your API key in the AI API Keys page (sidebar → AI API Keys).' },
+            { error: ownerKey.error ?? 'No API key found. Please ask the channel owner to add an AI API key in Settings → AI API Keys.' },
             { status: 400 }
         )
     }
 
-    const model = requestedModel || userApiKey?.defaultModel || channel.defaultAiModel || getDefaultModel(providerName, config)
+
+    const model = requestedModel || ownerKey.model || channel.defaultAiModel || getDefaultModel(providerName, config)
 
     // Build context from knowledge base
     const kbContext = channel.knowledgeBase

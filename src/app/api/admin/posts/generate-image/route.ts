@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { decrypt } from '@/lib/encryption'
 import { checkImageQuota, incrementImageUsage } from '@/lib/ai-quota'
+import { getChannelOwnerKey } from '@/lib/channel-owner-key'
 import { randomUUID } from 'crypto'
 import {
     getGDriveAccessToken,
@@ -48,62 +48,42 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    // Priority: channel image provider → channel AI provider → any image-capable key
-    const imageProvider = channel.defaultImageProvider || null
-    const imageModel = channel.defaultImageModel || null
+    // ─── Resolve API key: use Channel Owner's BYOK ────────────────────
+    // Staff and managers in a channel share the Owner's API key.
+    // No admin API Hub fallback — the owner must configure their own key.
+    const preferredProvider = channel.defaultImageProvider || null
 
-    // ─── Resolve API key: BYOK first, then admin fallback ────────────
-    // Find user's OWN API key first (BYOK = unlimited, no quota)
-    const providerCandidates = imageProvider
-        ? [imageProvider]
-        : ['runware', 'openai', 'gemini'] // fallback order
+    const ownerKey = await getChannelOwnerKey(channelId, preferredProvider)
 
-    let resolvedProvider = ''
-    let apiKey = ''
-    let usingByok = false
-
-    for (const provider of providerCandidates) {
-        const userKey = await prisma.userApiKey.findFirst({
-            where: { userId: session.user.id, provider },
-        })
-        if (userKey) {
-            resolvedProvider = provider
-            apiKey = decrypt(userKey.apiKeyEncrypted)
-            usingByok = true
-            break
-        }
+    if (ownerKey.error) {
+        return NextResponse.json(
+            {
+                error: ownerKey.error,
+                errorType: ownerKey.ownerHasNoKey ? 'no_api_key' : 'no_owner',
+            },
+            { status: 403 }
+        )
     }
 
-    // If no BYOK key found → try admin's Runware key (quota-limited by plan)
-    if (!resolvedProvider) {
-        // Check quota first
-        const quota = await checkImageQuota(session.user.id, false)
-        if (!quota.allowed) {
-            return NextResponse.json(
-                {
-                    error: quota.reason,
-                    errorType: 'quota_exceeded',
-                    used: quota.used,
-                    limit: quota.limit,
-                },
-                { status: 403 }
-            )
-        }
-
-        // Look for admin Runware key in ApiIntegration
-        const adminRunware = await prisma.apiIntegration.findFirst({
-            where: { provider: 'runware', status: 'ACTIVE' },
-        })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const adminConfig = (adminRunware?.config as any) ?? {}
-        if (adminConfig.apiKey) {
-            resolvedProvider = 'runware'
-            apiKey = typeof adminConfig.apiKey === 'string'
-                ? adminConfig.apiKey
-                : decrypt(adminConfig.apiKey)
-            usingByok = false
-        }
+    // Check quota against the OWNER's plan (not the current user's)
+    const ownerId = ownerKey.ownerId!
+    const quota = await checkImageQuota(ownerId, true /* already resolved from owner */)
+    if (!quota.allowed) {
+        return NextResponse.json(
+            {
+                error: quota.reason,
+                errorType: 'quota_exceeded',
+                used: quota.used,
+                limit: quota.limit,
+            },
+            { status: 403 }
+        )
     }
+
+    const resolvedProvider = ownerKey.provider!
+    const apiKey = ownerKey.apiKey!
+    const imageModel = ownerKey.model || channel.defaultImageModel || null
+
 
     if (!resolvedProvider || !apiKey) {
         return NextResponse.json(
@@ -234,10 +214,8 @@ export async function POST(req: NextRequest) {
         const msg = error instanceof Error ? error.message : 'Failed to process image'
         return NextResponse.json({ error: msg }, { status: 500 })
     } finally {
-        // Increment quota if using admin key (after successful upload, before cleanup)
-        if (!usingByok && resolvedProvider) {
-            await incrementImageUsage(session.user.id).catch(() => { })
-        }
+        // Increment quota usage against the owner's account (after successful upload)
+        await incrementImageUsage(ownerId).catch(() => { })
         // Always clean up temp file
         fs.unlink(tmpPath, () => { })
     }
