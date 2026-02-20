@@ -170,55 +170,80 @@ export async function POST(
                 console.error('[Invite] Failed to send invite email (new user):', e)
             }
         } else {
-            // Existing user — always send an invite/notification email
-            const crypto = await import('crypto')
-            const inviteToken = crypto.randomBytes(32).toString('hex')
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    inviteToken,
-                    inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                },
-            })
+            // Existing user — check if they already have a password set
+            const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
-            // Update ChannelInvite record so /invite/[token] can validate it
-            try {
-                await prisma.channelInvite.upsert({
-                    where: { channelId_email: { channelId: id, email } },
-                    create: {
-                        channelId: id,
-                        email,
-                        name: user.name || email.split('@')[0],
-                        token: inviteToken,
-                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                        invitedBy: session.user.id,
-                    },
-                    update: {
-                        token: inviteToken,
-                        acceptedAt: null,
-                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            if (user.passwordHash) {
+                // User already has an account — send notification email with Login button
+                // No need to generate a new invite token for them
+                try {
+                    const { sendChannelAddedNotificationEmail } = await import('@/lib/email')
+                    const result = await sendChannelAddedNotificationEmail({
+                        toEmail: email,
+                        toName: user.name || email,
+                        channelName: channel.displayName,
+                        inviterName: session.user.name || session.user.email || 'Admin',
+                        role: role || 'MANAGER',
+                        appUrl,
+                    })
+                    if (!result.success) {
+                        console.warn('[Invite] Notification email not sent:', result.reason)
+                    }
+                } catch (e) {
+                    console.error('[Invite] Failed to send channel notification (existing user with password):', e)
+                }
+            } else {
+                // User exists but hasn't set password yet — send a fresh invite link
+                const crypto = await import('crypto')
+                const inviteToken = crypto.randomBytes(32).toString('hex')
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        inviteToken,
+                        inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                     },
                 })
-            } catch (e) {
-                console.error('[Invite] Failed to upsert ChannelInvite (existing user):', e)
-            }
 
-            // Always send email — separate try/catch so it never gets skipped
-            try {
-                const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-                const { sendChannelInviteEmail } = await import('@/lib/email')
-                await sendChannelInviteEmail({
-                    toEmail: email,
-                    toName: user.name || email,
-                    channelName: channel.displayName,
-                    inviterName: session.user.name || session.user.email,
-                    role: role || 'MANAGER',
-                    appUrl,
-                    inviteToken,
-                    hasPassword: !!user.passwordHash,
-                })
-            } catch (e) {
-                console.error('[Invite] Failed to send invite email (existing user):', e)
+                // Upsert ChannelInvite so /invite/[token] can validate it
+                try {
+                    await prisma.channelInvite.upsert({
+                        where: { channelId_email: { channelId: id, email } },
+                        create: {
+                            channelId: id,
+                            email,
+                            name: user.name || email.split('@')[0],
+                            token: inviteToken,
+                            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                            invitedBy: session.user.id,
+                        },
+                        update: {
+                            token: inviteToken,
+                            acceptedAt: null,
+                            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                        },
+                    })
+                } catch (e) {
+                    console.error('[Invite] Failed to upsert ChannelInvite (existing user, no password):', e)
+                }
+
+                try {
+                    const { sendChannelInviteEmail } = await import('@/lib/email')
+                    const result = await sendChannelInviteEmail({
+                        toEmail: email,
+                        toName: user.name || email,
+                        channelName: channel.displayName,
+                        inviterName: session.user.name || session.user.email || 'Admin',
+                        role: role || 'MANAGER',
+                        appUrl,
+                        inviteToken,
+                        hasPassword: false,
+                    })
+                    if (!result.success) {
+                        console.warn('[Invite] Invite email not sent:', result.reason)
+                    }
+                } catch (e) {
+                    console.error('[Invite] Failed to send invite email (existing user, no password):', e)
+                }
             }
         }
         targetUserId = user.id

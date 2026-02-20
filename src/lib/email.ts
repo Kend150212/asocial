@@ -354,3 +354,139 @@ export async function sendChannelInviteEmail({
         return { success: false, reason: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
+
+// ─── Channel Added Notification (existing users with password) ─────────────
+export async function sendChannelAddedNotificationEmail({
+    toEmail,
+    toName,
+    channelName,
+    inviterName,
+    role,
+    appUrl,
+}: {
+    toEmail: string
+    toName: string
+    channelName: string
+    inviterName: string
+    role: string
+    appUrl: string
+}) {
+    try {
+        const smtp = await getTransporter()
+        if (!smtp) {
+            console.warn('[Email] No SMTP configured — skipping channel added notification')
+            return { success: false, reason: 'SMTP not configured' }
+        }
+
+        const { transporter, from } = smtp
+        const logoUrl = `${appUrl}/logo.png`
+        const loginUrl = `${appUrl}/login`
+        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
+        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
+
+        await transporter.sendMail({
+            from: `"ASocial" <${from}>`,
+            to: toEmail,
+            subject: `You've been added to ${channelName}`,
+            html: `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 48px 16px;">
+        <tr><td align="center">
+            <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width: 520px; width: 100%;">
+
+                <!-- Logo -->
+                <tr><td align="center" style="padding-bottom: 24px;">
+                    <img src="${logoUrl}" alt="ASocial" width="36" height="36" style="border-radius: 8px;" onerror="this.style.display='none'">
+                </td></tr>
+
+                <!-- Card -->
+                <tr><td style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+
+                        <!-- Header bar -->
+                        <tr><td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 28px 36px;">
+                            <p style="margin: 0 0 6px; font-size: 12px; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Channel Access</p>
+                            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff;">${channelName}</h1>
+                        </td></tr>
+
+                        <!-- Body -->
+                        <tr><td style="padding: 28px 36px 0;">
+                            <p style="margin: 0; font-size: 16px; color: #18181b; font-weight: 500;">
+                                Hi ${toName || toEmail.split('@')[0]},
+                            </p>
+                            <p style="margin: 10px 0 0; font-size: 14px; color: #52525b; line-height: 1.6;">
+                                <strong>${inviterName}</strong> has added you to the <strong>${channelName}</strong> channel on ASocial.
+                                You can log in to your existing account to access it right away.
+                            </p>
+                        </td></tr>
+
+                        <!-- Channel + Role info -->
+                        <tr><td style="padding: 24px 36px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafafa; border: 1px solid #e4e4e7; border-radius: 12px;">
+                                <tr><td style="padding: 16px 20px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+                                        <td>
+                                            <p style="margin: 0 0 2px; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Channel</p>
+                                            <p style="margin: 0; font-size: 15px; color: #18181b; font-weight: 500;">${channelName}</p>
+                                        </td>
+                                        <td align="right" valign="top">
+                                            <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: #ffffff; background-color: ${roleBg};">${roleLabel}</span>
+                                        </td>
+                                    </tr></table>
+                                </td></tr>
+                                <tr><td style="padding: 12px 20px; border-top: 1px solid #f4f4f5;">
+                                    <p style="margin: 0 0 2px; font-size: 11px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">Your Account</p>
+                                    <p style="margin: 0; font-size: 14px; color: #18181b; font-family: 'SF Mono', 'Fira Code', monospace;">${toEmail}</p>
+                                </td></tr>
+                            </table>
+                        </td></tr>
+
+                        <!-- CTA -->
+                        <tr><td style="padding: 0 36px 36px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr><td align="center">
+                                    <a href="${loginUrl}" style="display: inline-block; width: 100%; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 15px; font-weight: 600; box-sizing: border-box;">
+                                        Log In to Your Account →
+                                    </a>
+                                </tr><tr><td>
+                                    <p style="margin: 12px 0 0; font-size: 12px; color: #a1a1aa; text-align: center;">Use your existing email and password to log in</p>
+                                </td></tr>
+                            </table>
+                        </td></tr>
+
+                    </table>
+                </td></tr>
+
+                <!-- Footer -->
+                <tr><td style="padding: 24px 36px 12px; text-align: center; border-top: 1px solid #f4f4f5;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                        <tr><td align="center" style="padding-bottom: 14px;">
+                            <a href="${appUrl}/terms" style="font-size: 11px; color: #a1a1aa; text-decoration: underline; margin: 0 10px;">Terms of Service</a>
+                            <span style="font-size: 11px; color: #d4d4d8;">&middot;</span>
+                            <a href="${appUrl}/privacy" style="font-size: 11px; color: #a1a1aa; text-decoration: underline; margin: 0 10px;">Privacy Policy</a>
+                        </td></tr>
+                        <tr><td align="center">
+                            <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
+                                &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
+                            </p>
+                        </td></tr>
+                    </table>
+                </td></tr>
+
+            </table>
+        </td></tr>
+    </table>
+</body>
+</html>
+            `,
+        })
+
+        return { success: true }
+    } catch (error) {
+        console.error('[Email] Failed to send channel added notification:', error)
+        return { success: false, reason: error instanceof Error ? error.message : 'Unknown error' }
+    }
+}
