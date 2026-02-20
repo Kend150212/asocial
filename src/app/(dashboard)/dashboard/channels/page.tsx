@@ -71,7 +71,7 @@ export default function AdminChannelsPage() {
     const t = useTranslation()
     const router = useRouter()
     const { data: session } = useSession()
-    const canCreateChannel = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
+    const isAdmin = session?.user?.role === 'ADMIN'
 
     const [channels, setChannels] = useState<Channel[]>([])
     const [loading, setLoading] = useState(true)
@@ -424,7 +424,7 @@ export default function AdminChannelsPage() {
                     <p className="text-muted-foreground text-sm mb-4">
                         {search ? `No channels match "${search}"` : t('channels.noChannelsDesc')}
                     </p>
-                    {!search && canCreateChannel && (
+                    {!search && (
                         <Button onClick={() => setShowCreateDialog(true)} variant="outline" className="gap-2">
                             <Plus className="h-4 w-4" />
                             {t('channels.createFirst')}
@@ -446,34 +446,13 @@ export default function AdminChannelsPage() {
                 <DialogContent className="sm:max-w-[520px]">
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
-                        {canCreateChannel && (
-                            <DialogDescription>
-                                Step {wizardStep} of 3 — {wizardStep === 1 ? 'Basic Info' : wizardStep === 2 ? 'AI Configuration' : 'Vibe & Tone'}
-                            </DialogDescription>
-                        )}
+                        <DialogDescription>
+                            Step {wizardStep} of 3 — {wizardStep === 1 ? 'Basic Info' : wizardStep === 2 ? 'AI Configuration' : 'Vibe & Tone'}
+                        </DialogDescription>
                     </DialogHeader>
 
-                    {/* Restriction notice for non-ADMIN/OWNER */}
-                    {!canCreateChannel && (
-                        <div className="py-6 flex flex-col items-center gap-4 text-center">
-                            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                                <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-base mb-1">Permission Required</h3>
-                                <p className="text-sm text-muted-foreground max-w-xs">
-                                    Only <span className="text-foreground font-medium">Admins</span> and <span className="text-foreground font-medium">Owners</span> can create new channels.
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    Please contact your <span className="text-amber-500 font-medium">Owner</span> to request a new channel.
-                                </p>
-                            </div>
-                            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>OK, Got It</Button>
-                        </div>
-                    )}
-
-                    {/* Wizard — only for ADMIN/OWNER */}
-                    {canCreateChannel && (<>
+                    {/* Wizard — visible to all users, backend enforces plan limits */}
+                    {(<>
 
                         {/* Step Indicator */}
                         <div className="flex items-center gap-2 py-2">
