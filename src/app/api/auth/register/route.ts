@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getBrandingServer } from '@/lib/use-branding-server'
 import { sendEmail } from '@/lib/email'
 import bcrypt from 'bcryptjs'
 import { randomInt } from 'crypto'

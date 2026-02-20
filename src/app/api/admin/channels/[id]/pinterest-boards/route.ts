@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getBrandingServer } from '@/lib/use-branding-server'
 import { getPinterestApiBase } from '@/lib/pinterest'
 
 // GET /api/admin/channels/[id]/pinterest-boards?accountId=xxx

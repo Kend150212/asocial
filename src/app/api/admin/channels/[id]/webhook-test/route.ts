@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { getBrandingServer } from '@/lib/use-branding-server'
 
 // POST /api/admin/channels/[id]/webhook-test — test a webhook
 export async function POST(
@@ -19,6 +20,8 @@ export async function POST(
         return NextResponse.json({ error: 'Platform is required' }, { status: 400 })
     }
 
+    const brand = await getBrandingServer()
+
     try {
         let success = false
         let message = ''
@@ -30,7 +33,7 @@ export async function POST(
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        content: '✅ **${brand.appName} Webhook Test** — Connection successful! This channel will receive notifications.',
+                        content: `✅ **${brand.appName} Webhook Test** — Connection successful! This channel will receive notifications.`,
                         username: brand.appName,
                     }),
                 })
@@ -48,7 +51,7 @@ export async function POST(
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: chatId,
-                        text: '✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.',
+                        text: `✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.`,
                         parse_mode: 'Markdown',
                     }),
                 })
@@ -64,7 +67,7 @@ export async function POST(
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        text: '✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.',
+                        text: `✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.`,
                     }),
                 })
                 success = res.ok
@@ -79,7 +82,7 @@ export async function POST(
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         event: 'test',
-                        source: 'asocial',
+                        source: brand.appName.toLowerCase(),
                         message: 'Webhook test — Connection successful!',
                         timestamp: new Date().toISOString(),
                     }),

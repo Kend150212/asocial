@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getBrandingServer } from '@/lib/use-branding-server'
 import { decrypt, encrypt } from '@/lib/encryption'
 import {
     exchangeCodeForTokens,
