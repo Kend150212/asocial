@@ -5,10 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Input } from '@/components/ui/input'
 import {
     CreditCard, Zap, Calendar, AlertCircle, CheckCircle2,
-    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound
+    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
 
@@ -25,11 +24,15 @@ type BillingInfo = {
         maxChannels: number
         maxPostsPerMonth: number
         maxMembersPerChannel: number
+        maxStorageMB: number
+        maxAiImagesPerMonth: number
         hasAutoSchedule: boolean
         hasWebhooks: boolean
         hasAdvancedReports: boolean
         hasPrioritySupport: boolean
         hasWhiteLabel: boolean
+        isInTrial: boolean
+        daysLeftInTrial: number
     }
     subscription: {
         status: string
@@ -51,23 +54,31 @@ type BillingInfo = {
     }
 }
 
+function fmtStorage(mb: number, locale: string): string {
+    if (mb === -1) return locale === 'vi' ? '∞ Không giới hạn' : '∞ Unlimited'
+    if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`
+    return `${mb} MB`
+}
+
 export default function BillingPage() {
     const [info, setInfo] = useState<BillingInfo | null>(null)
     const [loading, setLoading] = useState(true)
     const [interval, setInterval] = useState<'monthly' | 'annual'>('monthly')
     const [upgradeOpen, setUpgradeOpen] = useState(false)
-    const [coupon, setCoupon] = useState('')
     const [portalLoading, setPortalLoading] = useState(false)
-
-    // Detect locale
-    const locale = typeof navigator !== 'undefined' && navigator.language.startsWith('vi') ? 'vi' : 'en'
+    const [locale, setLocale] = useState<'vi' | 'en'>('en')
 
     useEffect(() => {
+        // Detect browser language on client only
+        const detected = typeof navigator !== 'undefined' && navigator.language.startsWith('vi') ? 'vi' : 'en'
+        setLocale(detected)
         fetch('/api/billing')
             .then(r => r.json())
             .then(data => { setInfo(data); setLoading(false) })
             .catch(() => setLoading(false))
     }, [])
+
+    const t = (vi: string, en: string) => locale === 'vi' ? vi : en
 
     const openPortal = async () => {
         setPortalLoading(true)
@@ -91,7 +102,7 @@ export default function BillingPage() {
     if (!info) return null
 
     const { plan, subscription, usage, aiImage } = info
-    const isFree = plan.priceMonthly === 0 && plan.priceAnnual === 0
+    const isFree = plan.priceMonthly === 0 && plan.priceAnnual === 0 && !plan.isInTrial
     const postsPercent = plan.maxPostsPerMonth === -1 ? 0 : Math.min(100, (usage.postsThisMonth / plan.maxPostsPerMonth) * 100)
     const channelsPercent = plan.maxChannels === -1 ? 0 : Math.min(100, (usage.channelCount / plan.maxChannels) * 100)
     const imagesPercent = aiImage.maxPerMonth <= 0 ? 0 : Math.min(100, (usage.imagesThisMonth / aiImage.maxPerMonth) * 100)
@@ -101,19 +112,54 @@ export default function BillingPage() {
 
     return (
         <div className="space-y-6 p-6 max-w-5xl">
-            <div>
-                <h1 className="text-2xl font-bold">{locale === 'vi' ? 'Gói dịch vụ & Thanh toán' : 'Billing & Plans'}</h1>
-                <p className="text-muted-foreground text-sm mt-1">
-                    {locale === 'vi' ? 'Quản lý gói và theo dõi mức sử dụng' : 'Manage your plan and monitor usage'}
-                </p>
+            {/* Header + Lang toggle */}
+            <div className="flex items-start justify-between flex-wrap gap-3">
+                <div>
+                    <h1 className="text-2xl font-bold">{t('Gói dịch vụ & Thanh toán', 'Billing & Plans')}</h1>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        {t('Quản lý gói và theo dõi mức sử dụng', 'Manage your plan and monitor usage')}
+                    </p>
+                </div>
+                {/* Language toggle */}
+                <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-0.5 text-xs">
+                    <button
+                        onClick={() => setLocale('vi')}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-colors ${locale === 'vi' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        🇻🇳 VI
+                    </button>
+                    <button
+                        onClick={() => setLocale('en')}
+                        className={`px-3 py-1.5 rounded-md font-medium transition-colors ${locale === 'en' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        🇺🇸 EN
+                    </button>
+                </div>
             </div>
+
+            {/* Trial banner */}
+            {plan.isInTrial && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm">
+                    <Zap className="h-4 w-4 shrink-0" />
+                    <span>
+                        {t(
+                            `🎉 Bạn đang trong giai đoạn dùng thử Pro — Còn ${plan.daysLeftInTrial} ngày. Nâng cấp để tiếp tục sau khi trial kết thúc.`,
+                            `🎉 You're on a Pro trial — ${plan.daysLeftInTrial} days remaining. Upgrade to keep Pro features after trial ends.`
+                        )}
+                    </span>
+                    <Button size="sm" className="ml-auto h-7 text-xs gap-1" onClick={() => setUpgradeOpen(true)}>
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        {t('Nâng cấp', 'Upgrade')}
+                    </Button>
+                </div>
+            )}
 
             {/* Current Plan Card */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                         <CreditCard className="h-4 w-4" />
-                        {locale === 'vi' ? 'Gói hiện tại' : 'Current Plan'}
+                        {t('Gói hiện tại', 'Current Plan')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -125,8 +171,13 @@ export default function BillingPage() {
                                     {!isFree && (
                                         <Badge variant="secondary" className="text-xs">
                                             {subscription?.billingInterval === 'annual'
-                                                ? (locale === 'vi' ? 'Hàng năm' : 'Annual')
-                                                : (locale === 'vi' ? 'Hàng tháng' : 'Monthly')}
+                                                ? t('Hàng năm', 'Annual')
+                                                : t('Hàng tháng', 'Monthly')}
+                                        </Badge>
+                                    )}
+                                    {plan.isInTrial && (
+                                        <Badge className="text-xs bg-indigo-500/20 text-indigo-400 border-indigo-500/30">
+                                            {t('Dùng thử', 'Trial')}
                                         </Badge>
                                     )}
                                 </div>
@@ -143,18 +194,18 @@ export default function BillingPage() {
                             {isFree ? (
                                 <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
                                     <Zap className="h-4 w-4" />
-                                    {locale === 'vi' ? 'Nâng cấp' : 'Upgrade Plan'}
+                                    {t('Nâng cấp', 'Upgrade Plan')}
                                 </Button>
                             ) : (
                                 <>
                                     <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="gap-1">
                                         <ArrowUpRight className="h-4 w-4" />
-                                        {locale === 'vi' ? 'Đổi gói' : 'Change Plan'}
+                                        {t('Đổi gói', 'Change Plan')}
                                     </Button>
                                     {subscription?.hasStripeSubscription && (
                                         <Button variant="outline" onClick={openPortal} disabled={portalLoading} className="gap-1">
                                             <ExternalLink className="h-4 w-4" />
-                                            {locale === 'vi' ? 'Quản lý thanh toán' : 'Manage Billing'}
+                                            {t('Quản lý thanh toán', 'Manage Billing')}
                                         </Button>
                                     )}
                                 </>
@@ -187,7 +238,7 @@ export default function BillingPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            {locale === 'vi' ? 'Bài đăng tháng này' : 'Posts This Month'} ({usage.month})
+                            {t('Bài đăng tháng này', 'Posts This Month')} ({usage.month})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -201,7 +252,7 @@ export default function BillingPage() {
                             <Progress value={postsPercent} className="h-2" />
                         )}
                         {plan.maxPostsPerMonth === -1 && (
-                            <p className="text-xs text-green-500">{locale === 'vi' ? 'Không giới hạn' : 'Unlimited'}</p>
+                            <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -209,7 +260,7 @@ export default function BillingPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            {locale === 'vi' ? 'Kênh' : 'Channels'}
+                            {t('Kênh', 'Channels')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -223,7 +274,7 @@ export default function BillingPage() {
                             <Progress value={channelsPercent} className="h-2" />
                         )}
                         {plan.maxChannels === -1 && (
-                            <p className="text-xs text-green-500">{locale === 'vi' ? 'Không giới hạn' : 'Unlimited'}</p>
+                            <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -234,56 +285,51 @@ export default function BillingPage() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <ImageIcon className="h-4 w-4" />
-                        {locale === 'vi' ? 'AI tạo hình ảnh tháng này' : 'AI Images This Month'} ({usage.month})
+                        {t('AI tạo hình ảnh tháng này', 'AI Images This Month')} ({usage.month})
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    {/* BYOK indicator */}
                     {aiImage.hasByokKey && (
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
                             <KeyRound className="h-3.5 w-3.5 flex-shrink-0" />
                             <span>
-                                {locale === 'vi'
-                                    ? `BYOK đang dùng: ${aiImage.byokProvider} — không giới hạn`
-                                    : `BYOK active: ${aiImage.byokProvider} key — unlimited generation`}
+                                {t(
+                                    `BYOK đang dùng: ${aiImage.byokProvider} — không giới hạn`,
+                                    `BYOK active: ${aiImage.byokProvider} key — unlimited generation`
+                                )}
                             </span>
                         </div>
                     )}
-
-                    {/* Usage count */}
                     <div className="flex items-end justify-between">
                         <span className="text-2xl font-bold">{usage.imagesThisMonth}</span>
                         <span className="text-sm text-muted-foreground">
                             / {aiImage.maxPerMonth === -1
-                                ? (locale === 'vi' ? '∞ không giới hạn' : '∞ unlimited')
+                                ? t('∞ không giới hạn', '∞ unlimited')
                                 : aiImage.maxPerMonth === 0
                                     ? 'BYOK only'
                                     : aiImage.maxPerMonth}
                         </span>
                     </div>
-
-                    {/* Progress bar — only show if quota limit exists */}
                     {aiImage.maxPerMonth > 0 && aiImage.maxPerMonth !== -1 && (
                         <Progress
                             value={imagesPercent}
                             className={`h-2 ${imagesPercent >= 90 ? '[&>div]:bg-red-500' : imagesPercent >= 70 ? '[&>div]:bg-orange-500' : ''}`}
                         />
                     )}
-
-                    {/* Status messages */}
                     {aiImage.maxPerMonth === -1 && (
-                        <p className="text-xs text-green-500">{locale === 'vi' ? 'Không giới hạn' : 'Unlimited'}</p>
+                        <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
                     )}
                     {aiImage.maxPerMonth === 0 && !aiImage.hasByokKey && (
                         <p className="text-xs text-orange-500">
-                            {locale === 'vi'
-                                ? 'Gói của bạn chưa có AI tạo ảnh. Thêm API key của bạn hoặc nâng cấp gói.'
-                                : 'Your plan has no AI image quota. Add your own API key or upgrade.'}
+                            {t(
+                                'Gói của bạn chưa có AI tạo ảnh. Thêm API key của bạn hoặc nâng cấp gói.',
+                                'Your plan has no AI image quota. Add your own API key or upgrade.'
+                            )}
                         </p>
                     )}
                     {aiImage.maxPerMonth > 0 && imagesPercent >= 90 && !aiImage.hasByokKey && (
                         <p className="text-xs text-red-500">
-                            {locale === 'vi' ? 'Gần hết hạn mức tháng này!' : 'Approaching monthly quota limit!'}
+                            {t('Gần hết hạn mức tháng này!', 'Approaching monthly quota limit!')}
                         </p>
                     )}
                 </CardContent>
@@ -294,35 +340,54 @@ export default function BillingPage() {
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                         <Zap className="h-4 w-4" />
-                        {locale === 'vi' ? 'Tính năng gói' : 'Plan Features'}
+                        {t('Tính năng gói', 'Plan Features')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0">
+                        {/* Numeric limits */}
                         {[
                             {
-                                label: locale === 'vi' ? 'Kênh tối đa' : 'Max channels',
+                                icon: <Zap className="h-3.5 w-3.5 text-muted-foreground" />,
+                                label: t('Kênh tối đa', 'Max channels'),
                                 value: plan.maxChannels === -1 ? '∞' : plan.maxChannels,
                             },
                             {
-                                label: locale === 'vi' ? 'Bài đăng/tháng' : 'Posts per month',
+                                icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />,
+                                label: t('AI post/tháng', 'AI posts/month'),
                                 value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth,
                             },
                             {
-                                label: locale === 'vi' ? 'Thành viên/kênh' : 'Members per channel',
+                                icon: <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />,
+                                label: t('AI ảnh/tháng', 'AI images/month'),
+                                value: plan.maxAiImagesPerMonth === -1
+                                    ? '∞'
+                                    : plan.maxAiImagesPerMonth === 0
+                                        ? t('BYOK', 'BYOK only')
+                                        : plan.maxAiImagesPerMonth,
+                            },
+                            {
+                                icon: <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />,
+                                label: t('Lưu trữ (GDrive)', 'Storage (GDrive)'),
+                                value: fmtStorage(plan.maxStorageMB, locale),
+                            },
+                            {
+                                icon: <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />,
+                                label: t('Thành viên/kênh', 'Members per channel'),
                                 value: plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel,
                             },
-                        ].map(({ label, value }) => (
+                        ].map(({ icon, label, value }) => (
                             <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                                <span className="text-sm text-muted-foreground">{label}</span>
+                                <span className="text-sm text-muted-foreground flex items-center gap-1.5">{icon}{label}</span>
                                 <span className="font-semibold text-sm">{value}</span>
                             </div>
                         ))}
+                        {/* Boolean features */}
                         {[
-                            { label: locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling', value: plan.hasAutoSchedule },
+                            { label: t('Lên lịch tự động', 'Auto scheduling'), value: plan.hasAutoSchedule },
                             { label: 'Webhooks', value: plan.hasWebhooks },
-                            { label: locale === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reports', value: plan.hasAdvancedReports },
-                            { label: locale === 'vi' ? 'Hỗ trợ ưu tiên' : 'Priority support', value: plan.hasPrioritySupport },
+                            { label: t('Báo cáo nâng cao', 'Advanced reports'), value: plan.hasAdvancedReports },
+                            { label: t('Hỗ trợ ưu tiên', 'Priority support'), value: plan.hasPrioritySupport },
                             { label: 'White label', value: plan.hasWhiteLabel },
                         ].map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
