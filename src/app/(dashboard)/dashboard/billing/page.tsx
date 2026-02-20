@@ -10,6 +10,7 @@ import {
     ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
+import { useTranslation } from '@/lib/i18n'
 
 type BillingInfo = {
     plan: {
@@ -54,8 +55,8 @@ type BillingInfo = {
     }
 }
 
-function fmtStorage(mb: number, locale: string): string {
-    if (mb === -1) return locale === 'vi' ? '∞ Không giới hạn' : '∞ Unlimited'
+function fmtStorage(mb: number, unlimited: string): string {
+    if (mb === -1) return `∞ ${unlimited}`
     if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`
     return `${mb} MB`
 }
@@ -63,22 +64,18 @@ function fmtStorage(mb: number, locale: string): string {
 export default function BillingPage() {
     const [info, setInfo] = useState<BillingInfo | null>(null)
     const [loading, setLoading] = useState(true)
-    const [interval, setInterval] = useState<'monthly' | 'annual'>('monthly')
     const [upgradeOpen, setUpgradeOpen] = useState(false)
     const [portalLoading, setPortalLoading] = useState(false)
-    const [locale, setLocale] = useState<'vi' | 'en'>('en')
+
+    // Use the shared app i18n system — syncs with user's language choice
+    const t = useTranslation()
 
     useEffect(() => {
-        // Detect browser language on client only
-        const detected = typeof navigator !== 'undefined' && navigator.language.startsWith('vi') ? 'vi' : 'en'
-        setLocale(detected)
         fetch('/api/billing')
             .then(r => r.json())
             .then(data => { setInfo(data); setLoading(false) })
             .catch(() => setLoading(false))
     }, [])
-
-    const t = (vi: string, en: string) => locale === 'vi' ? vi : en
 
     const openPortal = async () => {
         setPortalLoading(true)
@@ -110,46 +107,24 @@ export default function BillingPage() {
     const statusColor = subscription?.status === 'active' ? 'text-green-500' : subscription?.status === 'past_due' ? 'text-red-500' : 'text-orange-500'
     const StatusIcon = subscription?.status === 'active' ? CheckCircle2 : AlertCircle
 
+    // Locale-aware date formatter using the i18n context locale
+    const fmtDate = (iso: string) => new Date(iso).toLocaleDateString()
+
     return (
         <div className="space-y-6 p-6 max-w-5xl">
-            {/* Header + Lang toggle */}
-            <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold">{t('Gói dịch vụ & Thanh toán', 'Billing & Plans')}</h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        {t('Quản lý gói và theo dõi mức sử dụng', 'Manage your plan and monitor usage')}
-                    </p>
-                </div>
-                {/* Language toggle */}
-                <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-0.5 text-xs">
-                    <button
-                        onClick={() => setLocale('vi')}
-                        className={`px-3 py-1.5 rounded-md font-medium transition-colors ${locale === 'vi' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        🇻🇳 VI
-                    </button>
-                    <button
-                        onClick={() => setLocale('en')}
-                        className={`px-3 py-1.5 rounded-md font-medium transition-colors ${locale === 'en' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        🇺🇸 EN
-                    </button>
-                </div>
+            <div>
+                <h1 className="text-2xl font-bold">{t('billing.title')}</h1>
+                <p className="text-muted-foreground text-sm mt-1">{t('billing.description')}</p>
             </div>
 
             {/* Trial banner */}
             {plan.isInTrial && (
                 <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm">
                     <Zap className="h-4 w-4 shrink-0" />
-                    <span>
-                        {t(
-                            `🎉 Bạn đang trong giai đoạn dùng thử Pro — Còn ${plan.daysLeftInTrial} ngày. Nâng cấp để tiếp tục sau khi trial kết thúc.`,
-                            `🎉 You're on a Pro trial — ${plan.daysLeftInTrial} days remaining. Upgrade to keep Pro features after trial ends.`
-                        )}
-                    </span>
+                    <span>{t('billing.trialNote').replace('{days}', String(plan.daysLeftInTrial))}</span>
                     <Button size="sm" className="ml-auto h-7 text-xs gap-1" onClick={() => setUpgradeOpen(true)}>
                         <ArrowUpRight className="h-3.5 w-3.5" />
-                        {t('Nâng cấp', 'Upgrade')}
+                        {t('billing.upgrade')}
                     </Button>
                 </div>
             )}
@@ -159,53 +134,49 @@ export default function BillingPage() {
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                         <CreditCard className="h-4 w-4" />
-                        {t('Gói hiện tại', 'Current Plan')}
+                        {t('billing.currentPlan')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div className="flex items-center gap-3">
-                            <div>
-                                <div className="text-xl font-bold flex items-center gap-2">
-                                    {locale === 'vi' ? plan.planNameVi : plan.planName}
-                                    {!isFree && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            {subscription?.billingInterval === 'annual'
-                                                ? t('Hàng năm', 'Annual')
-                                                : t('Hàng tháng', 'Monthly')}
-                                        </Badge>
-                                    )}
-                                    {plan.isInTrial && (
-                                        <Badge className="text-xs bg-indigo-500/20 text-indigo-400 border-indigo-500/30">
-                                            {t('Dùng thử', 'Trial')}
-                                        </Badge>
-                                    )}
-                                </div>
-                                {subscription && (
-                                    <div className={`flex items-center gap-1.5 text-sm mt-1 ${statusColor}`}>
-                                        <StatusIcon className="h-3.5 w-3.5" />
-                                        <span className="capitalize">{subscription.status.replace('_', ' ')}</span>
-                                    </div>
+                        <div>
+                            <div className="text-xl font-bold flex items-center gap-2">
+                                {plan.planName}
+                                {!isFree && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        {subscription?.billingInterval === 'annual' ? t('billing.annual') : t('billing.monthly')}
+                                    </Badge>
+                                )}
+                                {plan.isInTrial && (
+                                    <Badge className="text-xs bg-indigo-500/20 text-indigo-400 border-indigo-500/30">
+                                        {t('billing.trial')}
+                                    </Badge>
                                 )}
                             </div>
+                            {subscription && (
+                                <div className={`flex items-center gap-1.5 text-sm mt-1 ${statusColor}`}>
+                                    <StatusIcon className="h-3.5 w-3.5" />
+                                    <span className="capitalize">{subscription.status.replace('_', ' ')}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-2 flex-wrap">
                             {isFree ? (
                                 <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
                                     <Zap className="h-4 w-4" />
-                                    {t('Nâng cấp', 'Upgrade Plan')}
+                                    {t('billing.upgrade')}
                                 </Button>
                             ) : (
                                 <>
                                     <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="gap-1">
                                         <ArrowUpRight className="h-4 w-4" />
-                                        {t('Đổi gói', 'Change Plan')}
+                                        {t('billing.changePlan')}
                                     </Button>
                                     {subscription?.hasStripeSubscription && (
                                         <Button variant="outline" onClick={openPortal} disabled={portalLoading} className="gap-1">
                                             <ExternalLink className="h-4 w-4" />
-                                            {t('Quản lý thanh toán', 'Manage Billing')}
+                                            {t('billing.manageBilling')}
                                         </Button>
                                     )}
                                 </>
@@ -216,18 +187,14 @@ export default function BillingPage() {
                     {subscription?.cancelAtPeriodEnd && (
                         <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 text-orange-600 text-sm">
                             <Clock className="h-4 w-4" />
-                            {locale === 'vi'
-                                ? `Gói sẽ hủy vào ${new Date(subscription.currentPeriodEnd).toLocaleDateString('vi-VN')}`
-                                : `Plan cancels on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
+                            {t('billing.cancelNote').replace('{date}', fmtDate(subscription.currentPeriodEnd))}
                         </div>
                     )}
 
                     {subscription?.currentPeriodEnd && !subscription.cancelAtPeriodEnd && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            {locale === 'vi'
-                                ? `Gia hạn ngày ${new Date(subscription.currentPeriodEnd).toLocaleDateString('vi-VN')}`
-                                : `Renews on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`}
+                            {t('billing.renewsOn').replace('{date}', fmtDate(subscription.currentPeriodEnd))}
                         </div>
                     )}
                 </CardContent>
@@ -238,7 +205,7 @@ export default function BillingPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            {t('Bài đăng tháng này', 'Posts This Month')} ({usage.month})
+                            {t('billing.postsThisMonth')} ({usage.month})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -248,19 +215,15 @@ export default function BillingPage() {
                                 / {plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth}
                             </span>
                         </div>
-                        {plan.maxPostsPerMonth !== -1 && (
-                            <Progress value={postsPercent} className="h-2" />
-                        )}
-                        {plan.maxPostsPerMonth === -1 && (
-                            <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
-                        )}
+                        {plan.maxPostsPerMonth !== -1 && <Progress value={postsPercent} className="h-2" />}
+                        {plan.maxPostsPerMonth === -1 && <p className="text-xs text-green-500">{t('billing.unlimited')}</p>}
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
-                            {t('Kênh', 'Channels')}
+                            {t('billing.channels')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -270,68 +233,41 @@ export default function BillingPage() {
                                 / {plan.maxChannels === -1 ? '∞' : plan.maxChannels}
                             </span>
                         </div>
-                        {plan.maxChannels !== -1 && (
-                            <Progress value={channelsPercent} className="h-2" />
-                        )}
-                        {plan.maxChannels === -1 && (
-                            <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
-                        )}
+                        {plan.maxChannels !== -1 && <Progress value={channelsPercent} className="h-2" />}
+                        {plan.maxChannels === -1 && <p className="text-xs text-green-500">{t('billing.unlimited')}</p>}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* AI Image Generation Usage */}
+            {/* AI Images */}
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <ImageIcon className="h-4 w-4" />
-                        {t('AI tạo hình ảnh tháng này', 'AI Images This Month')} ({usage.month})
+                        {t('billing.aiImages')} ({usage.month})
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     {aiImage.hasByokKey && (
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
                             <KeyRound className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span>
-                                {t(
-                                    `BYOK đang dùng: ${aiImage.byokProvider} — không giới hạn`,
-                                    `BYOK active: ${aiImage.byokProvider} key — unlimited generation`
-                                )}
-                            </span>
+                            <span>{t('billing.byokActive').replace('{provider}', aiImage.byokProvider ?? '')}</span>
                         </div>
                     )}
                     <div className="flex items-end justify-between">
                         <span className="text-2xl font-bold">{usage.imagesThisMonth}</span>
                         <span className="text-sm text-muted-foreground">
                             / {aiImage.maxPerMonth === -1
-                                ? t('∞ không giới hạn', '∞ unlimited')
-                                : aiImage.maxPerMonth === 0
-                                    ? 'BYOK only'
-                                    : aiImage.maxPerMonth}
+                                ? `∞ ${t('billing.unlimited').toLowerCase()}`
+                                : aiImage.maxPerMonth === 0 ? t('billing.byokOnly') : aiImage.maxPerMonth}
                         </span>
                     </div>
                     {aiImage.maxPerMonth > 0 && aiImage.maxPerMonth !== -1 && (
-                        <Progress
-                            value={imagesPercent}
-                            className={`h-2 ${imagesPercent >= 90 ? '[&>div]:bg-red-500' : imagesPercent >= 70 ? '[&>div]:bg-orange-500' : ''}`}
-                        />
+                        <Progress value={imagesPercent} className={`h-2 ${imagesPercent >= 90 ? '[&>div]:bg-red-500' : imagesPercent >= 70 ? '[&>div]:bg-orange-500' : ''}`} />
                     )}
-                    {aiImage.maxPerMonth === -1 && (
-                        <p className="text-xs text-green-500">{t('Không giới hạn', 'Unlimited')}</p>
-                    )}
-                    {aiImage.maxPerMonth === 0 && !aiImage.hasByokKey && (
-                        <p className="text-xs text-orange-500">
-                            {t(
-                                'Gói của bạn chưa có AI tạo ảnh. Thêm API key của bạn hoặc nâng cấp gói.',
-                                'Your plan has no AI image quota. Add your own API key or upgrade.'
-                            )}
-                        </p>
-                    )}
-                    {aiImage.maxPerMonth > 0 && imagesPercent >= 90 && !aiImage.hasByokKey && (
-                        <p className="text-xs text-red-500">
-                            {t('Gần hết hạn mức tháng này!', 'Approaching monthly quota limit!')}
-                        </p>
-                    )}
+                    {aiImage.maxPerMonth === -1 && <p className="text-xs text-green-500">{t('billing.unlimited')}</p>}
+                    {aiImage.maxPerMonth === 0 && !aiImage.hasByokKey && <p className="text-xs text-orange-500">{t('billing.noAiQuota')}</p>}
+                    {aiImage.maxPerMonth > 0 && imagesPercent >= 90 && !aiImage.hasByokKey && <p className="text-xs text-red-500">{t('billing.nearLimit')}</p>}
                 </CardContent>
             </Card>
 
@@ -340,68 +276,39 @@ export default function BillingPage() {
                 <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                         <Zap className="h-4 w-4" />
-                        {t('Tính năng gói', 'Plan Features')}
+                        {t('billing.planFeatures')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0">
-                        {/* Numeric limits */}
                         {[
-                            {
-                                icon: <Zap className="h-3.5 w-3.5 text-muted-foreground" />,
-                                label: t('Kênh tối đa', 'Max channels'),
-                                value: plan.maxChannels === -1 ? '∞' : plan.maxChannels,
-                            },
-                            {
-                                icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />,
-                                label: t('AI post/tháng', 'AI posts/month'),
-                                value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth,
-                            },
-                            {
-                                icon: <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />,
-                                label: t('AI ảnh/tháng', 'AI images/month'),
-                                value: plan.maxAiImagesPerMonth === -1
-                                    ? '∞'
-                                    : plan.maxAiImagesPerMonth === 0
-                                        ? t('BYOK', 'BYOK only')
-                                        : plan.maxAiImagesPerMonth,
-                            },
-                            {
-                                icon: <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />,
-                                label: t('Lưu trữ (GDrive)', 'Storage (GDrive)'),
-                                value: fmtStorage(plan.maxStorageMB, locale),
-                            },
-                            {
-                                icon: <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />,
-                                label: t('Thành viên/kênh', 'Members per channel'),
-                                value: plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel,
-                            },
+                            { icon: <Zap className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.maxChannels'), value: plan.maxChannels === -1 ? '∞' : plan.maxChannels },
+                            { icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiPostsMonth'), value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth },
+                            { icon: <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiImagesMonth'), value: plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? t('billing.byokOnly') : plan.maxAiImagesPerMonth },
+                            { icon: <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.storage'), value: fmtStorage(plan.maxStorageMB, t('billing.unlimited')) },
+                            { icon: <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.membersPerChannel'), value: plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel },
                         ].map(({ icon, label, value }) => (
                             <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                                 <span className="text-sm text-muted-foreground flex items-center gap-1.5">{icon}{label}</span>
                                 <span className="font-semibold text-sm">{value}</span>
                             </div>
                         ))}
-                        {/* Boolean features */}
                         {[
-                            { label: t('Lên lịch tự động', 'Auto scheduling'), value: plan.hasAutoSchedule },
-                            { label: 'Webhooks', value: plan.hasWebhooks },
-                            { label: t('Báo cáo nâng cao', 'Advanced reports'), value: plan.hasAdvancedReports },
-                            { label: t('Hỗ trợ ưu tiên', 'Priority support'), value: plan.hasPrioritySupport },
-                            { label: 'White label', value: plan.hasWhiteLabel },
+                            { label: t('billing.autoSchedule'), value: plan.hasAutoSchedule },
+                            { label: t('billing.webhooks'), value: plan.hasWebhooks },
+                            { label: t('billing.advancedReports'), value: plan.hasAdvancedReports },
+                            { label: t('billing.prioritySupport'), value: plan.hasPrioritySupport },
+                            { label: t('billing.whiteLabel'), value: plan.hasWhiteLabel },
                         ].map(({ label, value }) => (
                             <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                                 <span className="text-sm text-muted-foreground">{label}</span>
-                                {value
-                                    ? <Check className="h-4 w-4 text-emerald-500" />
-                                    : <X className="h-4 w-4 text-muted-foreground/40" />}
+                                {value ? <Check className="h-4 w-4 text-emerald-500" /> : <X className="h-4 w-4 text-muted-foreground/40" />}
                             </div>
                         ))}
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Upgrade modal */}
             <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
         </div>
     )
