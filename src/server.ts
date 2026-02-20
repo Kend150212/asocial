@@ -6,6 +6,9 @@
  * It starts all BullMQ workers + the scheduler.
  */
 
+// Load .env FIRST — this process runs outside Next.js so env vars aren't auto-loaded
+import 'dotenv/config'
+
 import { startAutoPostWorker } from '@/lib/workers/auto-post.worker'
 import { startWebhookWorker } from '@/lib/workers/webhook.worker'
 import { startGdriveWorker } from '@/lib/workers/gdrive.worker'
