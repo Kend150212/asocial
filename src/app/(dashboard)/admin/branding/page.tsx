@@ -62,17 +62,46 @@ export default function AdminBrandingPage() {
         }
     }
 
-    function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const [uploading, setUploading] = useState<'logo' | 'favicon' | null>(null)
+
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'favicon') {
         const file = e.target.files?.[0]
         if (!file) return
-        // For now, use the file name as URL (user should upload to /public)
-        // In production, could upload to S3/media API
-        const reader = new FileReader()
-        reader.onload = () => {
-            // Save as data URL for preview, but suggest putting in /public
-            setSettings(s => ({ ...s, logoUrl: reader.result as string }))
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file')
+            return
         }
-        reader.readAsDataURL(file)
+
+        setUploading(type)
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('type', type)
+
+            const res = await fetch('/api/admin/branding/upload', {
+                method: 'POST',
+                body: formData,
+            })
+
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(`Upload failed: ${data.error}`)
+                return
+            }
+
+            if (type === 'logo') {
+                setSettings(s => ({ ...s, logoUrl: data.url }))
+            } else {
+                setSettings(s => ({ ...s, faviconUrl: data.url }))
+            }
+            toast.success(`${type === 'logo' ? 'Logo' : 'Favicon'} uploaded! Click "Save Changes" to apply.`)
+        } catch (err) {
+            console.error('Upload error:', err)
+            toast.error('Upload failed — check your Google Drive connection')
+        } finally {
+            setUploading(null)
+        }
     }
 
     if (loading) {
@@ -199,32 +228,60 @@ export default function AdminBrandingPage() {
                                 )}
                                 <div className="flex-1">
                                     <Input
-                                        value={settings.logoUrl.startsWith('data:') ? '(uploaded)' : settings.logoUrl}
+                                        value={settings.logoUrl}
                                         onChange={e => setSettings(s => ({ ...s, logoUrl: e.target.value }))}
-                                        placeholder="/logo.png"
+                                        placeholder="/logo.png or https://..."
                                         className="mb-1.5"
                                     />
-                                    <label className="cursor-pointer">
+                                    <label className={`cursor-pointer ${uploading === 'logo' ? 'pointer-events-none opacity-50' : ''}`}>
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={handleLogoUpload}
+                                            onChange={e => handleImageUpload(e, 'logo')}
                                             className="hidden"
                                         />
                                         <span className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300">
-                                            <Upload className="h-3 w-3" /> Upload image
+                                            {uploading === 'logo' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                                            {uploading === 'logo' ? 'Uploading to Google Drive...' : 'Upload image'}
                                         </span>
                                     </label>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Favicon URL</label>
-                            <Input
-                                value={settings.faviconUrl}
-                                onChange={e => setSettings(s => ({ ...s, faviconUrl: e.target.value }))}
-                                placeholder="/favicon.ico"
-                            />
+                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Favicon</label>
+                            <div className="flex items-center gap-3">
+                                {settings.faviconUrl && (
+                                    <NextImage
+                                        src={settings.faviconUrl}
+                                        alt="Favicon"
+                                        width={32}
+                                        height={32}
+                                        className="rounded border"
+                                        unoptimized
+                                    />
+                                )}
+                                <div className="flex-1">
+                                    <Input
+                                        value={settings.faviconUrl}
+                                        onChange={e => setSettings(s => ({ ...s, faviconUrl: e.target.value }))}
+                                        placeholder="/favicon.ico or https://..."
+                                        className="mb-1.5"
+                                    />
+                                    <label className={`cursor-pointer ${uploading === 'favicon' ? 'pointer-events-none opacity-50' : ''}`}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={e => handleImageUpload(e, 'favicon')}
+                                            className="hidden"
+                                        />
+                                        <span className="inline-flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300">
+                                            {uploading === 'favicon' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                                            {uploading === 'favicon' ? 'Uploading to Google Drive...' : 'Upload favicon'}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label className="text-xs font-medium text-muted-foreground mb-1 block">Primary Brand Color</label>
