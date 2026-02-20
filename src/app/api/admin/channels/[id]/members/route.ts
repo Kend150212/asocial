@@ -28,8 +28,8 @@ export async function GET(
 
 // Default permissions by role
 function getDefaultPermissions(role: string) {
-    // MANAGER and ADMIN get full permissions
-    if (role === 'MANAGER' || role === 'ADMIN') {
+    // OWNER, MANAGER and ADMIN get full permissions
+    if (role === 'OWNER' || role === 'MANAGER' || role === 'ADMIN') {
         return {
             canCreatePost: true,
             canEditPost: true,

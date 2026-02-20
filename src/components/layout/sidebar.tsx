@@ -78,7 +78,8 @@ export function Sidebar({ session }: { session: Session }) {
     const pathname = usePathname()
     const [collapsed, setCollapsed] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
-    const isAdmin = session?.user?.role === 'ADMIN'
+    const isAdmin = session?.user?.role === 'ADMIN' // Only system ADMIN sees Users/API Hub
+    const isOwnerOrAbove = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
     const t = useTranslation()
     const { activeChannel, channels, setActiveChannel, loadingChannels } = useWorkspace()
 

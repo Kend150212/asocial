@@ -13,7 +13,7 @@ export async function GET() {
 
     const channels = await prisma.channel.findMany({
         where: isAdmin ? {} : {
-            members: { some: { userId: session.user.id, role: { not: 'CUSTOMER' } } },
+            members: { some: { userId: session.user.id, role: { notIn: ['CUSTOMER'] } } },
         },
         orderBy: { createdAt: 'desc' },
         include: {

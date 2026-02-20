@@ -28,7 +28,7 @@ export async function GET() {
     })
 
     // Primary role check
-    const hasStaffRole = user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'STAFF'
+    const hasStaffRole = user.role === 'ADMIN' || user.role === 'OWNER' || user.role === 'MANAGER' || user.role === 'STAFF'
     const hasCustomerRole = user.role === 'CUSTOMER'
 
     // A user has staff access if they have a staff role OR are a non-customer channel member

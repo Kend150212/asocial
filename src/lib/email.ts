@@ -201,8 +201,8 @@ export async function sendChannelInviteEmail({
 
         // ─── Role-specific content ───────────────────────
         const isCustomer = role === 'CUSTOMER'
-        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
-        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
+        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
+        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
 
         // Subject
         const subject = isCustomer
