@@ -1,5 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { WorkspaceProvider } from '@/lib/workspace-context'
@@ -16,9 +18,27 @@ export default async function DashboardLayout({
         redirect('/login')
     }
 
-    // CUSTOMER users can only access /portal
+    // CUSTOMER users: check if they have staff channel access (dual-role)
     if (session.user.role === 'CUSTOMER') {
-        redirect('/portal')
+        const cookieStore = await cookies()
+        const accessMode = cookieStore.get('access-mode')?.value
+
+        // If user explicitly chose dashboard on /choose page, allow through
+        if (accessMode !== 'dashboard') {
+            // Check if they have any non-CUSTOMER channel memberships (staff access)
+            const staffMemberships = await prisma.channelMember.count({
+                where: { userId: session.user.id, role: { not: 'CUSTOMER' } },
+            })
+
+            if (staffMemberships === 0) {
+                // Pure customer — redirect to portal
+                redirect('/portal')
+            } else {
+                // Dual-access but hasn't chosen yet — redirect to chooser
+                redirect('/choose')
+            }
+        }
+        // If accessMode === 'dashboard', fall through and render dashboard
     }
 
     return (
@@ -33,5 +53,3 @@ export default async function DashboardLayout({
         </div>
     )
 }
-
-

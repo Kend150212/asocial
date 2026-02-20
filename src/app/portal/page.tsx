@@ -127,6 +127,7 @@ export default function PortalPage() {
     const [submitting, setSubmitting] = useState<Record<string, boolean>>({})
     const [done, setDone] = useState<Record<string, 'APPROVED' | 'REJECTED'>>({})
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [hasDualAccess, setHasDualAccess] = useState(false)
 
     // Calendar state
     const [calView, setCalView] = useState<'month' | 'week'>('month')
@@ -189,9 +190,16 @@ export default function PortalPage() {
     useEffect(() => {
         if (status === 'loading') return
         if (!session) { router.push('/login'); return }
-        if (session.user.role !== 'CUSTOMER') { router.push('/dashboard'); return }
         loadData()
     }, [session, status, router, loadData])
+
+    // Check dual access
+    useEffect(() => {
+        fetch('/api/auth/check-access')
+            .then(r => r.json())
+            .then(data => { if (data.hasDualAccess) setHasDualAccess(true) })
+            .catch(() => { })
+    }, [])
 
     useEffect(() => {
         if (activeTab === 'calendar' && channels.length > 0) loadCalendar()
@@ -318,8 +326,8 @@ export default function PortalPage() {
                     <button
                         onClick={() => setSelectedChannel('all')}
                         className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all mb-0.5 ${selectedChannel === 'all'
-                                ? `${c.activeBg} ${c.activeText} font-medium`
-                                : `${c.textMuted} ${c.hoverBg}`
+                            ? `${c.activeBg} ${c.activeText} font-medium`
+                            : `${c.textMuted} ${c.hoverBg}`
                             }`}
                     >
                         <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>⊕</span>
@@ -330,8 +338,8 @@ export default function PortalPage() {
                             key={ch.id}
                             onClick={() => setSelectedChannel(ch.id)}
                             className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all ${selectedChannel === ch.id
-                                    ? `${c.activeBg} ${c.activeText} font-medium`
-                                    : `${c.textMuted} ${c.hoverBg}`
+                                ? `${c.activeBg} ${c.activeText} font-medium`
+                                : `${c.textMuted} ${c.hoverBg}`
                                 }`}
                         >
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ch.isActive ? 'bg-emerald-500' : theme === 'dark' ? 'bg-white/20' : 'bg-gray-300'}`} />
@@ -345,8 +353,8 @@ export default function PortalPage() {
                     <button
                         onClick={() => { setActiveTab('review'); setSidebarOpen(false) }}
                         className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm transition-all ${activeTab === 'review'
-                                ? `${c.activeBg} ${c.activeText} font-medium`
-                                : `${c.textMuted} ${c.hoverBg}`
+                            ? `${c.activeBg} ${c.activeText} font-medium`
+                            : `${c.textMuted} ${c.hoverBg}`
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -362,8 +370,8 @@ export default function PortalPage() {
                     <button
                         onClick={() => { setActiveTab('calendar'); setSidebarOpen(false) }}
                         className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm transition-all ${activeTab === 'calendar'
-                                ? `${c.activeBg} ${c.activeText} font-medium`
-                                : `${c.textMuted} ${c.hoverBg}`
+                            ? `${c.activeBg} ${c.activeText} font-medium`
+                            : `${c.textMuted} ${c.hoverBg}`
                             }`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
@@ -393,6 +401,20 @@ export default function PortalPage() {
                             </svg>
                         </button>
                     </div>
+                    {hasDualAccess && (
+                        <button
+                            onClick={() => {
+                                document.cookie = 'access-mode=dashboard;path=/;max-age=86400'
+                                router.push('/dashboard')
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 mt-1 rounded-lg text-xs font-medium ${c.textSoft} ${c.hoverBg} transition-colors`}
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                            </svg>
+                            Switch to Dashboard
+                        </button>
+                    )}
                 </div>
             </aside>
 
@@ -676,8 +698,8 @@ function FullCalendar({
                                 key={platform}
                                 onClick={() => togglePlatform(platform)}
                                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide border transition-all ${isActive
-                                        ? `${PLATFORM_COLORS[platform]} text-white border-transparent`
-                                        : c.pillInactive
+                                    ? `${PLATFORM_COLORS[platform]} text-white border-transparent`
+                                    : c.pillInactive
                                     }`}
                             >
                                 <PlatformIcon platform={platform} size="xs" />
@@ -850,8 +872,8 @@ function CalWeekView({ currentDate, postsByDate, theme }: {
                                                 <div className="flex items-center gap-1">
                                                     <span className={`text-[10px] ${c.textMuted}`}>{time}</span>
                                                     <span className={`ml-auto text-[8px] px-1 py-0 rounded font-medium ${post.status === 'PUBLISHED' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                            post.status === 'SCHEDULED' ? 'bg-blue-500/20 text-blue-400' :
-                                                                'bg-amber-500/20 text-amber-400'
+                                                        post.status === 'SCHEDULED' ? 'bg-blue-500/20 text-blue-400' :
+                                                            'bg-amber-500/20 text-amber-400'
                                                         }`}>
                                                         {STATUS_LABELS[post.status || ''] || post.status}
                                                     </span>
