@@ -1,3 +1,5 @@
+'use client'
+
 import { useBranding } from '@/lib/use-branding'
 import Image from 'next/image'
 import Link from 'next/link'
