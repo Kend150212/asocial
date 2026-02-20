@@ -98,23 +98,29 @@ export async function PUT(
     const periodEnd = new Date()
     periodEnd.setFullYear(periodEnd.getFullYear() + 1) // 1 year from now
 
-    const sub = await db.subscription.upsert({
-        where: { userId },
-        update: {
-            planId,
-            status: status ?? 'active',
-            updatedAt: new Date(),
-        },
-        create: {
-            userId,
-            planId,
-            status: status ?? 'active',
-            billingInterval: 'monthly',
-            currentPeriodEnd: periodEnd,
-            cancelAtPeriodEnd: false,
-        },
-    })
+    try {
+        const sub = await db.subscription.upsert({
+            where: { userId },
+            update: {
+                planId,
+                status: status ?? 'active',
+                updatedAt: new Date(),
+            },
+            create: {
+                userId,
+                planId,
+                status: status ?? 'active',
+                billingInterval: 'monthly',
+                currentPeriodEnd: periodEnd,
+                cancelAtPeriodEnd: false,
+            },
+        })
 
-    console.log(`[AdminBilling] Plan overridden for user ${userId} → ${plan.name}. Note: ${note ?? '—'}`)
-    return NextResponse.json({ subscription: sub, plan })
+        console.log(`[AdminBilling] Plan overridden for user ${userId} → ${plan.name}. Note: ${note ?? '—'}`)
+        return NextResponse.json({ subscription: sub, plan })
+    } catch (err) {
+        console.error('[AdminBilling] Failed to upsert subscription:', err)
+        const msg = err instanceof Error ? err.message : 'Database error'
+        return NextResponse.json({ error: msg }, { status: 500 })
+    }
 }

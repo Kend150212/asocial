@@ -108,7 +108,8 @@ export default function AdminBillingPage() {
                 toast.success('Plan overridden!')
                 fetchData()
             } else {
-                toast.error('Failed to override plan')
+                const data = await res.json().catch(() => ({}))
+                toast.error(data.error ?? 'Failed to override plan')
             }
         } finally {
             setOverridingId(null)
