@@ -44,7 +44,9 @@
         "apiKeys": "AI API Keys",
         "activity": "Hoạt động",
         "automation": "Tự động hóa",
-        "settings": "Cài đặt"
+        "settings": "Cài đặt",
+        "billing": "Thanh toán",
+        "plans": "Quản lý gói"
     },
     "auth": {
         "signIn": "Đăng nhập",
@@ -99,7 +101,8 @@
             "STORAGE": "Lưu trữ đám mây",
             "EMAIL": "Dịch vụ Email",
             "WEBHOOK": "Webhooks",
-            "DESIGN": "Công cụ thiết kế"
+            "DESIGN": "Công cụ thiết kế",
+            "BILLING": "Thanh toán & Gói cước"
         }
     },
     "guides": {

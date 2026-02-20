@@ -46,6 +46,16 @@ export async function POST() {
             status: 'INACTIVE' as const,
             baseUrl: 'https://api.canva.com/rest/v1',
         },
+        {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            category: 'BILLING' as any,
+            provider: 'stripe',
+            name: 'Stripe',
+            isActive: false,
+            isDefault: false,
+            status: 'INACTIVE' as const,
+            baseUrl: 'https://api.stripe.com',
+        },
     ]
 
     const results = []

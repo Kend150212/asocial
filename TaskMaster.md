@@ -86,20 +86,26 @@
 - [x] Bell icon + notification panel
 - [x] Per-channel notification email
 
-## Phase 12: Reports & Analytics
-- [ ] Per-channel reports
-- [ ] Charts (Recharts)
-- [ ] Engagement metrics
-- [ ] Export CSV
-- [ ] Platform breakdown
+## Phase 12: Reports & Analytics ✅ COMPLETED
+- [x] Per-channel reports
+- [x] Charts (Recharts) — Area, Bar, Pie
+- [x] Platform engagement metrics (Facebook/Instagram/YouTube native APIs)
+- [x] Export CSV
+- [x] Platform breakdown table (Likes, Comments, Reach, Impressions per platform)
 
-## Phase 13: Automation
-- [ ] BullMQ scheduler
-- [ ] Auto-post workers
-- [ ] Google Drive upload worker
-- [ ] AI auto-content pipeline
-- [ ] Email notification worker
-- [ ] Webhook dispatch worker
+## Phase 13: Automation ✅
+- [x] BullMQ scheduler — `src/lib/queue.ts` + `src/lib/scheduler.ts`
+- [x] Auto-post worker — `src/lib/workers/auto-post.worker.ts` (gọi nội bộ publish route)
+- [x] Google Drive sync worker — `src/lib/workers/gdrive.worker.ts`
+- [x] AI auto-content pipeline — `src/lib/workers/ai-content.worker.ts`
+- [x] Webhook dispatch worker — `src/lib/workers/webhook.worker.ts`
+- [x] Worker process entry point — `src/server.ts` + `npm run worker`
+- [x] Cron trigger endpoint — `GET /api/cron` (bảo vệ bằng `CRON_SECRET`)
+- [x] pm2 config — `ecosystem.config.js` (worker chạy nền, tự restart)
+- [x] **Deploy & hoạt động** ✅ — worker + scheduler chạy ổn trên pm2, auto-publish đã xác nhận hoạt động
+  - Env cần thêm: `WORKER_SECRET`, `CRON_SECRET`, `PORT=3000`
+  - nginx `proxy_pass` → port 3000
+  - Deploy command: `git stash && git pull && npm run build && pm2 restart asocial && pm2 restart asocial-worker`
 
 ## Phase 14: Activity Log & Monitoring
 - [ ] Audit trail
@@ -132,4 +138,4 @@
 
 ---
 
-**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Còn lại: Phases 12–17**
+**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 13 ✅ | Còn lại: Phases 14–17**

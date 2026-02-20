@@ -42,6 +42,7 @@ import {
     FolderPlus,
     Link,
     Palette,
+    CreditCard,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -76,6 +77,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
     EMAIL: <Mail className="h-5 w-5" />,
     WEBHOOK: <Webhook className="h-5 w-5" />,
     DESIGN: <Palette className="h-5 w-5" />,
+    BILLING: <CreditCard className="h-5 w-5" />,
 }
 
 // categoryLabels now driven by t() inside the component
@@ -98,6 +100,7 @@ const providerColors: Record<string, string> = {
     gdrive: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     canva: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+    stripe: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
 }
 
 const providerGuideUrls: Record<string, string> = {
@@ -118,6 +121,7 @@ const providerGuideUrls: Record<string, string> = {
     gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
     smtp: 'https://myaccount.google.com/apppasswords',
     canva: 'https://www.canva.com/developers/',
+    stripe: 'https://dashboard.stripe.com/apikeys',
 }
 
 interface PlatformGuide {
@@ -304,6 +308,27 @@ const platformGuides: Record<string, PlatformGuide> = {
         url: 'https://app.vbout.com/Settings#tab-api',
         urlLabel: 'Open Vbout Settings',
     },
+    stripe: {
+        title: '💳 Stripe API Setup Guide',
+        description: 'Configure Stripe for subscription billing, checkout, and payment webhooks.\nCấu hình Stripe để xử lý thanh toán và subscription.',
+        steps: [
+            { title: 'Go to Stripe Dashboard', detail: 'Visit dashboard.stripe.com → sign in or create an account.\n\nTruy cập dashboard.stripe.com → đăng nhập hoặc tạo tài khoản.' },
+            { title: 'Get API Keys', detail: 'Go to Developers → API Keys.\nCopy the "Secret key" (sk_live_...) → paste into "Secret Key" below.\nCopy the "Publishable key" (pk_live_...) → paste into "Publishable Key" below.\n\nVào Developers → API Keys.\nCopy "Secret key" (sk_live_...) → dán vào ô "Secret Key".\nCopy "Publishable key" (pk_live_...) → dán vào ô "Publishable Key".' },
+            { title: 'Set up Webhook', detail: 'Go to Developers → Webhooks → "Add endpoint".\nEndpoint URL: {YOUR_DOMAIN}/api/billing/webhook\nEvents to listen:\n• checkout.session.completed\n• customer.subscription.updated\n• customer.subscription.deleted\n• invoice.payment_failed\n\nVào Developers → Webhooks → "Add endpoint".\nURL: {YOUR_DOMAIN}/api/billing/webhook\nSự kiện cần lắng nghe:\n• checkout.session.completed\n• customer.subscription.updated\n• customer.subscription.deleted\n• invoice.payment_failed' },
+            { title: 'Get Webhook Secret', detail: 'After creating the webhook, click into it → "Signing secret" → Reveal.\nCopy the whsec_... value → paste into "Webhook Secret" below.\n\nSau khi tạo webhook, nhấn vào nó → "Signing secret" → Reveal.\nCopy giá trị whsec_... → dán vào ô "Webhook Secret".' },
+            { title: 'Click Save → Test', detail: 'Click "Save" to store all 3 keys. Then click "Test Connection" to verify the Secret Key works.\n\nNhấn "Save" để lưu 3 key. Sau đó nhấn "Test Connection" để kiểm tra Secret Key.' },
+            { title: 'Seed Plans (server)', detail: 'On the server, run: npx tsx prisma/seed-plans.ts\nThis creates the Free/Pro/Business/Enterprise plans in the database.\n\nTrên server chạy: npx tsx prisma/seed-plans.ts\nSẽ tạo các gói Free/Pro/Business/Enterprise trong database.' },
+        ],
+        tips: [
+            '✅ Use Test keys (sk_test_ / pk_test_) for development, Live keys for production',
+            '✅ Webhook endpoint: {YOUR_DOMAIN}/api/billing/webhook',
+            '⚠️ Webhook Secret changes if you delete and recreate the webhook — update it here too',
+            '💡 After saving, run the seed script to create default plans',
+        ],
+        url: 'https://dashboard.stripe.com/apikeys',
+        urlLabel: 'Open Stripe Dashboard',
+    },
+
     openai: {
         title: '🤖 OpenAI API Setup Guide',
         description: 'Connect to GPT models for AI-powered content generation.',
@@ -359,6 +384,7 @@ export default function IntegrationsPage() {
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
     const [folderName, setFolderName] = useState('')
     const [creatingFolder, setCreatingFolder] = useState(false)
+    const [stripeConfigs, setStripeConfigs] = useState<Record<string, StripeConfig>>({})
 
     // Handle Google Drive OAuth callback
     useEffect(() => {
@@ -385,6 +411,7 @@ export default function IntegrationsPage() {
             const smtpConfigMap: Record<string, SmtpConfig> = {}
             const gdriveConfigMap: Record<string, GDriveConfig> = {}
             const oauthConfigMap: Record<string, OAuthConfig> = {}
+            const stripeConfigMap: Record<string, StripeConfig> = {}
             for (const i of data) {
                 const config = (i.config || {}) as Record<string, string>
                 modelSelections[i.id] = {
@@ -457,11 +484,18 @@ export default function IntegrationsPage() {
                         clientSecret: '',
                     }
                 }
+                if (i.provider === 'stripe') {
+                    stripeConfigMap[i.id] = {
+                        publishableKey: config.publishableKey || '',
+                        webhookSecret: '',
+                    }
+                }
             }
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
             setGdriveConfigs(gdriveConfigMap)
             setOauthConfigs(oauthConfigMap)
+            setStripeConfigs(stripeConfigMap)
         } catch {
             toast.error('Failed to load integrations')
         } finally {
@@ -590,6 +624,18 @@ export default function IntegrationsPage() {
                 if (oauth) {
                     body.config = { canvaClientId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Stripe config
+            if (integration.provider === 'stripe') {
+                const sc = stripeConfigs[integration.id]
+                if (sc) {
+                    body.config = {
+                        publishableKey: sc.publishableKey,
+                        ...(sc.webhookSecret ? { webhookSecret: sc.webhookSecret } : {}),
+                    }
+                    // secret key is stored as apiKey (encrypted)
                 }
             }
 
@@ -789,6 +835,13 @@ export default function IntegrationsPage() {
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
                                 }
+                                stripeConfig={stripeConfigs[integration.id]}
+                                onStripeChange={(field: string, value: string) =>
+                                    setStripeConfigs((s) => ({
+                                        ...s,
+                                        [integration.id]: { ...s[integration.id], [field]: value },
+                                    }))
+                                }
                                 folderName={folderName}
                                 onFolderNameChange={(val: string) => setFolderName(val)}
                                 onCreateFolder={handleCreateFolder}
@@ -825,6 +878,11 @@ interface OAuthConfig {
     sandbox?: string
 }
 
+interface StripeConfig {
+    publishableKey: string
+    webhookSecret: string
+}
+
 function IntegrationCard({
     integration,
     apiKey,
@@ -850,6 +908,8 @@ function IntegrationCard({
     onGdriveChange,
     oauthConfig,
     onOauthChange,
+    stripeConfig,
+    onStripeChange,
     folderName,
     onFolderNameChange,
     onCreateFolder,
@@ -880,6 +940,8 @@ function IntegrationCard({
     onGdriveChange: (field: string, value: string) => void
     oauthConfig?: OAuthConfig
     onOauthChange: (field: string, value: string) => void
+    stripeConfig?: StripeConfig
+    onStripeChange: (field: string, value: string) => void
     folderName: string
     onFolderNameChange: (value: string) => void
     onCreateFolder: () => void
@@ -890,6 +952,7 @@ function IntegrationCard({
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
+    const isStripe = integration.provider === 'stripe'
     const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
@@ -1002,6 +1065,64 @@ function IntegrationCard({
                         })()}
                     </div>
                 )}
+
+                {/* Stripe Config */}
+                {isStripe && stripeConfig ? (
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Secret Key (sk_live_ / sk_test_)</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={apiKey}
+                                    onChange={(e) => onApiKeyChange(e.target.value)}
+                                    placeholder={integration.hasApiKey ? '••••••••••••••••' : 'sk_live_xxxx'}
+                                    className="pr-8 h-8 text-xs font-mono"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">Stored encrypted. Used for API calls server-side.</p>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Publishable Key (pk_live_ / pk_test_)</Label>
+                            <Input
+                                value={stripeConfig.publishableKey}
+                                onChange={(e) => onStripeChange('publishableKey', e.target.value)}
+                                placeholder="pk_live_xxxx"
+                                className="h-8 text-xs font-mono"
+                            />
+                            <p className="text-[10px] text-muted-foreground">Stored in config, used on the client side (checkout).</p>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Webhook Secret (whsec_)</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={stripeConfig.webhookSecret}
+                                    onChange={(e) => onStripeChange('webhookSecret', e.target.value)}
+                                    placeholder="whsec_xxxx (leave blank to keep existing)"
+                                    className="pr-8 h-8 text-xs font-mono"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">From Stripe Dashboard → Webhooks → Signing secret.</p>
+                        </div>
+                    </div>
+                ) : null}
 
                 {/* SMTP Config */}
                 {isSMTP && smtpConfig ? (

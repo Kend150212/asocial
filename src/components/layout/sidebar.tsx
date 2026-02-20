@@ -45,6 +45,8 @@ import {
     Layers,
     ChevronDown,
     Check,
+    CreditCard,
+    LayoutList,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -68,12 +70,14 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
     { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
+    { titleKey: 'nav.billing', href: '/dashboard/billing', icon: CreditCard },
 ]
 
 
 const adminNav: NavItem[] = [
     { titleKey: 'nav.users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
     { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
+    { titleKey: 'nav.plans', href: '/admin/plans', icon: LayoutList, roles: ['ADMIN'] },
 ]
 
 export function Sidebar({ session }: { session: Session }) {

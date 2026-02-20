@@ -44,7 +44,9 @@
         "apiKeys": "AI API Keys",
         "activity": "Activity",
         "automation": "Automation",
-        "settings": "Settings"
+        "settings": "Settings",
+        "billing": "Billing",
+        "plans": "Plans"
     },
     "auth": {
         "signIn": "Sign In",
@@ -99,7 +101,8 @@
             "STORAGE": "Cloud Storage",
             "EMAIL": "Email Service",
             "WEBHOOK": "Webhooks",
-            "DESIGN": "Design Tools"
+            "DESIGN": "Design Tools",
+            "BILLING": "Billing & Payments"
         }
     },
     "guides": {

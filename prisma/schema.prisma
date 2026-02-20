@@ -51,6 +51,7 @@ model User {
   notifications  Notification[]
   activityLogs   ActivityLog[]
   apiKeys        UserApiKey[]
+  subscription   Subscription?
 
   // NextAuth
   accounts Account[]
@@ -134,6 +135,7 @@ enum IntegrationCategory {
   EMAIL
   WEBHOOK
   DESIGN
+  BILLING
 }
 
 enum IntegrationStatus {
@@ -566,4 +568,88 @@ model Backup {
   createdAt DateTime     @default(now()) @map("created_at")
 
   @@map("backups")
+}
+
+
+// ==========================================
+// BILLING & PLANS
+// ==========================================
+
+model Plan {
+  id          String  @id @default(cuid())
+  name        String  // e.g. "Free", "Pro"
+  nameVi      String  @default("") @map("name_vi") // e.g. "Miễn phí", "Chuyên nghiệp"
+  description String? @db.Text
+  descriptionVi String? @map("description_vi") @db.Text
+  isActive    Boolean @default(true) @map("is_active")
+  isPublic    Boolean @default(true) @map("is_public") // visible on /pricing
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  // Stripe
+  stripePriceIdMonthly String? @map("stripe_price_id_monthly")
+  stripePriceIdAnnual  String? @map("stripe_price_id_annual")
+
+  // Pricing
+  priceMonthly Float @default(0) @map("price_monthly")
+  priceAnnual  Float @default(0) @map("price_annual")
+
+  // Limits (-1 = unlimited)
+  maxChannels          Int @default(1) @map("max_channels")
+  maxPostsPerMonth     Int @default(50) @map("max_posts_per_month")
+  maxMembersPerChannel Int @default(2) @map("max_members_per_channel")
+
+  // Feature flags
+  hasAutoSchedule    Boolean @default(false) @map("has_auto_schedule")
+  hasWebhooks        Boolean @default(false) @map("has_webhooks")
+  hasAdvancedReports Boolean @default(false) @map("has_advanced_reports")
+  hasPrioritySupport Boolean @default(false) @map("has_priority_support")
+  hasWhiteLabel      Boolean @default(false) @map("has_white_label")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique @map("user_id")
+  planId               String    @map("plan_id")
+
+  // Stripe
+  stripeCustomerId     String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  stripeCouponId       String?   @map("stripe_coupon_id")
+
+  // Billing
+  billingInterval      String    @default("monthly") @map("billing_interval") // monthly | annual | lifetime
+  status               String    @default("active") @map("status")            // active | past_due | canceled | trialing
+  trialEndsAt          DateTime? @map("trial_ends_at")
+  currentPeriodEnd     DateTime  @map("current_period_end")
+  cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan   Plan    @relation(fields: [planId], references: [id])
+  usages Usage[]
+
+  @@map("subscriptions")
+}
+
+model Usage {
+  id             String   @id @default(cuid())
+  subscriptionId String   @map("subscription_id")
+  month          String   // "2026-02" (YYYY-MM)
+  postsCreated   Int      @default(0) @map("posts_created")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, month])
+  @@map("usages")
 }

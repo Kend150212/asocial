@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
             case 'gdrive':
                 result = await testGoogleDrive(apiKey, integration.config as Record<string, string> | null)
                 break
+            case 'stripe':
+                result = await testStripe(apiKey)
+                break
             default:
                 result = { success: true, message: `Provider ${integration.provider} — API key configured` }
         }
@@ -285,6 +288,37 @@ async function testGoogleDrive(clientSecret: string, config: Record<string, stri
         return {
             success: false,
             message: error instanceof Error ? error.message : 'Failed to verify Google Drive credentials',
+        }
+    }
+}
+
+async function testStripe(secretKey: string) {
+    if (!secretKey) {
+        return { success: false, message: 'Stripe secret key not configured' }
+    }
+    try {
+        const res = await fetch('https://api.stripe.com/v1/balance', {
+            headers: { Authorization: `Bearer ${secretKey}` },
+        })
+        if (res.ok) {
+            const data = await res.json()
+            const available = data.available?.[0]
+            const currency = available?.currency?.toUpperCase() || 'USD'
+            const cents = available?.amount || 0
+            return {
+                success: true,
+                message: `Stripe connected — Balance: ${cents / 100} ${currency}`,
+            }
+        }
+        const err = await res.json()
+        return {
+            success: false,
+            message: err?.error?.message || `Stripe error: ${res.status}`,
+        }
+    } catch (error) {
+        return {
+            success: false,
+            message: error instanceof Error ? error.message : 'Failed to connect to Stripe',
         }
     }
 }
