@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useWorkspace } from '@/lib/workspace-context'
+import { useTranslation } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -99,6 +100,7 @@ function formatDate(d: string) {
 
 /* ═══════════════════════════════════════════════ */
 export default function MediaLibraryPage() {
+    const t = useTranslation()
     const { data: session } = useSession()
 
     // Channel selection — driven by workspace context
@@ -111,7 +113,7 @@ export default function MediaLibraryPage() {
         if (activeChannelId) {
             setSelectedChannelId(activeChannelId)
             setCurrentFolderId(null)  // reset to root when workspace changes
-            setBreadcrumbs([{ id: null, name: 'All Files' }])
+            setBreadcrumbs([{ id: null, name: t('media.allFiles') }])
         } else if (channels.length > 0 && !selectedChannelId) {
             setSelectedChannelId(channels[0].id)
         }
@@ -199,9 +201,9 @@ export default function MediaLibraryPage() {
     /* ─── Navigate folder ─── */
     const navigateToFolder = (folderId: string | null, folderName?: string) => {
         if (folderId === null) {
-            setBreadcrumbs([{ id: null, name: 'All Files' }])
+            setBreadcrumbs([{ id: null, name: t('media.allFiles') }])
         } else {
-            setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName || 'Folder' }])
+            setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName || t('media.folders') }])
         }
         setCurrentFolderId(folderId)
         setPage(1)
@@ -267,7 +269,7 @@ export default function MediaLibraryPage() {
                 const e = await res.json()
                 throw new Error(e.error || 'Failed')
             }
-            toast.success('Folder created')
+            toast.success(t('media.folderCreated'))
             setShowCreateFolder(false)
             setNewFolderName('')
             fetchFolders()
@@ -294,32 +296,32 @@ export default function MediaLibraryPage() {
                 body: JSON.stringify(body),
             })
             if (!res.ok) throw new Error()
-            toast.success('Renamed successfully')
+            toast.success(t('media.renamedSuccessfully'))
             setRenamingItem(null)
             fetchFolders()
             fetchMedia()
         } catch {
-            toast.error('Failed to rename')
+            toast.error(t('media.renameFailed'))
         }
     }
 
     /* ─── Delete folder ─── */
     const handleDeleteFolder = async (folderId: string) => {
-        if (!confirm('Delete this folder? Media inside will be moved to the parent folder.')) return
+        if (!confirm(t('media.deleteFolderConfirm'))) return
         try {
             const res = await fetch(`/api/admin/media/folders/${folderId}`, { method: 'DELETE' })
             if (!res.ok) throw new Error()
-            toast.success('Folder deleted')
+            toast.success(t('media.folderDeleted'))
             fetchFolders()
             fetchMedia()
         } catch {
-            toast.error('Failed to delete folder')
+            toast.error(t('media.deleteFailed'))
         }
     }
 
     /* ─── Bulk delete ─── */
     const handleBulkDelete = async () => {
-        if (!confirm(`Delete ${selectedIds.size} item(s)? This cannot be undone.`)) return
+        if (!confirm(t('media.deleteConfirm').replace('{count}', String(selectedIds.size)))) return
         try {
             const res = await fetch('/api/admin/media/bulk', {
                 method: 'POST',
@@ -327,7 +329,7 @@ export default function MediaLibraryPage() {
                 body: JSON.stringify({ action: 'delete', ids: Array.from(selectedIds) }),
             })
             if (!res.ok) throw new Error()
-            toast.success(`${selectedIds.size} item(s) deleted`)
+            toast.success(`${t('media.deleted').replace('{count}', String(selectedIds.size))}`)
             setSelectedIds(new Set())
             fetchMedia()
         } catch {
@@ -337,11 +339,11 @@ export default function MediaLibraryPage() {
 
     /* ─── Single delete ─── */
     const handleDeleteMedia = async (id: string, name: string) => {
-        if (!confirm(`Delete "${name}"?`)) return
+        if (!confirm(t('media.deleteConfirmSingle').replace('{name}', name))) return
         try {
             const res = await fetch(`/api/admin/media/${id}`, { method: 'DELETE' })
             if (!res.ok) throw new Error()
-            toast.success('Deleted')
+            toast.success(t('media.deletedSingle'))
             setSelectedIds((prev) => {
                 const next = new Set(prev)
                 next.delete(id)
@@ -366,12 +368,12 @@ export default function MediaLibraryPage() {
                 }),
             })
             if (!res.ok) throw new Error()
-            toast.success(`Moved ${selectedIds.size} item(s)`)
+            toast.success(t('media.moved').replace('{count}', String(selectedIds.size)))
             setShowMoveDialog(false)
             setSelectedIds(new Set())
             fetchMedia()
         } catch {
-            toast.error('Failed to move')
+            toast.error(t('media.moveFailed'))
         }
     }
 
@@ -410,7 +412,7 @@ export default function MediaLibraryPage() {
 
         setUploading(false)
         if (successCount > 0) {
-            toast.success(`Uploaded ${successCount} file(s)`)
+            toast.success(t('media.uploaded').replace('{count}', String(successCount)))
             fetchMedia()
         }
     }
@@ -438,7 +440,7 @@ export default function MediaLibraryPage() {
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                         <ImageIcon className="h-5 w-5 text-primary" />
-                        <h1 className="text-xl font-bold">Media Library</h1>
+                        <h1 className="text-xl font-bold">{t('media.title')}</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <Select value={selectedChannelId} onValueChange={(v) => {
@@ -448,7 +450,7 @@ export default function MediaLibraryPage() {
                             setPage(1)
                         }}>
                             <SelectTrigger className="w-[180px] h-8 text-xs">
-                                <SelectValue placeholder="Select channel" />
+                                <SelectValue placeholder={t('media.selectChannel')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {channels.map((ch) => (
@@ -467,7 +469,7 @@ export default function MediaLibraryPage() {
                     <div className="relative flex-1 min-w-[200px] max-w-[320px]">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
-                            placeholder="Search by filename..."
+                            placeholder={t('media.searchPlaceholder')}
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value)
@@ -480,12 +482,12 @@ export default function MediaLibraryPage() {
                     {/* Type filter */}
                     <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v === 'all' ? '' : v); setPage(1) }}>
                         <SelectTrigger className="w-[110px] h-8 text-xs">
-                            <SelectValue placeholder="All types" />
+                            <SelectValue placeholder={t('media.allTypes')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All types</SelectItem>
-                            <SelectItem value="image">Images</SelectItem>
-                            <SelectItem value="video">Videos</SelectItem>
+                            <SelectItem value="all">{t('media.allTypes')}</SelectItem>
+                            <SelectItem value="image">{t('media.images')}</SelectItem>
+                            <SelectItem value="video">{t('media.videos')}</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -496,10 +498,10 @@ export default function MediaLibraryPage() {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="newest">Newest</SelectItem>
-                            <SelectItem value="oldest">Oldest</SelectItem>
-                            <SelectItem value="name">Name</SelectItem>
-                            <SelectItem value="size">Size</SelectItem>
+                            <SelectItem value="newest">{t('media.newest')}</SelectItem>
+                            <SelectItem value="oldest">{t('media.oldest')}</SelectItem>
+                            <SelectItem value="name">{t('media.name')}</SelectItem>
+                            <SelectItem value="size">{t('media.size')}</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -535,7 +537,7 @@ export default function MediaLibraryPage() {
                         onClick={() => setShowCreateFolder(true)}
                     >
                         <FolderPlus className="h-3.5 w-3.5 mr-1" />
-                        New Folder
+                        {t('media.newFolder')}
                     </Button>
                     <Button
                         size="sm"
@@ -548,7 +550,7 @@ export default function MediaLibraryPage() {
                         ) : (
                             <Upload className="h-3.5 w-3.5 mr-1" />
                         )}
-                        Upload
+                        {uploading ? t('media.uploading') : t('media.upload')}
                     </Button>
                     <input
                         ref={fileInputRef}
@@ -565,19 +567,19 @@ export default function MediaLibraryPage() {
             {someSelected && (
                 <div className="border-b bg-primary/5 px-6 py-2 flex items-center gap-3">
                     <Badge variant="secondary" className="text-xs">
-                        {selectedIds.size} selected
+                        {t('media.selected').replace('{count}', String(selectedIds.size))}
                     </Badge>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={toggleSelectAll}>
-                        {allSelected ? 'Deselect All' : 'Select All'}
+                        {allSelected ? t('media.deselectAll') : t('media.selectAll')}
                     </Button>
                     <Separator orientation="vertical" className="h-5" />
                     <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={handleBulkDelete}>
                         <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
+                        {t('media.delete')}
                     </Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={openMoveDialog}>
                         <FolderInput className="h-3 w-3 mr-1" />
-                        Move
+                        {t('media.move')}
                     </Button>
                     <Button
                         size="sm"
@@ -586,7 +588,7 @@ export default function MediaLibraryPage() {
                         onClick={() => setSelectedIds(new Set())}
                     >
                         <X className="h-3 w-3 mr-1" />
-                        Clear
+                        {t('media.clearSelection')}
                     </Button>
                 </div>
             )}
@@ -625,7 +627,7 @@ export default function MediaLibraryPage() {
                         {/* Folders */}
                         {folders.length > 0 && (
                             <div className="mb-4">
-                                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Folders</p>
+                                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">{t('media.folders')}</p>
                                 <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2' : 'space-y-1'}>
                                     {folders.map((folder) => (
                                         <div
@@ -653,12 +655,12 @@ export default function MediaLibraryPage() {
                                                 <DropdownMenuContent align="end" className="w-36">
                                                     <DropdownMenuItem onClick={() => setRenamingItem({ id: folder.id, type: 'folder', name: folder.name })}>
                                                         <Pencil className="h-3 w-3 mr-2" />
-                                                        Rename
+                                                        {t('media.rename')}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem onClick={() => handleDeleteFolder(folder.id)} className="text-destructive">
                                                         <Trash2 className="h-3 w-3 mr-2" />
-                                                        Delete
+                                                        {t('media.delete')}
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -672,21 +674,21 @@ export default function MediaLibraryPage() {
                         {media.length === 0 && folders.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                                 <ImageIcon className="h-12 w-12 mb-3 opacity-30" />
-                                <p className="text-sm font-medium">No media found</p>
-                                <p className="text-xs mt-1">Upload files or create a folder to get started</p>
+                                <p className="text-sm font-medium">{t('media.noMedia')}</p>
+                                <p className="text-xs mt-1">{t('media.noMediaDesc')}</p>
                                 <Button
                                     size="sm"
                                     className="mt-4"
                                     onClick={() => fileInputRef.current?.click()}
                                 >
                                     <Upload className="h-3.5 w-3.5 mr-1" />
-                                    Upload Files
+                                    {t('media.uploadFiles')}
                                 </Button>
                             </div>
                         ) : media.length > 0 && (
                             <>
                                 <div className="flex items-center justify-between mb-2">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Files</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('media.files')}</p>
                                     <button
                                         onClick={toggleSelectAll}
                                         className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
@@ -696,7 +698,7 @@ export default function MediaLibraryPage() {
                                         ) : (
                                             <Square className="h-3.5 w-3.5" />
                                         )}
-                                        {allSelected ? 'Deselect All' : 'Select All'}
+                                        {allSelected ? t('media.deselectAll') : t('media.selectAll')}
                                     </button>
                                 </div>
 
@@ -788,10 +790,10 @@ export default function MediaLibraryPage() {
                                                         <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} className="h-3.5 w-3.5" />
                                                     </th>
                                                     <th className="p-2 text-left w-10"></th>
-                                                    <th className="p-2 text-left font-medium">Name</th>
-                                                    <th className="p-2 text-left font-medium w-20">Type</th>
-                                                    <th className="p-2 text-left font-medium w-20">Size</th>
-                                                    <th className="p-2 text-left font-medium w-24">Date</th>
+                                                    <th className="p-2 text-left font-medium">{t('media.name')}</th>
+                                                    <th className="p-2 text-left font-medium w-20">{t('media.type')}</th>
+                                                    <th className="p-2 text-left font-medium w-20">{t('media.size')}</th>
+                                                    <th className="p-2 text-left font-medium w-24">{t('media.date')}</th>
                                                     <th className="p-2 w-10"></th>
                                                 </tr>
                                             </thead>
@@ -843,7 +845,7 @@ export default function MediaLibraryPage() {
                                                                     <DropdownMenuContent align="end" className="w-36">
                                                                         <DropdownMenuItem onClick={() => setRenamingItem({ id: item.id, type: 'media', name: item.originalName || '' })}>
                                                                             <Pencil className="h-3 w-3 mr-2" />
-                                                                            Rename
+                                                                            {t('media.rename')}
                                                                         </DropdownMenuItem>
                                                                         <DropdownMenuSeparator />
                                                                         <DropdownMenuItem
@@ -851,7 +853,7 @@ export default function MediaLibraryPage() {
                                                                             className="text-destructive"
                                                                         >
                                                                             <Trash2 className="h-3 w-3 mr-2" />
-                                                                            Delete
+                                                                            {t('media.delete')}
                                                                         </DropdownMenuItem>
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
@@ -874,7 +876,7 @@ export default function MediaLibraryPage() {
                                             onClick={() => setPage((p) => p - 1)}
                                             className="h-7 text-xs"
                                         >
-                                            Previous
+                                            {t('common.back')}
                                         </Button>
                                         <span className="text-xs text-muted-foreground">
                                             Page {page} of {totalPages}
@@ -886,7 +888,7 @@ export default function MediaLibraryPage() {
                                             onClick={() => setPage((p) => p + 1)}
                                             className="h-7 text-xs"
                                         >
-                                            Next
+                                            {t('common.next')}
                                         </Button>
                                     </div>
                                 )}
@@ -902,11 +904,11 @@ export default function MediaLibraryPage() {
                     <DialogHeader>
                         <DialogTitle className="text-sm flex items-center gap-2">
                             <FolderPlus className="h-4 w-4" />
-                            New Folder
+                            {t('media.createFolderTitle')}
                         </DialogTitle>
                     </DialogHeader>
                     <Input
-                        placeholder="Folder name..."
+                        placeholder={t('media.folderNamePlaceholder')}
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
@@ -914,10 +916,10 @@ export default function MediaLibraryPage() {
                     />
                     <DialogFooter>
                         <Button variant="outline" size="sm" onClick={() => setShowCreateFolder(false)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button size="sm" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
-                            Create
+                            {t('media.create')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -929,7 +931,7 @@ export default function MediaLibraryPage() {
                     <DialogHeader>
                         <DialogTitle className="text-sm flex items-center gap-2">
                             <Pencil className="h-4 w-4" />
-                            Rename {renamingItem?.type === 'folder' ? 'Folder' : 'File'}
+                            {t('media.renameTitle')}
                         </DialogTitle>
                     </DialogHeader>
                     <Input
@@ -942,10 +944,10 @@ export default function MediaLibraryPage() {
                     />
                     <DialogFooter>
                         <Button variant="outline" size="sm" onClick={() => setRenamingItem(null)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button size="sm" onClick={handleRename}>
-                            Rename
+                            {t('media.rename')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -957,7 +959,7 @@ export default function MediaLibraryPage() {
                     <DialogHeader>
                         <DialogTitle className="text-sm flex items-center gap-2">
                             <FolderInput className="h-4 w-4" />
-                            Move {selectedIds.size} item(s) to folder
+                            {t('media.moveTitle')}
                         </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-1 max-h-[300px] overflow-y-auto">
@@ -966,7 +968,7 @@ export default function MediaLibraryPage() {
                             className={`w-full text-left px-3 py-2 rounded-md text-xs flex items-center gap-2 transition-colors ${moveTargetFolder === null ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
                         >
                             <Home className="h-3 w-3" />
-                            Root (All Files)
+                            {t('media.moveRoot')}
                         </button>
                         {allFolders.map((f) => (
                             <button
@@ -982,10 +984,10 @@ export default function MediaLibraryPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" size="sm" onClick={() => setShowMoveDialog(false)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button size="sm" onClick={handleBulkMove}>
-                            Move Here
+                            {t('media.move')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

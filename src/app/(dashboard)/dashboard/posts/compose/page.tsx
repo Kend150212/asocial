@@ -69,6 +69,7 @@ import {
     ExternalLink,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -524,10 +525,13 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
 // ─── Page ───────────────────────────────────────────
 
 export default function ComposePage() {
+    const t = useTranslation()
     const router = useRouter()
     const searchParams = useSearchParams()
     const { activeChannelId } = useWorkspace()
     const editPostId = searchParams.get('edit')
+    // Mobile tab: 'settings' | 'editor' | 'preview'
+    const [mobileTab, setMobileTab] = useState<'settings' | 'editor' | 'preview'>('editor')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const savedRef = useRef(false) // track if post has been saved/published
@@ -1709,7 +1713,7 @@ export default function ComposePage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" onClick={() => router.back()}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <h1 className="text-sm font-bold tracking-tight">{editPostId ? 'Edit Post' : 'Compose Post'}</h1>
+                    <h1 className="text-sm font-bold tracking-tight">{editPostId ? t('compose.editTitle') : t('compose.title')}</h1>
 
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1722,18 +1726,18 @@ export default function ComposePage() {
                             disabled={saving || !content.trim()}
                         >
                             {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Calendar className="h-3.5 w-3.5 mr-1" />}
-                            Schedule
+                            {saving ? t('compose.scheduling') : t('compose.schedule')}
                         </Button>
                     ) : (
                         // Normal mode — Save Draft + Publish Now
                         <>
                             <Button variant="outline" size="sm" className="h-7 text-xs cursor-pointer" onClick={handleSaveDraft} disabled={saving || !content.trim()}>
                                 {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                                Save Draft
+                                {saving ? t('compose.saving') : t('compose.saveDraft')}
                             </Button>
                             <Button size="sm" className="h-7 text-xs cursor-pointer" onClick={handlePublishNow} disabled={publishing || !content.trim() || selectedPlatformIds.size === 0}>
                                 {publishing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
-                                Publish Now
+                                {publishing ? t('compose.publishing') : t('compose.publish')}
                             </Button>
                         </>
                     )}
@@ -1741,7 +1745,7 @@ export default function ComposePage() {
                     {selectedChannel?.requireApproval === 'required' && (
                         <Badge className="h-6 text-[10px] bg-amber-500/20 text-amber-600 border-amber-500/30 gap-1 px-2">
                             <ShieldCheck className="h-3 w-3" />
-                            Approval required
+                            {t('compose.requiresApproval')}
                         </Badge>
                     )}
                     {selectedChannel?.requireApproval === 'optional' && (
@@ -1754,7 +1758,7 @@ export default function ComposePage() {
                                 }`}
                         >
                             <ShieldCheck className="h-3 w-3" />
-                            {requestApproval ? 'Needs approval' : 'No approval'}
+                            {requestApproval ? t('compose.submitForApproval') : t('compose.publish')}
                         </button>
                     )}
                     {/* Delete button — only in edit mode */}
@@ -1771,21 +1775,41 @@ export default function ComposePage() {
                 </div>
             </div>
 
+            {/* Mobile Tab Bar — hidden on lg+ */}
+            <div className="lg:hidden flex items-center gap-0 border-b shrink-0 px-1 bg-background">
+                {(['settings', 'editor', 'preview'] as const).map((tab) => {
+                    const labels: Record<string, string> = { settings: '⚙️ Cài đặt', editor: '✏️ Soạn', preview: '👁 Xem trước' }
+                    return (
+                        <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setMobileTab(tab)}
+                            className={`flex-1 py-2 text-xs font-medium transition-colors border-b-2 cursor-pointer ${mobileTab === tab
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            {labels[tab]}
+                        </button>
+                    )
+                })}
+            </div>
+
             {/* 3-Column Layout — fills remaining height */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-1.5 flex-1 min-h-0">
                 {/* ── Left: Platforms ── */}
-                <div className="lg:col-span-2 space-y-1 overflow-y-auto pr-0.5">
+                <div className={`lg:col-span-2 space-y-1 overflow-y-auto pr-0.5 ${mobileTab === 'settings' ? 'block' : 'hidden'} lg:block`}>
                     {/* Channel */}
                     <Card>
                         <CardHeader className="py-1.5 px-2.5">
-                            <CardTitle className="text-xs">Channel</CardTitle>
+                            <CardTitle className="text-xs">{t('compose.channel')}</CardTitle>
                         </CardHeader>
                         <CardContent className="px-2.5 pb-2">
                             <Select
                                 value={selectedChannel?.id || ''}
                                 onValueChange={(v) => setSelectedChannel(channels.find((c) => c.id === v) || null)}
                             >
-                                <SelectTrigger><SelectValue placeholder="Select channel" /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder={t('compose.selectChannel')} /></SelectTrigger>
                                 <SelectContent>
                                     {channels.map((ch) => (
                                         <SelectItem key={ch.id} value={ch.id}>{ch.displayName}</SelectItem>
@@ -1799,9 +1823,9 @@ export default function ComposePage() {
                         <CardHeader className="py-1.5 px-2.5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <CardTitle className="text-xs">Publish To</CardTitle>
+                                    <CardTitle className="text-xs">{t('compose.platforms')}</CardTitle>
                                     <p className="text-[9px] text-muted-foreground">
-                                        {selectedPlatformIds.size} selected
+                                        {t('compose.selectPlatforms')}
                                     </p>
                                 </div>
                                 {activePlatforms.length > 0 && (
@@ -1816,7 +1840,7 @@ export default function ComposePage() {
                                             }
                                         }}
                                     >
-                                        {selectedPlatformIds.size === activePlatforms.length ? 'Deselect All' : 'Select All'}
+                                        {selectedPlatformIds.size === activePlatforms.length ? t('compose.deselectAll') : t('compose.selectAll')}
                                     </button>
                                 )}
                             </div>
@@ -1850,7 +1874,7 @@ export default function ComposePage() {
                                 })
                             ) : (
                                 <p className="text-xs text-muted-foreground">
-                                    No active platforms connected
+                                    {t('compose.noPlatforms')}
                                 </p>
                             )}
                         </CardContent>
@@ -1860,7 +1884,7 @@ export default function ComposePage() {
                     <Card>
                         <CardHeader className="py-1.5 px-2.5">
                             <CardTitle className="text-xs flex items-center gap-1.5">
-                                <Calendar className="h-3.5 w-3.5" /> Schedule
+                                <Calendar className="h-3.5 w-3.5" /> {t('compose.schedule')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1.5 px-2.5 pb-2">
@@ -1933,11 +1957,11 @@ export default function ComposePage() {
                                 )}
                             </div>
                             <div className="border-t pt-1.5">
-                                <Label className="text-[10px] text-muted-foreground">Date</Label>
+                                <Label className="text-[10px] text-muted-foreground">{t('compose.scheduleDate')}</Label>
                                 <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="mt-0.5 h-7 text-xs" />
                             </div>
                             <div>
-                                <Label className="text-[10px] text-muted-foreground">Time</Label>
+                                <Label className="text-[10px] text-muted-foreground">{t('compose.scheduleTime')}</Label>
                                 <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="mt-0.5 h-7 text-xs" />
                             </div>
                             {scheduleDate && (
@@ -1950,18 +1974,18 @@ export default function ComposePage() {
                 </div >
 
                 {/* ── Center: Editor ── */}
-                < div className="lg:col-span-6 space-y-1 overflow-y-auto px-0.5" >
+                < div className={`lg:col-span-6 space-y-1 overflow-y-auto px-0.5 ${mobileTab === 'editor' ? 'block' : 'hidden'} lg:block`} >
                     {/* AI Generate */}
                     < Card >
                         <CardHeader className="py-1.5 px-2.5">
                             <CardTitle className="text-xs flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-amber-500" /> AI Generate
+                                <Sparkles className="h-3.5 w-3.5 text-amber-500" /> {t('compose.generateAI')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="px-2.5 pb-2 space-y-2">
                             <div className="flex gap-2">
                                 <Input
-                                    placeholder="Topic, keyword, or paste an article URL..."
+                                    placeholder={t('compose.topicPlaceholder')}
                                     value={aiTopic}
                                     onChange={(e) => setAiTopic(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
@@ -3531,7 +3555,8 @@ export default function ComposePage() {
                 </div >
 
                 {/* ── Right: Realistic Previews ── */}
-                < div className="lg:col-span-4 space-y-1 overflow-y-auto pl-0.5" >
+                < div className={`lg:col-span-4 space-y-1 overflow-y-auto pl-0.5 ${mobileTab === 'preview' ? 'block' : 'hidden'} lg:block`} >
+
                     <Card>
                         <CardHeader className="py-1.5 px-2.5">
                             <div className="flex items-center justify-between">

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import {
     Key,
     Loader2,
@@ -474,6 +475,7 @@ interface GDriveStatus {
 
 // ─── Main Page ─────────────────────────────────────────────
 export default function UserApiKeysPage() {
+    const t = useTranslation()
     const searchParams = useSearchParams()
     const router = useRouter()
     const [providers, setProviders] = useState<AiProvider[]>([])
@@ -522,11 +524,11 @@ export default function UserApiKeysPage() {
             if (data.authUrl) {
                 window.location.href = data.authUrl
             } else {
-                toast.error(data.error || 'Failed to start Google Drive connection')
+                toast.error(data.error || t('apiKeys.gdriveFailed'))
                 setGdriveConnecting(false)
             }
         } catch {
-            toast.error('Failed to connect to Google Drive')
+            toast.error(t('apiKeys.gdriveFailed'))
             setGdriveConnecting(false)
         }
     }
@@ -541,10 +543,10 @@ export default function UserApiKeysPage() {
         try {
             const res = await fetch('/api/user/canva/disconnect', { method: 'POST' })
             if (res.ok) {
-                toast.success('Canva disconnected')
+                toast.success(t('apiKeys.canvaDisconnected'))
                 fetchCanvaStatus()
             } else {
-                toast.error('Failed to disconnect')
+                toast.error(t('apiKeys.canvaFailed'))
             }
         } catch {
             toast.error('Failed to disconnect')
@@ -557,10 +559,10 @@ export default function UserApiKeysPage() {
         try {
             const res = await fetch('/api/user/gdrive/disconnect', { method: 'POST' })
             if (res.ok) {
-                toast.success('Google Drive disconnected')
+                toast.success(t('apiKeys.gdriveDisconnected'))
                 fetchGDriveStatus()
             } else {
-                toast.error('Failed to disconnect')
+                toast.error(t('apiKeys.gdriveFailed'))
             }
         } catch {
             toast.error('Failed to disconnect')
@@ -632,14 +634,14 @@ export default function UserApiKeysPage() {
                 }),
             })
             if (res.ok) {
-                toast.success(`${prov?.name || providerSlug} API key saved!`)
+                toast.success(t('apiKeys.keySaved'))
                 setApiKeyValues(v => ({ ...v, [providerSlug]: '' }))
                 fetchKeys()
             } else {
                 const data = await res.json()
-                toast.error(data.error || 'Failed to save')
+                toast.error(data.error || t('apiKeys.saveFailed'))
             }
-        } catch { toast.error('Failed to save') }
+        } catch { toast.error(t('apiKeys.saveFailed')) }
         setSaving(s => ({ ...s, [providerSlug]: false }))
     }
 
@@ -655,8 +657,8 @@ export default function UserApiKeysPage() {
             const result = await res.json()
             setTestResults(r => ({ ...r, [providerSlug]: result }))
             if (result.success) toast.success(result.message)
-            else toast.error(result.message || 'Test failed')
-        } catch { toast.error('Connection test failed') }
+            else toast.error(result.message || t('apiKeys.testFailed'))
+        } catch { toast.error(t('apiKeys.testFailed')) }
         setTesting(s => ({ ...s, [providerSlug]: false }))
     }
 
@@ -673,9 +675,9 @@ export default function UserApiKeysPage() {
                 setModels(m => ({ ...m, [providerSlug]: data.models }))
                 toast.success(`Loaded ${data.models.length} models`)
             } else {
-                toast.error(data.error || 'Failed to load models')
+                toast.error(data.error || t('apiKeys.loadModelsFailed'))
             }
-        } catch { toast.error('Failed to fetch models') }
+        } catch { toast.error(t('apiKeys.loadModelsFailed')) }
         setLoadingModels(l => ({ ...l, [providerSlug]: false }))
     }
 
@@ -688,7 +690,7 @@ export default function UserApiKeysPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ provider: providerSlug, defaultModel: modelId }),
             })
-            toast.success('Default model saved')
+            toast.success(t('apiKeys.defaultModelSaved'))
             fetchKeys()
         } catch { toast.error('Failed to save model') }
     }
@@ -701,8 +703,7 @@ export default function UserApiKeysPage() {
                 body: JSON.stringify({ provider: providerSlug, isDefault: true }),
             })
             if (res.ok) {
-                const prov = providers.find(p => p.provider === providerSlug)
-                toast.success(`${prov?.name || providerSlug} set as default provider`)
+                toast.success(t('apiKeys.defaultProviderSet'))
                 fetchKeys()
             }
         } catch { toast.error('Failed to set default') }
@@ -738,9 +739,9 @@ export default function UserApiKeysPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">AI API Keys</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{t('apiKeys.title')}</h1>
                     <p className="text-muted-foreground mt-1">
-                        Manage your personal AI provider keys for content generation
+                        {t('apiKeys.description')}
                     </p>
                 </div>
                 <Badge variant="outline" className="gap-1">
@@ -753,7 +754,7 @@ export default function UserApiKeysPage() {
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <HardDrive className="h-5 w-5" />
-                    <h2 className="text-xl font-semibold">Google Drive Storage</h2>
+                    <h2 className="text-xl font-semibold">{t('apiKeys.googleDrive')}</h2>
                     {gdriveStatus?.connected && (
                         <Badge variant="default" className="ml-2 gap-1 bg-green-500/10 text-green-600 border-green-500/20">
                             <CheckCircle className="h-3 w-3" />
@@ -770,12 +771,12 @@ export default function UserApiKeysPage() {
                                     <div className="space-y-3 flex-1">
                                         <div className="flex items-center gap-2 text-sm">
                                             <Mail className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Account:</span>
+                                            <span className="text-muted-foreground">{t('apiKeys.account')}</span>
                                             <span className="font-medium">{gdriveStatus.email}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm">
                                             <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Folder:</span>
+                                            <span className="text-muted-foreground">{t('apiKeys.folder')}</span>
                                             {gdriveStatus.folderUrl ? (
                                                 <a
                                                     href={gdriveStatus.folderUrl}
@@ -812,7 +813,7 @@ export default function UserApiKeysPage() {
                                         ) : (
                                             <Unlink className="h-4 w-4" />
                                         )}
-                                        <span className="ml-1.5">Disconnect</span>
+                                        <span className="ml-1.5">{gdriveLoading ? t('apiKeys.disconnecting') : t('apiKeys.disconnectGDrive')}</span>
                                     </Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
@@ -825,15 +826,15 @@ export default function UserApiKeysPage() {
                                     <HardDrive className="h-6 w-6 text-muted-foreground" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold">Connect Google Drive</h3>
+                                    <h3 className="font-semibold">{t('apiKeys.connectGDrive')}</h3>
                                     <p className="text-sm text-muted-foreground mt-1">
-                                        Store media files in your own Google Drive. A folder will be auto-created with your name.
+                                        {t('apiKeys.gdriveDesc')}
                                     </p>
                                 </div>
                                 {!gdriveStatus?.isAdminConfigured ? (
                                     <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
                                         <AlertCircle className="h-4 w-4" />
-                                        <span>Google Drive is not configured by admin yet. Contact your administrator.</span>
+                                        <span>{t('apiKeys.gdriveNotConfigured')}</span>
                                     </div>
                                 ) : (
                                     <Button onClick={handleGDriveConnect} disabled={gdriveConnecting}>
@@ -842,7 +843,7 @@ export default function UserApiKeysPage() {
                                         ) : (
                                             <Link2 className="h-4 w-4 mr-2" />
                                         )}
-                                        Connect Google Drive
+                                        {gdriveConnecting ? t('apiKeys.connecting') : t('apiKeys.connectGDrive')}
                                     </Button>
                                 )}
                             </div>
@@ -861,7 +862,7 @@ export default function UserApiKeysPage() {
                     {canvaStatus?.connected && (
                         <Badge variant="default" className="ml-2 gap-1 bg-violet-500/10 text-violet-600 border-violet-500/20">
                             <CheckCircle className="h-3 w-3" />
-                            Connected
+                            {t('apiKeys.connected')}
                         </Badge>
                     )}
                 </div>
@@ -874,13 +875,13 @@ export default function UserApiKeysPage() {
                                     <div className="space-y-3 flex-1">
                                         <div className="flex items-center gap-2 text-sm">
                                             <Palette className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Account:</span>
+                                            <span className="text-muted-foreground">{t('apiKeys.account')}</span>
                                             <span className="font-medium">{canvaStatus.userName}</span>
                                         </div>
                                         {canvaStatus.connectedAt && (
                                             <div className="flex items-center gap-2 text-sm">
                                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                <span className="text-muted-foreground">Connected:</span>
+                                                <span className="text-muted-foreground">{t('apiKeys.connectedOn')}</span>
                                                 <span className="font-medium">
                                                     {new Date(canvaStatus.connectedAt).toLocaleDateString()}
                                                 </span>
@@ -899,7 +900,7 @@ export default function UserApiKeysPage() {
                                         ) : (
                                             <Unlink className="h-4 w-4" />
                                         )}
-                                        <span className="ml-1.5">Disconnect</span>
+                                        <span className="ml-1.5">{canvaLoading ? t('apiKeys.disconnecting') : t('apiKeys.disconnectCanva')}</span>
                                     </Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
@@ -912,15 +913,15 @@ export default function UserApiKeysPage() {
                                     <Palette className="h-6 w-6 text-violet-500" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold">Connect Canva</h3>
+                                    <h3 className="font-semibold">{t('apiKeys.connectCanva')}</h3>
                                     <p className="text-sm text-muted-foreground mt-1">
-                                        Design social media graphics with Canva. Create and edit images directly in the Compose page.
+                                        {t('apiKeys.canvaDesc')}
                                     </p>
                                 </div>
                                 {!canvaStatus?.isAdminConfigured ? (
                                     <div className="flex items-center justify-center gap-2 text-sm text-amber-500">
                                         <AlertCircle className="h-4 w-4" />
-                                        <span>Canva is not configured by admin yet. Contact your administrator.</span>
+                                        <span>{t('apiKeys.canvaNotConfigured')}</span>
                                     </div>
                                 ) : (
                                     <Button onClick={handleCanvaConnect} disabled={canvaConnecting} className="bg-violet-600 hover:bg-violet-700">
@@ -929,7 +930,7 @@ export default function UserApiKeysPage() {
                                         ) : (
                                             <Palette className="h-4 w-4 mr-2" />
                                         )}
-                                        Connect Canva
+                                        {canvaConnecting ? t('apiKeys.connecting') : t('apiKeys.connectCanva')}
                                     </Button>
                                 )}
                             </div>
