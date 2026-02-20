@@ -26,6 +26,42 @@ export async function GET(
     return NextResponse.json(members)
 }
 
+// Default permissions by role
+function getDefaultPermissions(role: string) {
+    // MANAGER and ADMIN get full permissions
+    if (role === 'MANAGER' || role === 'ADMIN') {
+        return {
+            canCreatePost: true,
+            canEditPost: true,
+            canDeletePost: true,
+            canApprovePost: true,
+            canSchedulePost: true,
+            canUploadMedia: true,
+            canDeleteMedia: true,
+            canViewMedia: true,
+            canCreateEmail: true,
+            canManageContacts: true,
+            canViewReports: true,
+            canEditSettings: true,
+        }
+    }
+    // STAFF gets limited permissions
+    return {
+        canCreatePost: true,
+        canEditPost: true,
+        canDeletePost: false,
+        canApprovePost: false,
+        canSchedulePost: true,
+        canUploadMedia: true,
+        canDeleteMedia: false,
+        canViewMedia: true,
+        canCreateEmail: false,
+        canManageContacts: false,
+        canViewReports: true,
+        canEditSettings: false,
+    }
+}
+
 // POST /api/admin/channels/[id]/members — add member (admin: userId or email, others: email only)
 export async function POST(
     req: NextRequest,
@@ -78,30 +114,7 @@ export async function POST(
             })
 
             // Send invitation email
-            const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-            const { sendChannelInviteEmail } = await import('@/lib/email')
-            await sendChannelInviteEmail({
-                toEmail: email,
-                toName: user.name || email,
-                channelName: channel.displayName,
-                inviterName: session.user.name || session.user.email,
-                role: role || 'MANAGER',
-                appUrl,
-                inviteToken,
-            })
-        } else {
-            // Existing user — if they don't have a password yet, refresh invite token
-            if (!user.passwordHash) {
-                const crypto = await import('crypto')
-                const inviteToken = crypto.randomBytes(32).toString('hex')
-                await prisma.user.update({
-                    where: { id: user.id },
-                    data: {
-                        inviteToken,
-                        inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                    },
-                })
-
+            try {
                 const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
                 const { sendChannelInviteEmail } = await import('@/lib/email')
                 await sendChannelInviteEmail({
@@ -113,6 +126,35 @@ export async function POST(
                     appUrl,
                     inviteToken,
                 })
+            } catch (e) {
+                console.error('Failed to send invite email:', e)
+            }
+        } else {
+            // Existing user — always send an invite/notification email
+            const crypto = await import('crypto')
+            const inviteToken = crypto.randomBytes(32).toString('hex')
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    inviteToken,
+                    inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+            })
+
+            try {
+                const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+                const { sendChannelInviteEmail } = await import('@/lib/email')
+                await sendChannelInviteEmail({
+                    toEmail: email,
+                    toName: user.name || email,
+                    channelName: channel.displayName,
+                    inviterName: session.user.name || session.user.email,
+                    role: role || 'MANAGER',
+                    appUrl,
+                    inviteToken,
+                })
+            } catch (e) {
+                console.error('Failed to send invite email:', e)
             }
         }
         targetUserId = user.id
@@ -126,27 +168,15 @@ export async function POST(
         return NextResponse.json({ error: 'User is already a member of this channel' }, { status: 409 })
     }
 
-    // Create member with default permissions
+    // Create member with role-based default permissions
+    const permissions = getDefaultPermissions(role || 'MANAGER')
     const member = await prisma.channelMember.create({
         data: {
             userId: targetUserId,
             channelId: id,
             role: role || 'MANAGER',
             permission: {
-                create: {
-                    canCreatePost: true,
-                    canEditPost: true,
-                    canDeletePost: false,
-                    canApprovePost: false,
-                    canSchedulePost: true,
-                    canUploadMedia: true,
-                    canDeleteMedia: false,
-                    canViewMedia: true,
-                    canCreateEmail: false,
-                    canManageContacts: false,
-                    canViewReports: true,
-                    canEditSettings: false,
-                },
+                create: permissions,
             },
         },
         include: {

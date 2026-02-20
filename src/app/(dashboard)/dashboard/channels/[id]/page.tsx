@@ -2164,7 +2164,7 @@ export default function ChannelDetailPage({
                                                     {allUsers
                                                         .filter(u => !members.some(m => m.userId === u.id))
                                                         .map(u => (
-                                                            <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                                                            <option key={u.id} value={u.id}>{u.name ? `${u.name} (${u.email})` : u.email}</option>
                                                         ))
                                                     }
                                                 </select>
@@ -2177,6 +2177,7 @@ export default function ChannelDetailPage({
                                                     className="w-full h-9 rounded-md border bg-background px-3 text-sm"
                                                 >
                                                     <option value="MANAGER">Manager</option>
+                                                    <option value="STAFF">Staff</option>
                                                     <option value="CUSTOMER">Customer</option>
                                                 </select>
                                             </div>
@@ -2242,6 +2243,7 @@ export default function ChannelDetailPage({
                                                 className="w-full h-9 rounded-md border bg-background px-3 text-sm"
                                             >
                                                 <option value="MANAGER">Manager</option>
+                                                <option value="STAFF">Staff</option>
                                                 <option value="CUSTOMER">Customer</option>
                                             </select>
                                         </div>
