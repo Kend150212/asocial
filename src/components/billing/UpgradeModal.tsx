@@ -136,7 +136,9 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-5xl w-full max-h-[92vh] overflow-y-auto bg-[#0d0d0d] border border-white/10 p-0">
+            <DialogContent
+                style={{ maxWidth: 'min(1024px, 95vw)', width: '95vw' }}
+                className="max-h-[92vh] overflow-y-auto bg-[#0d0d0d] border border-white/10 p-0 rounded-2xl [&>button:last-of-type]:hidden">
                 {/* Header */}
                 <div className="px-8 pt-8 pb-4">
                     <DialogHeader>
@@ -160,8 +162,8 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
                                 key={v}
                                 onClick={() => setInterval(v as 'monthly' | 'annual')}
                                 className={`text-sm px-5 py-1.5 rounded-full transition-all duration-200 font-medium ${interval === v
-                                        ? 'bg-white text-black shadow'
-                                        : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-white text-black shadow'
+                                    : 'text-muted-foreground hover:text-foreground'
                                     }`}
                             >
                                 {v === 'monthly'
@@ -262,8 +264,8 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
                                     onClick={() => hasPriceId ? handleUpgrade(plan.id) : undefined}
                                     disabled={!!loading || !hasPriceId}
                                     className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${hasPriceId
-                                            ? style.button
-                                            : 'bg-white/5 text-muted-foreground cursor-not-allowed border border-white/10'
+                                        ? style.button
+                                        : 'bg-white/5 text-muted-foreground cursor-not-allowed border border-white/10'
                                         } disabled:opacity-60`}
                                 >
                                     {loading === plan.id
