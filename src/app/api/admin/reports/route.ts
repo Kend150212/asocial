@@ -13,22 +13,56 @@ export async function GET(req: NextRequest) {
     const since = new Date()
     since.setDate(since.getDate() - range)
 
-    const where = channelId ? { channelId } : {}
-    const whereWithDate = { ...where, createdAt: { gte: since } }
+    const isAdmin = session.user.role === 'ADMIN'
+    const userId = session.user.id
+
+    // ── Determine channel scope for this user ────────────────────────
+    // Admin: all channels (or specific channelId)
+    // Non-admin: only channels they are a member of
+    let userChannelIds: string[] | null = null // null = all (admin only)
+    if (!isAdmin) {
+        const memberships = await prisma.channelMember.findMany({
+            where: { userId, role: { notIn: ['CUSTOMER'] } },
+            select: { channelId: true },
+        })
+        userChannelIds = memberships.map(m => m.channelId)
+    }
+
+    // Build the base Prisma where clause for Post queries
+    const buildWhere = (extra?: Record<string, unknown>) => {
+        const base: Record<string, unknown> = {}
+        if (channelId) {
+            // If a specific channelId is requested, verify user has access
+            if (userChannelIds !== null && !userChannelIds.includes(channelId)) {
+                // User doesn't have access to this channel — return empty scope
+                base.channelId = 'FORBIDDEN_NO_ACCESS'
+            } else {
+                base.channelId = channelId
+            }
+        } else if (userChannelIds !== null) {
+            // No specific channel — scope to user's channels
+            base.channelId = { in: userChannelIds }
+        }
+        // else: admin, no channelId → no filter (all channels)
+        return { ...base, ...extra }
+    }
+
+    const where = buildWhere()
+    const whereWithDate = buildWhere({ createdAt: { gte: since } })
 
     // ── KPI Summary ──────────────────────────────────────────────────
     const [total, published, scheduled, failed, drafts, pendingApproval] = await Promise.all([
         prisma.post.count({ where }),
-        prisma.post.count({ where: { ...where, status: 'PUBLISHED' } }),
-        prisma.post.count({ where: { ...where, status: 'SCHEDULED' } }),
-        prisma.post.count({ where: { ...where, status: 'FAILED' } }),
-        prisma.post.count({ where: { ...where, status: 'DRAFT' } }),
-        prisma.post.count({ where: { ...where, status: 'PENDING_APPROVAL' } }),
+        prisma.post.count({ where: buildWhere({ status: 'PUBLISHED' }) }),
+        prisma.post.count({ where: buildWhere({ status: 'SCHEDULED' }) }),
+        prisma.post.count({ where: buildWhere({ status: 'FAILED' }) }),
+        prisma.post.count({ where: buildWhere({ status: 'DRAFT' }) }),
+        prisma.post.count({ where: buildWhere({ status: 'PENDING_APPROVAL' }) }),
     ])
 
     // ── Posts over time (daily counts for last N days) ───────────────
     const recentPosts = await prisma.post.findMany({
-        where: { ...where, createdAt: { gte: since } },
+        where: whereWithDate,
         select: { createdAt: true, status: true },
         orderBy: { createdAt: 'asc' },
     })
@@ -55,8 +89,12 @@ export async function GET(req: NextRequest) {
     const platformStatuses = await prisma.postPlatformStatus.groupBy({
         by: ['platform', 'status'],
         where: channelId
-            ? { post: { channelId } }
-            : {},
+            ? (userChannelIds !== null && !userChannelIds.includes(channelId))
+                ? { post: { channelId: 'FORBIDDEN_NO_ACCESS' } }
+                : { post: { channelId } }
+            : userChannelIds !== null
+                ? { post: { channelId: { in: userChannelIds } } }
+                : {},
         _count: { id: true },
     })
 
@@ -82,7 +120,7 @@ export async function GET(req: NextRequest) {
 
     // ── Recent published posts ───────────────────────────────────────
     const recentPublished = await prisma.post.findMany({
-        where: { ...where, status: 'PUBLISHED' },
+        where: buildWhere({ status: 'PUBLISHED' }),
         select: {
             id: true,
             content: true,

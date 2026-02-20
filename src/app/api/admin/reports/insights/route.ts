@@ -161,13 +161,15 @@ async function fetchYouTubeInsights(channelPlatform: {
 }
 
 // ─── Post-level insights (Facebook/Instagram per-post) ───────────────
-async function fetchPostInsights(channelId: string | null) {
-    const where = channelId
-        ? { post: { channelId }, status: 'published' }
-        : { status: 'published' }
+async function fetchPostInsights(channelId: string | null, userChannelIds: string[] | null = null) {
+    const buildWhere = () => {
+        if (channelId) return { post: { channelId }, status: 'published' }
+        if (userChannelIds !== null) return { post: { channelId: { in: userChannelIds } }, status: 'published' }
+        return { status: 'published' } // admin: all
+    }
 
     const publishedStatuses = await prisma.postPlatformStatus.findMany({
-        where,
+        where: buildWhere(),
         select: {
             id: true,
             platform: true,
@@ -216,11 +218,31 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const channelId = searchParams.get('channelId')
 
-    // Fetch connected platforms for this channel
+    const isAdmin = session.user.role === 'ADMIN'
+    const userId = session.user.id
+
+    // ── Determine user's accessible channels ─────────────────────────
+    let userChannelIds: string[] | null = null
+    if (!isAdmin) {
+        const memberships = await prisma.channelMember.findMany({
+            where: { userId, role: { notIn: ['CUSTOMER'] } },
+            select: { channelId: true },
+        })
+        userChannelIds = memberships.map(m => m.channelId)
+    }
+
+    // Validate channelId access if specified
+    if (channelId && userChannelIds !== null && !userChannelIds.includes(channelId)) {
+        return NextResponse.json({ platformInsights: [], postInsights: [] })
+    }
+
+    // Fetch connected platforms for this channel (scoped to user)
     const platforms = await prisma.channelPlatform.findMany({
         where: channelId
             ? { channelId, isActive: true }
-            : { isActive: true },
+            : userChannelIds !== null
+                ? { channelId: { in: userChannelIds }, isActive: true }
+                : { isActive: true },
         select: {
             platform: true,
             accountId: true,
@@ -249,7 +271,7 @@ export async function GET(req: NextRequest) {
         })
     )
 
-    const postInsights = await fetchPostInsights(channelId)
+    const postInsights = await fetchPostInsights(channelId, userChannelIds)
 
     return NextResponse.json({
         platformInsights: insights.filter(Boolean),
