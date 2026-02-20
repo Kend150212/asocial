@@ -6,10 +6,9 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, CheckCircle2 } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/language-switcher'
 
@@ -37,13 +36,10 @@ function LoginForm() {
     const callbackUrl = searchParams.get('callbackUrl') || '/choose'
     const justRegistered = searchParams.get('registered') === '1'
 
-    // Check if Google provider is enabled (env vars loaded)
     useEffect(() => {
         fetch('/api/auth/providers')
             .then(r => r.json())
-            .then(providers => {
-                if (providers?.google) setShowGoogleBtn(true)
-            })
+            .then(providers => { if (providers?.google) setShowGoogleBtn(true) })
             .catch(() => { })
     }, [])
 
@@ -71,36 +67,118 @@ function LoginForm() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-4">
-            {/* Background effects */}
-            <div className="pointer-events-none fixed inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
-                <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
-            </div>
+        <div className="flex min-h-screen bg-background">
+            {/* Left panel — branding + register CTA */}
+            <div className="hidden lg:flex flex-col justify-between w-[480px] shrink-0 bg-gradient-to-br from-primary/90 to-blue-700 text-white p-10 relative overflow-hidden">
+                {/* Decorative blurs */}
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+                    <div className="absolute bottom-10 -left-20 h-72 w-72 rounded-full bg-cyan-300/10 blur-3xl" />
+                </div>
 
-            <div className="fixed top-4 right-4 z-10">
-                <LanguageSwitcher />
-            </div>
+                {/* Logo + name */}
+                <div className="relative">
+                    <Link href="/" className="flex items-center gap-3">
+                        <Image src="/logo.png" alt="ASocial" width={40} height={40} className="rounded-xl" unoptimized />
+                        <span className="text-xl font-bold tracking-tight">ASocial</span>
+                    </Link>
+                </div>
 
-            <Card className="w-full max-w-md relative">
-                <CardHeader className="space-y-3 text-center">
-                    <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
+                {/* Middle content */}
+                <div className="relative space-y-6">
+                    <h2 className="text-3xl font-bold leading-snug">
+                        Manage all your social media{' '}
+                        <span className="text-cyan-200">in one place</span>
+                    </h2>
+                    <p className="text-white/70 leading-relaxed text-sm">
+                        AI-powered scheduling, content generation, and analytics across Facebook, Instagram, YouTube, TikTok, and more.
+                    </p>
+
+                    <ul className="space-y-3">
+                        {[
+                            'Free plan — no credit card required',
+                            'AI content generation in EN & VI',
+                            'Schedule posts 24/7 automatically',
+                            'Google Drive media storage included',
+                        ].map(item => (
+                            <li key={item} className="flex items-center gap-2.5 text-sm text-white/80">
+                                <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
+                                {item}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div className="pt-2">
+                        <Link
+                            href="/register"
+                            className="inline-flex items-center gap-2 rounded-xl bg-white text-primary px-6 py-3 text-sm font-semibold shadow-lg hover:bg-white/90 transition-all duration-200"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            Create Free Account
+                            <ArrowRight className="h-4 w-4" />
+                        </Link>
                     </div>
-                    <CardTitle className="text-2xl font-bold">ASocial</CardTitle>
-                    <CardDescription>Social Media Management Platform</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {/* Success message after registration */}
+                </div>
+
+                {/* Footer */}
+                <div className="relative text-xs text-white/40">
+                    © 2026 Kendy Marketing LLC, Virginia USA
+                </div>
+            </div>
+
+            {/* Right panel — sign in form */}
+            <div className="flex flex-1 flex-col justify-center px-6 py-12 relative">
+                <div className="fixed top-4 right-4 z-10">
+                    <LanguageSwitcher />
+                </div>
+
+                <div className="mx-auto w-full max-w-sm">
+                    {/* Mobile logo */}
+                    <div className="flex items-center gap-3 mb-8 lg:hidden">
+                        <Image src="/logo.png" alt="ASocial" width={36} height={36} className="rounded-xl" unoptimized />
+                        <span className="text-lg font-bold">ASocial</span>
+                    </div>
+
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">Sign in to your ASocial account</p>
+                    </div>
+
+                    {/* Success banner after registration */}
                     {justRegistered && (
-                        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 rounded-md px-3 py-2.5 mb-4 text-sm">
+                        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 rounded-lg px-3 py-2.5 mb-5 text-sm">
                             <CheckCircle2 className="h-4 w-4 shrink-0" />
                             {t('register.success')}
                         </div>
                     )}
 
+                    {/* Google */}
+                    {showGoogleBtn && (
+                        <div className="mb-5">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full gap-2"
+                                onClick={handleGoogleSignIn}
+                                disabled={googleLoading}
+                            >
+                                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                                {t('auth.signInGoogle')}
+                            </Button>
+
+                            <div className="relative mt-4">
+                                <div className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-background px-2 text-muted-foreground">{t('auth.orContinueWith')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label htmlFor="email">{t('auth.email')}</Label>
                             <Input
                                 id="email"
@@ -113,8 +191,16 @@ function LoginForm() {
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">{t('auth.password')}</Label>
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password">{t('auth.password')}</Label>
+                                <a
+                                    href="/forgot-password"
+                                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                    {t('auth.forgotPassword')}
+                                </a>
+                            </div>
                             <Input
                                 id="password"
                                 name="password"
@@ -131,73 +217,38 @@ function LoginForm() {
                             <p className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</p>
                         )}
 
-                        <Button type="submit" className="w-full" disabled={isPending} size="lg">
+                        <Button type="submit" className="w-full mt-1" disabled={isPending} size="lg">
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {t('auth.signIn')}
                         </Button>
-
-                        <div className="text-center">
-                            <a
-                                href="/forgot-password"
-                                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                            >
-                                {t('auth.forgotPassword')}
-                            </a>
-                        </div>
-
-                        {/* Google Sign-In */}
-                        {showGoogleBtn && (
-                            <>
-                                <div className="relative">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <span className="w-full border-t" />
-                                    </div>
-                                    <div className="relative flex justify-center text-xs uppercase">
-                                        <span className="bg-card px-2 text-muted-foreground">{t('auth.orContinueWith')}</span>
-                                    </div>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full gap-2"
-                                    onClick={handleGoogleSignIn}
-                                    disabled={googleLoading}
-                                >
-                                    {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-                                    {t('auth.signInGoogle')}
-                                </Button>
-                            </>
-                        )}
-
-                        {/* Register link */}
-                        <p className="text-center text-sm text-muted-foreground pt-2 border-t">
-                            {t('auth.noAccount')}{' '}
-                            <Link href="/register" className="text-primary hover:underline font-medium">
-                                {t('auth.createAccount')}
-                            </Link>
-                        </p>
-
-                        <div className="text-center text-xs text-muted-foreground">
-                            <span>{t('auth.terms.prefix')} </span>
-                            <a href="/terms" className="underline hover:text-primary transition-colors">{t('auth.terms.service')}</a>
-                            <span> {t('auth.terms.and')} </span>
-                            <a href="/privacy" className="underline hover:text-primary transition-colors">{t('auth.terms.privacy')}</a>
-                        </div>
                     </form>
-                </CardContent>
-            </Card>
 
-            {/* Business footer */}
-            <div className="fixed bottom-0 left-0 right-0 text-center py-3 text-xs text-muted-foreground border-t bg-background/80 backdrop-blur-sm">
-                <p>© 2026 <strong>Cuong Dao</strong> — <strong>Kendy Marketing LLC</strong></p>
-                <p className="mt-1">Virginia, USA</p>
-                <p className="mt-1">
-                    <a href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</a>
-                    {' · '}
-                    <a href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</a>
-                    {' · '}
-                    <a href="mailto:support@kendymarketing.com" className="underline hover:text-primary transition-colors">support@kendymarketing.com</a>
-                </p>
+                    {/* Register link */}
+                    <div className="mt-6 rounded-xl border bg-muted/30 p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-3">
+                            {t('auth.noAccount')}
+                        </p>
+                        <Link
+                            href="/register"
+                            className="inline-flex items-center gap-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/15 transition-colors px-5 py-2.5 text-sm font-semibold w-full justify-center"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            {t('auth.createAccount')}
+                        </Link>
+                    </div>
+
+                    <p className="mt-6 text-center text-xs text-muted-foreground">
+                        {t('auth.terms.prefix')}{' '}
+                        <a href="/terms" className="underline hover:text-primary transition-colors">{t('auth.terms.service')}</a>
+                        {' '}{t('auth.terms.and')}{' '}
+                        <a href="/privacy" className="underline hover:text-primary transition-colors">{t('auth.terms.privacy')}</a>
+                    </p>
+                </div>
+
+                {/* Mobile footer */}
+                <div className="mt-auto pt-8 text-center text-xs text-muted-foreground lg:hidden">
+                    © 2026 Kendy Marketing LLC, Virginia USA
+                </div>
             </div>
         </div>
     )

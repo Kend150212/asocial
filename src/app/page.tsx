@@ -15,7 +15,9 @@ import {
   Mail,
   MapPin,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react'
+import { PricingSection } from '@/components/pricing-section'
 
 export const metadata: Metadata = {
   title: 'ASocial - AI-Powered Social Media Management Platform',
@@ -90,7 +92,7 @@ export default function LandingPage() {
             />
             <span className="text-lg font-bold tracking-tight">ASocial</span>
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 md:gap-4">
             <Link
               href="#features"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 hidden md:inline cursor-pointer"
@@ -98,23 +100,23 @@ export default function LandingPage() {
               Features
             </Link>
             <Link
-              href="/privacy"
+              href="#pricing"
               className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 hidden md:inline cursor-pointer"
             >
-              Privacy
-            </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 hidden md:inline cursor-pointer"
-            >
-              Terms
+              Pricing
             </Link>
             <Link
               href="/login"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all duration-200 cursor-pointer"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 hidden sm:inline cursor-pointer"
             >
               Sign In
-              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all duration-200 cursor-pointer"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Start Free
             </Link>
           </div>
         </div>
@@ -135,12 +137,12 @@ export default function LandingPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
             </span>
-            Now live — Start managing for free
+            Now live — Free plan available, no credit card required
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] max-w-4xl mx-auto">
-            ASocial — Manage All Your Social Media{' '}
+            Manage All Your Social Media{' '}
             <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
               in One Place
             </span>
@@ -156,17 +158,18 @@ export default function LandingPage() {
           {/* CTA buttons */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/login"
+              href="/register"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl transition-all duration-200 cursor-pointer"
             >
-              Get Started Free
-              <ArrowRight className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" />
+              Start for Free
             </Link>
             <Link
-              href="#features"
+              href="#pricing"
               className="inline-flex items-center justify-center gap-2 rounded-xl border px-8 py-3.5 text-base font-semibold hover:bg-accent transition-all duration-200 cursor-pointer"
             >
-              See Features
+              See Pricing
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -288,30 +291,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ───── Pricing (client component, fetches live plans) ───── */}
+      <PricingSection />
+
       {/* ───── CTA ───── */}
-      <section className="py-24">
+      <section className="py-24 bg-muted/30 border-t">
         <div className="mx-auto max-w-6xl px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
             Ready to simplify your social media?
           </h2>
           <p className="mt-4 text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
             Join businesses and creators who trust ASocial to manage their online
-            presence.
+            presence. Start free — no credit card needed.
           </p>
-          <Link
-            href="/login"
-            className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl transition-all duration-200 cursor-pointer"
-          >
-            Start Free Today
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/register"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl transition-all duration-200 cursor-pointer"
+            >
+              <Sparkles className="h-4 w-4" />
+              Create Free Account
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border px-8 py-3.5 text-base font-semibold hover:bg-accent transition-all duration-200 cursor-pointer"
+            >
+              Sign In
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* ───── Footer ───── */}
       <footer className="border-t">
         <div className="mx-auto max-w-6xl px-6 py-12">
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-10">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10">
             {/* Company */}
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -330,6 +345,33 @@ export default function LandingPage() {
                 <strong>Cuong Dao</strong>, operated by{' '}
                 <strong>Kendy Marketing LLC</strong>.
               </p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <h4 className="font-semibold mb-4 text-sm">Product</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li>
+                  <Link href="#features" className="hover:text-foreground transition-colors duration-200">
+                    Features
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#pricing" className="hover:text-foreground transition-colors duration-200">
+                    Pricing
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/register" className="hover:text-foreground transition-colors duration-200">
+                    Create Account
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-foreground transition-colors duration-200">
+                    Sign In
+                  </Link>
+                </li>
+              </ul>
             </div>
 
             {/* Legal */}
