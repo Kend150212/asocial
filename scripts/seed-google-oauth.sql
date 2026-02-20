@@ -3,7 +3,7 @@ SELECT
     gen_random_uuid(),
     'Google Sign-In (OAuth)',
     'google_oauth',
-    'OAuth',
+    'SOCIAL',
     'INACTIVE',
     '{}',
     false,
