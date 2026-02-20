@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logActivity } from '@/lib/log-activity'
 
 /**
  * GET /api/admin/users/[id]/billing
@@ -117,6 +118,13 @@ export async function PUT(
         })
 
         console.log(`[AdminBilling] Plan overridden for user ${userId} → ${plan.name}. Note: ${note ?? '—'}`)
+
+        // Audit log
+        const session = await auth()
+        if (session?.user?.id) {
+            logActivity(session.user.id, 'plan_override', { targetUserId: userId, planName: plan.name, note })
+        }
+
         return NextResponse.json({ subscription: sub, plan })
     } catch (err) {
         console.error('[AdminBilling] Failed to upsert subscription:', err)

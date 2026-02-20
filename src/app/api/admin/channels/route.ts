@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logActivity } from '@/lib/log-activity'
 import { getUserPlan } from '@/lib/plans'
 
 // GET /api/admin/channels — list channels (admin: all, others: assigned only)
@@ -153,6 +154,9 @@ export async function POST(req: NextRequest) {
             },
         },
     })
+
+    // Audit log
+    logActivity(session.user.id, 'channel_created', { channelId: channel.id, name: channel.displayName })
 
     return NextResponse.json(channel, { status: 201 })
 }

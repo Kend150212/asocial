@@ -118,16 +118,19 @@
 - [ ] First-run wizard
 - [ ] Backup system
 
-## Phase 16: Plans & Billing 💰
-- [ ] Plan schema (FREE, PRO, BUSINESS, ENTERPRISE) + limits config
-- [ ] Stripe integration (Checkout, Webhooks, Customer Portal)
-- [ ] Usage tracking (posts/month, AI generations/month, channels count)
-- [ ] Limit enforcement middleware (channel creation, post creation, AI generation)
-- [ ] Upgrade prompts UI (khi user hit limit → show upgrade modal)
-- [ ] Admin billing dashboard (subscriptions, revenue, usage stats)
-- [ ] Public pricing page
-- [ ] Annual discount option (20% off)
-- [ ] AI Credits system (optional — charge per generation if no BYOK)
+## Phase 16: Plans & Billing ✅ COMPLETED
+- [x] Plan schema (FREE, PRO, BUSINESS, ENTERPRISE) + limits config
+- [x] Stripe integration (Checkout, Webhooks, Customer Portal)
+- [x] Usage tracking (posts/month, AI generations/month, channels count)
+- [x] Limit enforcement middleware (channel creation, post creation, AI generation)
+- [x] Upgrade prompts UI (`UpgradeModal` component)
+- [x] Admin billing dashboard (MRR chart, plan distribution pie, trial stats, CSV export)
+- [x] User billing page (plan info, usage bars, i18n VN/EN)
+- [x] Trial banner (i18n, auto-dismiss, urgency variant)
+- [x] Grant/Revoke trial per user (admin)
+- [ ] Public pricing page *(deferred to Phase 17)*
+- [ ] Annual discount option (20% off) *(deferred)*
+- [ ] AI Credits system *(deferred)*
 
 ## Phase 17: Production Launch 🚀
 - [ ] Final security audit
@@ -138,4 +141,4 @@
 
 ---
 
-**Tổng tiến độ: Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 5 ✅ | Phase 6 ✅ | Phase 7 ✅ | Phase 8 ✅ | Phase 9 ✅ | Phase 10 ✅ | Phase 11 ✅ | Phase 12 ✅ | Phase 13 ✅ | Còn lại: Phases 14–17**
+**Tổng tiến độ: Phase 1–13 ✅ | Phase 16 ✅ | Đang làm: Phase 14 | Còn lại: Phase 15, 17**

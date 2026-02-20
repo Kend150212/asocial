@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logActivity } from '@/lib/log-activity'
 import type { Prisma } from '@prisma/client'
 import { sendPendingApprovalWebhooks } from '@/lib/webhook-notify'
 
@@ -206,6 +207,9 @@ export async function POST(req: NextRequest) {
             console.warn('[Webhook] Pending approval notification error:', err)
         }
     }
+
+    // Audit log
+    logActivity(session.user.id, 'post_created', { postId: post.id, channel: post.channel?.name }, channelId)
 
     return NextResponse.json(post, { status: 201 })
 }
