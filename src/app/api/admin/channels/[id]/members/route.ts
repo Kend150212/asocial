@@ -130,6 +130,24 @@ export async function POST(
                 },
             })
 
+            // Create ChannelInvite record so /invite/[token] can validate it
+            await prisma.channelInvite.upsert({
+                where: { channelId_email: { channelId: id, email } },
+                create: {
+                    channelId: id,
+                    email,
+                    name: user.name || email.split('@')[0],
+                    token: inviteToken,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    invitedBy: session.user.id,
+                },
+                update: {
+                    token: inviteToken,
+                    acceptedAt: null,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+            })
+
             // Send invitation email
             try {
                 const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
@@ -156,6 +174,24 @@ export async function POST(
                 data: {
                     inviteToken,
                     inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+            })
+
+            // Update ChannelInvite record so /invite/[token] can validate it
+            await prisma.channelInvite.upsert({
+                where: { channelId_email: { channelId: id, email } },
+                create: {
+                    channelId: id,
+                    email,
+                    name: user.name || email.split('@')[0],
+                    token: inviteToken,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    invitedBy: session.user.id,
+                },
+                update: {
+                    token: inviteToken,
+                    acceptedAt: null,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                 },
             })
 
