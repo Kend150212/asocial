@@ -125,6 +125,7 @@ export async function POST(
                     role: role || 'MANAGER',
                     appUrl,
                     inviteToken,
+                    hasPassword: false,
                 })
             } catch (e) {
                 console.error('Failed to send invite email:', e)
@@ -152,6 +153,7 @@ export async function POST(
                     role: role || 'MANAGER',
                     appUrl,
                     inviteToken,
+                    hasPassword: !!user.passwordHash,
                 })
             } catch (e) {
                 console.error('Failed to send invite email:', e)

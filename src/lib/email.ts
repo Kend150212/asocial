@@ -169,7 +169,7 @@ export async function sendInvitationEmail({
     }
 }
 
-// ─── Send Channel Invite Email ──────────────────────
+// ─── Send Channel Invite Email (Role-specific) ─────────────────
 export async function sendChannelInviteEmail({
     toEmail,
     toName,
@@ -178,6 +178,7 @@ export async function sendChannelInviteEmail({
     role,
     appUrl,
     inviteToken,
+    hasPassword,
 }: {
     toEmail: string
     toName: string
@@ -186,6 +187,7 @@ export async function sendChannelInviteEmail({
     role: string
     appUrl: string
     inviteToken: string
+    hasPassword?: boolean
 }) {
     try {
         const smtp = await getTransporter()
@@ -195,15 +197,68 @@ export async function sendChannelInviteEmail({
         }
 
         const { transporter, from } = smtp
-        const setupUrl = `${appUrl}/invite/${inviteToken}`
         const logoUrl = `${appUrl}/logo.png`
-        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
-        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
+
+        // ─── Role-specific content ───────────────────────
+        const isCustomer = role === 'CUSTOMER'
+        const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
+        const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
+
+        // Subject
+        const subject = isCustomer
+            ? `Review content for "${channelName}" — ASocial`
+            : `Join the "${channelName}" team on ASocial`
+
+        // Headline
+        const headline = isCustomer
+            ? `You're invited to review content!`
+            : `You're invited to join the team!`
+
+        // Description
+        const description = isCustomer
+            ? `<strong style="color: #18181b;">${inviterName}</strong> has invited you to the <strong style="color: #18181b;">"${channelName}"</strong> Client Portal on ASocial — where you can review and approve social media content before it goes live.`
+            : `<strong style="color: #18181b;">${inviterName}</strong> has invited you to manage the channel <strong style="color: #18181b;">"${channelName}"</strong> on ASocial as a <strong style="color: #18181b;">${roleLabel}</strong>.`
+
+        // Feature bullets
+        const features = isCustomer
+            ? [
+                { icon: '📋', text: 'Review & approve posts before they publish' },
+                { icon: '📅', text: 'View your content calendar' },
+                { icon: '💬', text: 'Leave feedback and comments' },
+            ]
+            : [
+                { icon: '📝', text: 'Create and schedule social media posts' },
+                { icon: '📊', text: 'View analytics and reports' },
+                { icon: '👥', text: 'Collaborate with the team' },
+                ...(role === 'MANAGER' ? [{ icon: '⚙️', text: 'Manage channel settings and members' }] : []),
+            ]
+
+        // CTA
+        const ctaUrl = hasPassword
+            ? (isCustomer ? `${appUrl}/portal` : `${appUrl}/dashboard`)
+            : `${appUrl}/invite/${inviteToken}`
+        const ctaText = hasPassword
+            ? (isCustomer ? 'Open Client Portal →' : 'Open Dashboard →')
+            : 'Accept Invitation & Set Up Password →'
+        const ctaGradient = isCustomer
+            ? 'background: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #22d3ee 100%);'
+            : 'background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);'
+
+        // Top bar gradient
+        const topBarGradient = isCustomer
+            ? 'background: linear-gradient(90deg, #0891b2, #06b6d4, #22d3ee, #14b8a6);'
+            : 'background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #ec4899);'
+
+        const featureRows = features.map(f => `
+            <tr><td style="padding: 8px 16px; font-size: 14px; color: #52525b; line-height: 1.5;">
+                <span style="margin-right: 8px;">${f.icon}</span> ${f.text}
+            </td></tr>
+        `).join('')
 
         await transporter.sendMail({
             from: `"ASocial" <${from}>`,
             to: toEmail,
-            subject: `You've been invited to channel "${channelName}" on ASocial`,
+            subject,
             html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -217,11 +272,11 @@ export async function sendChannelInviteEmail({
                 </td></tr>
                 <tr><td>
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04); overflow: hidden;">
-                        <tr><td style="height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7, #ec4899);"></td></tr>
+                        <tr><td style="height: 4px; ${topBarGradient}"></td></tr>
                         <tr><td style="padding: 36px 36px 0;">
-                            <h1 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: #18181b;">You're invited to a channel!</h1>
+                            <h1 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: #18181b;">${headline}</h1>
                             <p style="margin: 0; font-size: 14px; color: #71717a; line-height: 1.6;">
-                                <strong style="color: #18181b;">${inviterName}</strong> has invited you to join the channel <strong style="color: #18181b;">"${channelName}"</strong> on ASocial.
+                                ${description}
                             </p>
                         </td></tr>
                         <tr><td style="padding: 24px 36px;">
@@ -243,22 +298,34 @@ export async function sendChannelInviteEmail({
                                 </td></tr>
                             </table>
                         </td></tr>
+
+                        <!-- What you can do -->
+                        <tr><td style="padding: 0 36px 24px;">
+                            <p style="margin: 0 0 8px; font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;">${isCustomer ? 'What you can do in the Portal' : 'What you can do'}</p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafafa; border: 1px solid #e4e4e7; border-radius: 10px;">
+                                ${featureRows}
+                            </table>
+                        </td></tr>
+
                         <tr><td style="padding: 0 36px 36px;">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                                 <tr><td align="center">
-                                    <a href="${setupUrl}" style="display: inline-block; width: 100%; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); color: #ffffff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 15px; font-weight: 600; box-sizing: border-box;">
-                                        Accept Invitation & Set Up Password →
+                                    <a href="${ctaUrl}" style="display: inline-block; width: 100%; text-align: center; ${ctaGradient} color: #ffffff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-size: 15px; font-weight: 600; box-sizing: border-box;">
+                                        ${ctaText}
                                     </a>
                                 </td></tr>
                             </table>
-                            <p style="margin: 12px 0 0; font-size: 12px; color: #a1a1aa; text-align: center;">This link expires in 7 days</p>
+                            ${hasPassword
+                    ? '<p style="margin: 12px 0 0; font-size: 12px; color: #a1a1aa; text-align: center;">Use your existing password to log in</p>'
+                    : '<p style="margin: 12px 0 0; font-size: 12px; color: #a1a1aa; text-align: center;">This link expires in 7 days</p>'
+                }
                         </td></tr>
                     </table>
                 </td></tr>
                 <tr><td style="padding: 28px 36px; text-align: center;">
                     <p style="margin: 0 0 6px; font-size: 12px; color: #a1a1aa;">If the button doesn't work, copy this link:</p>
                     <p style="margin: 0 0 20px; font-size: 11px; word-break: break-all;">
-                        <a href="${setupUrl}" style="color: #6366f1; text-decoration: none;">${setupUrl}</a>
+                        <a href="${ctaUrl}" style="color: #6366f1; text-decoration: none;">${ctaUrl}</a>
                     </p>
                     <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
                         &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
