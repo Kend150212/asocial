@@ -1015,9 +1015,19 @@ export async function POST(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth()
-    if (!session?.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Allow internal worker calls (bypass NextAuth session)
+    const workerSecret = process.env.WORKER_SECRET || ''
+    const isWorkerCall = workerSecret &&
+        _req.headers.get('x-worker-secret') === workerSecret
+
+    let publishedBy = 'Auto-Scheduler'
+
+    if (!isWorkerCall) {
+        const session = await auth()
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        publishedBy = session.user.name || session.user.email || 'Unknown'
     }
 
     const { id } = await params
@@ -1250,7 +1260,7 @@ export async function POST(
             {
                 postId: id,
                 content: post.content || '',
-                publishedBy: session.user.name || session.user.email || 'Unknown',
+                publishedBy: publishedBy,
                 publishedAt: new Date(),
                 channelName: post.channel.name,
                 results,

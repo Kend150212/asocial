@@ -410,3 +410,35 @@ export async function getOrCreateMonthlyFolder(
     return createFolder(accessToken, monthFolder, parentFolderId)
 }
 
+/**
+ * List files in a Google Drive folder.
+ * Returns image/video files with id, name, mimeType, size, thumbnailLink.
+ */
+export async function listDriveFiles(
+    accessToken: string,
+    folderId: string,
+    pageToken?: string,
+): Promise<Array<{ id: string; name: string; mimeType: string; size?: string; thumbnailLink?: string }>> {
+    const q = `'${folderId}' in parents and trashed=false and (mimeType contains 'image/' or mimeType contains 'video/')`
+    const fields = 'nextPageToken,files(id,name,mimeType,size,thumbnailLink)'
+    const params = new URLSearchParams({ q, fields, pageSize: '200' })
+    if (pageToken) params.set('pageToken', pageToken)
+
+    const res = await fetch(`${GOOGLE_DRIVE_API}/files?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    const data = await res.json()
+    if (data.error) throw new Error(`GDrive listFiles failed: ${data.error.message}`)
+
+    const files = data.files || []
+
+    // Paginate if more results exist
+    if (data.nextPageToken) {
+        const nextFiles = await listDriveFiles(accessToken, folderId, data.nextPageToken)
+        return [...files, ...nextFiles]
+    }
+
+    return files
+}
+

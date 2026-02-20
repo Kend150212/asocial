@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "postinstall": "node scripts/patch-auth.js",
+    "postinstall": "npx prisma generate",
     "build": "node scripts/patch-auth.js && npx prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -14,7 +14,8 @@
     "db:seed": "npx prisma db seed",
     "db:reset": "npx prisma migrate reset --force",
     "db:studio": "npx prisma studio",
-    "postinstall": "npx prisma generate"
+    "worker": "tsx src/server.ts",
+    "worker:dev": "tsx watch src/server.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
