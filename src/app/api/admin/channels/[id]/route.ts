@@ -139,17 +139,29 @@ export async function PUT(
     return NextResponse.json(channel)
 }
 
-// DELETE /api/admin/channels/[id] — delete channel (admin only)
+// DELETE /api/admin/channels/[id] — delete channel (admin or channel owner)
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await auth()
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    if (!session?.user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
+    const isAdmin = session.user.role === 'ADMIN'
+
+    if (!isAdmin) {
+        // Non-admin: must be an OWNER of this specific channel
+        const membership = await prisma.channelMember.findUnique({
+            where: { userId_channelId: { userId: session.user.id, channelId: id } },
+            select: { role: true },
+        })
+        if (!membership || membership.role !== 'OWNER') {
+            return NextResponse.json({ error: 'Unauthorized – only channel owners can delete this channel' }, { status: 403 })
+        }
+    }
 
     const existing = await prisma.channel.findUnique({ where: { id } })
     if (!existing) {
