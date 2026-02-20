@@ -28,8 +28,8 @@ export async function GET(
 
 // Default permissions by role
 function getDefaultPermissions(role: string) {
-    // OWNER, MANAGER and ADMIN get full permissions
-    if (role === 'OWNER' || role === 'MANAGER' || role === 'ADMIN') {
+    // OWNER and ADMIN get ALL permissions including Delete Media
+    if (role === 'OWNER' || role === 'ADMIN') {
         return {
             canCreatePost: true,
             canEditPost: true,
@@ -45,7 +45,24 @@ function getDefaultPermissions(role: string) {
             canEditSettings: true,
         }
     }
-    // STAFF gets limited permissions
+    // MANAGER: all permissions EXCEPT Delete Media
+    if (role === 'MANAGER') {
+        return {
+            canCreatePost: true,
+            canEditPost: true,
+            canDeletePost: true,
+            canApprovePost: true,
+            canSchedulePost: true,
+            canUploadMedia: true,
+            canDeleteMedia: false,
+            canViewMedia: true,
+            canCreateEmail: true,
+            canManageContacts: true,
+            canViewReports: true,
+            canEditSettings: true,
+        }
+    }
+    // STAFF: limited permissions
     return {
         canCreatePost: true,
         canEditPost: true,

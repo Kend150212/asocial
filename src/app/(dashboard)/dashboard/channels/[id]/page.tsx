@@ -2306,10 +2306,10 @@ export default function ChannelDetailPage({
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${member.role === 'ADMIN' ? 'bg-red-500/10 text-red-500' :
-                                                            member.role === 'OWNER' ? 'bg-amber-500/10 text-amber-500' :
-                                                                member.role === 'MANAGER' ? 'bg-blue-500/10 text-blue-500' :
-                                                                    member.role === 'STAFF' ? 'bg-indigo-500/10 text-indigo-400' :
-                                                                        'bg-neutral-500/10 text-neutral-400'
+                                                        member.role === 'OWNER' ? 'bg-amber-500/10 text-amber-500' :
+                                                            member.role === 'MANAGER' ? 'bg-blue-500/10 text-blue-500' :
+                                                                member.role === 'STAFF' ? 'bg-indigo-500/10 text-indigo-400' :
+                                                                    'bg-neutral-500/10 text-neutral-400'
                                                         }`}>
                                                         {member.role}
                                                     </span>
@@ -2395,8 +2395,28 @@ export default function ChannelDetailPage({
                                                             </label>
                                                         ))}
                                                     </div>
+                                                    {/* Reset to defaults */}
+                                                    <div className="mt-2 flex justify-end">
+                                                        <button
+                                                            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const res = await fetch(`/api/admin/channels/${id}/members/${member.id}/reset-permissions`, { method: 'POST' })
+                                                                    if (!res.ok) throw new Error()
+                                                                    const updated = await res.json()
+                                                                    setMembers(prev => prev.map(m => m.id === member.id ? updated : m))
+                                                                    toast.success('Permissions reset to role defaults')
+                                                                } catch {
+                                                                    toast.error('Failed to reset permissions')
+                                                                }
+                                                            }}
+                                                        >
+                                                            Reset to role defaults
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
+
                                         </div>
                                     ))}
                                 </div>
