@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -17,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { PricingSection } from '@/components/pricing-section'
+import { useBranding } from '@/lib/use-branding'
 
 
 const features = [
@@ -70,6 +73,7 @@ const stats = [
 ]
 
 export default function LandingPage() {
+  const branding = useBranding()
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ───── Floating Navbar ───── */}
