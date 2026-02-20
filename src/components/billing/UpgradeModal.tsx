@@ -4,8 +4,18 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Zap, X } from 'lucide-react'
-import { useTranslations } from '@/hooks/use-translations'
+import { Check, Zap } from 'lucide-react'
+
+// Simple locale detection — reads from localStorage (same as sidebar lang switcher)
+function useLocale() {
+    const [locale, setLocale] = useState('en')
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            setLocale(localStorage.getItem('language') || 'en')
+        }
+    }, [])
+    return locale
+}
 
 export type UpgradeReason = {
     feature: string
@@ -38,7 +48,8 @@ type Plan = {
 }
 
 export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
-    const { t, locale } = useTranslations()
+    const locale = useLocale()
+
     const [plans, setPlans] = useState<Plan[]>([])
     const [interval, setInterval] = useState<'monthly' | 'annual'>('monthly')
     const [loading, setLoading] = useState<string | null>(null)

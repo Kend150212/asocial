@@ -5,9 +5,7 @@
 import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
 
-// Get the installed Stripe API version dynamically
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const STRIPE_API_VERSION = (require('stripe').LATEST_API_VERSION || '2024-12-18.acacia') as Stripe.LatestApiVersion
+const STRIPE_API_VERSION = '2026-01-28.clover' as Stripe.LatestApiVersion
 
 let _cachedStripe: Stripe | null = null
 let _cacheTs = 0

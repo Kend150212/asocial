@@ -1,11 +1,16 @@
 /**
  * Seed default billing plans.
- * Run: npx ts-node prisma/seed-plans.ts
+ * Run: npx tsx prisma/seed-plans.ts
  * Or call seedPlans() from your seed.ts
  */
 import { PrismaClient } from '@prisma/client'
+// Load .env file when running standalone (tsx prisma/seed-plans.ts)
+import { config } from 'dotenv'
+config({ path: '.env' })
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+    datasources: { db: { url: process.env.DATABASE_URL } },
+})
 
 const DEFAULT_PLANS = [
     {
