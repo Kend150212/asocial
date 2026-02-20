@@ -37,6 +37,31 @@ async function getTransporter() {
     return { transporter, from }
 }
 
+// ─── Generic sendEmail ────────────────────────────────
+export async function sendEmail({
+    to,
+    subject,
+    html,
+}: {
+    to: string
+    subject: string
+    html: string
+}) {
+    const smtp = await getTransporter()
+    if (!smtp) {
+        console.warn('[Email] SMTP not configured, skipping email to', to)
+        return { success: false, reason: 'SMTP not configured' }
+    }
+    const { transporter, from } = smtp
+    await transporter.sendMail({
+        from: `"ASocial" <${from}>`,
+        to,
+        subject,
+        html,
+    })
+    return { success: true }
+}
+
 // ─── Send Invitation Email ──────────────────────────
 export async function sendInvitationEmail({
     toEmail,

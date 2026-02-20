@@ -101,6 +101,7 @@ const providerColors: Record<string, string> = {
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     canva: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
     stripe: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+    google_oauth: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
 }
 
 const providerGuideUrls: Record<string, string> = {
@@ -122,6 +123,7 @@ const providerGuideUrls: Record<string, string> = {
     smtp: 'https://myaccount.google.com/apppasswords',
     canva: 'https://www.canva.com/developers/',
     stripe: 'https://dashboard.stripe.com/apikeys',
+    google_oauth: 'https://console.cloud.google.com/apis/credentials',
 }
 
 interface PlatformGuide {
@@ -360,6 +362,24 @@ const platformGuides: Record<string, PlatformGuide> = {
         url: 'https://aistudio.google.com/apikey',
         urlLabel: 'Open Google AI Studio',
     },
+    google_oauth: {
+        title: '🔵 Google OAuth Setup / Cài Đặt Google Sign-In',
+        description: 'Google OAuth 2.0 for "Sign in with Google" on the login page. Users can register and log in without a password.',
+        steps: [
+            { title: 'Go to Google Cloud Console', detail: 'Visit console.cloud.google.com and select or create a project.' },
+            { title: 'Enable OAuth consent screen', detail: 'Go to APIs & Services → OAuth consent screen. Set User Type to External, fill in app name, support email.' },
+            { title: 'Create OAuth 2.0 Credentials', detail: 'Go to APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID. Application type: Web application.' },
+            { title: 'Add Authorized Redirect URI', detail: 'Under "Authorized redirect URIs", add:\nhttps://asocial.kendymarketing.com/api/auth/callback/google' },
+            { title: 'Copy credentials', detail: 'Copy the Client ID and paste it in the "OAuth Client ID" field below. Copy Client Secret and paste in the "OAuth Client Secret" field.' },
+        ],
+        tips: [
+            'The redirect URI must match exactly: {YOUR_DOMAIN}/api/auth/callback/google',
+            'After saving, restart the server for changes to take effect.',
+            'New users signing in with Google will automatically receive a Free Plan.',
+        ],
+        url: 'https://console.cloud.google.com/apis/credentials',
+        urlLabel: 'Open Google Cloud Console',
+    },
 }
 
 
@@ -427,6 +447,12 @@ export default function IntegrationsPage() {
                         username: config.smtpUsername || '',
                         password: '',
                         from: config.smtpFrom || '',
+                    }
+                }
+                if (i.provider === 'google_oauth') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.clientId || '',
+                        clientSecret: '',
                     }
                 }
                 if (i.provider === 'gdrive') {
@@ -614,6 +640,15 @@ export default function IntegrationsPage() {
                         pinterestClientId: oauth.clientId,
                         pinterestSandbox: oauth.sandbox === 'true' ? 'true' : 'false',
                     }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Google OAuth (Sign-In) config
+            if (integration.provider === 'google_oauth') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { clientId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -953,7 +988,7 @@ function IntegrationCard({
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
     const isStripe = integration.provider === 'stripe'
-    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva'].includes(integration.provider)
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
