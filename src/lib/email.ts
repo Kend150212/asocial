@@ -87,10 +87,10 @@ export async function sendInvitationEmail({
 
         const { transporter, from } = smtp
         const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
+        const brand = await getBrandingServer()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
-        const brand = await getBrandingServer()
 
         await transporter.sendMail({
             from: `"${brand.appName}" <${from}>`,
@@ -225,14 +225,13 @@ export async function sendChannelInviteEmail({
         }
 
         const { transporter, from } = smtp
+        const brand = await getBrandingServer()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
 
         // ─── Role-specific content ───────────────────────
         const isCustomer = role === 'CUSTOMER'
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
-
-        const brand = await getBrandingServer()
 
         // Subject
         const subject = isCustomer
@@ -409,11 +408,11 @@ export async function sendChannelAddedNotificationEmail({
         }
 
         const { transporter, from } = smtp
+        const brand = await getBrandingServer()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const loginUrl = `${appUrl}/login`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
-        const brand = await getBrandingServer()
 
         await transporter.sendMail({
             from: `"${brand.appName}" <${from}>`,
