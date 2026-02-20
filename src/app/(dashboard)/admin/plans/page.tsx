@@ -140,6 +140,26 @@ export default function AdminPlansPage() {
         </div>
     )
 
+    // Storage: user inputs GB, stored as MB. -1 = unlimited.
+    const storageGbValue = editPlan.maxStorageMB === -1 ? -1 : +(editPlan.maxStorageMB / 1024).toFixed(2)
+    const storageField = (
+        <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Storage (GB)</Label>
+            <Input
+                type="number"
+                step="0.5"
+                value={storageGbValue}
+                onChange={e => {
+                    const gb = Number(e.target.value)
+                    const mb = gb === -1 ? -1 : Math.round(gb * 1024)
+                    setEditPlan(p => ({ ...p, maxStorageMB: mb }))
+                }}
+                className="text-sm"
+            />
+            <p className="text-xs text-muted-foreground">-1 = unlimited | 0.5 = 512 MB | 10 = 10 GB | 50 = 50 GB</p>
+        </div>
+    )
+
     return (
         <div className="space-y-6 p-6">
             <div className="flex items-center justify-between">
@@ -188,7 +208,6 @@ export default function AdminPlansPage() {
                                     <div>Posts/mo: {plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth}</div>
                                     <div>Members/ch: {plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel}</div>
                                     <div>AI Images/mo: <span className="font-medium text-foreground">{plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? 'BYOK only' : plan.maxAiImagesPerMonth}</span></div>
-                                    <div>AI Text/mo: <span className="font-medium text-foreground">{plan.maxAiTextPerMonth === -1 ? '∞' : plan.maxAiTextPerMonth === 0 ? 'BYOK only' : plan.maxAiTextPerMonth}</span></div>
                                     <div>Storage: <span className="font-medium text-foreground">{plan.maxStorageMB === -1 ? '∞' : plan.maxStorageMB >= 1024 ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB` : `${plan.maxStorageMB} MB`}</span></div>
                                     <div className="flex flex-wrap gap-1 pt-1">
                                         {plan.hasAutoSchedule && <Badge variant="secondary" className="text-xs px-1">Auto-schedule</Badge>}
@@ -264,14 +283,10 @@ export default function AdminPlansPage() {
                                     {field('maxAiImagesPerMonth', 'AI Images/Month', 'number')}
                                     <p className="text-xs text-muted-foreground mt-1">0=BYOK only, -1=unlimited</p>
                                 </div>
-                                <div>
-                                    {field('maxAiTextPerMonth', 'AI Text Requests/Month', 'number')}
-                                    <p className="text-xs text-muted-foreground mt-1">0=BYOK only, -1=unlimited</p>
-                                </div>
+                                <div>{/* reserved for future quota */}</div>
                             </div>
                             <div className="mt-3">
-                                {field('maxStorageMB', 'Storage Limit (MB)', 'number')}
-                                <p className="text-xs text-muted-foreground mt-1">512=512MB, 10240=10GB, 51200=50GB, -1=unlimited. All users upload to their own Google Drive.</p>
+                                {storageField}
                             </div>
                         </div>
 

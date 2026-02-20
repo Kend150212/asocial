@@ -137,7 +137,9 @@ export async function checkTextQuota(
         })
 
         const plan = sub?.plan ?? null
-        const limit: number = plan?.maxAiTextPerMonth ?? 20 // free default = 20
+        // AI text generation counts against the monthly POST quota
+        // (same limit users see on their billing page — no extra quota to learn)
+        const limit: number = plan?.maxPostsPerMonth ?? 50
 
         if (limit === 0) {
             return {
@@ -145,12 +147,12 @@ export async function checkTextQuota(
                 used: 0,
                 limit: 0,
                 usingByok: false,
-                reason: 'Your plan does not include AI text generation. Add your own AI API key or upgrade your plan.',
+                reason: 'Your plan does not include AI generation. Add your own AI API key or upgrade your plan.',
             }
         }
 
         const usage = sub?.usages?.[0] ?? null
-        const used: number = usage?.aiTextGenerated ?? 0
+        const used: number = usage?.postsCreated ?? 0
 
         if (limit !== -1 && used >= limit) {
             return {
@@ -158,7 +160,7 @@ export async function checkTextQuota(
                 used,
                 limit,
                 usingByok: false,
-                reason: `Monthly AI text quota reached (${used}/${limit}). Upgrade your plan or add your own API key at /dashboard/api-keys.`,
+                reason: `Monthly quota reached (${used}/${limit} posts/generations used). Upgrade your plan or add your own API key at /dashboard/api-keys.`,
             }
         }
 
@@ -183,13 +185,13 @@ export async function incrementTextUsage(userId: string, hasByok: boolean): Prom
         const month = getCurrentMonth()
         await db.usage.upsert({
             where: { subscriptionId_month: { subscriptionId: sub.id, month } },
-            update: { aiTextGenerated: { increment: 1 } },
+            update: { postsCreated: { increment: 1 } },
             create: {
                 subscriptionId: sub.id,
                 month,
-                postsCreated: 0,
+                postsCreated: 1,
                 imagesGenerated: 0,
-                aiTextGenerated: 1,
+                aiTextGenerated: 0,
             },
         })
     } catch {
