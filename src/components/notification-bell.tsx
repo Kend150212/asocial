@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import {
     Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 interface Notification {
@@ -136,7 +135,12 @@ export function NotificationBell() {
                     )}
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0 shadow-xl" sideOffset={8}>
+            <PopoverContent
+                side="top"
+                align="end"
+                sideOffset={12}
+                className="w-[340px] p-0 shadow-2xl rounded-xl overflow-hidden"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
                     <div className="flex items-center gap-2">
@@ -153,8 +157,8 @@ export function NotificationBell() {
                     )}
                 </div>
 
-                {/* List */}
-                <ScrollArea className="max-h-[380px]">
+                {/* List — fixed height, scrollable */}
+                <div className="h-[360px] overflow-y-auto">
                     {loading && notifications.length === 0 ? (
                         <div className="p-6 text-center text-sm text-muted-foreground">Loading...</div>
                     ) : notifications.length === 0 ? (
@@ -217,7 +221,7 @@ export function NotificationBell() {
                             ))}
                         </div>
                     )}
-                </ScrollArea>
+                </div>
 
                 {/* Footer */}
                 {notifications.length > 0 && (
