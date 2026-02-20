@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
 
         // Find Free plan
         const freePlan = await prisma.plan.findFirst({
-            where: { OR: [{ name: 'Free' }, { price: 0 }] },
-            orderBy: { price: 'asc' },
+            where: { OR: [{ name: 'Free' }, { priceMonthly: 0 }] },
+            orderBy: { priceMonthly: 'asc' },
         })
 
         // Create user + subscription in a transaction
@@ -80,8 +80,6 @@ export async function POST(req: NextRequest) {
                         userId: newUser.id,
                         planId: freePlan.id,
                         status: 'ACTIVE',
-                        startDate: now,
-                        currentPeriodStart: now,
                         currentPeriodEnd: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000), // 1 year
                     },
                 })
