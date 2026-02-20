@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Check, Zap } from 'lucide-react'
+import { Check, Zap, Building2, Rocket, Crown } from 'lucide-react'
 
 // Simple locale detection — reads from localStorage (same as sidebar lang switcher)
 function useLocale() {
@@ -43,13 +43,64 @@ type Plan = {
     hasAutoSchedule: boolean
     hasWebhooks: boolean
     hasAdvancedReports: boolean
+    hasPrioritySupport: boolean
+    hasWhiteLabel: boolean
     stripePriceIdMonthly: string | null
     stripePriceIdAnnual: string | null
 }
 
+// Per-plan color config
+const planStyles: Record<string, {
+    gradient: string
+    border: string
+    glow: string
+    badge: string
+    button: string
+    icon: React.ReactNode
+    tag?: string
+    tagColor?: string
+}> = {
+    Pro: {
+        gradient: 'from-blue-600/20 via-blue-500/10 to-transparent',
+        border: 'border-blue-500/40',
+        glow: 'shadow-blue-500/20',
+        badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        button: 'bg-blue-600 hover:bg-blue-500 text-white',
+        icon: <Rocket className="h-5 w-5 text-blue-400" />,
+    },
+    Business: {
+        gradient: 'from-violet-600/20 via-violet-500/10 to-transparent',
+        border: 'border-violet-500/40',
+        glow: 'shadow-violet-500/20',
+        badge: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
+        button: 'bg-violet-600 hover:bg-violet-500 text-white',
+        icon: <Building2 className="h-5 w-5 text-violet-400" />,
+        tag: 'Most Popular',
+        tagColor: 'bg-violet-500',
+    },
+    Enterprise: {
+        gradient: 'from-amber-500/20 via-amber-400/10 to-transparent',
+        border: 'border-amber-500/40',
+        glow: 'shadow-amber-500/20',
+        badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        button: 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white',
+        icon: <Crown className="h-5 w-5 text-amber-400" />,
+        tag: 'Enterprise',
+        tagColor: 'bg-amber-500',
+    },
+}
+
+const defaultStyle = {
+    gradient: 'from-slate-600/20 to-transparent',
+    border: 'border-slate-500/30',
+    glow: 'shadow-slate-500/10',
+    badge: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+    button: 'bg-slate-600 hover:bg-slate-500 text-white',
+    icon: <Zap className="h-5 w-5 text-slate-400" />,
+}
+
 export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
     const locale = useLocale()
-
     const [plans, setPlans] = useState<Plan[]>([])
     const [interval, setInterval] = useState<'monthly' | 'annual'>('monthly')
     const [loading, setLoading] = useState<string | null>(null)
@@ -73,9 +124,7 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
                 body: JSON.stringify({ planId, interval, couponCode: coupon || undefined }),
             })
             const data = await res.json()
-            if (data.url) {
-                window.location.href = data.url
-            }
+            if (data.url) window.location.href = data.url
         } catch (err) {
             console.error('Checkout error:', err)
         } finally {
@@ -83,94 +132,159 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
         }
     }
 
-    const paidPlans = plans.filter(p => p.priceMonthly > 0 || p.priceAnnual > 0 || plans.indexOf(p) > 0)
+    const paidPlans = plans.filter((_p, i) => i > 0)
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <Zap className="h-5 w-5 text-yellow-500" />
-                        {locale === 'vi' ? 'Nâng cấp gói dịch vụ' : 'Upgrade Your Plan'}
-                    </DialogTitle>
-                    {reason && (
-                        <DialogDescription className="text-sm text-red-500">
-                            {locale === 'vi' ? reason.messageVi : reason.message}
-                        </DialogDescription>
-                    )}
-                </DialogHeader>
+            <DialogContent className="max-w-5xl w-full max-h-[92vh] overflow-y-auto bg-[#0d0d0d] border border-white/10 p-0">
+                {/* Header */}
+                <div className="px-8 pt-8 pb-4">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2.5 text-2xl font-bold">
+                            <span className="p-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                                <Zap className="h-5 w-5 text-yellow-400" />
+                            </span>
+                            {locale === 'vi' ? 'Nâng cấp gói dịch vụ' : 'Upgrade Your Plan'}
+                        </DialogTitle>
+                        {reason && (
+                            <DialogDescription className="text-sm text-red-400 mt-1">
+                                {locale === 'vi' ? reason.messageVi : reason.message}
+                            </DialogDescription>
+                        )}
+                    </DialogHeader>
 
-                {/* Monthly / Annual toggle */}
-                <div className="flex items-center justify-center gap-3 my-4">
-                    <button
-                        onClick={() => setInterval('monthly')}
-                        className={`text-sm px-4 py-1.5 rounded-full transition-colors ${interval === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        {locale === 'vi' ? 'Hàng tháng' : 'Monthly'}
-                    </button>
-                    <button
-                        onClick={() => setInterval('annual')}
-                        className={`text-sm px-4 py-1.5 rounded-full transition-colors ${interval === 'annual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        {locale === 'vi' ? 'Hàng năm' : 'Annual'}
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                            {locale === 'vi' ? 'Tiết kiệm 2 tháng' : '2 months free'}
-                        </Badge>
-                    </button>
+                    {/* Toggle */}
+                    <div className="flex items-center gap-1 mt-5 bg-white/5 rounded-full p-1 w-fit">
+                        {['monthly', 'annual'].map((v) => (
+                            <button
+                                key={v}
+                                onClick={() => setInterval(v as 'monthly' | 'annual')}
+                                className={`text-sm px-5 py-1.5 rounded-full transition-all duration-200 font-medium ${interval === v
+                                        ? 'bg-white text-black shadow'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                {v === 'monthly'
+                                    ? (locale === 'vi' ? 'Hàng tháng' : 'Monthly')
+                                    : (locale === 'vi' ? 'Hàng năm' : 'Annual')}
+                                {v === 'annual' && (
+                                    <Badge className="ml-2 text-[10px] px-1.5 py-0 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                                        {locale === 'vi' ? '-17%' : '2 free'}
+                                    </Badge>
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Plans grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-8 pb-6">
                     {paidPlans.slice(0, 3).map((plan) => {
+                        const style = planStyles[plan.name] ?? defaultStyle
                         const price = interval === 'annual' ? plan.priceAnnual : plan.priceMonthly
-                        const priceLabel = price === 0 ? (locale === 'vi' ? 'Liên hệ' : 'Contact us') : `$${price}`
-                        const perLabel = price === 0 ? '' : (interval === 'annual' ? (locale === 'vi' ? '/năm' : '/yr') : (locale === 'vi' ? '/tháng' : '/mo'))
+                        const priceLabel = price === 0
+                            ? (locale === 'vi' ? 'Liên hệ' : 'Contact us')
+                            : `$${price}`
+                        const per = price === 0 ? '' : (interval === 'annual'
+                            ? (locale === 'vi' ? '/năm' : '/yr')
+                            : (locale === 'vi' ? '/tháng' : '/mo'))
                         const hasPriceId = interval === 'annual' ? !!plan.stripePriceIdAnnual : !!plan.stripePriceIdMonthly
 
+                        const features = [
+                            plan.maxChannels === -1
+                                ? (locale === 'vi' ? '∞ kênh' : 'Unlimited channels')
+                                : `${plan.maxChannels} ${locale === 'vi' ? 'kênh' : 'channels'}`,
+                            plan.maxPostsPerMonth === -1
+                                ? (locale === 'vi' ? '∞ bài đăng/tháng' : 'Unlimited posts/mo')
+                                : `${plan.maxPostsPerMonth} ${locale === 'vi' ? 'bài/tháng' : 'posts/mo'}`,
+                            plan.maxMembersPerChannel === -1
+                                ? (locale === 'vi' ? '∞ thành viên/kênh' : 'Unlimited members')
+                                : `${plan.maxMembersPerChannel} ${locale === 'vi' ? 'thành viên/kênh' : 'members/channel'}`,
+                            ...(plan.hasAutoSchedule ? [locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling'] : []),
+                            ...(plan.hasWebhooks ? ['Webhooks'] : []),
+                            ...(plan.hasAdvancedReports ? [locale === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reports'] : []),
+                            ...(plan.hasPrioritySupport ? [locale === 'vi' ? 'Hỗ trợ ưu tiên' : 'Priority support'] : []),
+                            ...(plan.hasWhiteLabel ? ['White label'] : []),
+                        ]
+
                         return (
-                            <div key={plan.id} className="rounded-xl border p-5 flex flex-col gap-4 relative">
+                            <div
+                                key={plan.id}
+                                className={`relative rounded-2xl border ${style.border} bg-gradient-to-b ${style.gradient} p-6 flex flex-col gap-5 shadow-xl ${style.glow} transition-all duration-300 hover:scale-[1.01]`}
+                            >
+                                {/* Popular badge */}
+                                {style.tag && (
+                                    <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full text-white ${style.tagColor}`}>
+                                        {style.tag}
+                                    </span>
+                                )}
+
+                                {/* Plan header */}
                                 <div>
-                                    <h3 className="font-semibold text-lg">{locale === 'vi' ? plan.nameVi : plan.name}</h3>
-                                    <div className="flex items-end gap-1 mt-1">
-                                        <span className="text-2xl font-bold">{priceLabel}</span>
-                                        <span className="text-sm text-muted-foreground mb-0.5">{perLabel}</span>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className={`p-1.5 rounded-lg border ${style.badge}`}>
+                                            {style.icon}
+                                        </span>
+                                        <span className="font-bold text-lg">
+                                            {locale === 'vi' ? plan.nameVi : plan.name}
+                                        </span>
                                     </div>
+                                    <div className="flex items-end gap-1">
+                                        <span className="text-4xl font-extrabold tracking-tight">{priceLabel}</span>
+                                        {per && <span className="text-sm text-muted-foreground mb-1">{per}</span>}
+                                    </div>
+                                    {interval === 'annual' && price > 0 && (
+                                        <p className="text-xs text-emerald-400 mt-1">
+                                            {locale === 'vi'
+                                                ? `Tiết kiệm $${Math.round(plan.priceMonthly * 12 - plan.priceAnnual)}/năm`
+                                                : `Save $${Math.round(plan.priceMonthly * 12 - plan.priceAnnual)}/yr`}
+                                        </p>
+                                    )}
                                 </div>
 
-                                <ul className="space-y-1.5 text-sm flex-1">
-                                    <Feature label={plan.maxChannels === -1 ? (locale === 'vi' ? 'Kênh không giới hạn' : 'Unlimited channels') : `${plan.maxChannels} ${locale === 'vi' ? 'kênh' : 'channels'}`} />
-                                    <Feature label={plan.maxPostsPerMonth === -1 ? (locale === 'vi' ? 'Bài đăng không giới hạn' : 'Unlimited posts') : `${plan.maxPostsPerMonth} ${locale === 'vi' ? 'bài/tháng' : 'posts/mo'}`} />
-                                    <Feature label={plan.maxMembersPerChannel === -1 ? (locale === 'vi' ? 'Thành viên không giới hạn' : 'Unlimited members') : `${plan.maxMembersPerChannel} ${locale === 'vi' ? 'thành viên/kênh' : 'members/channel'}`} />
-                                    {plan.hasAutoSchedule && <Feature label={locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling'} />}
-                                    {plan.hasWebhooks && <Feature label="Webhooks" />}
-                                    {plan.hasAdvancedReports && <Feature label={locale === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reports'} />}
+                                {/* Divider */}
+                                <div className={`h-px bg-gradient-to-r from-transparent via-white/10 to-transparent`} />
+
+                                {/* Features */}
+                                <ul className="space-y-2.5 flex-1">
+                                    {features.map((f, i) => (
+                                        <li key={i} className="flex items-center gap-2.5 text-sm">
+                                            <span className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center border ${style.badge}`}>
+                                                <Check className="h-2.5 w-2.5" />
+                                            </span>
+                                            <span className="text-white/80">{f}</span>
+                                        </li>
+                                    ))}
                                 </ul>
 
-                                <Button
+                                {/* CTA */}
+                                <button
                                     onClick={() => hasPriceId ? handleUpgrade(plan.id) : undefined}
                                     disabled={!!loading || !hasPriceId}
-                                    className="w-full"
-                                    variant={plan.name === 'Pro' ? 'default' : 'outline'}
+                                    className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${hasPriceId
+                                            ? style.button
+                                            : 'bg-white/5 text-muted-foreground cursor-not-allowed border border-white/10'
+                                        } disabled:opacity-60`}
                                 >
                                     {loading === plan.id
                                         ? (locale === 'vi' ? 'Đang xử lý...' : 'Processing...')
                                         : !hasPriceId
-                                            ? (locale === 'vi' ? 'Liên hệ' : 'Contact Sales')
-                                            : (locale === 'vi' ? 'Nâng cấp' : 'Upgrade')}
-                                </Button>
+                                            ? (locale === 'vi' ? 'Liên hệ tư vấn' : 'Contact Sales')
+                                            : (locale === 'vi' ? '🚀 Nâng cấp ngay' : '🚀 Upgrade Now')}
+                                </button>
                             </div>
                         )
                     })}
                 </div>
 
-                {/* Coupon input */}
-                <div className="flex gap-2 mt-2">
+                {/* Coupon */}
+                <div className="px-8 pb-8">
                     <input
                         type="text"
                         value={coupon}
                         onChange={e => setCoupon(e.target.value)}
-                        placeholder={locale === 'vi' ? 'Mã giảm giá (nếu có)' : 'Coupon code (optional)'}
-                        className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
+                        placeholder={locale === 'vi' ? '🏷️  Mã giảm giá (nếu có)' : '🏷️  Coupon code (optional)'}
+                        className="w-full px-4 py-2.5 text-sm border border-white/10 rounded-xl bg-white/5 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-white/20"
                     />
                 </div>
             </DialogContent>
@@ -186,3 +300,6 @@ function Feature({ label }: { label: string }) {
         </li>
     )
 }
+
+// Keep export for backwards compatibility
+export { Feature }
