@@ -18,6 +18,7 @@ let _running = false
  */
 export async function pollScheduledPosts(): Promise<{ enqueued: number }> {
     const now = new Date()
+    console.log(`[Scheduler] Poll at ${now.toISOString()} — checking for due posts...`)
 
     // Find posts due for publishing (scheduledAt <= now, still SCHEDULED)
     const duePosts = await prisma.post.findMany({
@@ -26,8 +27,11 @@ export async function pollScheduledPosts(): Promise<{ enqueued: number }> {
             scheduledAt: { lte: now },
         },
         select: { id: true, scheduledAt: true },
-        take: 100, // process max 100 at a time
+        take: 100,
     })
+
+    console.log(`[Scheduler] Found ${duePosts.length} due post(s)${duePosts.length > 0 ? ':' : '.'}`)
+    duePosts.forEach(p => console.log(`  → Post ${p.id} scheduled at ${p.scheduledAt?.toISOString()}`))
 
     if (duePosts.length === 0) return { enqueued: 0 }
 
@@ -76,7 +80,7 @@ export function startScheduler(): void {
         try {
             const result = await pollScheduledPosts()
             if (result.enqueued > 0) {
-                console.log(`[Scheduler] Enqueued ${result.enqueued} post(s)`)
+                console.log(`[Scheduler] ✅ Enqueued ${result.enqueued} post(s)`)
             }
         } catch (err) {
             console.error('[Scheduler] Poll error:', err)
