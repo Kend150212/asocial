@@ -392,8 +392,10 @@ export default function MediaLibraryPage() {
         if (!files || files.length === 0 || !selectedChannelId) return
         setUploading(true)
         let successCount = 0
+        let blockedByGdrive = false
 
         for (const file of Array.from(files)) {
+            if (blockedByGdrive) break
             try {
                 const formData = new FormData()
                 formData.append('file', file)
@@ -404,10 +406,31 @@ export default function MediaLibraryPage() {
                     method: 'POST',
                     body: formData,
                 })
-                if (res.ok) successCount++
-                else console.error('Upload failed for', file.name)
+
+                if (res.ok) {
+                    successCount++
+                } else {
+                    const data = await res.json().catch(() => ({}))
+                    if (res.status === 403 && data.code === 'GDRIVE_NOT_CONNECTED') {
+                        blockedByGdrive = true
+                        toast.error('Chưa kết nối Google Drive', {
+                            description: 'Bạn cần kết nối Google Drive trước khi upload. Vào Cài đặt → API Keys để kết nối.',
+                            action: { label: 'Kết nối ngay', onClick: () => (window.location.href = '/dashboard/api-keys') },
+                            duration: 10000,
+                        })
+                    } else if (res.status === 429) {
+                        blockedByGdrive = true
+                        toast.error('Hết dung lượng lưu trữ', {
+                            description: data.error || 'Dung lượng đã đầy. Nâng cấp plan để tăng dung lượng.',
+                            duration: 8000,
+                        })
+                    } else {
+                        toast.error(`Upload thất bại: ${file.name}`, { description: data.error || 'Lỗi không xác định' })
+                    }
+                }
             } catch (err) {
                 console.error('Upload error:', err)
+                toast.error(`Upload lỗi: ${file.name}`)
             }
         }
 
