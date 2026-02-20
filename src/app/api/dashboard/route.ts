@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest) {
 
     // Unread notifications
     const unreadNotifications = await prisma.notification.count({
-        where: { userId, read: false },
+        where: { userId, isRead: false },
     })
 
     // Recent 5 posts
@@ -56,7 +56,7 @@ export async function GET(_req: NextRequest) {
         take: 5,
         select: {
             id: true,
-            title: true,
+            content: true,
             status: true,
             scheduledAt: true,
             publishedAt: true,
@@ -107,7 +107,7 @@ export async function GET(_req: NextRequest) {
         take: 5,
         select: {
             id: true,
-            title: true,
+            content: true,
             scheduledAt: true,
             channel: { select: { id: true, name: true, displayName: true } },
         },

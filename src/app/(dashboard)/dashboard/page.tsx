@@ -34,7 +34,7 @@ interface DashboardData {
     }
     recentPosts: {
         id: string
-        title: string | null
+        content: string | null
         status: string
         scheduledAt: string | null
         publishedAt: string | null
@@ -43,7 +43,7 @@ interface DashboardData {
     }[]
     upcoming: {
         id: string
-        title: string | null
+        content: string | null
         scheduledAt: string | null
         channel: { id: string; name: string; displayName: string | null }
     }[]
@@ -269,7 +269,7 @@ export default function DashboardPage() {
                             <p className="text-sm text-muted-foreground py-4 text-center">{t('dashboard.noUpcoming')}</p>
                         ) : upcoming.map(p => (
                             <Link key={p.id} href={`/dashboard/posts/${p.id}`} className="flex flex-col gap-0.5 p-2.5 rounded-lg hover:bg-accent transition-colors">
-                                <span className="text-sm font-medium truncate">{p.title || '(No title)'}</span>
+                                <span className="text-sm font-medium truncate">{p.content?.slice(0, 60) || '(No content)'}</span>
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                     <Clock className="h-3 w-3" />
                                     {fmtDate(p.scheduledAt)}
@@ -295,7 +295,7 @@ export default function DashboardPage() {
                         ) : recentPosts.map(p => (
                             <Link key={p.id} href={`/dashboard/posts/${p.id}`} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent transition-colors">
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{p.title || '(No title)'}</p>
+                                    <p className="text-sm font-medium truncate">{p.content?.slice(0, 60) || '(No content)'}</p>
                                     <p className="text-xs text-muted-foreground">{p.channel.displayName || p.channel.name}</p>
                                 </div>
                                 {statusBadge(p.status, t)}
