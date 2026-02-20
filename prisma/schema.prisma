@@ -626,6 +626,8 @@ model Plan {
 
   // AI Image Generation quota (-1 = unlimited, 0 = BYOK only)
   maxAiImagesPerMonth Int @default(0) @map("max_ai_images_per_month")
+  // AI Text Generation quota — 1 unit = 1 generation request (-1 = unlimited, 0 = BYOK only)
+  maxAiTextPerMonth   Int @default(20) @map("max_ai_text_per_month")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -666,8 +668,9 @@ model Usage {
   id             String   @id @default(cuid())
   subscriptionId String   @map("subscription_id")
   month          String   // "2026-02" (YYYY-MM)
-  postsCreated   Int      @default(0) @map("posts_created")
-  imagesGenerated Int     @default(0) @map("images_generated")
+  postsCreated    Int @default(0) @map("posts_created")
+  imagesGenerated Int @default(0) @map("images_generated")
+  aiTextGenerated Int @default(0) @map("ai_text_generated")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

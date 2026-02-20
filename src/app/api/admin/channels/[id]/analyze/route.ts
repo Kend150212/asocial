@@ -3,8 +3,13 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
+import { getChannelOwnerKey } from '@/lib/channel-owner-key'
+import { checkTextQuota, incrementTextUsage } from '@/lib/ai-quota'
 
 // POST /api/admin/channels/[id]/analyze — AI analysis of channel
+// API key priority:
+//   1. Channel owner's UserApiKey (preferred provider → default → any)
+//   2. Admin's shared ApiIntegration (fallback, subject to quota)
 export async function POST(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -14,7 +19,7 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const { id: channelId } = await params
     const body = await req.json()
     const { channelName, description, language, provider: requestedProvider, model: requestedModel } = body
 
@@ -22,39 +27,52 @@ export async function POST(
         return NextResponse.json({ error: 'Channel name and description are required' }, { status: 400 })
     }
 
-    // Find the requested or any active AI provider
-    let aiIntegration
-    if (requestedProvider) {
-        aiIntegration = await prisma.apiIntegration.findFirst({
-            where: {
-                provider: requestedProvider,
-                category: 'AI',
-                status: 'ACTIVE',
-                apiKeyEncrypted: { not: null },
-            },
-        })
-    }
-    if (!aiIntegration) {
-        aiIntegration = await prisma.apiIntegration.findFirst({
-            where: {
-                category: 'AI',
-                status: 'ACTIVE',
-                apiKeyEncrypted: { not: null },
-            },
-            orderBy: { provider: 'asc' },
-        })
-    }
+    // ─── 1. Try channel owner's own key ───────────────────────────────────
+    const ownerKey = await getChannelOwnerKey(channelId, requestedProvider)
+    let apiKey: string
+    let provider: string
+    let model: string
+    let usingByok = false
+    let adminIntegrationId: string | null = null
 
-    if (!aiIntegration || !aiIntegration.apiKeyEncrypted) {
-        return NextResponse.json(
-            { error: 'No AI provider configured. Please set up an AI API key in API Hub first.' },
-            { status: 400 }
-        )
-    }
+    if (ownerKey.apiKey) {
+        apiKey = ownerKey.apiKey
+        provider = ownerKey.provider!
+        model = requestedModel || ownerKey.model || getDefaultModel(provider, {})
+        usingByok = true
+    } else {
+        // ─── 2. Fall back to admin's shared key, check quota first ───────
+        const ownerId = ownerKey.ownerId ?? session.user.id
+        const quota = await checkTextQuota(ownerId, false)
+        if (!quota.allowed) {
+            return NextResponse.json({ error: quota.reason }, { status: 429 })
+        }
 
-    const apiKey = decrypt(aiIntegration.apiKeyEncrypted)
-    const config = (aiIntegration.config as Record<string, string>) || {}
-    const model = requestedModel || getDefaultModel(aiIntegration.provider, config)
+        let aiIntegration = null
+        if (requestedProvider) {
+            aiIntegration = await prisma.apiIntegration.findFirst({
+                where: { provider: requestedProvider, category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
+            })
+        }
+        if (!aiIntegration) {
+            aiIntegration = await prisma.apiIntegration.findFirst({
+                where: { category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
+                orderBy: { provider: 'asc' },
+            })
+        }
+        if (!aiIntegration?.apiKeyEncrypted) {
+            return NextResponse.json(
+                { error: 'No AI key available. Please configure an AI API key in your AI API Keys page (/dashboard/api-keys) or ask your admin to set up a shared AI integration.' },
+                { status: 400 }
+            )
+        }
+
+        apiKey = decrypt(aiIntegration.apiKeyEncrypted)
+        provider = aiIntegration.provider
+        const config = (aiIntegration.config as Record<string, string>) || {}
+        model = requestedModel || getDefaultModel(provider, config)
+        adminIntegrationId = aiIntegration.id
+    }
 
     const langLabel = language === 'vi' ? 'Vietnamese' : language === 'fr' ? 'French' : language === 'de' ? 'German' : language === 'ja' ? 'Japanese' : language === 'ko' ? 'Korean' : language === 'zh' ? 'Chinese' : language === 'es' ? 'Spanish' : 'English'
 
@@ -104,24 +122,22 @@ Requirements:
 - Hashtags should be relevant and commonly used`
 
     try {
-        const result = await callAI(
-            aiIntegration.provider,
-            apiKey,
-            model,
-            systemPrompt,
-            userPrompt,
-            aiIntegration.baseUrl,
-        )
+        const result = await callAI(provider, apiKey, model, systemPrompt, userPrompt)
 
-        // Parse the JSON response
         const cleaned = result.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
         const analysis = JSON.parse(cleaned)
 
-        // Increment usage count
-        await prisma.apiIntegration.update({
-            where: { id: aiIntegration.id },
-            data: { usageCount: { increment: 1 } },
-        })
+        // Track usage
+        if (adminIntegrationId) {
+            const ownerId = ownerKey.ownerId ?? session.user.id
+            await Promise.all([
+                prisma.apiIntegration.update({
+                    where: { id: adminIntegrationId },
+                    data: { usageCount: { increment: 1 } },
+                }),
+                incrementTextUsage(ownerId, usingByok),
+            ])
+        }
 
         return NextResponse.json(analysis)
     } catch (error) {
