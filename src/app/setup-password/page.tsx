@@ -75,9 +75,10 @@ function SetupPasswordForm() {
             }
 
             setSuccess(true)
-            // Sign out current session first, then redirect to login
             await signOut({ redirect: false })
-            setTimeout(() => router.push('/login'), 3000)
+            // Customer → portal, staff → login
+            const redirectTo = userInfo?.role === 'CUSTOMER' ? '/portal' : '/login'
+            setTimeout(() => router.push(redirectTo), 2000)
         } catch {
             setError(t('setupPassword.error'))
         } finally {

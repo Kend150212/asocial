@@ -195,7 +195,7 @@ export async function sendChannelInviteEmail({
         }
 
         const { transporter, from } = smtp
-        const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
+        const setupUrl = `${appUrl}/invite/${inviteToken}`
         const logoUrl = `${appUrl}/logo.png`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
