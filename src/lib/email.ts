@@ -322,14 +322,23 @@ export async function sendChannelInviteEmail({
                         </td></tr>
                     </table>
                 </td></tr>
-                <tr><td style="padding: 28px 36px; text-align: center;">
+                <tr><td style="padding: 28px 36px 12px; text-align: center; border-top: 1px solid #f4f4f5;">
                     <p style="margin: 0 0 6px; font-size: 12px; color: #a1a1aa;">If the button doesn't work, copy this link:</p>
-                    <p style="margin: 0 0 20px; font-size: 11px; word-break: break-all;">
+                    <p style="margin: 0 0 24px; font-size: 11px; word-break: break-all;">
                         <a href="${ctaUrl}" style="color: #6366f1; text-decoration: none;">${ctaUrl}</a>
                     </p>
-                    <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
-                        &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
-                    </p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                        <tr><td align="center" style="padding-bottom: 14px;">
+                            <a href="${appUrl}/terms" style="font-size: 11px; color: #a1a1aa; text-decoration: underline; margin: 0 10px;">Terms of Service</a>
+                            <span style="font-size: 11px; color: #d4d4d8;">&middot;</span>
+                            <a href="${appUrl}/privacy" style="font-size: 11px; color: #a1a1aa; text-decoration: underline; margin: 0 10px;">Privacy Policy</a>
+                        </td></tr>
+                        <tr><td align="center">
+                            <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
+                                &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
+                            </p>
+                        </td></tr>
+                    </table>
                 </td></tr>
             </table>
         </td></tr>
