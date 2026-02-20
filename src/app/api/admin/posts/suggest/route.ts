@@ -1,19 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { UserRole } from '@prisma/client'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
 
 // POST /api/admin/posts/suggest — AI-generate topic suggestions for a channel
 export async function POST(req: NextRequest) {
     const session = await auth()
-    if (!session?.user) {
+    if (!session?.user?.id) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { channelId } = await req.json()
     if (!channelId) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
+    }
+
+    // Verify user has access to this channel (ADMIN role bypasses membership check)
+    if (session.user.role !== 'ADMIN') {
+        const membership = await prisma.channelMember.findFirst({
+            where: { channelId, userId: session.user.id, role: { in: [UserRole.ADMIN, UserRole.MANAGER] } },
+        })
+        if (!membership) {
+            return NextResponse.json({ error: 'Access denied to this channel' }, { status: 403 })
+        }
     }
 
     const channel = await prisma.channel.findUnique({

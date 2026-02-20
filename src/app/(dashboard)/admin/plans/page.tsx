@@ -26,6 +26,7 @@ type Plan = {
     maxChannels: number
     maxPostsPerMonth: number
     maxMembersPerChannel: number
+    maxAiImagesPerMonth: number
     hasAutoSchedule: boolean
     hasWebhooks: boolean
     hasAdvancedReports: boolean
@@ -42,6 +43,7 @@ const EMPTY_PLAN: Omit<Plan, 'id' | '_count'> = {
     priceMonthly: 0, priceAnnual: 0,
     stripePriceIdMonthly: null, stripePriceIdAnnual: null,
     maxChannels: 1, maxPostsPerMonth: 50, maxMembersPerChannel: 2,
+    maxAiImagesPerMonth: 0,
     hasAutoSchedule: false, hasWebhooks: false, hasAdvancedReports: false,
     hasPrioritySupport: false, hasWhiteLabel: false,
     isActive: true, isPublic: true, sortOrder: 0,
@@ -183,6 +185,7 @@ export default function AdminPlansPage() {
                                     <div>Channels: {plan.maxChannels === -1 ? '∞' : plan.maxChannels}</div>
                                     <div>Posts/mo: {plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth}</div>
                                     <div>Members/ch: {plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel}</div>
+                                    <div>AI Images/mo: <span className="font-medium text-foreground">{plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? 'BYOK only' : plan.maxAiImagesPerMonth}</span></div>
                                     <div className="flex flex-wrap gap-1 pt-1">
                                         {plan.hasAutoSchedule && <Badge variant="secondary" className="text-xs px-1">Auto-schedule</Badge>}
                                         {plan.hasWebhooks && <Badge variant="secondary" className="text-xs px-1">Webhooks</Badge>}
@@ -251,6 +254,10 @@ export default function AdminPlansPage() {
                                 {field('maxChannels', 'Max Channels', 'number')}
                                 {field('maxPostsPerMonth', 'Max Posts/Month', 'number')}
                                 {field('maxMembersPerChannel', 'Max Members/Channel', 'number')}
+                            </div>
+                            <div className="mt-3">
+                                {field('maxAiImagesPerMonth', 'AI Images/Month (0=BYOK only, -1=unlimited)', 'number')}
+                                <p className="text-xs text-muted-foreground mt-1">Uses platform Runware API. 0 = user must bring own key. -1 = unlimited.</p>
                             </div>
                         </div>
 

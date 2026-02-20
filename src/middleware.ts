@@ -35,6 +35,13 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL('/login', req.url))
     }
 
+    // ── Protect /admin routes — redirect to login ─────────────────────
+    if (pathname.startsWith('/admin') && !hasSession) {
+        const loginUrl = new URL('/login', req.url)
+        loginUrl.searchParams.set('callbackUrl', req.nextUrl.pathname + req.nextUrl.search)
+        return NextResponse.redirect(loginUrl)
+    }
+
     return NextResponse.next()
 }
 

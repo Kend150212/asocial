@@ -605,6 +605,9 @@ model Plan {
   hasPrioritySupport Boolean @default(false) @map("has_priority_support")
   hasWhiteLabel      Boolean @default(false) @map("has_white_label")
 
+  // AI Image Generation quota (-1 = unlimited, 0 = BYOK only)
+  maxAiImagesPerMonth Int @default(0) @map("max_ai_images_per_month")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -645,6 +648,7 @@ model Usage {
   subscriptionId String   @map("subscription_id")
   month          String   // "2026-02" (YYYY-MM)
   postsCreated   Int      @default(0) @map("posts_created")
+  imagesGenerated Int     @default(0) @map("images_generated")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

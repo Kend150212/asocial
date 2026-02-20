@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import { checkImageQuota, incrementImageUsage } from '@/lib/ai-quota'
 import { randomUUID } from 'crypto'
 import {
     getGDriveAccessToken,
@@ -51,13 +52,15 @@ export async function POST(req: NextRequest) {
     const imageProvider = channel.defaultImageProvider || null
     const imageModel = channel.defaultImageModel || null
 
-    // Find user's API key for the image provider
+    // ─── Resolve API key: BYOK first, then admin fallback ────────────
+    // Find user's OWN API key first (BYOK = unlimited, no quota)
     const providerCandidates = imageProvider
         ? [imageProvider]
         : ['runware', 'openai', 'gemini'] // fallback order
 
     let resolvedProvider = ''
     let apiKey = ''
+    let usingByok = false
 
     for (const provider of providerCandidates) {
         const userKey = await prisma.userApiKey.findFirst({
@@ -66,13 +69,45 @@ export async function POST(req: NextRequest) {
         if (userKey) {
             resolvedProvider = provider
             apiKey = decrypt(userKey.apiKeyEncrypted)
+            usingByok = true
             break
+        }
+    }
+
+    // If no BYOK key found → try admin's Runware key (quota-limited by plan)
+    if (!resolvedProvider) {
+        // Check quota first
+        const quota = await checkImageQuota(session.user.id, false)
+        if (!quota.allowed) {
+            return NextResponse.json(
+                {
+                    error: quota.reason,
+                    errorType: 'quota_exceeded',
+                    used: quota.used,
+                    limit: quota.limit,
+                },
+                { status: 403 }
+            )
+        }
+
+        // Look for admin Runware key in ApiIntegration
+        const adminRunware = await prisma.apiIntegration.findFirst({
+            where: { provider: 'runware', status: 'ACTIVE' },
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const adminConfig = (adminRunware?.config as any) ?? {}
+        if (adminConfig.apiKey) {
+            resolvedProvider = 'runware'
+            apiKey = typeof adminConfig.apiKey === 'string'
+                ? adminConfig.apiKey
+                : decrypt(adminConfig.apiKey)
+            usingByok = false
         }
     }
 
     if (!resolvedProvider || !apiKey) {
         return NextResponse.json(
-            { error: 'No image AI provider configured. Add a Runware, OpenAI, or Gemini API key in AI API Keys.' },
+            { error: 'No image AI provider configured. Add a Runware, OpenAI, or Gemini API key in Settings → AI API Keys, or upgrade your plan to use the platform\'s Runware API.' },
             { status: 400 }
         )
     }
@@ -199,6 +234,10 @@ export async function POST(req: NextRequest) {
         const msg = error instanceof Error ? error.message : 'Failed to process image'
         return NextResponse.json({ error: msg }, { status: 500 })
     } finally {
+        // Increment quota if using admin key (after successful upload, before cleanup)
+        if (!usingByok && resolvedProvider) {
+            await incrementImageUsage(session.user.id).catch(() => { })
+        }
         // Always clean up temp file
         fs.unlink(tmpPath, () => { })
     }
