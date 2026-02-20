@@ -16,6 +16,12 @@ import {
     Check,
     X,
     Mail,
+    CreditCard,
+    ExternalLink,
+    AlertCircle,
+    CheckCircle2,
+    Clock,
+    Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -91,6 +97,24 @@ interface UserRow {
     lastLoginAt: string | null
     createdAt: string
     _count: { channelMembers: number }
+    subscription?: { plan: { name: string }; status: string } | null
+}
+
+interface BillingPlan { id: string; name: string; nameVi: string; priceMonthly: number }
+interface BillingData {
+    subscription: {
+        id: string; planId: string; status: string; billingInterval: string;
+        currentPeriodEnd: string; cancelAtPeriodEnd: boolean;
+        stripeCustomerId: string | null; stripeSubscriptionId: string | null;
+    } | null
+    plan: BillingPlan | null
+    usage: { postsThisMonth: number; channelCount: number; month: string }
+    plans: BillingPlan[]
+}
+interface Invoice {
+    id: string; number: string | null; status: string | null;
+    amountPaid: number; currency: string; created: number;
+    hostedInvoiceUrl: string | null;
 }
 
 interface ChannelPermission {
@@ -202,6 +226,13 @@ export default function UsersPage() {
     // Channel assignments
     const [channelAssignments, setChannelAssignments] = useState<ChannelAssignment[]>([])
 
+    // Billing state
+    const [billingData, setBillingData] = useState<BillingData | null>(null)
+    const [invoices, setInvoices] = useState<Invoice[]>([])
+    const [billingLoading, setBillingLoading] = useState(false)
+    const [selectedPlanId, setSelectedPlanId] = useState<string>('')
+    const [savingPlan, setSavingPlan] = useState(false)
+
     const fetchUsers = useCallback(async () => {
         try {
             const res = await fetch('/api/admin/users')
@@ -293,6 +324,51 @@ export default function UsersPage() {
         }
     }
 
+    // ─── Billing ──────────────────────────────────────
+    const fetchBilling = async (userId: string) => {
+        setBillingLoading(true)
+        try {
+            const [bRes, iRes] = await Promise.all([
+                fetch(`/api/admin/users/${userId}/billing`),
+                fetch(`/api/admin/users/${userId}/billing/invoices`),
+            ])
+            if (bRes.ok) {
+                const d: BillingData = await bRes.json()
+                setBillingData(d)
+                setSelectedPlanId(d.subscription?.planId ?? d.plans.find(p => p.priceMonthly === 0)?.id ?? '')
+            }
+            if (iRes.ok) {
+                const d = await iRes.json()
+                setInvoices(d.invoices ?? [])
+            }
+        } catch {
+            // ignore
+        } finally {
+            setBillingLoading(false)
+        }
+    }
+
+    const handleSavePlan = async (userId: string) => {
+        if (!selectedPlanId) return
+        setSavingPlan(true)
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/billing`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ planId: selectedPlanId }),
+            })
+            if (res.ok) {
+                toast.success('Plan updated!')
+                fetchBilling(userId)
+                fetchUsers()
+            } else {
+                toast.error('Failed to update plan')
+            }
+        } finally {
+            setSavingPlan(false)
+        }
+    }
+
     // ─── Edit User ───────────────────────────────────
     const handleOpenEdit = async (user: UserRow) => {
         try {
@@ -326,6 +402,10 @@ export default function UsersPage() {
                 }
             })
             setChannelAssignments(assignments)
+            // Also fetch billing
+            setBillingData(null)
+            setInvoices([])
+            fetchBilling(user.id)
         } catch {
             toast.error('Failed to load user details')
         }
@@ -493,8 +573,9 @@ export default function UsersPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[280px]">{t('users.name')}</TableHead>
+                                <TableHead className="w-[240px]">{t('users.name')}</TableHead>
                                 <TableHead>{t('users.role')}</TableHead>
+                                <TableHead>Plan</TableHead>
                                 <TableHead>{t('users.status')}</TableHead>
                                 <TableHead className="text-center">{t('users.channels')}</TableHead>
                                 <TableHead>{t('users.lastLogin')}</TableHead>
@@ -504,13 +585,13 @@ export default function UsersPage() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                                         {t('common.loading')}
                                     </TableCell>
                                 </TableRow>
                             ) : filteredUsers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                                         {t('users.noUsers')}
                                     </TableCell>
                                 </TableRow>
@@ -534,6 +615,16 @@ export default function UsersPage() {
                                             <Badge variant="outline" className={roleBadgeVariants[user.role]}>
                                                 {t(`users.roles.${user.role}`)}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {user.subscription ? (
+                                                <Badge variant="outline" className="text-xs border-violet-500/30 text-violet-400 bg-violet-500/10">
+                                                    <Zap className="h-3 w-3 mr-1" />
+                                                    {user.subscription.plan.name}
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">Free</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={user.isActive ? 'default' : 'secondary'} className={
@@ -728,11 +819,15 @@ export default function UsersPage() {
                         </DialogTitle>
                     </DialogHeader>
                     <Tabs defaultValue="info" className="flex-1 overflow-hidden flex flex-col">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="info">{t('users.userInfo')}</TabsTrigger>
                             <TabsTrigger value="channels" className="gap-1">
                                 <Shield className="h-3.5 w-3.5" />
                                 {t('users.channelPermissions')}
+                            </TabsTrigger>
+                            <TabsTrigger value="billing" className="gap-1">
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Billing
                             </TabsTrigger>
                         </TabsList>
 
@@ -867,6 +962,128 @@ export default function UsersPage() {
                                     </div>
                                 )}
                             </ScrollArea>
+                        </TabsContent>
+
+                        {/* Tab 3: Billing */}
+                        <TabsContent value="billing" className="mt-4 space-y-4">
+                            {billingLoading ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">Loading billing data...</div>
+                            ) : (
+                                <>
+                                    {/* Current Plan */}
+                                    <div className="rounded-xl border bg-card p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                <Zap className="h-4 w-4 text-violet-400" />
+                                                Current Plan
+                                            </h4>
+                                            {billingData?.subscription && (
+                                                <Badge variant="outline" className={
+                                                    billingData.subscription.status === 'active'
+                                                        ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                                        : billingData.subscription.status === 'past_due'
+                                                            ? 'text-red-400 border-red-500/30 bg-red-500/10'
+                                                            : 'text-zinc-400'
+                                                }>
+                                                    {billingData.subscription.status === 'active' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                                    {billingData.subscription.status === 'past_due' && <AlertCircle className="h-3 w-3 mr-1" />}
+                                                    {billingData.subscription.status === 'canceled' && <X className="h-3 w-3 mr-1" />}
+                                                    {billingData.subscription.status}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl font-bold">{billingData?.plan?.name ?? 'Free'}</span>
+                                            {billingData?.subscription && (
+                                                <span className="text-sm text-muted-foreground">
+                                                    · {billingData.subscription.billingInterval}
+                                                    {billingData.subscription.currentPeriodEnd && (
+                                                        <> · renews {new Date(billingData.subscription.currentPeriodEnd).toLocaleDateString()}</>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {billingData?.usage && (
+                                            <div className="flex gap-4 text-xs text-muted-foreground">
+                                                <span>📝 {billingData.usage.postsThisMonth} posts this month</span>
+                                                <span>📺 {billingData.usage.channelCount} channels</span>
+                                            </div>
+                                        )}
+                                        {billingData?.subscription?.stripeCustomerId && (
+                                            <p className="text-xs text-muted-foreground font-mono">
+                                                Stripe: {billingData.subscription.stripeCustomerId}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Override Plan */}
+                                    <div className="rounded-xl border bg-card p-4 space-y-3">
+                                        <h4 className="font-semibold text-sm">Override Plan (Admin)</h4>
+                                        <p className="text-xs text-muted-foreground">Manually assign a plan without Stripe. Use for trials, comps, or corrections.</p>
+                                        <div className="flex items-center gap-2">
+                                            <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                                                <SelectTrigger className="flex-1 h-8 text-sm">
+                                                    <SelectValue placeholder="Select plan..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {billingData?.plans.map(p => (
+                                                        <SelectItem key={p.id} value={p.id}>
+                                                            {p.name} {p.priceMonthly > 0 ? `($${p.priceMonthly}/mo)` : '(Free)'}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                size="sm"
+                                                disabled={savingPlan || !selectedPlanId || selectedPlanId === billingData?.subscription?.planId}
+                                                onClick={() => editingUser && handleSavePlan(editingUser.id)}
+                                            >
+                                                {savingPlan ? 'Saving...' : 'Apply'}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Invoice History */}
+                                    <div className="rounded-xl border bg-card p-4 space-y-3">
+                                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                                            <Clock className="h-4 w-4" />
+                                            Payment History
+                                        </h4>
+                                        {invoices.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground py-2">No Stripe invoices found. Manual plan overrides don&apos;t generate invoices.</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {invoices.map((inv) => (
+                                                    <div key={inv.id} className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline" className={
+                                                                inv.status === 'paid'
+                                                                    ? 'text-emerald-400 border-emerald-500/30 text-xs'
+                                                                    : 'text-red-400 border-red-500/30 text-xs'
+                                                            }>
+                                                                {inv.status}
+                                                            </Badge>
+                                                            <span className="text-muted-foreground text-xs">
+                                                                {new Date(inv.created * 1000).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">
+                                                                ${(inv.amountPaid / 100).toFixed(2)} {inv.currency.toUpperCase()}
+                                                            </span>
+                                                            {inv.hostedInvoiceUrl && (
+                                                                <a href={inv.hostedInvoiceUrl} target="_blank" rel="noreferrer">
+                                                                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </TabsContent>
                     </Tabs>
                     <DialogFooter className="mt-4">

@@ -12,7 +12,9 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const users = await prisma.user.findMany({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as any
+    const users = await db.user.findMany({
         orderBy: { createdAt: 'desc' },
         select: {
             id: true,
@@ -25,6 +27,12 @@ export async function GET() {
             createdAt: true,
             inviteToken: true,
             _count: { select: { channelMembers: true } },
+            subscription: {
+                select: {
+                    status: true,
+                    plan: { select: { name: true } },
+                },
+            },
         },
     })
 
