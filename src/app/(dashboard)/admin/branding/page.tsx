@@ -41,17 +41,21 @@ export default function AdminBrandingPage() {
     async function handleSave() {
         setSaving(true)
         try {
+            console.log('[Branding Page] Saving settings:', JSON.stringify(settings))
             const res = await fetch('/api/admin/branding', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings),
             })
+            const data = await res.json()
+            console.log('[Branding Page] Response:', res.status, JSON.stringify(data))
             if (res.ok) {
                 toast.success('Branding saved! Refresh to see changes everywhere.')
             } else {
-                toast.error('Failed to save branding settings')
+                toast.error(`Failed to save: ${data.error || res.statusText}`)
             }
-        } catch {
+        } catch (err) {
+            console.error('[Branding Page] Network error:', err)
             toast.error('Network error')
         } finally {
             setSaving(false)
