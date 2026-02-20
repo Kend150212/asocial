@@ -44,6 +44,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, displayName, language, description, defaultAiProvider, vibeTone } = body
 
+    // Only ADMIN and OWNER can create channels
+    const canCreateChannel = session.user.role === 'ADMIN' || session.user.role === 'OWNER'
+    if (!canCreateChannel) {
+        return NextResponse.json({ error: 'Only Admins and Owners can create channels' }, { status: 403 })
+    }
+
     if (!name || !displayName) {
         return NextResponse.json({ error: 'Name and display name are required' }, { status: 400 })
     }

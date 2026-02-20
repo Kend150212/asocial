@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import {
     Plus,
     Search,
@@ -109,6 +110,8 @@ interface Channel {
 export default function AdminChannelsPage() {
     const t = useTranslation()
     const router = useRouter()
+    const { data: session } = useSession()
+    const canCreateChannel = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
     const [channels, setChannels] = useState<Channel[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
@@ -259,10 +262,12 @@ export default function AdminChannelsPage() {
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">{t('channels.description')}</p>
                 </div>
-                <Button onClick={() => setShowCreateDialog(true)} className="gap-2 w-full sm:w-auto">
-                    <Plus className="h-4 w-4" />
-                    {t('channels.addChannel')}
-                </Button>
+                {canCreateChannel && (
+                    <Button onClick={() => setShowCreateDialog(true)} className="gap-2 w-full sm:w-auto">
+                        <Plus className="h-4 w-4" />
+                        {t('channels.addChannel')}
+                    </Button>
+                )}
             </div>
 
             {/* Search */}
@@ -300,7 +305,7 @@ export default function AdminChannelsPage() {
                     <p className="text-muted-foreground text-sm mb-4">
                         {search ? t('channels.noResultsDesc') : t('channels.noChannelsDesc')}
                     </p>
-                    {!search && (
+                    {!search && canCreateChannel && (
                         <Button onClick={() => setShowCreateDialog(true)} variant="outline" className="gap-2">
                             <Plus className="h-4 w-4" />
                             {t('channels.createFirst')}
