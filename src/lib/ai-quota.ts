@@ -130,38 +130,43 @@ export async function checkTextQuota(
         return { allowed: true, used: 0, limit: -1, usingByok: true }
     }
 
-    const sub = await db.subscription.findUnique({
-        where: { userId },
-        include: { plan: true, usages: { where: { month: getCurrentMonth() } } },
-    })
+    try {
+        const sub = await db.subscription.findUnique({
+            where: { userId },
+            include: { plan: true, usages: { where: { month: getCurrentMonth() } } },
+        })
 
-    const plan = sub?.plan ?? null
-    const limit: number = plan?.maxAiTextPerMonth ?? 20 // free default = 20
+        const plan = sub?.plan ?? null
+        const limit: number = plan?.maxAiTextPerMonth ?? 20 // free default = 20
 
-    if (limit === 0) {
-        return {
-            allowed: false,
-            used: 0,
-            limit: 0,
-            usingByok: false,
-            reason: 'Your plan does not include AI text generation. Add your own AI API key or upgrade your plan.',
+        if (limit === 0) {
+            return {
+                allowed: false,
+                used: 0,
+                limit: 0,
+                usingByok: false,
+                reason: 'Your plan does not include AI text generation. Add your own AI API key or upgrade your plan.',
+            }
         }
-    }
 
-    const usage = sub?.usages?.[0] ?? null
-    const used: number = usage?.aiTextGenerated ?? 0
+        const usage = sub?.usages?.[0] ?? null
+        const used: number = usage?.aiTextGenerated ?? 0
 
-    if (limit !== -1 && used >= limit) {
-        return {
-            allowed: false,
-            used,
-            limit,
-            usingByok: false,
-            reason: `Monthly AI text quota reached (${used}/${limit}). Upgrade your plan or add your own API key at /dashboard/api-keys.`,
+        if (limit !== -1 && used >= limit) {
+            return {
+                allowed: false,
+                used,
+                limit,
+                usingByok: false,
+                reason: `Monthly AI text quota reached (${used}/${limit}). Upgrade your plan or add your own API key at /dashboard/api-keys.`,
+            }
         }
-    }
 
-    return { allowed: true, used, limit, usingByok: false }
+        return { allowed: true, used, limit, usingByok: false }
+    } catch {
+        // DB column likely not migrated yet — fail open so users aren't blocked
+        return { allowed: true, used: 0, limit: -1, usingByok: false }
+    }
 }
 
 /**
@@ -169,24 +174,27 @@ export async function checkTextQuota(
  * Call AFTER a successful generation. No-op if user has BYOK.
  */
 export async function incrementTextUsage(userId: string, hasByok: boolean): Promise<void> {
-    if (hasByok) return // BYOK users are not tracked against quota
+    if (hasByok) return
 
-    const sub = await db.subscription.findUnique({ where: { userId } })
-    if (!sub) return
+    try {
+        const sub = await db.subscription.findUnique({ where: { userId } })
+        if (!sub) return
 
-    const month = getCurrentMonth()
-
-    await db.usage.upsert({
-        where: { subscriptionId_month: { subscriptionId: sub.id, month } },
-        update: { aiTextGenerated: { increment: 1 } },
-        create: {
-            subscriptionId: sub.id,
-            month,
-            postsCreated: 0,
-            imagesGenerated: 0,
-            aiTextGenerated: 1,
-        },
-    })
+        const month = getCurrentMonth()
+        await db.usage.upsert({
+            where: { subscriptionId_month: { subscriptionId: sub.id, month } },
+            update: { aiTextGenerated: { increment: 1 } },
+            create: {
+                subscriptionId: sub.id,
+                month,
+                postsCreated: 0,
+                imagesGenerated: 0,
+                aiTextGenerated: 1,
+            },
+        })
+    } catch {
+        // Silently ignore — migration likely not applied yet
+    }
 }
 
 /**
