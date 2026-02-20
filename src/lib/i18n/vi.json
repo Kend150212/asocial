@@ -711,6 +711,21 @@
         "recentPosts": "Bài đăng gần đây",
         "noInsights": "Chưa có dữ liệu tương tác từ nền tảng",
         "pendingApiApproval": "Đang chờ phê duyệt API từ nền tảng",
-        "insightsFetchError": "Không thể tải dữ liệu tương tác"
+        "insightsFetchError": "Không thể tải dữ liệu tương tác",
+        "platformEngagementBreakdown": "Hiệu suất tổng hợp theo nền tảng",
+        "reactions": "Lượt thích",
+        "total": "Tổng",
+        "platformPerfComparison": "So sánh hiệu suất nền tảng",
+        "topPostsByReach": "Bài viết nổi bật theo lượt tiếp cận",
+        "overall": "Tổng quan",
+        "postType": "Loại bài",
+        "accountsInsights": "Tổng quan tài khoản",
+        "noDataAvailable": "Chưa có dữ liệu",
+        "yAxis": "Trục Y",
+        "xAxis": "Trục X",
+        "highest": "Cao nhất",
+        "lowest": "Thấp nhất",
+        "vs": "Vs",
+        "subscribers": "Người đăng ký"
     }
 }

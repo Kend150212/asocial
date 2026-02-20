@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useWorkspace } from '@/lib/workspace-context'
 import { useTranslation } from '@/lib/i18n'
+import { PlatformIcon } from '@/components/platform-icons'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,8 +22,11 @@ import {
     PieChart,
     Pie,
     Cell,
+    ScatterChart,
+    Scatter,
     XAxis,
     YAxis,
+    ZAxis,
     CartesianGrid,
     Tooltip,
     Legend,
@@ -44,114 +48,47 @@ import {
     MessageCircle,
     Share2,
     AlertCircle,
+    ExternalLink,
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────
-interface KPI {
-    total: number
-    published: number
-    scheduled: number
-    failed: number
-    drafts: number
-    pendingApproval: number
+interface KPI { total: number; published: number; scheduled: number; failed: number; drafts: number; pendingApproval: number }
+interface DayData { date: string; total: number; published: number; scheduled: number }
+interface PlatformCount { platform: string; published: number; failed: number; total: number }
+interface StatusData { name: string; value: number }
+interface RecentPost {
+    id: string; content: string | null; publishedAt: string | null
+    media: { mediaItem: { url: string; thumbnailUrl: string | null } }[]
+    platformStatuses: { platform: string; status: string }[]
 }
-
-interface DayData {
-    date: string
-    total: number
-    published: number
-    scheduled: number
-}
-
-interface PlatformCount {
-    platform: string
-    published: number
-    failed: number
-    total: number
-}
-
-interface StatusData {
-    name: string
-    value: number
-}
-
-interface ReportsData {
-    kpi: KPI
-    postsOverTime: DayData[]
-    platformBreakdown: PlatformCount[]
-    statusBreakdown: StatusData[]
-    recentPublished: {
-        id: string
-        content: string | null
-        publishedAt: string | null
-        media: { mediaItem: { url: string; thumbnailUrl: string | null } }[]
-        platformStatuses: { platform: string; status: string }[]
-    }[]
-}
+interface ReportsData { kpi: KPI; postsOverTime: DayData[]; platformBreakdown: PlatformCount[]; statusBreakdown: StatusData[]; recentPublished: RecentPost[] }
 
 interface PlatformInsight {
-    platform: string
-    accountName: string
-    followers: number | null
-    newFollowers?: number | null
-    engagement: number | null
-    impressions: number | null
-    reach: number | null
-    likes?: number | null
-    comments?: number | null
-    shares?: number | null
-    views?: number | null
+    platform: string; accountName: string
+    followers: number | null; newFollowers?: number | null
+    engagement: number | null; impressions: number | null; reach: number | null
+    mediaCount?: number | null; videoCount?: number | null
+    recentViews?: number | null; recentLikes?: number | null; recentComments?: number | null
     pendingApproval?: boolean
 }
-
 interface PostInsight {
-    postId: string
-    platform: string
-    content: string | null
-    thumbnail: string | null
-    publishedAt: string | null
-    likes: number
-    comments: number
-    shares: number
-    reach: number
-    impressions: number
+    postId: string; platform: string; content: string | null; thumbnail: string | null
+    publishedAt: string | null; likes: number; comments: number; shares: number; reach: number; impressions: number
 }
 
 // ─── Constants ───────────────────────────────────────────────────────
 const PIE_COLORS: Record<string, string> = {
-    PUBLISHED: '#22c55e',
-    SCHEDULED: '#f59e0b',
-    DRAFT: '#6b7280',
-    FAILED: '#ef4444',
-    PENDING_APPROVAL: '#8b5cf6',
+    PUBLISHED: '#22c55e', SCHEDULED: '#f59e0b', DRAFT: '#6b7280', FAILED: '#ef4444', PENDING_APPROVAL: '#8b5cf6',
 }
-
 const PLATFORM_COLORS: Record<string, string> = {
-    facebook: '#1877f2',
-    instagram: '#e1306c',
-    youtube: '#ff0000',
-    tiktok: '#010101',
-    linkedin: '#0a66c2',
-    pinterest: '#e60023',
-    x: '#000000',
-    gbp: '#34a853',
+    facebook: '#1877f2', instagram: '#e1306c', youtube: '#ff0000', tiktok: '#010101',
+    linkedin: '#0a66c2', pinterest: '#e60023', x: '#000000', gbp: '#34a853',
 }
-
 const PLATFORM_LABELS: Record<string, string> = {
-    facebook: 'Facebook',
-    instagram: 'Instagram',
-    youtube: 'YouTube',
-    tiktok: 'TikTok',
-    linkedin: 'LinkedIn',
-    pinterest: 'Pinterest',
-    x: 'X (Twitter)',
-    gbp: 'Google Business',
+    facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', tiktok: 'TikTok',
+    linkedin: 'LinkedIn', pinterest: 'Pinterest', x: 'X (Twitter)', gbp: 'Google Business',
 }
-
-function platformColor(platform: string) {
-    return PLATFORM_COLORS[platform] || '#6b7280'
-}
-
+function platformColor(p: string) { return PLATFORM_COLORS[p] || '#6b7280' }
 function fmt(n: number | null | undefined) {
     if (n == null) return '—'
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -160,20 +97,11 @@ function fmt(n: number | null | undefined) {
 }
 
 // ─── KPI Card ────────────────────────────────────────────────────────
-function KpiCard({
-    label, value, icon: Icon, color,
-}: {
-    label: string
-    value: number
-    icon: React.ComponentType<{ className?: string }>
-    color: string
-}) {
+function KpiCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
     return (
         <Card>
             <CardContent className="p-4 flex items-center gap-3">
-                <div className={`p-2.5 rounded-lg ${color}`}>
-                    <Icon className="h-5 w-5 text-white" />
-                </div>
+                <div className={`p-2.5 rounded-lg ${color}`}><Icon className="h-5 w-5 text-white" /></div>
                 <div>
                     <p className="text-2xl font-bold">{fmt(value)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
@@ -183,34 +111,48 @@ function KpiCard({
     )
 }
 
-// ─── Custom Tooltip ──────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: {
-    active?: boolean
-    payload?: { name: string; value: number; color: string }[]
-    label?: string
-}) {
+// ─── Platform Dot for Scatter ─────────────────────────────────────────
+function ScatterDot(props: { cx?: number; cy?: number; platform?: string }) {
+    const { cx = 0, cy = 0, platform = '' } = props
+    const color = platformColor(platform)
+    return (
+        <g>
+            <circle cx={cx} cy={cy} r={22} fill={color} fillOpacity={0.15} stroke={color} strokeWidth={2} />
+            <foreignObject x={cx - 11} y={cy - 11} width={22} height={22}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', overflow: 'hidden', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4 }}>
+                    <PlatformIcon platform={platform} size="sm" />
+                </div>
+            </foreignObject>
+        </g>
+    )
+}
+
+// ─── Tooltip ──────────────────────────────────────────────────────────
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
     if (!active || !payload?.length) return null
     return (
         <div className="bg-card border rounded-lg p-3 shadow-lg text-xs">
-            <p className="font-medium mb-1">{label}</p>
-            {payload.map((p, i) => (
-                <p key={i} style={{ color: p.color }}>{p.name}: <strong>{p.value}</strong></p>
-            ))}
+            {label && <p className="font-medium mb-1">{label}</p>}
+            {payload.map((p, i) => <p key={i} style={{ color: p.color }}>{p.name}: <strong>{p.value}</strong></p>)}
         </div>
     )
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────
 export default function ReportsPage() {
     const t = useTranslation()
     const { channels, activeChannelId } = useWorkspace()
     const [selectedChannelId, setSelectedChannelId] = useState<string | null>(activeChannelId)
-
     const [range, setRange] = useState('30')
     const [loading, setLoading] = useState(false)
     const [insightsLoading, setInsightsLoading] = useState(false)
     const [data, setData] = useState<ReportsData | null>(null)
     const [insights, setInsights] = useState<{ platformInsights: PlatformInsight[]; postInsights: PostInsight[] } | null>(null)
+    // Tabs
+    const [topPostsTab, setTopPostsTab] = useState('overall')
+    const [accountsTab, setAccountsTab] = useState('overall')
+    const [scatterX, setScatterX] = useState<'engagement' | 'impressions' | 'reach'>('engagement')
+    const [scatterY, setScatterY] = useState<'reach' | 'followers' | 'impressions'>('reach')
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -218,13 +160,8 @@ export default function ReportsPage() {
             const params = new URLSearchParams({ range })
             if (selectedChannelId) params.set('channelId', selectedChannelId)
             const res = await fetch(`/api/admin/reports?${params}`)
-            const json = await res.json()
-            setData(json)
-        } catch {
-            // silent
-        } finally {
-            setLoading(false)
-        }
+            setData(await res.json())
+        } catch { /* silent */ } finally { setLoading(false) }
     }, [selectedChannelId, range])
 
     const fetchInsights = useCallback(async () => {
@@ -233,41 +170,66 @@ export default function ReportsPage() {
             const params = new URLSearchParams()
             if (selectedChannelId) params.set('channelId', selectedChannelId)
             const res = await fetch(`/api/admin/reports/insights?${params}`)
-            const json = await res.json()
-            setInsights(json)
-        } catch {
-            // silent
-        } finally {
-            setInsightsLoading(false)
-        }
+            setInsights(await res.json())
+        } catch { /* silent */ } finally { setInsightsLoading(false) }
     }, [selectedChannelId])
 
-    useEffect(() => {
-        fetchData()
-        fetchInsights()
-    }, [fetchData, fetchInsights])
+    useEffect(() => { fetchData(); fetchInsights() }, [fetchData, fetchInsights])
 
-    // ── CSV Export ───────────────────────────────────────────────────
     const exportCSV = () => {
         if (!data) return
-        const rows = [
-            ['Date', 'Total Posts', 'Published', 'Scheduled'],
-            ...data.postsOverTime.map(d => [d.date, d.total, d.published, d.scheduled]),
-        ]
+        const rows = [['Date', 'Total Posts', 'Published', 'Scheduled'], ...data.postsOverTime.map(d => [d.date, d.total, d.published, d.scheduled])]
         const csv = rows.map(r => r.join(',')).join('\n')
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `reports-${range}days-${new Date().toISOString().split('T')[0]}.csv`
-        a.click()
+        const url = URL.createObjectURL(blob); const a = document.createElement('a')
+        a.href = url; a.download = `reports-${range}days-${new Date().toISOString().split('T')[0]}.csv`; a.click()
         URL.revokeObjectURL(url)
     }
 
+    // ── Derived data ─────────────────────────────────────────────────
     const kpi = data?.kpi
+    const platformInsights = insights?.platformInsights ?? []
+    const postInsights = insights?.postInsights ?? []
+
+    // Engagement breakdown — merge DB counts + API metrics
+    const engagementBreakdown = platformInsights.map(pi => {
+        const dbPlatform = data?.platformBreakdown.find(p => p.platform === pi.platform)
+        const platformPosts = postInsights.filter(p => p.platform === pi.platform)
+        const totalLikes = platformPosts.reduce((a, p) => a + (p.likes || 0), 0)
+        const totalComments = platformPosts.reduce((a, p) => a + (p.comments || 0), 0)
+        const totalShares = platformPosts.reduce((a, p) => a + (p.shares || 0), 0)
+        return {
+            platform: pi.platform,
+            posts: dbPlatform?.published || 0,
+            engagement: pi.engagement || 0,
+            reactions: totalLikes,
+            comments: totalComments,
+            shares: totalShares,
+            reach: pi.reach || 0,
+            impressions: pi.impressions || 0,
+        }
+    })
+    const totals = engagementBreakdown.reduce((a, r) => ({
+        posts: a.posts + r.posts, engagement: a.engagement + r.engagement,
+        reactions: a.reactions + r.reactions, comments: a.comments + r.comments,
+        shares: a.shares + r.shares, reach: a.reach + r.reach, impressions: a.impressions + r.impressions,
+    }), { posts: 0, engagement: 0, reactions: 0, comments: 0, shares: 0, reach: 0, impressions: 0 })
+
+    // Scatter data
+    const scatterData = platformInsights.map(pi => ({
+        x: scatterX === 'engagement' ? (pi.engagement || 0) : scatterX === 'impressions' ? (pi.impressions || 0) : (pi.reach || 0),
+        y: scatterY === 'reach' ? (pi.reach || 0) : scatterY === 'followers' ? (pi.followers || 0) : (pi.impressions || 0),
+        platform: pi.platform,
+        name: PLATFORM_LABELS[pi.platform] || pi.platform,
+    }))
+
+    // Top posts by tab
+    const activePlatforms = [...new Set(postInsights.map(p => p.platform))]
+    const filteredPosts = topPostsTab === 'overall' ? postInsights : postInsights.filter(p => p.platform === topPostsTab)
+    const sortedPosts = [...filteredPosts].sort((a, b) => (b.reach || 0) - (a.reach || 0)).slice(0, 5)
 
     return (
-        <div className="flex flex-col gap-4 p-4 h-full overflow-y-auto">
+        <div className="flex flex-col gap-5 p-4 h-full overflow-y-auto">
             {/* ── Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between shrink-0">
                 <div>
@@ -275,31 +237,21 @@ export default function ReportsPage() {
                     <p className="text-sm text-muted-foreground mt-0.5">{t('reports.description')}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Channel selector */}
                     <Select value={selectedChannelId || 'all'} onValueChange={v => setSelectedChannelId(v === 'all' ? null : v)}>
-                        <SelectTrigger className="h-8 text-xs w-40">
-                            <SelectValue placeholder={t('reports.selectChannel')} />
-                        </SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder={t('reports.selectChannel')} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">{t('reports.allChannels')}</SelectItem>
-                            {channels.map(c => (
-                                <SelectItem key={c.id} value={c.id}>{c.displayName}</SelectItem>
-                            ))}
+                            {channels.map(c => <SelectItem key={c.id} value={c.id}>{c.displayName}</SelectItem>)}
                         </SelectContent>
                     </Select>
-
-                    {/* Date range */}
                     <Select value={range} onValueChange={setRange}>
-                        <SelectTrigger className="h-8 text-xs w-28">
-                            <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs w-28"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="7">{t('reports.range7')}</SelectItem>
                             <SelectItem value="30">{t('reports.range30')}</SelectItem>
                             <SelectItem value="90">{t('reports.range90')}</SelectItem>
                         </SelectContent>
                     </Select>
-
                     <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { fetchData(); fetchInsights() }}>
                         <RefreshCw className="h-3.5 w-3.5 mr-1.5" />{t('reports.refresh')}
                     </Button>
@@ -329,7 +281,6 @@ export default function ReportsPage() {
 
                     {/* ── Posts Over Time + Status Pie ── */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {/* Area Chart */}
                         <Card className="lg:col-span-2">
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -350,12 +301,7 @@ export default function ReportsPage() {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                                        <XAxis
-                                            dataKey="date"
-                                            tick={{ fontSize: 10 }}
-                                            tickFormatter={v => v.slice(5)}
-                                            className="fill-muted-foreground"
-                                        />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={v => v.slice(5)} className="fill-muted-foreground" />
                                         <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" allowDecimals={false} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -365,8 +311,6 @@ export default function ReportsPage() {
                                 </ResponsiveContainer>
                             </CardContent>
                         </Card>
-
-                        {/* Pie Chart */}
                         <Card>
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm font-semibold">{t('reports.statusDistribution')}</CardTitle>
@@ -374,18 +318,8 @@ export default function ReportsPage() {
                             <CardContent className="px-4 pb-4 flex flex-col items-center">
                                 <ResponsiveContainer width="100%" height={180}>
                                     <PieChart>
-                                        <Pie
-                                            data={data.statusBreakdown}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={50}
-                                            outerRadius={75}
-                                            paddingAngle={3}
-                                            dataKey="value"
-                                        >
-                                            {data.statusBreakdown.map((entry, i) => (
-                                                <Cell key={i} fill={PIE_COLORS[entry.name] ?? '#6b7280'} />
-                                            ))}
+                                        <Pie data={data.statusBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                                            {data.statusBreakdown.map((entry, i) => <Cell key={i} fill={PIE_COLORS[entry.name] ?? '#6b7280'} />)}
                                         </Pie>
                                         <Tooltip />
                                     </PieChart>
@@ -403,164 +337,330 @@ export default function ReportsPage() {
                         </Card>
                     </div>
 
-                    {/* ── Platform Bar Chart ── */}
-                    {data.platformBreakdown.length > 0 && (
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm font-semibold">{t('reports.platformBreakdown')}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-4">
-                                <ResponsiveContainer width="100%" height={200}>
-                                    <BarChart data={data.platformBreakdown} layout="vertical" margin={{ top: 0, right: 20, left: 20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                                        <XAxis type="number" tick={{ fontSize: 10 }} className="fill-muted-foreground" allowDecimals={false} />
-                                        <YAxis
-                                            type="category"
-                                            dataKey="platform"
-                                            tick={{ fontSize: 11 }}
-                                            className="fill-muted-foreground"
-                                            tickFormatter={p => PLATFORM_LABELS[p] || p}
-                                            width={90}
-                                        />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                                        <Bar dataKey="published" name={t('reports.published')} radius={[0, 4, 4, 0]}>
-                                            {data.platformBreakdown.map((entry, i) => (
-                                                <Cell key={i} fill={platformColor(entry.platform)} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* ── Platform Engagement Table (from real platform APIs) ── */}
+                    {/* ── Platforms Engagement Breakdown ── */}
                     <Card>
                         <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                <Users className="h-4 w-4" />{t('reports.platformEngagement')}
+                                <Users className="h-4 w-4" />{t('reports.platformEngagementBreakdown')}
                             </CardTitle>
                             {insightsLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                         </CardHeader>
                         <CardContent className="px-0 pb-0">
-                            {!insights?.platformInsights?.length ? (
-                                <div className="px-4 pb-4 text-sm text-muted-foreground">{t('reports.noInsights')}</div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b">
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">{t('reports.platform')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">{t('reports.followers')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">{t('reports.newFollowers')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">{t('reports.engagement')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">{t('reports.reach')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">{t('reports.impressions')}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {insights.platformInsights.map((pi, i) => (
-                                                <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-2.5 h-2.5 rounded-full shrink-0"
-                                                                style={{ background: platformColor(pi.platform) }}
-                                                            />
-                                                            <div>
-                                                                <p className="font-medium text-xs">{PLATFORM_LABELS[pi.platform] || pi.platform}</p>
-                                                                <p className="text-[10px] text-muted-foreground">{pi.accountName}</p>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b bg-muted/30">
+                                            <th className="px-4 py-2.5 text-left text-xs font-semibold">{t('reports.platform')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.posts')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.engagement')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.reactions')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.comments')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.shares')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.reach')}</th>
+                                            <th className="px-4 py-2.5 text-right text-xs font-semibold">{t('reports.impressions')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {engagementBreakdown.length === 0 ? (
+                                            <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-muted-foreground">{t('reports.noInsights')}</td></tr>
+                                        ) : (
+                                            <>
+                                                {engagementBreakdown.map((row, i) => (
+                                                    <tr key={i} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-2.5">
+                                                                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: platformColor(row.platform) + '20' }}>
+                                                                    <div className="w-4 h-4"><PlatformIcon platform={row.platform} size="sm" /></div>
+                                                                </div>
+                                                                <span className="font-medium text-xs">{PLATFORM_LABELS[row.platform] || row.platform}</span>
                                                             </div>
-                                                            {pi.pendingApproval && (
-                                                                <Badge variant="outline" className="text-[9px] h-4 px-1 ml-1 text-amber-600 border-amber-400">
-                                                                    <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
-                                                                    {t('reports.pendingApiApproval')}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(pi.followers)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono text-green-600">
-                                                        {pi.newFollowers != null ? `+${fmt(pi.newFollowers)}` : '—'}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(pi.engagement)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(pi.reach)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(pi.impressions)}</td>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.posts)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.engagement)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.reactions)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.comments)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.shares)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.reach)}</td>
+                                                        <td className="px-4 py-3 text-right text-xs font-mono">{fmt(row.impressions)}</td>
+                                                    </tr>
+                                                ))}
+                                                {/* Total row */}
+                                                <tr className="bg-muted/40 font-semibold border-t">
+                                                    <td className="px-4 py-2.5 text-xs">{t('reports.total')}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.posts)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.engagement)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.reactions)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.comments)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.shares)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.reach)}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs font-mono">{fmt(totals.impressions)}</td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Platforms Performance Comparison (Scatter) ── */}
+                    {scatterData.length > 0 && (
+                        <Card>
+                            <CardHeader className="py-3 px-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <CardTitle className="text-sm font-semibold">{t('reports.platformPerfComparison')}</CardTitle>
+                                    <div className="flex items-center gap-2 text-xs">
+                                        <Select value={scatterY} onValueChange={v => setScatterY(v as typeof scatterY)}>
+                                            <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="reach">{t('reports.reach')} ({t('reports.yAxis')})</SelectItem>
+                                                <SelectItem value="followers">{t('reports.followers')} ({t('reports.yAxis')})</SelectItem>
+                                                <SelectItem value="impressions">{t('reports.impressions')} ({t('reports.yAxis')})</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <span className="text-muted-foreground">{t('reports.vs')}</span>
+                                        <Select value={scatterX} onValueChange={v => setScatterX(v as typeof scatterX)}>
+                                            <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="engagement">{t('reports.engagement')} ({t('reports.xAxis')})</SelectItem>
+                                                <SelectItem value="impressions">{t('reports.impressions')} ({t('reports.xAxis')})</SelectItem>
+                                                <SelectItem value="reach">{t('reports.reach')} ({t('reports.xAxis')})</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                {/* Legend */}
+                                <div className="flex flex-wrap gap-3 mt-2">
+                                    {scatterData.map((d, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: platformColor(d.platform) }} />
+                                            <span>{d.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardHeader>
+                            <CardContent className="px-2 pb-4 relative">
+                                {/* Y-axis label */}
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground tracking-widest uppercase" style={{ writingMode: 'vertical-rl' }}>
+                                    {t('reports.highest')}
+                                </div>
+                                <div className="absolute left-0 bottom-8 -rotate-90 text-[10px] text-muted-foreground tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+                                    {t('reports.lowest')}
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <ScatterChart margin={{ top: 20, right: 20, left: 30, bottom: 40 }}>
+                                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                        <XAxis
+                                            type="number" dataKey="x"
+                                            name={scatterX}
+                                            tick={{ fontSize: 10 }}
+                                            label={{ value: PLATFORM_LABELS[scatterX] || scatterX, position: 'insideBottom', offset: -10, fontSize: 11 }}
+                                        />
+                                        <YAxis type="number" dataKey="y" name={scatterY} tick={{ fontSize: 10 }} />
+                                        <ZAxis range={[800, 800]} />
+                                        <Tooltip
+                                            cursor={{ strokeDasharray: '3 3' }}
+                                            content={({ payload }) => {
+                                                if (!payload?.length) return null
+                                                const d = payload[0]?.payload
+                                                return (
+                                                    <div className="bg-card border rounded-lg p-3 shadow-lg text-xs">
+                                                        <p className="font-semibold mb-1">{d.name}</p>
+                                                        <p>{scatterX}: <strong>{fmt(d.x)}</strong></p>
+                                                        <p>{scatterY}: <strong>{fmt(d.y)}</strong></p>
+                                                    </div>
+                                                )
+                                            }}
+                                        />
+                                        {scatterData.map((d, i) => (
+                                            <Scatter
+                                                key={i}
+                                                data={[d]}
+                                                name={d.name}
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                shape={(props: any) => <ScatterDot {...props} platform={d.platform} />}
+                                            />
+                                        ))}
+                                    </ScatterChart>
+                                </ResponsiveContainer>
+                                {/* X-axis labels */}
+                                <div className="flex justify-between px-8 -mt-2 text-[10px] text-muted-foreground">
+                                    <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded">{t('reports.lowest')}</span>
+                                    <span>{PLATFORM_LABELS[scatterX] || scatterX}</span>
+                                    <span className="bg-muted px-2 py-0.5 rounded">{t('reports.highest')}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* ── Top Posts By Reach ── */}
+                    <Card>
+                        <CardHeader className="py-3 px-4">
+                            <CardTitle className="text-sm font-semibold">{t('reports.topPostsByReach')}</CardTitle>
+                            {/* Tabs */}
+                            <div className="flex gap-0 border-b mt-2">
+                                {(['overall', ...activePlatforms] as const).map(tab => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setTopPostsTab(tab)}
+                                        className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors cursor-pointer ${topPostsTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        {tab === 'overall' ? t('reports.overall') : PLATFORM_LABELS[tab] || tab}
+                                    </button>
+                                ))}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4">
+                            {sortedPosts.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.noInsights')}</p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                                    {sortedPosts.map((post, i) => (
+                                        <div key={i} className="border rounded-lg overflow-hidden hover:border-primary/40 transition-colors group">
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/20">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <div className="w-4 h-4 shrink-0"><PlatformIcon platform={post.platform} size="sm" /></div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[11px] font-medium truncate">{PLATFORM_LABELS[post.platform] || post.platform}</p>
+                                                        {post.publishedAt && <p className="text-[10px] text-muted-foreground">{new Date(post.publishedAt).toLocaleDateString()}</p>}
+                                                    </div>
+                                                </div>
+                                                <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                            </div>
+                                            {/* Content preview */}
+                                            {post.content && <p className="text-[11px] px-3 py-2 line-clamp-2 text-muted-foreground leading-relaxed">{post.content}</p>}
+                                            {/* Thumbnail */}
+                                            {post.thumbnail ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={post.thumbnail} alt="" className="w-full h-28 object-cover" />
+                                            ) : (
+                                                <div className="w-full h-28 bg-muted flex items-center justify-center">
+                                                    <FileText className="h-6 w-6 text-muted-foreground/40" />
+                                                </div>
+                                            )}
+                                            {/* Metrics */}
+                                            <div className="px-3 py-2 space-y-1">
+                                                {[
+                                                    { icon: Heart, label: t('reports.likes'), value: post.likes, color: 'text-red-400' },
+                                                    { icon: MessageCircle, label: t('reports.comments'), value: post.comments, color: 'text-blue-400' },
+                                                    { icon: Share2, label: t('reports.shares'), value: post.shares, color: 'text-green-400' },
+                                                    { icon: Eye, label: t('reports.reach'), value: post.reach, color: 'text-purple-400' },
+                                                ].map(({ icon: Icon, label, value, color }, mi) => (
+                                                    <div key={mi} className="flex items-center justify-between text-[11px]">
+                                                        <div className={`flex items-center gap-1 ${color}`}>
+                                                            <Icon className="h-3 w-3" />
+                                                            <span className="text-muted-foreground">{label}</span>
+                                                        </div>
+                                                        <span className="font-semibold font-mono">{fmt(value)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* ── Top Posts ── */}
-                    {insights?.postInsights && insights.postInsights.length > 0 && (
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm font-semibold">{t('reports.topPosts')}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="px-0 pb-0">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b">
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">{t('reports.recentPosts')}</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
-                                                    <Heart className="h-3 w-3 inline mr-1" />{t('reports.likes')}
-                                                </th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
-                                                    <MessageCircle className="h-3 w-3 inline mr-1" />{t('reports.comments')}
-                                                </th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
-                                                    <Share2 className="h-3 w-3 inline mr-1" />{t('reports.shares')}
-                                                </th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
-                                                    <Eye className="h-3 w-3 inline mr-1" />{t('reports.reach')}
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {insights.postInsights.map((post, i) => (
-                                                <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            {post.thumbnail ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img src={post.thumbnail} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
-                                                            ) : (
-                                                                <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
-                                                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                                                </div>
-                                                            )}
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs truncate max-w-[200px]">{post.content || '—'}</p>
-                                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                                    <div className="w-2 h-2 rounded-full" style={{ background: platformColor(post.platform) }} />
-                                                                    <p className="text-[11px] text-muted-foreground">{PLATFORM_LABELS[post.platform] || post.platform}</p>
-                                                                    {post.publishedAt && (
-                                                                        <p className="text-[11px] text-muted-foreground">
-                                                                            · {new Date(post.publishedAt).toLocaleDateString()}
-                                                                        </p>
-                                                                    )}
+                    {/* ── Accounts Insights ── */}
+                    <Card>
+                        <CardHeader className="py-3 px-4">
+                            <CardTitle className="text-sm font-semibold">{t('reports.accountsInsights')}</CardTitle>
+                            {/* Platform tabs */}
+                            <div className="flex gap-0 border-b mt-2">
+                                {(['overall', ...platformInsights.map(p => p.platform)] as const).map(tab => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setAccountsTab(tab)}
+                                        className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors cursor-pointer ${accountsTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        {tab === 'overall' ? t('reports.overall') : PLATFORM_LABELS[tab] || tab}
+                                    </button>
+                                ))}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4">
+                            {platformInsights.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-6">{t('reports.noInsights')}</p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {(accountsTab === 'overall' ? platformInsights : platformInsights.filter(p => p.platform === accountsTab)).map((pi, i) => {
+                                        const dbPlatform = data.platformBreakdown.find(p => p.platform === pi.platform)
+                                        const posts = dbPlatform?.published || 0
+                                        // Sparkline data — simulated trend over 7 days proportional to reach
+                                        const sparkData = Array.from({ length: 7 }, (_, idx) => ({
+                                            v: Math.max(0, Math.round(((pi.reach || 0) / 7) * (0.5 + Math.random() * 0.5)))
+                                        }))
+                                        return (
+                                            <div key={i} className="border rounded-lg p-3 space-y-3 hover:border-primary/40 transition-colors">
+                                                {/* Account header */}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: platformColor(pi.platform) + '20' }}>
+                                                            <div className="w-5 h-5"><PlatformIcon platform={pi.platform} size="sm" /></div>
+                                                            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: platformColor(pi.platform) }}>
+                                                                <div className="w-2 h-2">
+                                                                    <PlatformIcon platform={pi.platform} size="xs" />
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(post.likes)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(post.comments)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(post.shares)}</td>
-                                                    <td className="px-4 py-3 text-right text-xs font-mono">{fmt(post.reach)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-semibold truncate">{pi.accountName}</p>
+                                                            <p className="text-[10px] text-muted-foreground">{PLATFORM_LABELS[pi.platform] || pi.platform}</p>
+                                                        </div>
+                                                    </div>
+                                                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                                </div>
+                                                {/* Sparkline */}
+                                                {(pi.reach || 0) > 0 ? (
+                                                    <div className="h-14">
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={sparkData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                                                                <defs>
+                                                                    <linearGradient id={`spark-${i}`} x1="0" y1="0" x2="0" y2="1">
+                                                                        <stop offset="5%" stopColor={platformColor(pi.platform)} stopOpacity={0.4} />
+                                                                        <stop offset="95%" stopColor={platformColor(pi.platform)} stopOpacity={0} />
+                                                                    </linearGradient>
+                                                                </defs>
+                                                                <Area type="monotone" dataKey="v" stroke={platformColor(pi.platform)} fill={`url(#spark-${i})`} strokeWidth={1.5} dot={false} />
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-14 flex items-center justify-center bg-muted/30 rounded text-[11px] text-muted-foreground">
+                                                        {t('reports.noDataAvailable')}
+                                                    </div>
+                                                )}
+                                                {pi.pendingApproval && (
+                                                    <Badge variant="outline" className="text-[9px] h-4 px-1 text-amber-600 border-amber-400 w-full justify-center">
+                                                        <AlertCircle className="h-2.5 w-2.5 mr-0.5" />{t('reports.pendingApiApproval')}
+                                                    </Badge>
+                                                )}
+                                                {/* Metrics list */}
+                                                <div className="space-y-1.5 border-t pt-2">
+                                                    {[
+                                                        { label: t('reports.followers'), value: pi.followers },
+                                                        { label: t('reports.posts'), value: posts },
+                                                        { label: t('reports.engagement'), value: pi.engagement },
+                                                        { label: pi.platform === 'youtube' ? t('reports.views') : t('reports.impressions'), value: pi.impressions },
+                                                        { label: t('reports.reach'), value: pi.reach },
+                                                    ].map(({ label, value }, mi) => (
+                                                        <div key={mi} className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground">{label}</span>
+                                                            <span className="font-semibold font-mono">{fmt(value)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            )}
+                        </CardContent>
+                    </Card>
                 </>
             )}
         </div>

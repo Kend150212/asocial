@@ -711,6 +711,21 @@
         "recentPosts": "Recent Posts",
         "noInsights": "No platform engagement data yet",
         "pendingApiApproval": "Pending platform API approval",
-        "insightsFetchError": "Could not load engagement data"
+        "insightsFetchError": "Could not load engagement data",
+        "platformEngagementBreakdown": "Platforms Engagement Breakdown",
+        "reactions": "Reactions",
+        "total": "Total",
+        "platformPerfComparison": "Platforms Performance Comparison",
+        "topPostsByReach": "Top Posts By Reach",
+        "overall": "Overall",
+        "postType": "Post Type",
+        "accountsInsights": "Accounts Insights",
+        "noDataAvailable": "No data available",
+        "yAxis": "Y-Axis",
+        "xAxis": "X-Axis",
+        "highest": "Highest",
+        "lowest": "Lowest",
+        "vs": "Vs",
+        "subscribers": "Subscribers"
     }
 }
