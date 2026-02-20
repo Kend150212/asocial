@@ -235,7 +235,7 @@ export default function AdminBillingPage() {
                                 <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                                 <Tooltip
                                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                                    formatter={(v: number) => [`$${v}`, 'MRR']}
+                                    formatter={(v: number | undefined) => [`$${v ?? 0}`, 'MRR']}
                                 />
                                 <Area type="monotone" dataKey="mrr" stroke="#7c3aed" fill="url(#mrrGrad)" strokeWidth={2} dot={false} />
                             </AreaChart>

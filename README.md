@@ -41,5 +41,4 @@ Understand this error
 /admin/settings
 /admin/automation
 /admin/activity
-/dashboard/reports
 /dashboard/email
