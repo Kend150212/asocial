@@ -869,5 +869,10 @@
         "prioritySupport": "Priority support",
         "whiteLabel": "White label",
         "trialNote": "You're on a Pro trial — {days} days remaining. Upgrade to keep Pro features after trial ends."
+    },
+    "trialBanner": {
+        "urgentBanner": "⚠️ Only {days} days left on Pro trial — Upgrade before losing access!",
+        "normalBanner": "🎉 You are on a free Pro trial — {days} days remaining. Enjoy all features!",
+        "upgradeNow": "Upgrade now"
     }
 }

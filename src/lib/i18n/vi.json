@@ -869,5 +869,10 @@
         "prioritySupport": "Hỗ trợ ưu tiên",
         "whiteLabel": "White label",
         "trialNote": "🎉 Bạn đang trong giai đoạn dùng thử Pro — Còn {days} ngày. Nâng cấp để tiếp tục sau khi trial kết thúc."
+    },
+    "trialBanner": {
+        "urgentBanner": "⚠️ Còn {days} ngày dùng thử Pro — Nâng cấp để không mất tính năng!",
+        "normalBanner": "🎉 Bạn đang dùng thử Pro miễn phí — Còn {days} ngày. Trải nghiệm toàn bộ tính năng!",
+        "upgradeNow": "Nâng cấp ngay"
     }
 }
