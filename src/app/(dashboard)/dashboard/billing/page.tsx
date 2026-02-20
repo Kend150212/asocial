@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import {
     CreditCard, Zap, Calendar, AlertCircle, CheckCircle2,
-    ExternalLink, ArrowUpRight, Clock, Check, X
+    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
 
@@ -42,6 +42,12 @@ type BillingInfo = {
         postsThisMonth: number
         channelCount: number
         month: string
+        imagesThisMonth: number
+    }
+    aiImage: {
+        hasByokKey: boolean
+        byokProvider: string | null
+        maxPerMonth: number
     }
 }
 
@@ -84,10 +90,11 @@ export default function BillingPage() {
 
     if (!info) return null
 
-    const { plan, subscription, usage } = info
+    const { plan, subscription, usage, aiImage } = info
     const isFree = plan.priceMonthly === 0 && plan.priceAnnual === 0
     const postsPercent = plan.maxPostsPerMonth === -1 ? 0 : Math.min(100, (usage.postsThisMonth / plan.maxPostsPerMonth) * 100)
     const channelsPercent = plan.maxChannels === -1 ? 0 : Math.min(100, (usage.channelCount / plan.maxChannels) * 100)
+    const imagesPercent = aiImage.maxPerMonth <= 0 ? 0 : Math.min(100, (usage.imagesThisMonth / aiImage.maxPerMonth) * 100)
 
     const statusColor = subscription?.status === 'active' ? 'text-green-500' : subscription?.status === 'past_due' ? 'text-red-500' : 'text-orange-500'
     const StatusIcon = subscription?.status === 'active' ? CheckCircle2 : AlertCircle
@@ -221,6 +228,66 @@ export default function BillingPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* AI Image Generation Usage */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        {locale === 'vi' ? 'AI tạo hình ảnh tháng này' : 'AI Images This Month'} ({usage.month})
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {/* BYOK indicator */}
+                    {aiImage.hasByokKey && (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
+                            <KeyRound className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>
+                                {locale === 'vi'
+                                    ? `BYOK đang dùng: ${aiImage.byokProvider} — không giới hạn`
+                                    : `BYOK active: ${aiImage.byokProvider} key — unlimited generation`}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Usage count */}
+                    <div className="flex items-end justify-between">
+                        <span className="text-2xl font-bold">{usage.imagesThisMonth}</span>
+                        <span className="text-sm text-muted-foreground">
+                            / {aiImage.maxPerMonth === -1
+                                ? (locale === 'vi' ? '∞ không giới hạn' : '∞ unlimited')
+                                : aiImage.maxPerMonth === 0
+                                    ? 'BYOK only'
+                                    : aiImage.maxPerMonth}
+                        </span>
+                    </div>
+
+                    {/* Progress bar — only show if quota limit exists */}
+                    {aiImage.maxPerMonth > 0 && aiImage.maxPerMonth !== -1 && (
+                        <Progress
+                            value={imagesPercent}
+                            className={`h-2 ${imagesPercent >= 90 ? '[&>div]:bg-red-500' : imagesPercent >= 70 ? '[&>div]:bg-orange-500' : ''}`}
+                        />
+                    )}
+
+                    {/* Status messages */}
+                    {aiImage.maxPerMonth === -1 && (
+                        <p className="text-xs text-green-500">{locale === 'vi' ? 'Không giới hạn' : 'Unlimited'}</p>
+                    )}
+                    {aiImage.maxPerMonth === 0 && !aiImage.hasByokKey && (
+                        <p className="text-xs text-orange-500">
+                            {locale === 'vi'
+                                ? 'Gói của bạn chưa có AI tạo ảnh. Thêm API key của bạn hoặc nâng cấp gói.'
+                                : 'Your plan has no AI image quota. Add your own API key or upgrade.'}
+                        </p>
+                    )}
+                    {aiImage.maxPerMonth > 0 && imagesPercent >= 90 && !aiImage.hasByokKey && (
+                        <p className="text-xs text-red-500">
+                            {locale === 'vi' ? 'Gần hết hạn mức tháng này!' : 'Approaching monthly quota limit!'}
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Plan Features */}
             <Card>

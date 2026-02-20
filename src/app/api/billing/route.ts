@@ -25,12 +25,14 @@ export async function GET(_req: NextRequest) {
 
     const month = getCurrentMonth()
     let postsThisMonth = 0
+    let imagesThisMonth = 0
 
     if (sub) {
         const usage = await db.usage.findUnique({
             where: { subscriptionId_month: { subscriptionId: sub.id, month } },
         })
         postsThisMonth = usage?.postsCreated ?? 0
+        imagesThisMonth = usage?.imagesGenerated ?? 0
     } else {
         const startOfMonth = new Date(`${month}-01T00:00:00.000Z`)
         postsThisMonth = await prisma.post.count({
@@ -41,6 +43,12 @@ export async function GET(_req: NextRequest) {
     // Count channels
     const channelCount = await prisma.channelMember.count({
         where: { userId, role: { in: ['ADMIN', 'OWNER'] } },
+    })
+
+    // Check BYOK — does user have any image provider key configured?
+    const byokKey = await prisma.userApiKey.findFirst({
+        where: { userId, provider: { in: ['runware', 'openai', 'gemini'] } },
+        select: { provider: true },
     })
 
     return NextResponse.json({
@@ -59,6 +67,12 @@ export async function GET(_req: NextRequest) {
             postsThisMonth,
             channelCount,
             month,
+            imagesThisMonth,
+        },
+        aiImage: {
+            hasByokKey: !!byokKey,
+            byokProvider: byokKey?.provider ?? null,
+            maxPerMonth: sub?.plan?.maxAiImagesPerMonth ?? 0,
         },
     })
 }
