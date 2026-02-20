@@ -1,14 +1,19 @@
 /**
  * Seed default billing plans.
  * Run: npx tsx prisma/seed-plans.ts
- * Or call seedPlans() from your seed.ts
  */
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
-// Load .env file when running standalone (tsx prisma/seed-plans.ts)
-import { config } from 'dotenv'
-config({ path: '.env' })
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 
-const prisma = new PrismaClient()
+function createPrismaClient() {
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+    const adapter = new PrismaPg(pool)
+    return new PrismaClient({ adapter })
+}
+
+const prisma = createPrismaClient()
 
 const DEFAULT_PLANS = [
     {
@@ -38,7 +43,7 @@ const DEFAULT_PLANS = [
         priceMonthly: 19,
         priceAnnual: 190,
         maxChannels: 5,
-        maxPostsPerMonth: -1, // unlimited
+        maxPostsPerMonth: -1,
         maxMembersPerChannel: 10,
         hasAutoSchedule: true,
         hasWebhooks: true,
@@ -57,7 +62,7 @@ const DEFAULT_PLANS = [
         priceMonthly: 49,
         priceAnnual: 490,
         maxChannels: 20,
-        maxPostsPerMonth: -1, // unlimited
+        maxPostsPerMonth: -1,
         maxMembersPerChannel: 50,
         hasAutoSchedule: true,
         hasWebhooks: true,
@@ -73,7 +78,7 @@ const DEFAULT_PLANS = [
         nameVi: 'Doanh nghiệp lớn',
         description: 'Unlimited everything for large organizations',
         descriptionVi: 'Không giới hạn dành cho tổ chức lớn',
-        priceMonthly: 0, // custom pricing — contact sales
+        priceMonthly: 0,
         priceAnnual: 0,
         maxChannels: -1,
         maxPostsPerMonth: -1,
@@ -89,24 +94,22 @@ const DEFAULT_PLANS = [
     },
 ]
 
-export async function seedPlans() {
+async function seedPlans() {
     console.log('[Seed] Seeding billing plans...')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = prisma as any
 
     for (const plan of DEFAULT_PLANS) {
-        await prisma.plan.upsert({
+        await p.plan.upsert({
             where: { id: `plan_${plan.name.toLowerCase()}` },
             update: plan,
             create: { id: `plan_${plan.name.toLowerCase()}`, ...plan },
         })
         console.log(`  ✓ ${plan.name} plan`)
     }
-
     console.log('[Seed] Plans seeded successfully.')
 }
 
-// Run directly
-if (require.main === module) {
-    seedPlans()
-        .catch(console.error)
-        .finally(() => prisma.$disconnect())
-}
+seedPlans()
+    .catch(console.error)
+    .finally(() => prisma.$disconnect())
