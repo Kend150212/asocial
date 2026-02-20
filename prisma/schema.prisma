@@ -154,6 +154,7 @@ enum IntegrationCategory {
   WEBHOOK
   DESIGN
   BILLING
+  AUTH
 }
 
 enum IntegrationStatus {

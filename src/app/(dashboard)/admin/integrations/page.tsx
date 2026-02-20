@@ -43,6 +43,7 @@ import {
     Link,
     Palette,
     CreditCard,
+    Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -71,6 +72,7 @@ interface Integration {
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
+    AUTH: <Shield className="h-5 w-5" />,
     SOCIAL: <Zap className="h-5 w-5" />,
     AI: <BrainCircuit className="h-5 w-5" />,
     STORAGE: <HardDrive className="h-5 w-5" />,

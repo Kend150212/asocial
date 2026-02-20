@@ -37,73 +37,67 @@ declare module '@auth/core/jwt' {
     }
 }
 
-// Build providers list — Google added only when credentials are available
-// Credentials are loaded from Admin API Hub at startup via instrumentation.ts
-const providers = [
-    Credentials({
-        name: 'Credentials',
-        credentials: {
-            email: { label: 'Email', type: 'email' },
-            password: { label: 'Password', type: 'password' },
-        },
-        async authorize(credentials) {
-            if (!credentials?.email || !credentials?.password) return null
-
-            const user = await prisma.user.findUnique({
-                where: { email: credentials.email as string },
-            })
-
-            if (!user || !user.isActive) return null
-
-            // User hasn't set password yet (invited but hasn't completed setup)
-            if (!user.passwordHash) return null
-
-            const isValid = await bcrypt.compare(
-                credentials.password as string,
-                user.passwordHash
-            )
-
-            if (!isValid) return null
-
-            // Update last login
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { lastLoginAt: new Date() },
-            })
-
-            return {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                isActive: user.isActive,
-                image: user.image,
-            }
-        },
-    }),
-]
-
-// Add Google provider if credentials are available (loaded by instrumentation.ts from Admin API Hub)
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    providers.push(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            allowDangerousEmailAccountLinking: true,
-        }) as never
-    )
-}
+// Providers are defined inline in NextAuth config so they are evaluated
+// after instrumentation.ts has loaded credentials into process.env
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     trustHost: true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    providers: [
+        Credentials({
+            name: 'Credentials',
+            credentials: {
+                email: { label: 'Email', type: 'email' },
+                password: { label: 'Password', type: 'password' },
+            },
+            async authorize(credentials) {
+                if (!credentials?.email || !credentials?.password) return null
+
+                const user = await prisma.user.findUnique({
+                    where: { email: credentials.email as string },
+                })
+
+                if (!user || !user.isActive) return null
+                if (!user.passwordHash) return null
+
+                const isValid = await bcrypt.compare(
+                    credentials.password as string,
+                    user.passwordHash
+                )
+                if (!isValid) return null
+
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { lastLoginAt: new Date() },
+                })
+
+                return {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    isActive: user.isActive,
+                    image: user.image,
+                }
+            },
+        }),
+        // Google provider is conditionally added only when credentials exist in process.env
+        // (loaded from Admin API Hub DB via instrumentation.ts at server startup)
+        ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+            ? [
+                Google({
+                    clientId: process.env.GOOGLE_CLIENT_ID,
+                    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                    allowDangerousEmailAccountLinking: true,
+                }) as never,
+            ]
+            : []),
+    ],
     adapter: PrismaAdapter(prisma) as any,
     session: { strategy: 'jwt' },
     pages: {
         signIn: '/login',
     },
-    providers,
     callbacks: {
         async signIn({ user, account }) {
             // On Google sign-in: auto-create user if not exists, assign Free plan
