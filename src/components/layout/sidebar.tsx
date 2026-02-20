@@ -81,6 +81,7 @@ const adminNav: NavItem[] = [
     { titleKey: 'nav.apiHub', href: '/admin/integrations', icon: Plug, roles: ['ADMIN'] },
     { titleKey: 'nav.plans', href: '/admin/plans', icon: LayoutList, roles: ['ADMIN'] },
     { titleKey: 'nav.billing', href: '/admin/billing', icon: CreditCard, roles: ['ADMIN'] },
+    { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
 ]
 
 export function Sidebar({ session }: { session: Session }) {
