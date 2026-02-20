@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         const timeout = setTimeout(() => controller.abort(), 8000)
         const res = await fetch(rssUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; ASocialBot/1.0)',
+                'User-Agent': 'Mozilla/5.0 (compatible; Bot/1.0)',
                 'Accept': 'application/rss+xml, application/xml, text/xml',
             },
             signal: controller.signal,

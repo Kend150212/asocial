@@ -65,7 +65,8 @@
         "settings": "Cài đặt",
         "billing": "Thanh toán",
         "plans": "Quản lý gói",
-        "profile": "Hồ sơ của tôi"
+        "profile": "Hồ sơ của tôi",
+        "branding": "Thương hiệu"
     },
     "auth": {
         "signIn": "Đăng nhập",

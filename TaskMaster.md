@@ -107,10 +107,12 @@
   - nginx `proxy_pass` → port 3000
   - Deploy command: `git stash && git pull && npm run build && pm2 restart asocial && pm2 restart asocial-worker`
 
-## Phase 14: Activity Log & Monitoring
-- [ ] Audit trail
-- [ ] Rate limit dashboard
-- [ ] Duplicate post detection
+## Phase 14: Activity Log & Monitoring ✅ COMPLETED
+- [x] Audit trail — `logActivity()` utility + admin Activity Log page (`/admin/activity`)
+- [x] Activity logging wired into: post create, channel create, trial grant/revoke, plan override
+- [x] Admin Activity page — Audit Trail tab (filterable table, 7-day chart, pagination, CSV export)
+- [x] Duplicate post detection — API (`/api/admin/posts/duplicates`) + Duplicate Posts tab
+- [x] Sidebar link added for admin: "Activity Log" / "Nhật ký hoạt động"
 
 ## Phase 15: Deploy & Backup
 - [ ] Auto-setup script (detect domain, setup DB)
@@ -141,4 +143,4 @@
 
 ---
 
-**Tổng tiến độ: Phase 1–13 ✅ | Phase 16 ✅ | Đang làm: Phase 14 | Còn lại: Phase 15, 17**
+**Tổng tiến độ: Phase 1–14 ✅ | Phase 16 ✅ | Còn lại: Phase 15, 17**

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
             })
             const channelName = channel?.displayName || channel?.name || 'General'
 
-            // Folder structure: ASocial - User → Channel Name → YYYY-MM
+            // Folder structure: App - User → Channel Name → YYYY-MM
             const channelFolder = await getOrCreateChannelFolder(accessToken, user.gdriveFolderId, channelName)
             const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, channelFolder.id)
             targetFolderId = monthlyFolder.id

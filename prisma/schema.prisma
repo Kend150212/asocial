@@ -682,3 +682,22 @@ model Usage {
   @@unique([subscriptionId, month])
   @@map("usages")
 }
+
+// ==========================================
+// SITE SETTINGS (Whitelabel / Branding)
+// ==========================================
+
+model SiteSettings {
+  id            String   @id @default("default")
+  appName       String   @default("ASocial") @map("app_name")
+  tagline       String   @default("Social Media Management")
+  logoUrl       String   @default("/logo.png") @map("logo_url")
+  faviconUrl    String   @default("/favicon.ico") @map("favicon_url")
+  primaryColor  String   @default("#7c3aed") @map("primary_color")
+  supportEmail  String   @default("") @map("support_email")
+  copyrightText String   @default("") @map("copyright_text")
+  footerLinks   Json     @default("[]") @map("footer_links")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}

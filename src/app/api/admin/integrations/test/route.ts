@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import { getBrandingServer } from '@/lib/use-branding'
 import nodemailer from 'nodemailer'
 
 // POST /api/admin/integrations/test — test connection for a provider
@@ -199,9 +200,9 @@ async function testSmtp(
         // Send a test email
         const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
         await transporter.sendMail({
-            from: `"ASocial" <${from}>`,
+            from: `"${(await getBrandingServer()).appName}" <${from}>`,
             to: testEmail,
-            subject: '✅ ASocial — SMTP Test Successful',
+            subject: `✅ ${(await getBrandingServer()).appName} — SMTP Test Successful`,
             html: `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f8fafc; border-radius: 12px;">
                     <div style="text-align: center; margin-bottom: 24px;">
@@ -217,7 +218,7 @@ async function testSmtp(
                         </table>
                     </div>
                     <p style="font-size: 11px; color: #94a3b8; margin-top: 16px; text-align: center;">
-                        Sent by ASocial Email System
+                        Sent by ${(await getBrandingServer()).appName} Email System
                     </p>
                 </div>
             `,

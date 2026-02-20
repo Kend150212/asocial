@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import type { Metadata } from 'next'
 import {
   Bot,
   CalendarClock,
@@ -19,11 +18,6 @@ import {
 } from 'lucide-react'
 import { PricingSection } from '@/components/pricing-section'
 
-export const metadata: Metadata = {
-  title: 'ASocial - AI-Powered Social Media Management Platform',
-  description:
-    'Manage all your social media accounts in one place. Schedule posts, generate AI content, and grow your audience with ASocial by Kendy Marketing LLC.',
-}
 
 const features = [
   {
@@ -83,14 +77,14 @@ export default function LandingPage() {
         <div className="flex items-center justify-between px-6 py-3">
           <Link href="/" className="flex items-center gap-3 cursor-pointer">
             <Image
-              src="/logo.png"
-              alt="ASocial"
+              src={branding.logoUrl}
+              alt={branding.appName}
               width={32}
               height={32}
               className="rounded-lg"
               unoptimized
             />
-            <span className="text-lg font-bold tracking-tight">ASocial</span>
+            <span className="text-lg font-bold tracking-tight">{branding.appName}</span>
           </Link>
           <div className="flex items-center gap-2 md:gap-4">
             <Link
@@ -150,7 +144,7 @@ export default function LandingPage() {
 
           {/* Subheadline */}
           <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            ASocial is an AI-powered social media management platform that lets you
+            {branding.appName} is an AI-powered social media management platform that lets you
             create, schedule, and publish content — including uploading videos to YouTube,
             posting to Facebook, Instagram, TikTok, and more — all from a single dashboard.
           </p>
@@ -252,7 +246,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ───── Why ASocial ───── */}
+      {/* ───── Why Us ───── */}
       <section className="py-24 bg-muted/30 border-y">
         <div className="mx-auto max-w-6xl px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -260,7 +254,7 @@ export default function LandingPage() {
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
                 Why teams choose{' '}
                 <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                  ASocial
+                  {branding.appName}
                 </span>
               </h2>
               <p className="mt-4 text-muted-foreground leading-relaxed">
@@ -301,7 +295,7 @@ export default function LandingPage() {
             Ready to simplify your social media?
           </h2>
           <p className="mt-4 text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
-            Join businesses and creators who trust ASocial to manage their online
+            Join businesses and creators who trust {branding.appName} to manage their online
             presence. Start free — no credit card needed.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -331,14 +325,14 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <Image
-                  src="/logo.png"
-                  alt="ASocial"
+                  src={branding.logoUrl}
+                  alt={branding.appName}
                   width={28}
                   height={28}
                   className="rounded-lg"
                   unoptimized
                 />
-                <span className="text-lg font-bold">ASocial</span>
+                <span className="text-lg font-bold">{branding.appName}</span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 AI-powered social media management platform. Built by{' '}

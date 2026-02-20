@@ -1,6 +1,17 @@
 // Webhook notification helper — sends post-publish notifications to
 // Discord, Telegram, Slack, and custom webhook endpoints configured on a channel.
 
+import { getBrandingServer } from '@/lib/use-branding'
+
+// Cached app name for webhook payloads
+let _cachedAppName: string | null = null
+async function getAppName(): Promise<string> {
+    if (_cachedAppName) return _cachedAppName
+    const brand = await getBrandingServer()
+    _cachedAppName = brand.appName
+    return _cachedAppName
+}
+
 interface WebhookConfig {
     webhookDiscord?: { url?: string } | null
     webhookTelegram?: { botToken?: string; chatId?: string } | null
@@ -44,7 +55,7 @@ function getPlatformLabel(platform: string): string {
 
 // ─── Format message for Discord (Markdown + Embeds) ──────────────────
 
-function buildDiscordPayload(data: PublishNotificationData) {
+function buildDiscordPayload(data: PublishNotificationData, appName: string) {
     const successResults = data.results.filter(r => r.success)
     const failedResults = data.results.filter(r => !r.success)
 
@@ -61,7 +72,7 @@ function buildDiscordPayload(data: PublishNotificationData) {
         : data.content
 
     return {
-        username: 'ASocial',
+        username: appName,
         embeds: [{
             title: '📢 Post Published',
             color: failedResults.length === 0 ? 0x22c55e : 0xf59e0b, // green or amber
@@ -149,10 +160,10 @@ function buildSlackPayload(data: PublishNotificationData) {
 
 // ─── Format message for Custom Webhook (JSON) ───────────────────────
 
-function buildCustomPayload(data: PublishNotificationData) {
+function buildCustomPayload(data: PublishNotificationData, appName: string) {
     return {
         event: 'post.published',
-        source: 'asocial',
+        source: appName.toLowerCase(),
         timestamp: data.publishedAt.toISOString(),
         post: {
             id: data.postId,
@@ -177,6 +188,7 @@ export async function sendPublishWebhooks(
     data: PublishNotificationData,
 ): Promise<void> {
     const tasks: Promise<void>[] = []
+    const appName = await getAppName()
 
     // Discord
     const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
@@ -185,7 +197,7 @@ export async function sendPublishWebhooks(
             fetch(discordUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(buildDiscordPayload(data)),
+                body: JSON.stringify(buildDiscordPayload(data, appName)),
             })
                 .then(res => {
                     if (!res.ok) console.warn(`[Webhook] Discord failed: ${res.status}`)
@@ -240,7 +252,7 @@ export async function sendPublishWebhooks(
             fetch(customUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(buildCustomPayload(data)),
+                body: JSON.stringify(buildCustomPayload(data, appName)),
             })
                 .then(res => {
                     if (!res.ok) console.warn(`[Webhook] Custom failed: ${res.status}`)
@@ -271,7 +283,7 @@ export interface ApprovalNotificationData {
     scheduledAt?: Date | null
 }
 
-function buildApprovalDiscordPayload(data: ApprovalNotificationData) {
+function buildApprovalDiscordPayload(data: ApprovalNotificationData, appName: string) {
     const isApproved = data.action === 'approved'
     const color = isApproved ? 0x22c55e : 0xef4444
     const title = isApproved ? '✅ Post Approved' : '❌ Post Rejected'
@@ -287,7 +299,7 @@ function buildApprovalDiscordPayload(data: ApprovalNotificationData) {
     }
     if (data.comment) fields.push({ name: '💬 Comment', value: data.comment, inline: false })
     return {
-        username: 'ASocial',
+        username: appName,
         embeds: [{ title, color, description: truncated, fields, footer: { text: `Post ID: ${data.postId}` }, timestamp: data.reviewedAt.toISOString() }],
     }
 }
@@ -326,10 +338,10 @@ function buildApprovalSlackPayload(data: ApprovalNotificationData) {
     return { blocks }
 }
 
-function buildApprovalCustomPayload(data: ApprovalNotificationData) {
+function buildApprovalCustomPayload(data: ApprovalNotificationData, appName: string) {
     return {
         event: `post.${data.action}`,
-        source: 'asocial',
+        source: appName.toLowerCase(),
         timestamp: data.reviewedAt.toISOString(),
         post: { id: data.postId, content: data.content },
         channel: data.channelName,
@@ -345,11 +357,12 @@ export async function sendApprovalWebhooks(
     data: ApprovalNotificationData,
 ): Promise<void> {
     const tasks: Promise<void>[] = []
+    const appName = await getAppName()
 
     const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
     if (discordUrl) {
         tasks.push(
-            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalDiscordPayload(data)) })
+            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalDiscordPayload(data, appName)) })
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Discord failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Approval Discord error:', err.message))
         )
@@ -379,7 +392,7 @@ export async function sendApprovalWebhooks(
     const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
     if (customUrl) {
         tasks.push(
-            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalCustomPayload(data)) })
+            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildApprovalCustomPayload(data, appName)) })
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Custom failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Approval Custom error:', err.message))
         )
@@ -403,14 +416,14 @@ export interface PendingApprovalNotificationData {
     platforms: string[]          // platform names selected for this post
     scheduledAt?: Date | null
     imageUrl?: string | null     // first media image URL (if any)
-    appBaseUrl: string           // e.g. https://app.asocial.com
+    appBaseUrl: string           // e.g. https://app.yourdomain.com
 }
 
 function approvalsUrl(base: string) {
     return `${base}/dashboard/posts/approvals`
 }
 
-function buildPendingDiscordPayload(data: PendingApprovalNotificationData) {
+function buildPendingDiscordPayload(data: PendingApprovalNotificationData, appName: string) {
     const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
     const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
     const url = approvalsUrl(data.appBaseUrl)
@@ -424,7 +437,7 @@ function buildPendingDiscordPayload(data: PendingApprovalNotificationData) {
     }
     // Discord webhook can't do buttons, but a clickable title link is the best option
     return {
-        username: 'ASocial',
+        username: appName,
         embeds: [{
             title: '🔔 Post Pending Approval — Click to Review',
             url,               // ← makes the embed title a hyperlink to the Approvals page
@@ -519,10 +532,10 @@ function buildPendingSlackPayload(data: PendingApprovalNotificationData) {
     return { blocks }
 }
 
-function buildPendingCustomPayload(data: PendingApprovalNotificationData) {
+function buildPendingCustomPayload(data: PendingApprovalNotificationData, appName: string) {
     return {
         event: 'post.pending_approval',
-        source: 'asocial',
+        source: appName.toLowerCase(),
         timestamp: new Date().toISOString(),
         post: { id: data.postId, content: data.content, imageUrl: data.imageUrl || null },
         channel: data.channelName,
@@ -538,11 +551,12 @@ export async function sendPendingApprovalWebhooks(
     data: PendingApprovalNotificationData,
 ): Promise<void> {
     const tasks: Promise<void>[] = []
+    const appName = await getAppName()
 
     const discordUrl = (webhookConfig.webhookDiscord as Record<string, string> | null)?.url
     if (discordUrl) {
         tasks.push(
-            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingDiscordPayload(data)) })
+            fetch(discordUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingDiscordPayload(data, appName)) })
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Discord failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Pending Discord error:', err.message))
         )
@@ -567,7 +581,7 @@ export async function sendPendingApprovalWebhooks(
     const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
     if (customUrl) {
         tasks.push(
-            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingCustomPayload(data)) })
+            fetch(customUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPendingCustomPayload(data, appName)) })
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Custom failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Pending Custom error:', err.message))
         )

@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -16,6 +18,7 @@ import { useTranslation } from '@/lib/i18n'
 type Step = 'details' | 'otp'
 
 export default function RegisterPage() {
+    const branding = useBranding()
     const t = useTranslation()
     const router = useRouter()
     const [step, setStep] = useState<Step>('details')
@@ -154,7 +157,7 @@ export default function RegisterPage() {
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={48} height={48} className="rounded-xl" unoptimized />
+                        <Image src={branding.logoUrl} alt={branding.appName} width={48} height={48} className="rounded-xl" unoptimized />
                     </div>
                     <CardTitle className="text-xl font-bold flex items-center justify-center gap-2">
                         {step === 'details' ? (

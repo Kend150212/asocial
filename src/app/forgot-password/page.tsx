@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
+    const branding = useBranding()
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -17,7 +18,7 @@ export default function ForgotPasswordPage() {
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
+                        <Image src={branding.logoUrl} alt={branding.appName} width={56} height={56} className="rounded-xl" unoptimized />
                     </div>
                     <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
                     <CardDescription>

@@ -5,6 +5,7 @@ import { SessionProvider } from 'next-auth/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nProvider } from '@/lib/i18n'
+import { BrandingProvider } from '@/lib/use-branding'
 import { Session } from 'next-auth'
 import { useState } from 'react'
 
@@ -31,9 +32,11 @@ export function Providers({ children, session }: { children: React.ReactNode; se
                     disableTransitionOnChange
                 >
                     <I18nProvider>
-                        <TooltipProvider delayDuration={0}>
-                            {children}
-                        </TooltipProvider>
+                        <BrandingProvider>
+                            <TooltipProvider delayDuration={0}>
+                                {children}
+                            </TooltipProvider>
+                        </BrandingProvider>
                     </I18nProvider>
                 </NextThemesProvider>
             </QueryClientProvider>

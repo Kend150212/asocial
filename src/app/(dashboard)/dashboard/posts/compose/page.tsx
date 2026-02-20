@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -525,6 +527,7 @@ function GenericPreview({ content, media, accountName, platform, mediaRatio }: {
 // ─── Page ───────────────────────────────────────────
 
 export default function ComposePage() {
+    const branding = useBranding()
     const t = useTranslation()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -1047,7 +1050,7 @@ export default function ComposePage() {
                     designType: 'custom',
                     width: dims.width,
                     height: dims.height,
-                    title: `ASocial Design ${new Date().toLocaleDateString()}`,
+                    title: `${branding.appName} Design ${new Date().toLocaleDateString()}`,
                     ...(existingMediaUrl ? { imageUrl: existingMediaUrl } : {}),
                 }),
             })
@@ -1095,7 +1098,7 @@ export default function ComposePage() {
                     ` : '<p style="color:#9ca3af;font-size:14px;margin-top:12px;">Please keep this window open...</p>'
 
                     win.document.open()
-                    win.document.write(`<!DOCTYPE html><html><head><title>ASocial - Canva Export</title><style>
+                    win.document.write(`<!DOCTYPE html><html><head><title>${branding.appName} - Canva Export</title><style>
                         * { margin: 0; padding: 0; box-sizing: border-box; }
                         body { background: #0f1419; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }
                         .container { padding: 48px; max-width: 480px; }
@@ -1107,7 +1110,7 @@ export default function ComposePage() {
                         ${spinnerCSS}
                     </style></head><body>
                         <div class="container">
-                            <div class="logo"><img src="/logo.png" alt="ASocial" /><span>ASocial</span></div>
+                            <div class="logo"><img src="${branding.logoUrl}" alt="${branding.appName}" /><span>${branding.appName}</span></div>
                             ${status === 'loading' ? '<div class="spinner"></div>' : `<div class="icon">${icon}</div>`}
                             <p class="message">${message}</p>
                             ${closeBtn}
@@ -1260,7 +1263,7 @@ export default function ComposePage() {
                     return
                 }
 
-                // Case 2: Popup navigated back to our domain (user clicked "Return to ASocial")
+                // Case 2: Popup navigated back to our domain (user clicked "Return to app")
                 // Keep popup OPEN — show status UI, run export, close popup only after success
                 try {
                     if (popup && popup.location && popup.location.hostname === window.location.hostname) {

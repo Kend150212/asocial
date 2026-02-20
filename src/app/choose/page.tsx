@@ -1,11 +1,14 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
 export default function ChooseAccessPage() {
+    const branding = useBranding()
     const { data: session, status } = useSession()
     const router = useRouter()
     const [checking, setChecking] = useState(true)
@@ -34,7 +37,7 @@ export default function ChooseAccessPage() {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]">
                 <div className="flex flex-col items-center gap-4">
-                    <Image src="/logo.png" alt="ASocial" width={48} height={48} className="rounded-xl" unoptimized />
+                    <Image src={branding.logoUrl} alt={branding.appName} width={48} height={48} className="rounded-xl" unoptimized />
                     <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                 </div>
             </div>
@@ -52,7 +55,7 @@ export default function ChooseAccessPage() {
             <div className="relative w-full max-w-lg">
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl mx-auto mb-4" unoptimized />
+                    <Image src={branding.logoUrl} alt={branding.appName} width={56} height={56} className="rounded-xl mx-auto mb-4" unoptimized />
                     <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back!</h1>
                     <p className="text-white/40 text-sm mt-1.5">Choose where you&apos;d like to go</p>
                 </div>

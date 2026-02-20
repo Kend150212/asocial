@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
+import { getBrandingServer } from '@/lib/use-branding'
 
 // ─── Get SMTP transporter from ApiIntegration ───────
 async function getTransporter() {
@@ -53,8 +54,9 @@ export async function sendEmail({
         return { success: false, reason: 'SMTP not configured' }
     }
     const { transporter, from } = smtp
+    const brand = await getBrandingServer()
     await transporter.sendMail({
-        from: `"ASocial" <${from}>`,
+        from: `"${brand.appName}" <${from}>`,
         to,
         subject,
         html,
@@ -85,14 +87,15 @@ export async function sendInvitationEmail({
 
         const { transporter, from } = smtp
         const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
-        const logoUrl = `${appUrl}/logo.png`
+        const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
+        const brand = await getBrandingServer()
 
         await transporter.sendMail({
-            from: `"ASocial" <${from}>`,
+            from: `"${brand.appName}" <${from}>`,
             to: toEmail,
-            subject: `You've been invited to join ASocial`,
+            subject: `You've been invited to join ${brand.appName}`,
             html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -104,7 +107,7 @@ export async function sendInvitationEmail({
 
                 <!-- Logo -->
                 <tr><td style="padding: 0 0 32px; text-align: center;">
-                    <img src="${logoUrl}" alt="ASocial" width="52" height="52" style="border-radius: 14px; display: inline-block;" />
+                    <img src="${logoUrl}" alt="${brand.appName}" width="52" height="52" style="border-radius: 14px; display: inline-block;" />
                 </td></tr>
 
                 <!-- Main Card -->
@@ -118,7 +121,7 @@ export async function sendInvitationEmail({
                         <tr><td style="padding: 36px 36px 0;">
                             <h1 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: #18181b; letter-spacing: -0.3px;">You're invited!</h1>
                             <p style="margin: 0; font-size: 14px; color: #71717a; line-height: 1.6;">
-                                You've been added to <strong style="color: #18181b;">ASocial</strong> as a team member. Set up your password below to get started.
+                                You've been added to <strong style="color: #18181b;">${brand.appName}</strong> as a team member. Set up your password below to get started.
                             </p>
                         </td></tr>
 
@@ -175,7 +178,7 @@ export async function sendInvitationEmail({
                         <a href="${setupUrl}" style="color: #6366f1; text-decoration: none;">${setupUrl}</a>
                     </p>
                     <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
-                        &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
+                        &copy; ${new Date().getFullYear()} ${brand.appName} &middot; Social Media Management Platform
                     </p>
                 </td></tr>
 
@@ -222,17 +225,19 @@ export async function sendChannelInviteEmail({
         }
 
         const { transporter, from } = smtp
-        const logoUrl = `${appUrl}/logo.png`
+        const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
 
         // ─── Role-specific content ───────────────────────
         const isCustomer = role === 'CUSTOMER'
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
 
+        const brand = await getBrandingServer()
+
         // Subject
         const subject = isCustomer
-            ? `Review content for "${channelName}" — ASocial`
-            : `Join the "${channelName}" team on ASocial`
+            ? `Review content for "${channelName}" — ${brand.appName}`
+            : `Join the "${channelName}" team on ${brand.appName}`
 
         // Headline
         const headline = isCustomer
@@ -241,8 +246,8 @@ export async function sendChannelInviteEmail({
 
         // Description
         const description = isCustomer
-            ? `<strong style="color: #18181b;">${inviterName}</strong> has invited you to the <strong style="color: #18181b;">"${channelName}"</strong> Client Portal on ASocial — where you can review and approve social media content before it goes live.`
-            : `<strong style="color: #18181b;">${inviterName}</strong> has invited you to manage the channel <strong style="color: #18181b;">"${channelName}"</strong> on ASocial as a <strong style="color: #18181b;">${roleLabel}</strong>.`
+            ? `<strong style="color: #18181b;">${inviterName}</strong> has invited you to the <strong style="color: #18181b;">"${channelName}"</strong> Client Portal on ${brand.appName} — where you can review and approve social media content before it goes live.`
+            : `<strong style="color: #18181b;">${inviterName}</strong> has invited you to manage the channel <strong style="color: #18181b;">"${channelName}"</strong> on ${brand.appName} as a <strong style="color: #18181b;">${roleLabel}</strong>.`
 
         // Feature bullets
         const features = isCustomer
@@ -281,7 +286,7 @@ export async function sendChannelInviteEmail({
         `).join('')
 
         await transporter.sendMail({
-            from: `"ASocial" <${from}>`,
+            from: `"${brand.appName}" <${from}>`,
             to: toEmail,
             subject,
             html: `
@@ -293,7 +298,7 @@ export async function sendChannelInviteEmail({
         <tr><td align="center">
             <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width: 520px; width: 100%;">
                 <tr><td style="padding: 0 0 32px; text-align: center;">
-                    <img src="${logoUrl}" alt="ASocial" width="52" height="52" style="border-radius: 14px; display: inline-block;" />
+                    <img src="${logoUrl}" alt="${brand.appName}" width="52" height="52" style="border-radius: 14px; display: inline-block;" />
                 </td></tr>
                 <tr><td>
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04); overflow: hidden;">
@@ -360,7 +365,7 @@ export async function sendChannelInviteEmail({
                         </td></tr>
                         <tr><td align="center">
                             <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
-                                &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
+                                &copy; ${new Date().getFullYear()} ${brand.appName} &middot; Social Media Management Platform
                             </p>
                         </td></tr>
                     </table>
@@ -404,13 +409,14 @@ export async function sendChannelAddedNotificationEmail({
         }
 
         const { transporter, from } = smtp
-        const logoUrl = `${appUrl}/logo.png`
+        const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const loginUrl = `${appUrl}/login`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'OWNER' ? '#d97706' : role === 'MANAGER' ? '#7c3aed' : role === 'STAFF' ? '#2563eb' : '#0891b2'
+        const brand = await getBrandingServer()
 
         await transporter.sendMail({
-            from: `"ASocial" <${from}>`,
+            from: `"${brand.appName}" <${from}>`,
             to: toEmail,
             subject: `You've been added to ${channelName}`,
             html: `
@@ -424,7 +430,7 @@ export async function sendChannelAddedNotificationEmail({
 
                 <!-- Logo -->
                 <tr><td align="center" style="padding-bottom: 24px;">
-                    <img src="${logoUrl}" alt="ASocial" width="36" height="36" style="border-radius: 8px;" onerror="this.style.display='none'">
+                    <img src="${logoUrl}" alt="${brand.appName}" width="36" height="36" style="border-radius: 8px;" onerror="this.style.display='none'">
                 </td></tr>
 
                 <!-- Card -->
@@ -443,7 +449,7 @@ export async function sendChannelAddedNotificationEmail({
                                 Hi ${toName || toEmail.split('@')[0]},
                             </p>
                             <p style="margin: 10px 0 0; font-size: 14px; color: #52525b; line-height: 1.6;">
-                                <strong>${inviterName}</strong> has added you to the <strong>${channelName}</strong> channel on ASocial.
+                                <strong>${inviterName}</strong> has added you to the <strong>${channelName}</strong> channel on ${brand.appName}.
                                 You can log in to your existing account to access it right away.
                             </p>
                         </td></tr>
@@ -495,7 +501,7 @@ export async function sendChannelAddedNotificationEmail({
                         </td></tr>
                         <tr><td align="center">
                             <p style="margin: 0; font-size: 11px; color: #d4d4d8;">
-                                &copy; ${new Date().getFullYear()} ASocial &middot; Social Media Management Platform
+                                &copy; ${new Date().getFullYear()} ${brand.appName} &middot; Social Media Management Platform
                             </p>
                         </td></tr>
                     </table>

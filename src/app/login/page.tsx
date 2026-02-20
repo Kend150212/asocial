@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useState, Suspense, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
@@ -79,8 +81,8 @@ function LoginForm() {
                 {/* Logo + name */}
                 <div className="relative">
                     <Link href="/" className="flex items-center gap-3">
-                        <Image src="/logo.png" alt="ASocial" width={40} height={40} className="rounded-xl" unoptimized />
-                        <span className="text-xl font-bold tracking-tight">ASocial</span>
+                        <Image src={branding.logoUrl} alt={branding.appName} width={40} height={40} className="rounded-xl" unoptimized />
+                        <span className="text-xl font-bold tracking-tight">{branding.appName}</span>
                     </Link>
                 </div>
 
@@ -135,13 +137,13 @@ function LoginForm() {
                 <div className="mx-auto w-full max-w-sm">
                     {/* Mobile logo */}
                     <div className="flex items-center gap-3 mb-8 lg:hidden">
-                        <Image src="/logo.png" alt="ASocial" width={36} height={36} className="rounded-xl" unoptimized />
-                        <span className="text-lg font-bold">ASocial</span>
+                        <Image src={branding.logoUrl} alt={branding.appName} width={36} height={36} className="rounded-xl" unoptimized />
+                        <span className="text-lg font-bold">{branding.appName}</span>
                     </div>
 
                     <div className="mb-8">
                         <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-                        <p className="mt-1 text-sm text-muted-foreground">Sign in to your ASocial account</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
                     </div>
 
                     {/* Success banner after registration */}
@@ -255,6 +257,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+    const branding = useBranding()
     return (
         <Suspense>
             <LoginForm />

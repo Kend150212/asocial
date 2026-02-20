@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -107,6 +109,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default function PortalPage() {
+    const branding = useBranding()
     const { data: session, status } = useSession()
     const router = useRouter()
     const { theme, toggle: toggleTheme } = useTheme()
@@ -275,7 +278,7 @@ export default function PortalPage() {
         return (
             <div className={`min-h-screen flex items-center justify-center ${c.bg}`}>
                 <div className="flex flex-col items-center gap-4">
-                    <Image src="/logo.png" alt="ASocial" width={48} height={48} className="rounded-xl" unoptimized />
+                    <Image src={branding.logoUrl} alt={branding.appName} width={48} height={48} className="rounded-xl" unoptimized />
                     <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                 </div>
             </div>
@@ -297,9 +300,9 @@ export default function PortalPage() {
             `}>
                 {/* Logo */}
                 <div className={`p-4 flex items-center gap-3 border-b ${c.sidebarBorder}`}>
-                    <Image src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-xl" unoptimized />
+                    <Image src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-xl" unoptimized />
                     <div className="flex-1 min-w-0">
-                        <h1 className="font-bold text-sm tracking-tight">ASocial</h1>
+                        <h1 className="font-bold text-sm tracking-tight">{branding.appName}</h1>
                         <p className={`text-[9px] ${c.textMicro} uppercase tracking-[0.15em]`}>Client Portal</p>
                     </div>
                     {/* Theme toggle */}
@@ -428,7 +431,7 @@ export default function PortalPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                             </svg>
                         </button>
-                        <Image src="/logo.png" alt="ASocial" width={24} height={24} className="rounded-lg" unoptimized />
+                        <Image src={branding.logoUrl} alt={branding.appName} width={24} height={24} className="rounded-lg" unoptimized />
                         <button onClick={toggleTheme} className={`p-1.5 ${c.textSoft}`}>
                             {theme === 'dark' ? (
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">

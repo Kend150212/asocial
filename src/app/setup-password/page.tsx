@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -106,7 +108,7 @@ function SetupPasswordForm() {
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
+                        <Image src={branding.logoUrl} alt={branding.appName} width={56} height={56} className="rounded-xl" unoptimized />
                     </div>
                     <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
                         <AlertTriangle className="h-6 w-6 text-destructive" />
@@ -132,7 +134,7 @@ function SetupPasswordForm() {
             <Card className="w-full max-w-md relative">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto">
-                        <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
+                        <Image src={branding.logoUrl} alt={branding.appName} width={56} height={56} className="rounded-xl" unoptimized />
                     </div>
                     <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
                         <Check className="h-7 w-7 text-emerald-500" />
@@ -156,7 +158,7 @@ function SetupPasswordForm() {
         <Card className="w-full max-w-md relative">
             <CardHeader className="space-y-3 text-center">
                 <div className="mx-auto">
-                    <Image src="/logo.png" alt="ASocial" width={56} height={56} className="rounded-xl" unoptimized />
+                    <Image src={branding.logoUrl} alt={branding.appName} width={56} height={56} className="rounded-xl" unoptimized />
                 </div>
                 <CardTitle className="text-2xl font-bold">{t('setupPassword.title')}</CardTitle>
                 <CardDescription>{t('setupPassword.description')}</CardDescription>
@@ -244,6 +246,7 @@ function SetupPasswordForm() {
 }
 
 export default function SetupPasswordPage() {
+    const branding = useBranding()
     return (
         <div className="flex min-h-screen items-center justify-center bg-background p-4">
             {/* Background effects */}

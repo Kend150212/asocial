@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
 
         // Send OTP email
         const displayName = firstName.trim()
-        const subject = isVi ? 'Mã xác nhận đăng ký ASocial' : 'ASocial Registration Verification Code'
+        const brand = await getBrandingServer()
+        const subject = isVi ? `Mã xác nhận đăng ký ${brand.appName}` : `${brand.appName} Registration Verification Code`
         const html = `
 <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #0f0f0f; color: #f5f5f5; border-radius: 12px;">
   <h2 style="margin: 0 0 12px; font-size: 20px;">${isVi ? 'Xin chào' : 'Hello'}, ${displayName}!</h2>

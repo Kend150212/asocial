@@ -1,5 +1,7 @@
 'use client'
 
+import { useBranding } from '@/lib/use-branding'
+
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n'
@@ -143,7 +145,7 @@ const platformGuides: Record<string, PlatformGuide> = {
         description: 'Connect your Facebook Pages to publish posts and manage engagement.\nKết nối Facebook Pages để đăng bài và quản lý tương tác.',
         steps: [
             { title: 'Step 1: Go to Meta for Developers / Vào Meta for Developers', detail: 'Visit developers.facebook.com → click "My Apps" → "Create App".\n\nTruy cập developers.facebook.com → nhấn "My Apps" → "Create App".' },
-            { title: 'Step 2: Enter App Details / Nhập thông tin App', detail: 'Enter App name (e.g. "ASocial") and your contact email. Click "Next".\n\nNhập tên App (ví dụ "ASocial") và email liên hệ. Nhấn "Next".' },
+            { title: 'Step 2: Enter App Details / Nhập thông tin App', detail: 'Enter App name (e.g. `"${branding.appName}"`) and your contact email. Click "Next".\n\nNhập tên App (ví dụ `"${branding.appName}"`) và email liên hệ. Nhấn "Next".' },
             { title: 'Step 3: Select Use Case / Chọn Use Case', detail: 'Choose "Authenticate and request data from users with Facebook Login". Click "Next".\n\nChọn "Authenticate and request data from users with Facebook Login". Nhấn "Next".' },
             { title: 'Step 4: Select App Type / Chọn loại App', detail: 'Choose "Business" — this gives access to Pages, Events, Groups, and Instagram. Click "Next" → "Create app".\n\nChọn "Business" — sẽ có quyền truy cập Pages, Events, Groups, và Instagram. Nhấn "Next" → "Create app".' },
             { title: 'Step 5: Get App ID & Secret / Lấy App ID & Secret', detail: 'Go to App Settings → Basic. Copy "App ID" and "App Secret". Paste them into the fields below.\n\nVào App Settings → Basic. Copy "App ID" và "App Secret". Dán vào các ô bên dưới.' },
@@ -283,10 +285,10 @@ const platformGuides: Record<string, PlatformGuide> = {
     },
     canva: {
         title: '🎨 Canva Connect API Setup Guide',
-        description: 'Design stunning social media graphics with Canva editor embedded in ASocial.',
+        description: 'Design stunning social media graphics with Canva editor embedded in your platform.',
         steps: [
             { title: 'Go to Canva Developers', detail: 'Visit canva.com/developers → sign in with your Canva account → click "Create an integration".' },
-            { title: 'Set Integration Name', detail: 'Name your integration "ASocial". Copy the "Client ID" shown.' },
+            { title: 'Set Integration Name', detail: 'Name your integration `"${branding.appName}"`. Copy the "Client ID" shown.' },
             { title: 'Generate Client Secret', detail: 'Click "Generate secret" — copy it IMMEDIATELY. It will only be shown once.' },
             { title: 'Set Scopes', detail: 'Check these scopes:\n✅ design:content — Read and Write\n✅ design:meta — Read\n✅ asset — Read and Write\n✅ profile — Read' },
             { title: 'Add Redirect URL', detail: 'Under Authentication → Add Authentication → URL 1:\n{YOUR_DOMAIN}/api/oauth/canva/callback' },
@@ -386,6 +388,7 @@ const platformGuides: Record<string, PlatformGuide> = {
 
 
 export default function IntegrationsPage() {
+    const branding = useBranding()
     const t = useTranslation()
     const router = useRouter()
     const searchParams = useSearchParams()

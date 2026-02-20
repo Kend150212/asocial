@@ -1,8 +1,9 @@
+import { getBrandingServer } from '@/lib/use-branding'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-    title: 'Privacy Policy | ASocial',
-    description: 'Privacy Policy for ASocial - AI-powered Social Media Management Platform by Cuong Dao, Kendy Marketing LLC',
+    title: 'Privacy Policy',
+    description: 'Privacy Policy - AI-powered Social Media Management Platform',
 }
 
 export default function PrivacyPolicyPage() {
@@ -12,7 +13,7 @@ export default function PrivacyPolicyPage() {
             <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <a href="/" className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                        ASocial
+                        Privacy Policy
                     </a>
                     <nav className="flex gap-4 text-sm text-muted-foreground">
                         <a href="/terms" className="hover:text-foreground transition-colors">Terms of Service</a>
@@ -33,10 +34,10 @@ export default function PrivacyPolicyPage() {
                     <section>
                         <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
                         <p className="text-muted-foreground leading-relaxed">
-                            ASocial (&quot;Service,&quot; &quot;Platform,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is operated by <strong>Cuong Dao</strong>, doing business as <strong>Kendy Marketing LLC</strong>, a limited liability company registered in the Commonwealth of Virginia, United States. Our principal place of business is located at 4706 Kelly Cv, Glen Allen, Virginia 23060, USA.
+                            The Platform (&quot;Service,&quot; &quot;Platform,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is operated by <strong>Cuong Dao</strong>, doing business as <strong>Kendy Marketing LLC</strong>, a limited liability company registered in the Commonwealth of Virginia, United States. Our principal place of business is located at 4706 Kelly Cv, Glen Allen, Virginia 23060, USA.
                         </p>
                         <p className="text-muted-foreground leading-relaxed mt-3">
-                            This Privacy Policy describes how we collect, use, disclose, retain, and protect your personal information when you access or use the ASocial platform, including any related websites, applications, services, tools, and features (collectively, the &quot;Service&quot;). This Policy applies to all users of the Service, including visitors, registered users, and any third parties who interact with the Service.
+                            This Privacy Policy describes how we collect, use, disclose, retain, and protect your personal information when you access or use the platform, including any related websites, applications, services, tools, and features (collectively, the &quot;Service&quot;). This Policy applies to all users of the Service, including visitors, registered users, and any third parties who interact with the Service.
                         </p>
                         <p className="text-muted-foreground leading-relaxed mt-3">
                             By accessing or using the Service, you acknowledge that you have read, understood, and agree to be bound by this Privacy Policy. If you do not agree with any part of this Privacy Policy, you must discontinue use of the Service immediately.
@@ -164,7 +165,7 @@ export default function PrivacyPolicyPage() {
                         <p className="text-muted-foreground leading-relaxed">
                             We use the YouTube Data API v3 to access your YouTube channel information, including channel metadata, video listings, and upload capabilities. By connecting your YouTube account, you also agree to{' '}
                             <a href="https://policies.google.com/privacy" className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">Google&apos;s Privacy Policy</a>.
-                            You can revoke ASocial&apos;s access at any time through your{' '}
+                            You can revoke the platform&apos;s access at any time through your{' '}
                             <a href="https://myaccount.google.com/permissions" className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">Google Account permissions settings</a>.
                         </p>
 
@@ -182,7 +183,7 @@ export default function PrivacyPolicyPage() {
 
                         <h3 className="text-lg font-medium mt-5 mb-2">5.5 Revoking Third-Party Access</h3>
                         <p className="text-muted-foreground leading-relaxed">
-                            You may disconnect any Third-Party Platform account from the Service at any time through your ASocial dashboard settings. Upon disconnection, we will immediately invalidate and delete the associated OAuth tokens. You may also revoke access directly through the Third-Party Platform&apos;s own settings. We recommend doing both for complete access revocation.
+                            You may disconnect any Third-Party Platform account from the Service at any time through your dashboard settings. Upon disconnection, we will immediately invalidate and delete the associated OAuth tokens. You may also revoke access directly through the Third-Party Platform&apos;s own settings. We recommend doing both for complete access revocation.
                         </p>
                     </section>
 
@@ -377,7 +378,7 @@ export default function PrivacyPolicyPage() {
                     <section>
                         <h2 className="text-xl font-semibold mb-3">14. Data Deletion Instructions</h2>
                         <p className="text-muted-foreground leading-relaxed">
-                            If you wish to delete your data from ASocial, you may:
+                            If you wish to delete your data from the platform, you may:
                         </p>
                         <ul className="list-disc pl-6 mt-2 space-y-1 text-muted-foreground">
                             <li><strong>Self-service:</strong> Navigate to Dashboard → Settings → Account → Delete Account. This will permanently delete your account and all associated data within 30 days.</li>

@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
         })
 
         const userName = user?.name || user?.email?.split('@')[0] || 'User'
-        const folderName = `ASocial - ${userName}`
+        const brand = await getBrandingServer()
+        const folderName = `${brand.appName} - ${userName}`
 
         // Search for existing root folder to avoid duplicates on reconnect
         const GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3'

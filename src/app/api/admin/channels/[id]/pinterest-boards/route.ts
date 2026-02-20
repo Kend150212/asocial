@@ -61,8 +61,8 @@ export async function GET(
                     Authorization: `Bearer ${platform.accessToken}`,
                 },
                 body: JSON.stringify({
-                    name: 'ASocial',
-                    description: 'Auto-created board for ASocial publishing',
+                    name: (await getBrandingServer()).appName,
+                    description: `Auto-created board for ${(await getBrandingServer()).appName} publishing`,
                     privacy: 'PUBLIC',
                 }),
             })
@@ -71,7 +71,7 @@ export async function GET(
                 console.log('[Pinterest Boards] Created default board:', newBoard.id, newBoard.name)
                 boards = [{
                     id: newBoard.id,
-                    name: newBoard.name || 'ASocial',
+                    name: newBoard.name || (await getBrandingServer()).appName,
                     description: newBoard.description || '',
                     privacy: newBoard.privacy || 'PUBLIC',
                 }]

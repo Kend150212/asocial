@@ -16,7 +16,7 @@ import { startAiContentWorker } from '@/lib/workers/ai-content.worker'
 import { startScheduler, stopScheduler } from '@/lib/scheduler'
 
 console.log('='.repeat(50))
-console.log('  ASocial Worker Process')
+console.log('  Worker Process')
 console.log(`  Redis: ${process.env.REDIS_URL || 'redis://localhost:6379'}`)
 console.log(`  App:   ${process.env.NEXTAUTH_URL || 'http://localhost:3000'}`)
 console.log('='.repeat(50))

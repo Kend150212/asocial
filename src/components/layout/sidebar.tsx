@@ -49,9 +49,11 @@ import {
     CreditCard,
     LayoutList,
     Plus,
+    Paintbrush,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useWorkspace } from '@/lib/workspace-context'
+import { useBranding } from '@/lib/use-branding'
 
 interface NavItem {
     titleKey: string
@@ -82,6 +84,7 @@ const adminNav: NavItem[] = [
     { titleKey: 'nav.plans', href: '/admin/plans', icon: LayoutList, roles: ['ADMIN'] },
     { titleKey: 'nav.billing', href: '/admin/billing', icon: CreditCard, roles: ['ADMIN'] },
     { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
+    { titleKey: 'nav.branding', href: '/admin/branding', icon: Paintbrush, roles: ['ADMIN'] },
 ]
 
 export function Sidebar({ session }: { session: Session }) {
@@ -92,6 +95,7 @@ export function Sidebar({ session }: { session: Session }) {
     const isOwnerOrAbove = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
     const t = useTranslation()
     const { activeChannel, channels, setActiveChannel, loadingChannels } = useWorkspace()
+    const branding = useBranding()
 
     // Close mobile expanded sidebar on route change
     useEffect(() => {
@@ -111,8 +115,8 @@ export function Sidebar({ session }: { session: Session }) {
             {/* Header */}
             <div className="flex h-16 items-center justify-between px-4">
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <NextImage src="/logo.png" alt="ASocial" width={32} height={32} className="rounded-lg" unoptimized />
-                    <span className="text-lg font-bold tracking-tight">ASocial</span>
+                    <NextImage src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-lg" unoptimized />
+                    <span className="text-lg font-bold tracking-tight">{branding.appName}</span>
                 </Link>
                 {onClose ? (
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>

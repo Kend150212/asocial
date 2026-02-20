@@ -30,8 +30,8 @@ export async function POST(
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        content: '✅ **ASocial Webhook Test** — Connection successful! This channel will receive notifications.',
-                        username: 'ASocial',
+                        content: '✅ **${brand.appName} Webhook Test** — Connection successful! This channel will receive notifications.',
+                        username: brand.appName,
                     }),
                 })
                 success = res.ok
@@ -48,7 +48,7 @@ export async function POST(
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         chat_id: chatId,
-                        text: '✅ *ASocial Webhook Test* — Connection successful! This channel will receive notifications.',
+                        text: '✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.',
                         parse_mode: 'Markdown',
                     }),
                 })
@@ -64,7 +64,7 @@ export async function POST(
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        text: '✅ *ASocial Webhook Test* — Connection successful! This channel will receive notifications.',
+                        text: '✅ *${brand.appName} Webhook Test* — Connection successful! This channel will receive notifications.',
                     }),
                 })
                 success = res.ok

@@ -1,8 +1,9 @@
+import { getBrandingServer } from '@/lib/use-branding'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-    title: 'Terms of Service | ASocial',
-    description: 'Terms of Service for ASocial - AI-powered Social Media Management Platform by Cuong Dao, Kendy Marketing LLC',
+    title: 'Terms of Service',
+    description: 'Terms of Service - AI-powered Social Media Management Platform',
 }
 
 export default function TermsOfServicePage() {
@@ -12,7 +13,7 @@ export default function TermsOfServicePage() {
             <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <a href="/" className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                        ASocial
+                        Terms of Service
                     </a>
                     <nav className="flex gap-4 text-sm text-muted-foreground">
                         <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
@@ -36,7 +37,7 @@ export default function TermsOfServicePage() {
                             These Terms of Service (&quot;Terms,&quot; &quot;Agreement&quot;) constitute a legally binding agreement between you (&quot;User,&quot; &quot;you,&quot; or &quot;your&quot;) and <strong>Cuong Dao</strong>, doing business as <strong>Kendy Marketing LLC</strong> (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), a limited liability company organized under the laws of the Commonwealth of Virginia, United States, with its principal place of business at 4706 Kelly Cv, Glen Allen, Virginia 23060, USA.
                         </p>
                         <p className="text-muted-foreground leading-relaxed mt-3">
-                            By accessing or using the ASocial platform, including any related websites, applications, services, tools, APIs, and features (collectively, the &quot;Service&quot;), you acknowledge that you have read, understood, and agree to be bound by these Terms and our{' '}
+                            By accessing or using the platform, including any related websites, applications, services, tools, APIs, and features (collectively, the &quot;Service&quot;), you acknowledge that you have read, understood, and agree to be bound by these Terms and our{' '}
                             <a href="/privacy" className="text-blue-500 hover:underline">Privacy Policy</a>, which is incorporated herein by reference.
                         </p>
                         <p className="text-muted-foreground leading-relaxed mt-3">
@@ -63,7 +64,7 @@ export default function TermsOfServicePage() {
                     <section>
                         <h2 className="text-xl font-semibold mb-3">3. Description of Service</h2>
                         <p className="text-muted-foreground leading-relaxed">
-                            ASocial is an AI-powered social media management platform that provides the following services:
+                            The platform is an AI-powered social media management platform that provides the following services:
                         </p>
                         <ul className="list-disc pl-6 mt-2 space-y-1 text-muted-foreground">
                             <li><strong>Multi-Platform Management:</strong> Connect and manage multiple social media accounts across platforms including Facebook, Instagram, YouTube, TikTok, X (Twitter), LinkedIn, Pinterest, and others.</li>
@@ -118,7 +119,7 @@ export default function TermsOfServicePage() {
                             The Service integrates with third-party social media platforms (&quot;Third-Party Platforms&quot;) through their official APIs and OAuth 2.0 authentication protocols. By connecting your Third-Party Platform accounts, you:
                         </p>
                         <ul className="list-disc pl-6 mt-2 space-y-1 text-muted-foreground">
-                            <li>Authorize ASocial to access, manage, and publish content to your connected accounts within the scope of permissions you grant</li>
+                            <li>Authorize the platform to access, manage, and publish content to your connected accounts within the scope of permissions you grant</li>
                             <li>Acknowledge that your use of each Third-Party Platform is subject to that platform&apos;s own terms of service and privacy policy</li>
                             <li>Understand that the availability and functionality of integrations may change based on Third-Party Platform API updates</li>
                         </ul>

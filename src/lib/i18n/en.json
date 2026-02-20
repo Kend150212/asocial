@@ -65,7 +65,8 @@
         "settings": "Settings",
         "billing": "Billing",
         "plans": "Plans",
-        "profile": "My Profile"
+        "profile": "My Profile",
+        "branding": "Branding"
     },
     "auth": {
         "signIn": "Sign In",

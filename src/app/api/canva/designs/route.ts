@@ -96,7 +96,7 @@ async function uploadImageToCanva(token: string, imageUrl: string): Promise<stri
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/octet-stream',
                 'Asset-Upload-Metadata': JSON.stringify({
-                    name_base64: Buffer.from(`ASocial-Upload-${Date.now()}`).toString('base64'),
+                    name_base64: Buffer.from(`Upload-${Date.now()}`).toString('base64'),
                 }),
             },
             body: imgBuffer,
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
 
     const body: Record<string, unknown> = {
         design_type,
-        title: title || 'ASocial Design',
+        title: title || 'Design',
     }
     if (assetId) body.asset_id = assetId
 
