@@ -40,6 +40,7 @@ import {
     ChevronLeft,
     Menu,
     Zap,
+    UserCircle,
     Key,
     X,
     Layers,
@@ -257,6 +258,12 @@ export function Sidebar({ session }: { session: Session }) {
                             </Badge>
                         </div>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <a href="/dashboard/profile" className="flex items-center cursor-pointer">
+                                <UserCircle className="mr-2 h-4 w-4" />
+                                {t('nav.profile')}
+                            </a>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>
                             <LogOut className="mr-2 h-4 w-4" />
                             {t('common.signOut')}

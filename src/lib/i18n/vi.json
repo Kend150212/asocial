@@ -46,7 +46,8 @@
         "automation": "Tự động hóa",
         "settings": "Cài đặt",
         "billing": "Thanh toán",
-        "plans": "Quản lý gói"
+        "plans": "Quản lý gói",
+        "profile": "Hồ sơ của tôi"
     },
     "auth": {
         "signIn": "Đăng nhập",
@@ -56,7 +57,53 @@
         "emailPlaceholder": "admin@asocial.app",
         "passwordPlaceholder": "Nhập mật khẩu",
         "forgotPassword": "Quên mật khẩu?",
-        "invalidCredentials": "Email hoặc mật khẩu không đúng"
+        "invalidCredentials": "Email hoặc mật khẩu không đúng",
+        "genericError": "Đã có lỗi xảy ra. Vui lòng thử lại.",
+        "noAccount": "Chưa có tài khoản?",
+        "createAccount": "Tạo tài khoản",
+        "signInGoogle": "Tiếp tục với Google",
+        "orContinueWith": "hoặc tiếp tục với",
+        "terms": {
+            "prefix": "Khi đăng nhập, bạn đồng ý với",
+            "service": "Điều khoản dịch vụ",
+            "and": "và",
+            "privacy": "Chính sách bảo mật"
+        }
+    },
+    "register": {
+        "title": "Tạo tài khoản",
+        "subtitle": "Tham gia ASocial và bắt đầu quản lý mạng xã hội",
+        "verifyTitle": "Xác nhận Email",
+        "firstName": "Tên",
+        "lastName": "Họ",
+        "password": "Mật khẩu",
+        "confirmPassword": "Xác nhận mật khẩu",
+        "termsPrefix": "Tôi đồng ý với",
+        "termsLink": "Điều khoản dịch vụ",
+        "termsAnd": "và",
+        "privacyLink": "Chính sách bảo mật",
+        "sendCode": "Gửi mã xác nhận",
+        "enterCodePrefix": "Nhập mã 6 số đã gửi đến",
+        "verify": "Xác nhận & Tạo tài khoản",
+        "resend": "Gửi lại mã",
+        "enterAllDigits": "Vui lòng nhập đủ 6 số",
+        "success": "Tài khoản đã tạo thành công! Bạn có thể đăng nhập ngay.",
+        "haveAccount": "Đã có tài khoản?"
+    },
+    "profile": {
+        "title": "Hồ sơ của tôi",
+        "subtitle": "Quản lý thông tin cá nhân và cài đặt tài khoản",
+        "personalInfo": "Thông tin cá nhân",
+        "personalInfoDesc": "Cập nhật tên hiển thị của bạn",
+        "emailNote": "Email chỉ có thể được thay đổi bởi quản trị viên",
+        "changePassword": "Đổi mật khẩu",
+        "changePasswordDesc": "Sử dụng mật khẩu mạnh mà bạn không dùng ở nơi khác",
+        "currentPassword": "Mật khẩu hiện tại",
+        "newPassword": "Mật khẩu mới",
+        "confirmNewPassword": "Xác nhận mật khẩu mới",
+        "saveChanges": "Lưu thay đổi",
+        "saveSuccess": "Hồ sơ đã được cập nhật thành công",
+        "passwordChanged": "Mật khẩu đã được đổi thành công"
     },
     "integrations": {
         "title": "API Hub",

@@ -46,7 +46,8 @@
         "automation": "Automation",
         "settings": "Settings",
         "billing": "Billing",
-        "plans": "Plans"
+        "plans": "Plans",
+        "profile": "My Profile"
     },
     "auth": {
         "signIn": "Sign In",
@@ -56,7 +57,53 @@
         "emailPlaceholder": "admin@asocial.app",
         "passwordPlaceholder": "Enter your password",
         "forgotPassword": "Forgot password?",
-        "invalidCredentials": "Invalid email or password"
+        "invalidCredentials": "Invalid email or password",
+        "genericError": "Something went wrong. Please try again.",
+        "noAccount": "Don't have an account?",
+        "createAccount": "Create account",
+        "signInGoogle": "Continue with Google",
+        "orContinueWith": "or continue with",
+        "terms": {
+            "prefix": "By signing in, you agree to our",
+            "service": "Terms of Service",
+            "and": "and",
+            "privacy": "Privacy Policy"
+        }
+    },
+    "register": {
+        "title": "Create Account",
+        "subtitle": "Join ASocial and start managing your social media",
+        "verifyTitle": "Verify Your Email",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "password": "Password",
+        "confirmPassword": "Confirm Password",
+        "termsPrefix": "I agree to the",
+        "termsLink": "Terms of Service",
+        "termsAnd": "and",
+        "privacyLink": "Privacy Policy",
+        "sendCode": "Send Verification Code",
+        "enterCodePrefix": "Enter the 6-digit code sent to",
+        "verify": "Verify & Create Account",
+        "resend": "Resend code",
+        "enterAllDigits": "Please enter all 6 digits",
+        "success": "Account created successfully! You can now sign in.",
+        "haveAccount": "Already have an account?"
+    },
+    "profile": {
+        "title": "My Profile",
+        "subtitle": "Manage your personal information and account settings",
+        "personalInfo": "Personal Information",
+        "personalInfoDesc": "Update your display name",
+        "emailNote": "Email can only be changed by an administrator",
+        "changePassword": "Change Password",
+        "changePasswordDesc": "Use a strong password you don't use elsewhere",
+        "currentPassword": "Current Password",
+        "newPassword": "New Password",
+        "confirmNewPassword": "Confirm New Password",
+        "saveChanges": "Save Changes",
+        "saveSuccess": "Profile updated successfully",
+        "passwordChanged": "Password changed successfully"
     },
     "integrations": {
         "title": "API Hub",
