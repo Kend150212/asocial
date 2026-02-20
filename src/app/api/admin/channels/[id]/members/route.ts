@@ -131,22 +131,26 @@ export async function POST(
             })
 
             // Create ChannelInvite record so /invite/[token] can validate it
-            await prisma.channelInvite.upsert({
-                where: { channelId_email: { channelId: id, email } },
-                create: {
-                    channelId: id,
-                    email,
-                    name: user.name || email.split('@')[0],
-                    token: inviteToken,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                    invitedBy: session.user.id,
-                },
-                update: {
-                    token: inviteToken,
-                    acceptedAt: null,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                },
-            })
+            try {
+                await prisma.channelInvite.upsert({
+                    where: { channelId_email: { channelId: id, email } },
+                    create: {
+                        channelId: id,
+                        email,
+                        name: user.name || email.split('@')[0],
+                        token: inviteToken,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                        invitedBy: session.user.id,
+                    },
+                    update: {
+                        token: inviteToken,
+                        acceptedAt: null,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    },
+                })
+            } catch (e) {
+                console.error('[Invite] Failed to upsert ChannelInvite (new user):', e)
+            }
 
             // Send invitation email
             try {
@@ -163,7 +167,7 @@ export async function POST(
                     hasPassword: false,
                 })
             } catch (e) {
-                console.error('Failed to send invite email:', e)
+                console.error('[Invite] Failed to send invite email (new user):', e)
             }
         } else {
             // Existing user — always send an invite/notification email
@@ -178,23 +182,28 @@ export async function POST(
             })
 
             // Update ChannelInvite record so /invite/[token] can validate it
-            await prisma.channelInvite.upsert({
-                where: { channelId_email: { channelId: id, email } },
-                create: {
-                    channelId: id,
-                    email,
-                    name: user.name || email.split('@')[0],
-                    token: inviteToken,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                    invitedBy: session.user.id,
-                },
-                update: {
-                    token: inviteToken,
-                    acceptedAt: null,
-                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-                },
-            })
+            try {
+                await prisma.channelInvite.upsert({
+                    where: { channelId_email: { channelId: id, email } },
+                    create: {
+                        channelId: id,
+                        email,
+                        name: user.name || email.split('@')[0],
+                        token: inviteToken,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                        invitedBy: session.user.id,
+                    },
+                    update: {
+                        token: inviteToken,
+                        acceptedAt: null,
+                        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    },
+                })
+            } catch (e) {
+                console.error('[Invite] Failed to upsert ChannelInvite (existing user):', e)
+            }
 
+            // Always send email — separate try/catch so it never gets skipped
             try {
                 const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
                 const { sendChannelInviteEmail } = await import('@/lib/email')
@@ -209,7 +218,7 @@ export async function POST(
                     hasPassword: !!user.passwordHash,
                 })
             } catch (e) {
-                console.error('Failed to send invite email:', e)
+                console.error('[Invite] Failed to send invite email (existing user):', e)
             }
         }
         targetUserId = user.id
