@@ -180,14 +180,7 @@ export async function POST(req: NextRequest) {
         })
 
         if (user?.gdriveRefreshToken && user?.gdriveFolderId) {
-            // ─── User's own Google Drive ───────────────────────────────────────
-            // Check storage quota before uploading
-            const { checkStorageQuota } = await import('@/lib/storage-quota')
-            const quota = await checkStorageQuota(session.user.id, file.size)
-            if (!quota.allowed) {
-                return NextResponse.json({ error: quota.reason }, { status: 429 })
-            }
-
+            // ─── User's own Google Drive — NO quota limit ──────────────────────
             accessToken = await getUserGDriveAccessToken(session.user.id)
 
             // Get channel name for subfolder
