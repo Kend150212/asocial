@@ -155,6 +155,8 @@ export default function MediaLibraryPage() {
     // Upload
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [uploading, setUploading] = useState(false)
+    const [isDraggingOver, setIsDraggingOver] = useState(false)
+    const dragCounter = useRef(0)
 
     /* ─── channels come from workspace context — no local fetch needed ─── */
 
@@ -441,7 +443,46 @@ export default function MediaLibraryPage() {
         }
     }
 
-    /* ─── Drag & Drop ─── */
+    /* ─── Full-page Drag & Drop ─── */
+    // Use a counter instead of boolean to handle nested element enter/leave correctly
+    useEffect(() => {
+        const onDragEnter = (e: DragEvent) => {
+            if (!e.dataTransfer?.types.includes('Files')) return
+            e.preventDefault()
+            dragCounter.current++
+            if (dragCounter.current === 1) setIsDraggingOver(true)
+        }
+        const onDragOver = (e: DragEvent) => {
+            if (!e.dataTransfer?.types.includes('Files')) return
+            e.preventDefault()
+        }
+        const onDragLeave = (e: DragEvent) => {
+            dragCounter.current--
+            if (dragCounter.current === 0) setIsDraggingOver(false)
+        }
+        const onDrop = (e: DragEvent) => {
+            e.preventDefault()
+            dragCounter.current = 0
+            setIsDraggingOver(false)
+            if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                handleUpload(e.dataTransfer.files)
+            }
+        }
+
+        document.addEventListener('dragenter', onDragEnter)
+        document.addEventListener('dragover', onDragOver)
+        document.addEventListener('dragleave', onDragLeave)
+        document.addEventListener('drop', onDrop)
+        return () => {
+            document.removeEventListener('dragenter', onDragEnter)
+            document.removeEventListener('dragover', onDragOver)
+            document.removeEventListener('dragleave', onDragLeave)
+            document.removeEventListener('drop', onDrop)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChannelId, currentFolderId])
+
+    // Keep the old zone-specific handlers for the explicit drop zone in the grid
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault()
         e.stopPropagation()
@@ -458,7 +499,27 @@ export default function MediaLibraryPage() {
 
     /* ═══════════════════════════════════════════════ */
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full relative">
+            {/* ─── Full-page drag overlay ─────────────────────────────────── */}
+            {isDraggingOver && (
+                <div
+                    className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
+                    style={{
+                        background: 'rgba(0,0,0,0.55)',
+                        backdropFilter: 'blur(4px)',
+                        border: '3px dashed rgba(99,102,241,0.8)',
+                        borderRadius: '12px',
+                        pointerEvents: 'none',
+                    }}
+                >
+                    <Upload className="h-16 w-16 text-indigo-400 animate-bounce" />
+                    <p className="text-white text-2xl font-semibold">Thả file vào đây</p>
+                    <p className="text-white/60 text-sm">
+                        {selectedChannelId ? 'File sẽ được upload vào kênh hiện tại' : 'Chọn một channel trước'}
+                    </p>
+                </div>
+            )}
+
             {/* ─── GDrive Guard — shown if Google Drive is not set up ─── */}
             <GDriveGuard />
             {/* ─── Header ─── */}
