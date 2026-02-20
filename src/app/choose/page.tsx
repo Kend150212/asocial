@@ -61,7 +61,10 @@ export default function ChooseAccessPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Dashboard / App */}
                     <button
-                        onClick={() => router.push('/dashboard')}
+                        onClick={() => {
+                            document.cookie = 'access-mode=dashboard;path=/;max-age=86400'
+                            router.push('/dashboard')
+                        }}
                         className="group relative bg-[#12121a] border border-white/[0.06] hover:border-indigo-500/30 rounded-2xl p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-0.5"
                     >
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -86,7 +89,10 @@ export default function ChooseAccessPage() {
 
                     {/* Portal */}
                     <button
-                        onClick={() => router.push('/portal')}
+                        onClick={() => {
+                            document.cookie = 'access-mode=portal;path=/;max-age=86400'
+                            router.push('/portal')
+                        }}
                         className="group relative bg-[#12121a] border border-white/[0.06] hover:border-emerald-500/30 rounded-2xl p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
                     >
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -25,10 +25,12 @@ export async function middleware(req: NextRequest) {
         } catch { /* ignore */ }
     }
 
+    // Read access-mode cookie (set by /choose page for dual-access users)
+    const accessMode = req.cookies.get('access-mode')?.value
+
     // ── Redirect logged-in users away from public pages ───────────────
     const isPublicPage = pathname === '/' || pathname === '/login'
     if (isPublicPage && hasSession) {
-        // Redirect to /choose — the chooser page handles dual/single access
         return NextResponse.redirect(new URL('/choose', req.url))
     }
 
@@ -40,13 +42,10 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl)
     }
 
-    // ── CUSTOMER (primary role) trying to access dashboard ────────────
-    // Only block if going to /dashboard directly (not /choose)
-    // The /choose page does a deeper check (channel memberships) for dual access
-    if (isDashboardRoute && hasSession && userRole === 'CUSTOMER') {
-        // Redirect to /choose — it will handle dual access detection
-        // If they have staff channel memberships, /choose will show both options
-        // If not, /choose will auto-redirect to /portal
+    // ── CUSTOMER trying to access dashboard ───────────────────────────
+    // If they chose "dashboard" on /choose page (cookie set), allow through
+    // Otherwise redirect to /choose for dual-access check
+    if (isDashboardRoute && hasSession && userRole === 'CUSTOMER' && accessMode !== 'dashboard') {
         return NextResponse.redirect(new URL('/choose', req.url))
     }
 
