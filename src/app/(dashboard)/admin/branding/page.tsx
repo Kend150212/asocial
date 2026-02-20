@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Paintbrush, Save, Upload, Loader2, CheckCircle2 } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { Paintbrush, Save, Upload, Loader2, CheckCircle2, Copy, Check, ChevronDown, ChevronUp, ExternalLink, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -304,6 +304,9 @@ export default function AdminBrandingPage() {
                 </Card>
             </div>
 
+            {/* OAuth Callback URLs Reference */}
+            <CallbackUrlsSection />
+
             {/* Info */}
             <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3 border">
                 <strong>ℹ️ How it works:</strong> These settings replace all hardcoded branding across the app —
@@ -311,5 +314,126 @@ export default function AdminBrandingPage() {
                 After saving, refresh the page (or ask users to refresh) to see changes everywhere.
             </div>
         </div>
+    )
+}
+
+// ─── Callback URLs Reference Section ───
+
+const CALLBACK_URLS = [
+    {
+        group: 'Social Platforms', items: [
+            { platform: 'YouTube', path: '/api/oauth/youtube/callback', console: 'https://console.cloud.google.com', consoleName: 'Google Cloud Console' },
+            { platform: 'Facebook', path: '/api/oauth/facebook/callback', console: 'https://developers.facebook.com', consoleName: 'Meta Developer' },
+            { platform: 'Instagram', path: '/api/oauth/instagram/callback', console: 'https://developers.facebook.com', consoleName: 'Meta Developer' },
+            { platform: 'TikTok', path: '/api/oauth/tiktok/callback', console: 'https://developers.tiktok.com', consoleName: 'TikTok Developer' },
+            { platform: 'Pinterest', path: '/api/oauth/pinterest/callback', console: 'https://developers.pinterest.com', consoleName: 'Pinterest Developer' },
+            { platform: 'LinkedIn', path: '/api/oauth/linkedin/callback', console: 'https://developer.linkedin.com', consoleName: 'LinkedIn Developer' },
+            { platform: 'X (Twitter)', path: '/api/oauth/x/callback', console: 'https://developer.x.com', consoleName: 'X Developer' },
+        ]
+    },
+    {
+        group: 'Storage & Design', items: [
+            { platform: 'Google Drive (Admin)', path: '/api/admin/gdrive/callback', console: 'https://console.cloud.google.com', consoleName: 'Google Cloud Console' },
+            { platform: 'Google Drive (User)', path: '/api/user/gdrive/callback', console: 'https://console.cloud.google.com', consoleName: 'Google Cloud Console' },
+            { platform: 'Canva', path: '/api/oauth/canva/callback', console: 'https://www.canva.dev', consoleName: 'Canva Developer' },
+        ]
+    },
+    {
+        group: 'Authentication', items: [
+            { platform: 'Google Login', path: '/api/auth/callback/google', console: 'https://console.cloud.google.com', consoleName: 'Google Cloud Console' },
+        ]
+    },
+]
+
+function CallbackUrlsSection() {
+    const [expanded, setExpanded] = useState(false)
+    const [copiedIdx, setCopiedIdx] = useState<string | null>(null)
+
+    const domain = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
+
+    function copyUrl(url: string, key: string) {
+        navigator.clipboard.writeText(url)
+        setCopiedIdx(key)
+        setTimeout(() => setCopiedIdx(null), 2000)
+    }
+
+    function copyAll() {
+        const all = CALLBACK_URLS.flatMap(g => g.items.map(i => `${i.platform}: ${domain}${i.path}`)).join('\n')
+        navigator.clipboard.writeText(all)
+        setCopiedIdx('all')
+        setTimeout(() => setCopiedIdx(null), 2000)
+    }
+
+    return (
+        <Card className="border-dashed">
+            <CardHeader
+                className="cursor-pointer select-none"
+                onClick={() => setExpanded(!expanded)}
+            >
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-blue-400" />
+                        OAuth Callback URLs ({CALLBACK_URLS.reduce((sum, g) => sum + g.items.length, 0)} endpoints)
+                    </span>
+                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </CardTitle>
+            </CardHeader>
+
+            {expanded && (
+                <CardContent className="pt-0 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                            Register these URLs in each platform&apos;s developer console. They auto-update based on your domain.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={copyAll} className="text-xs shrink-0 ml-2">
+                            {copiedIdx === 'all' ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {copiedIdx === 'all' ? 'Copied!' : 'Copy All'}
+                        </Button>
+                    </div>
+
+                    {CALLBACK_URLS.map((group) => (
+                        <div key={group.group}>
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{group.group}</h4>
+                            <div className="space-y-1.5">
+                                {group.items.map((item) => {
+                                    const fullUrl = `${domain}${item.path}`
+                                    const key = item.path
+                                    return (
+                                        <div key={key} className="flex items-center gap-2 group rounded-md hover:bg-muted/50 p-1.5 -mx-1.5">
+                                            <span className="text-xs font-medium w-36 shrink-0 truncate">{item.platform}</span>
+                                            <code className="text-[11px] text-muted-foreground flex-1 truncate font-mono">{fullUrl}</code>
+                                            <button
+                                                onClick={() => copyUrl(fullUrl, key)}
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+                                                title="Copy URL"
+                                            >
+                                                {copiedIdx === key
+                                                    ? <Check className="h-3 w-3 text-green-400" />
+                                                    : <Copy className="h-3 w-3 text-muted-foreground" />
+                                                }
+                                            </button>
+                                            <a
+                                                href={item.console}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+                                                title={`Open ${item.consoleName}`}
+                                            >
+                                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                            </a>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
+
+                    <div className="text-[11px] text-muted-foreground bg-amber-500/10 border border-amber-500/20 rounded-md p-2.5">
+                        <strong>⚠️ Domain Change:</strong> When you change your domain, you must manually update these callback URLs
+                        in each platform&apos;s developer console. This cannot be automated.
+                    </div>
+                </CardContent>
+            )}
+        </Card>
     )
 }
