@@ -64,6 +64,8 @@ export async function GET(
             detectedLang: m.detectedLang,
             mediaUrl: m.mediaUrl,
             mediaType: m.mediaType,
+            senderName: m.senderName,
+            senderAvatar: m.senderAvatar,
             confidence: m.confidence,
             sentAt: m.sentAt.toISOString(),
         })),

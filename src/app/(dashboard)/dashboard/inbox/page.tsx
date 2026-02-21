@@ -94,6 +94,8 @@ interface InboxMessage {
     detectedLang: string | null
     mediaUrl: string | null
     mediaType: string | null
+    senderName: string | null
+    senderAvatar: string | null
     confidence: number | null
     sentAt: string
 }
@@ -857,8 +859,8 @@ export default function InboxPage() {
                                             <div className="flex gap-2.5 py-1">
                                                 {/* Avatar */}
                                                 <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                                                    {msg.direction === 'inbound' && selectedConversation.externalUserAvatar ? (
-                                                        <AvatarImage src={selectedConversation.externalUserAvatar} alt={selectedConversation.externalUserName || ''} />
+                                                    {msg.direction === 'inbound' && msg.senderAvatar ? (
+                                                        <AvatarImage src={msg.senderAvatar} alt={msg.senderName || ''} />
                                                     ) : null}
                                                     <AvatarFallback className={cn(
                                                         'text-[10px] font-medium',
@@ -870,7 +872,7 @@ export default function InboxPage() {
                                                     )}>
                                                         {msg.direction === 'outbound'
                                                             ? msg.senderType === 'bot' ? '🤖' : 'A'
-                                                            : selectedConversation.externalUserName?.charAt(0)?.toUpperCase() || '?'
+                                                            : msg.senderName?.charAt(0)?.toUpperCase() || '?'
                                                         }
                                                     </AvatarFallback>
                                                 </Avatar>
@@ -883,7 +885,7 @@ export default function InboxPage() {
                                                                 ? msg.senderType === 'bot'
                                                                     ? '🤖 AI Bot'
                                                                     : selectedConversation.platformAccount?.accountName || 'You'
-                                                                : selectedConversation.externalUserName || 'User'
+                                                                : msg.senderName || 'User'
                                                             }
                                                         </span>
                                                         <p className="text-xs leading-relaxed whitespace-pre-wrap mt-0.5">
@@ -899,7 +901,7 @@ export default function InboxPage() {
                                                             className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                                             onClick={() => {
                                                                 const name = msg.direction === 'inbound'
-                                                                    ? selectedConversation.externalUserName || 'User'
+                                                                    ? msg.senderName || 'User'
                                                                     : msg.senderType === 'bot' ? 'AI Bot' : 'You'
                                                                 setReplyToName(name)
                                                             }}

@@ -191,16 +191,22 @@ async function handleFeedChange(pageId: string, value: any) {
     console.log(`[FB Webhook] 💬 Comment saved: "${content.substring(0, 50)}" by ${authorName}`)
 
     // Create/update a conversation grouped by POST (not user) so all comments on same post are together
+    const postLabel = postMetadata?.postContent
+        ? postMetadata.postContent.substring(0, 60) + (postMetadata.postContent.length > 60 ? '...' : '')
+        : `Post ${externalPostId}`
+
     await upsertConversation({
         channelId: platformAccount.channelId,
         platformAccountId: platformAccount.id,
         platform: 'facebook',
-        externalUserId: authorId,
-        externalUserName: authorName,
-        externalUserAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small` : null,
+        externalUserId: `post_${externalPostId}`, // Group by post, not user
+        externalUserName: postLabel,
+        externalUserAvatar: null,
         content,
         direction: 'inbound',
         senderType: 'customer',
+        senderName: authorName,
+        senderAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small` : null,
         type: 'comment',
         metadata: postMetadata,
         externalId: externalCommentId,
@@ -284,6 +290,8 @@ async function upsertConversation(opts: {
     content: string
     direction: string
     senderType: string
+    senderName?: string | null
+    senderAvatar?: string | null
     mediaUrl?: string | null
     mediaType?: string | null
     externalId?: string | null
@@ -363,6 +371,8 @@ async function upsertConversation(opts: {
             direction: opts.direction,
             senderType: opts.senderType,
             content: opts.content,
+            senderName: opts.senderName || null,
+            senderAvatar: opts.senderAvatar || null,
             mediaUrl: opts.mediaUrl || null,
             mediaType: opts.mediaType || null,
             sentAt: new Date(),

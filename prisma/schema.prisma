@@ -789,6 +789,8 @@ model InboxMessage {
   detectedLang    String?  @map("detected_lang")
   mediaUrl        String?  @map("media_url")
   mediaType       String?  @map("media_type")
+  senderName      String?  @map("sender_name")
+  senderAvatar    String?  @map("sender_avatar")
   confidence      Float?
   sentAt          DateTime @default(now()) @map("sent_at")
 
