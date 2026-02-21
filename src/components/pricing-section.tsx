@@ -17,6 +17,10 @@ type Plan = {
     maxChannels: number
     maxPostsPerMonth: number
     maxMembersPerChannel: number
+    maxAiImagesPerMonth: number
+    maxAiTextPerMonth: number
+    maxStorageMB: number
+    maxApiCallsPerMonth: number
     hasAutoSchedule: boolean
     hasWebhooks: boolean
     hasAdvancedReports: boolean
@@ -107,8 +111,8 @@ export function PricingSection() {
                                 <div
                                     key={plan.id}
                                     className={`relative rounded-2xl border p-6 flex flex-col gap-5 transition-all ${isPopular
-                                            ? 'border-primary shadow-lg shadow-primary/10 bg-primary/[0.02]'
-                                            : 'bg-card hover:shadow-md'
+                                        ? 'border-primary shadow-lg shadow-primary/10 bg-primary/[0.02]'
+                                        : 'bg-card hover:shadow-md'
                                         }`}
                                 >
                                     {isPopular && (
@@ -167,6 +171,28 @@ export function PricingSection() {
                                                 : `${plan.maxMembersPerChannel} members/channel`}
                                         />
                                         {plan.hasAutoSchedule && <FeatureItem label="Auto scheduling" />}
+                                        {plan.maxAiTextPerMonth !== 0 && (
+                                            <FeatureItem label={plan.maxAiTextPerMonth === -1
+                                                ? 'Unlimited AI content'
+                                                : `${plan.maxAiTextPerMonth} AI content/mo`} />
+                                        )}
+                                        {plan.maxAiImagesPerMonth !== 0 && (
+                                            <FeatureItem label={plan.maxAiImagesPerMonth === -1
+                                                ? 'Unlimited AI images'
+                                                : `${plan.maxAiImagesPerMonth} AI images/mo`} />
+                                        )}
+                                        {plan.maxStorageMB > 0 && (
+                                            <FeatureItem label={plan.maxStorageMB === -1
+                                                ? 'Unlimited storage'
+                                                : plan.maxStorageMB >= 1024
+                                                    ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB storage`
+                                                    : `${plan.maxStorageMB} MB storage`} />
+                                        )}
+                                        {plan.maxApiCallsPerMonth !== 0 && (
+                                            <FeatureItem label={plan.maxApiCallsPerMonth === -1
+                                                ? 'Unlimited API calls'
+                                                : `${plan.maxApiCallsPerMonth.toLocaleString()} API calls/mo`} />
+                                        )}
                                         {plan.hasWebhooks && <FeatureItem label="Webhooks" />}
                                         {plan.hasAdvancedReports && <FeatureItem label="Advanced reports" />}
                                         {plan.hasPrioritySupport && <FeatureItem label="Priority support" />}
