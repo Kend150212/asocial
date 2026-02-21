@@ -316,7 +316,7 @@ export default function InboxPage() {
     }, {} as Record<string, PlatformAccount[]>)
 
     return (
-        <div className="flex h-full overflow-hidden">
+        <div className="-mx-3 -my-4 sm:-mx-6 sm:-my-6 flex h-screen overflow-hidden">
             {/* ═══ LEFT SIDEBAR — Filters ═══ */}
             <div className="w-[220px] border-r flex flex-col shrink-0 bg-card">
                 {/* Channel indicator */}
