@@ -931,11 +931,17 @@
             "videoUrlInput": "Video URL (YouTube, Vimeo...)",
             "videoDescInput": "Short description (optional)",
             "addVideo": "Add Video",
+            "dragVideoHint": "Drag & drop videos or click to upload",
+            "videoManualUrl": "Or add via URL",
             "qaTitle": "Q&A Training Pairs",
             "qaDesc": "Question → answer pairs. Bot will prioritize exact answers if matched.",
             "questionPlaceholder": "Question: What are your hours?",
             "answerPlaceholder": "Answer: We are open from 7 AM to 10 PM daily, including holidays.",
-            "addQaPair": "Add Q&A Pair"
+            "addQaPair": "Add Q&A Pair",
+            "generateQa": "Generate with AI",
+            "generatingQa": "Generating...",
+            "qaGenerated": "{count} Q&A pairs generated!",
+            "qaNoNew": "No new Q&A pairs could be generated. Try adding more channel information."
         },
         "behavior": {
             "title": "Behavior",
@@ -984,7 +990,11 @@
             "empty": "No images found in Media Library. Upload some first!",
             "uploading": "Uploading...",
             "dragDropHint": "Drag & drop images or browse Media",
-            "selectedForLibrary": "Image selected for library"
+            "selectedForLibrary": "Image selected for library",
+            "browseMedia": "Browse Media",
+            "videoTitle": "Select Video from Media Library",
+            "videoEmpty": "No videos found in Media Library. Upload some first!",
+            "videoSelected": "Video selected!"
         }
     }
 }

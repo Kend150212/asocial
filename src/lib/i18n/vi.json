@@ -931,11 +931,17 @@
             "videoUrlInput": "URL video (YouTube, Vimeo...)",
             "videoDescInput": "Mô tả ngắn (không bắt buộc)",
             "addVideo": "Thêm Video",
+            "dragVideoHint": "Kéo thả video hoặc nhấn để upload",
+            "videoManualUrl": "Hoặc thêm qua URL",
             "qaTitle": "Cặp câu hỏi & trả lời",
             "qaDesc": "Các cặp câu hỏi → trả lời. Bot sẽ ưu tiên dùng câu trả lời chính xác nếu khớp.",
             "questionPlaceholder": "Câu hỏi: Giờ mở cửa?",
             "answerPlaceholder": "Trả lời: Chúng tôi mở cửa từ 7h - 22h hàng ngày, kể cả lễ tết.",
-            "addQaPair": "Thêm cặp Q&A"
+            "addQaPair": "Thêm cặp Q&A",
+            "generateQa": "Tạo bằng AI",
+            "generatingQa": "Đang tạo...",
+            "qaGenerated": "Đã tạo {count} cặp Q&A!",
+            "qaNoNew": "Không tạo thêm được cặp Q&A mới. Hãy thêm thông tin kênh."
         },
         "behavior": {
             "title": "Hành vi",
@@ -984,7 +990,11 @@
             "empty": "Không tìm thấy hình ảnh. Hãy upload hình trước!",
             "uploading": "Đang tải lên...",
             "dragDropHint": "Kéo thả hình hoặc chọn từ Thư viện",
-            "selectedForLibrary": "Đã chọn hình cho thư viện"
+            "selectedForLibrary": "Đã chọn hình cho thư viện",
+            "browseMedia": "Kho Media",
+            "videoTitle": "Chọn Video từ Thư viện",
+            "videoEmpty": "Không tìm thấy video. Hãy upload video trước!",
+            "videoSelected": "Đã chọn video!"
         }
     }
 }

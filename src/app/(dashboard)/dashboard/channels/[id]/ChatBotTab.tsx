@@ -84,7 +84,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
 
     // Media state
     const [uploading, setUploading] = useState(false)
-    const [mediaBrowserTarget, setMediaBrowserTarget] = useState<'greeting' | 'training' | 'library' | null>(null)
+    const [mediaBrowserTarget, setMediaBrowserTarget] = useState<'greeting' | 'training' | 'library' | 'video' | null>(null)
     const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
     const [mediaLoading, setMediaLoading] = useState(false)
     const [botFolderId, setBotFolderId] = useState<string | null>(null)
@@ -92,7 +92,9 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     const greetingDropRef = useRef<HTMLDivElement>(null)
     const trainingDropRef = useRef<HTMLDivElement>(null)
     const libraryDropRef = useRef<HTMLDivElement>(null)
+    const videoDropRef = useRef<HTMLDivElement>(null)
     const [dragOver, setDragOver] = useState<string | null>(null)
+    const [generatingQa, setGeneratingQa] = useState(false)
 
     // ─── Upload helper ────────────────────────────────────
     const uploadFiles = async (files: FileList | File[], targetFolderId?: string): Promise<string[]> => {
@@ -152,10 +154,10 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     }, [channelId, botFolderId])
 
     // ─── Load media browser items ─────────────────────────
-    const loadMediaItems = useCallback(async (folderId?: string) => {
+    const loadMediaItems = useCallback(async (mediaType: 'image' | 'video' = 'image', folderId?: string) => {
         setMediaLoading(true)
         try {
-            const params = new URLSearchParams({ channelId, type: 'image' })
+            const params = new URLSearchParams({ channelId, type: mediaType })
             if (folderId) params.set('folderId', folderId)
             const res = await fetch(`/api/admin/media?${params}`)
             if (res.ok) {
@@ -431,7 +433,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                     const urls = await uploadFiles(files, folderId || undefined)
                                     if (urls.length) update('greetingImages', [...config.greetingImages, ...urls])
                                 })}
-                                onClick={() => { setMediaBrowserTarget('greeting'); loadMediaItems() }}
+                                onClick={() => { setMediaBrowserTarget('greeting'); loadMediaItems('image') }}
                             >
                                 {uploading ? (
                                     <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -507,19 +509,27 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                         ))}
                                     </div>
                                 )}
-                                <div
-                                    ref={trainingDropRef}
-                                    className={`border-2 border-dashed rounded-md p-2 text-center transition-colors
-                                        ${dragOver === 'training' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'}`}
-                                    {...makeDragHandlers('training', async (files) => {
-                                        const folderId = await ensureBotFolder()
-                                        const urls = await uploadFiles(files, folderId || undefined)
-                                        if (urls.length) setNewTrainingImages(prev => [...prev, ...urls])
-                                    })}
-                                >
-                                    <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                                        <ImageIcon className="h-3 w-3" /> {t('chatbot.training.dragImagesHint')}
-                                    </p>
+                                <div className="flex gap-2">
+                                    <div
+                                        ref={trainingDropRef}
+                                        className={`flex-1 border-2 border-dashed rounded-md p-2 text-center transition-colors
+                                            ${dragOver === 'training' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'}`}
+                                        {...makeDragHandlers('training', async (files) => {
+                                            const folderId = await ensureBotFolder()
+                                            const urls = await uploadFiles(files, folderId || undefined)
+                                            if (urls.length) setNewTrainingImages(prev => [...prev, ...urls])
+                                        })}
+                                    >
+                                        <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                            <Upload className="h-3 w-3" /> {t('chatbot.training.dragImagesHint')}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        size="sm" variant="outline" className="shrink-0"
+                                        onClick={() => { setMediaBrowserTarget('training'); loadMediaItems('image') }}
+                                    >
+                                        <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
+                                    </Button>
                                 </div>
                                 <Button
                                     size="sm" variant="outline"
@@ -674,7 +684,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                         const urls = await uploadFiles(files, fId || undefined)
                                         if (urls.length) { toast.success(t('chatbot.training.imagesAdded').replace('{count}', String(urls.length))); loadLibraryImages() }
                                     })}
-                                    onClick={() => { setMediaBrowserTarget('library'); loadMediaItems() }}
+                                    onClick={() => { setMediaBrowserTarget('library'); loadMediaItems('image') }}
                                 >
                                     {uploading ? (
                                         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
@@ -718,7 +728,67 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                         </Button>
                                     </div>
                                 ))}
+
+                                {/* Video Upload + Browse Media */}
+                                <div className="flex gap-2">
+                                    <div
+                                        ref={videoDropRef}
+                                        className={`flex-1 border-2 border-dashed rounded-md p-3 text-center transition-colors cursor-pointer
+                                            ${dragOver === 'video' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20 hover:border-primary/50'}`}
+                                        {...makeDragHandlers('video', async (files) => {
+                                            const folderId = await ensureBotFolder()
+                                            const urls = await uploadFiles(files, folderId || undefined)
+                                            for (const url of urls) {
+                                                const fileName = Array.from(files).find(f => f.type.startsWith('video/'))?.name || 'Video'
+                                                update('consultVideos', [
+                                                    ...config.consultVideos,
+                                                    { title: fileName.replace(/\.[^.]+$/, ''), url, description: '' },
+                                                ])
+                                            }
+                                        })}
+                                        onClick={() => {
+                                            const input = document.createElement('input')
+                                            input.type = 'file'
+                                            input.accept = 'video/*'
+                                            input.multiple = true
+                                            input.onchange = async (e) => {
+                                                const files = (e.target as HTMLInputElement).files
+                                                if (!files?.length) return
+                                                const folderId = await ensureBotFolder()
+                                                const urls = await uploadFiles(files, folderId || undefined)
+                                                for (let idx = 0; idx < urls.length; idx++) {
+                                                    update('consultVideos', [
+                                                        ...config.consultVideos,
+                                                        { title: files[idx].name.replace(/\.[^.]+$/, ''), url: urls[idx], description: '' },
+                                                    ])
+                                                }
+                                            }
+                                            input.click()
+                                        }}
+                                    >
+                                        {uploading ? (
+                                            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                                <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                                <Upload className="h-3 w-3" /> {t('chatbot.training.dragVideoHint')}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button
+                                        size="sm" variant="outline" className="shrink-0"
+                                        onClick={() => { setMediaBrowserTarget('video'); loadMediaItems('video') }}
+                                    >
+                                        <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
+                                    </Button>
+                                </div>
+
+                                <Separator />
+
+                                {/* Manual URL entry */}
                                 <div className="space-y-2 border rounded-md p-3">
+                                    <p className="text-[10px] text-muted-foreground font-medium">{t('chatbot.training.videoManualUrl')}</p>
                                     <Input
                                         value={newVideoTitle}
                                         onChange={e => setNewVideoTitle(e.target.value)}
@@ -759,10 +829,40 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         {/* ── Q&A Training Pairs ── */}
                         <Card>
                             <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <HelpCircle className="h-4 w-4 text-indigo-500" />
-                                    {t('chatbot.training.qaTitle')}
-                                </CardTitle>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <HelpCircle className="h-4 w-4 text-indigo-500" />
+                                        {t('chatbot.training.qaTitle')}
+                                    </CardTitle>
+                                    <Button
+                                        size="sm" variant="outline"
+                                        disabled={generatingQa}
+                                        onClick={async () => {
+                                            setGeneratingQa(true)
+                                            try {
+                                                const res = await fetch(`/api/admin/channels/${channelId}/bot-config/generate-qa`, { method: 'POST' })
+                                                if (res.ok) {
+                                                    const data = await res.json()
+                                                    if (data.pairs?.length) {
+                                                        update('trainingPairs', [...config.trainingPairs, ...data.pairs])
+                                                        toast.success(t('chatbot.training.qaGenerated').replace('{count}', String(data.pairs.length)))
+                                                    } else {
+                                                        toast.info(t('chatbot.training.qaNoNew'))
+                                                    }
+                                                } else {
+                                                    const err = await res.json().catch(() => ({}))
+                                                    toast.error(err.error || 'Failed to generate Q&A')
+                                                }
+                                            } catch {
+                                                toast.error('Network error')
+                                            }
+                                            setGeneratingQa(false)
+                                        }}
+                                    >
+                                        {generatingQa ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                        {generatingQa ? t('chatbot.training.generatingQa') : t('chatbot.training.generateQa')}
+                                    </Button>
+                                </div>
                                 <CardDescription className="text-[11px]">
                                     {t('chatbot.training.qaDesc')}
                                 </CardDescription>
@@ -1077,7 +1177,8 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <div className="bg-background rounded-xl shadow-2xl w-[600px] max-h-[500px] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between px-4 py-3 border-b">
                             <h4 className="font-medium text-sm flex items-center gap-2">
-                                <ImageIcon className="h-4 w-4" /> {t('chatbot.mediaBrowser.title')}
+                                {mediaBrowserTarget === 'video' ? <Video className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                                {mediaBrowserTarget === 'video' ? t('chatbot.mediaBrowser.videoTitle') : t('chatbot.mediaBrowser.title')}
                             </h4>
                             <Button size="sm" variant="ghost" onClick={() => setMediaBrowserTarget(null)}>
                                 <X className="h-4 w-4" />
@@ -1090,8 +1191,8 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 </div>
                             ) : mediaItems.length === 0 ? (
                                 <div className="text-center py-10 text-sm text-muted-foreground">
-                                    <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                                    {t('chatbot.mediaBrowser.empty')}
+                                    {mediaBrowserTarget === 'video' ? <Video className="h-8 w-8 mx-auto mb-2 opacity-40" /> : <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />}
+                                    {mediaBrowserTarget === 'video' ? t('chatbot.mediaBrowser.videoEmpty') : t('chatbot.mediaBrowser.empty')}
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-4 gap-3">
@@ -1105,14 +1206,29 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                                 } else if (mediaBrowserTarget === 'training') {
                                                     setNewTrainingImages(prev => [...prev, url])
                                                 } else if (mediaBrowserTarget === 'library') {
-                                                    // Copy image reference — it's already in media
                                                     toast.success(t('chatbot.mediaBrowser.selectedForLibrary'))
+                                                } else if (mediaBrowserTarget === 'video') {
+                                                    update('consultVideos', [
+                                                        ...config.consultVideos,
+                                                        { title: item.originalName?.replace(/\.[^.]+$/, '') || 'Video', url, description: '' },
+                                                    ])
+                                                    toast.success(t('chatbot.mediaBrowser.videoSelected'))
                                                 }
                                                 setMediaBrowserTarget(null)
                                             }}
                                         >
-                                            <img src={item.thumbnailUrl || item.url} alt={item.originalName || ''}
-                                                className="h-24 w-full object-cover" />
+                                            {mediaBrowserTarget === 'video' ? (
+                                                <div className="h-24 w-full bg-muted flex items-center justify-center relative">
+                                                    {item.thumbnailUrl ? (
+                                                        <img src={item.thumbnailUrl} alt={item.originalName || ''} className="h-24 w-full object-cover" />
+                                                    ) : (
+                                                        <Video className="h-8 w-8 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <img src={item.thumbnailUrl || item.url} alt={item.originalName || ''}
+                                                    className="h-24 w-full object-cover" />
+                                            )}
                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                                 <Check className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                                             </div>
