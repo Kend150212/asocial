@@ -307,20 +307,24 @@ export default function InboxPage() {
 
         setSendingReply(true)
         try {
+            // For comment conversations, prepend @name tag if replying to someone
+            let contentToSend = replyText.trim()
+
             const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: replyText.trim() }),
+                body: JSON.stringify({ content: contentToSend }),
             })
             if (res.ok) {
                 const data = await res.json()
                 setMessages(prev => [...prev, data.message])
                 setReplyText('')
+                setReplyToName(null)
                 // Update conversation in list
                 setConversations(prev =>
                     prev.map(c =>
                         c.id === selectedConversation.id
-                            ? { ...c, lastMessage: replyText.trim(), lastMessageSender: 'agent', mode: 'AGENT' as const, lastMessageAt: new Date().toISOString() }
+                            ? { ...c, lastMessage: contentToSend, lastMessageSender: 'agent', mode: 'AGENT' as const, lastMessageAt: new Date().toISOString() }
                             : c
                     )
                 )
@@ -852,70 +856,115 @@ export default function InboxPage() {
                                     <p className="text-xs text-muted-foreground">No messages yet</p>
                                 </div>
                             ) : selectedConversation?.type === 'comment' ? (
-                                /* ═══ Facebook-style comment thread ═══ */
-                                <div className="max-w-2xl mx-auto space-y-1">
-                                    {messages.map(msg => (
-                                        <div key={msg.id} className="group">
-                                            <div className="flex gap-2.5 py-1">
-                                                {/* Avatar */}
-                                                <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                                                    {msg.direction === 'inbound' && msg.senderAvatar ? (
-                                                        <AvatarImage src={msg.senderAvatar} alt={msg.senderName || ''} />
-                                                    ) : null}
-                                                    <AvatarFallback className={cn(
-                                                        'text-[10px] font-medium',
-                                                        msg.direction === 'outbound'
-                                                            ? msg.senderType === 'bot'
-                                                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                                            : 'bg-gray-100 dark:bg-gray-800'
-                                                    )}>
-                                                        {msg.direction === 'outbound'
-                                                            ? msg.senderType === 'bot' ? '🤖' : 'A'
-                                                            : msg.senderName?.charAt(0)?.toUpperCase() || '?'
-                                                        }
-                                                    </AvatarFallback>
-                                                </Avatar>
+                                /* ═══ Facebook-style threaded comment thread ═══ */
+                                <div className="max-w-2xl mx-auto space-y-0.5">
+                                    {messages.map((msg, idx) => {
+                                        const isReply = msg.direction === 'outbound'
+                                        const prevMsg = idx > 0 ? messages[idx - 1] : null
+                                        const isFirstReplyInGroup = isReply && (!prevMsg || prevMsg.direction === 'inbound')
 
-                                                {/* Comment body */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="inline-block rounded-2xl bg-muted/60 dark:bg-muted/40 px-3 py-2 max-w-[85%]">
-                                                        <span className="text-xs font-semibold block">
-                                                            {msg.direction === 'outbound'
+                                        // Extract @mention from content
+                                        const mentionMatch = msg.content.match(/^@(\S+)\s/)
+                                        const mentionName = mentionMatch ? mentionMatch[1] : null
+                                        const contentWithoutMention = mentionName
+                                            ? msg.content.substring(mentionMatch![0].length)
+                                            : msg.content
+
+                                        return (
+                                            <div key={msg.id} className={cn(
+                                                'group',
+                                                isReply && 'ml-10 relative'
+                                            )}>
+                                                {/* Connecting line for replies */}
+                                                {isReply && isFirstReplyInGroup && (
+                                                    <div className="absolute -left-5 top-0 w-5 h-5 border-l-2 border-b-2 border-muted-foreground/20 rounded-bl-lg" />
+                                                )}
+
+                                                <div className="flex gap-2 py-1">
+                                                    {/* Avatar */}
+                                                    <Avatar className={cn('shrink-0 mt-0.5', isReply ? 'h-7 w-7' : 'h-8 w-8')}>
+                                                        {msg.direction === 'inbound' && msg.senderAvatar ? (
+                                                            <AvatarImage src={msg.senderAvatar} alt={msg.senderName || ''} />
+                                                        ) : null}
+                                                        <AvatarFallback className={cn(
+                                                            'text-[10px] font-medium',
+                                                            msg.direction === 'outbound'
                                                                 ? msg.senderType === 'bot'
-                                                                    ? '🤖 AI Bot'
-                                                                    : selectedConversation.platformAccount?.accountName || 'You'
-                                                                : msg.senderName || 'User'
+                                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                                                : 'bg-gray-100 dark:bg-gray-800'
+                                                        )}>
+                                                            {msg.direction === 'outbound'
+                                                                ? msg.senderType === 'bot' ? '🤖' : 'S'
+                                                                : msg.senderName?.charAt(0)?.toUpperCase() || '?'
                                                             }
-                                                        </span>
-                                                        <p className="text-xs leading-relaxed whitespace-pre-wrap mt-0.5">
-                                                            {msg.content}
-                                                        </p>
-                                                    </div>
-                                                    {/* Like · Reply · Time */}
-                                                    <div className="flex items-center gap-3 mt-0.5 ml-3">
-                                                        <button className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                                                            Like
-                                                        </button>
-                                                        <button
-                                                            className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                                                            onClick={() => {
-                                                                const name = msg.direction === 'inbound'
-                                                                    ? msg.senderName || 'User'
-                                                                    : msg.senderType === 'bot' ? 'AI Bot' : 'You'
-                                                                setReplyToName(name)
-                                                            }}
-                                                        >
-                                                            Reply
-                                                        </button>
-                                                        <span className="text-[10px] text-muted-foreground/60">
-                                                            {timeAgo(msg.sentAt)}
-                                                        </span>
+                                                        </AvatarFallback>
+                                                    </Avatar>
+
+                                                    {/* Comment body */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={cn(
+                                                            'inline-block rounded-2xl px-3 py-2 max-w-[85%]',
+                                                            isReply
+                                                                ? 'bg-muted/80 dark:bg-muted/50'
+                                                                : 'bg-muted/60 dark:bg-muted/40'
+                                                        )}>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-xs font-semibold">
+                                                                    {msg.direction === 'outbound'
+                                                                        ? msg.senderType === 'bot'
+                                                                            ? '🤖 AI Bot'
+                                                                            : selectedConversation.platformAccount?.accountName || 'Page'
+                                                                        : msg.senderName || 'User'
+                                                                    }
+                                                                </span>
+                                                                {msg.direction === 'outbound' && msg.senderType !== 'bot' && (
+                                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+                                                                        ✍️ Author
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs leading-relaxed whitespace-pre-wrap mt-0.5">
+                                                                {mentionName && (
+                                                                    <span className="text-blue-500 font-semibold">@{mentionName} </span>
+                                                                )}
+                                                                {contentWithoutMention}
+                                                            </p>
+                                                        </div>
+                                                        {/* Like · Reply · Time */}
+                                                        <div className="flex items-center gap-3 mt-0.5 ml-3">
+                                                            <button className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                                                                Like
+                                                            </button>
+                                                            {msg.direction === 'inbound' && (
+                                                                <button
+                                                                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                                                    onClick={() => {
+                                                                        const name = msg.senderName || 'User'
+                                                                        setReplyToName(name)
+                                                                        setReplyText(`@${name} `)
+                                                                        // Focus the textarea
+                                                                        setTimeout(() => {
+                                                                            const textarea = document.querySelector('textarea')
+                                                                            if (textarea) {
+                                                                                textarea.focus()
+                                                                                textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+                                                                            }
+                                                                        }, 50)
+                                                                    }}
+                                                                >
+                                                                    Reply
+                                                                </button>
+                                                            )}
+                                                            <span className="text-[10px] text-muted-foreground/60">
+                                                                {timeAgo(msg.sentAt)}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                     <div ref={messagesEndRef} />
                                 </div>
                             ) : (
