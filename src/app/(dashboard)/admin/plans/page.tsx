@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Plus, Pencil, Trash2, Users, AlertTriangle } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 
 type Plan = {
     id: string
@@ -61,6 +62,8 @@ export default function AdminPlansPage() {
     const [isEditing, setIsEditing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [deleteId, setDeleteId] = useState<string | null>(null)
+    const t = useTranslation()
+    const isVi = t('lang') === 'vi'
 
     const fetchPlans = useCallback(async () => {
         setLoading(true)
@@ -184,8 +187,7 @@ export default function AdminPlansPage() {
                             <CardHeader className="pb-2">
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <CardTitle className="text-base">{plan.name}</CardTitle>
-                                        <p className="text-xs text-muted-foreground">{plan.nameVi}</p>
+                                        <CardTitle className="text-base">{isVi ? plan.nameVi || plan.name : plan.name}</CardTitle>
                                     </div>
                                     <div className="flex gap-1">
                                         {!plan.isActive && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
@@ -203,12 +205,13 @@ export default function AdminPlansPage() {
                                         <Users className="h-3.5 w-3.5" />
                                         {plan._count.subscriptions} users
                                     </div>
+                                    <div>{isVi && plan.descriptionVi ? plan.descriptionVi : plan.description}</div>
                                 </div>
-
                                 <div className="text-xs space-y-1 text-muted-foreground border-t pt-2">
                                     <div>Channels: {plan.maxChannels === -1 ? '∞' : plan.maxChannels}</div>
                                     <div>Posts/mo: {plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth}</div>
                                     <div>Members/ch: {plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel}</div>
+                                    <div>AI Text/mo: <span className="font-medium text-foreground">{plan.maxAiTextPerMonth === -1 ? '∞' : plan.maxAiTextPerMonth}</span></div>
                                     <div>AI Images/mo: <span className="font-medium text-foreground">{plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? 'BYOK only' : plan.maxAiImagesPerMonth}</span></div>
                                     <div>Storage: <span className="font-medium text-foreground">{plan.maxStorageMB === -1 ? '∞' : plan.maxStorageMB >= 1024 ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB` : `${plan.maxStorageMB} MB`}</span></div>
                                     <div>API calls/mo: <span className="font-medium text-foreground">{plan.maxApiCallsPerMonth === -1 ? '∞' : plan.maxApiCallsPerMonth === 0 ? 'Disabled' : plan.maxApiCallsPerMonth.toLocaleString()}</span></div>
@@ -282,14 +285,18 @@ export default function AdminPlansPage() {
                                 {field('maxPostsPerMonth', 'Max Posts/Month', 'number')}
                                 {field('maxMembersPerChannel', 'Max Members/Channel', 'number')}
                             </div>
-                            <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div className="mt-3 grid grid-cols-3 gap-3">
+                                <div>
+                                    {field('maxAiTextPerMonth', 'AI Text/Month', 'number')}
+                                    <p className="text-xs text-muted-foreground mt-1">-1=unlimited</p>
+                                </div>
                                 <div>
                                     {field('maxAiImagesPerMonth', 'AI Images/Month', 'number')}
-                                    <p className="text-xs text-muted-foreground mt-1">0=BYOK only, -1=unlimited</p>
+                                    <p className="text-xs text-muted-foreground mt-1">0=BYOK, -1=∞</p>
                                 </div>
                                 <div>
                                     {field('maxApiCallsPerMonth', 'API Calls/Month', 'number')}
-                                    <p className="text-xs text-muted-foreground mt-1">0=disabled, -1=unlimited</p>
+                                    <p className="text-xs text-muted-foreground mt-1">0=off, -1=∞</p>
                                 </div>
                             </div>
                             <div className="mt-3">

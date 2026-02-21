@@ -27,6 +27,7 @@ type BillingInfo = {
         maxMembersPerChannel: number
         maxStorageMB: number
         maxAiImagesPerMonth: number
+        maxAiTextPerMonth: number
         maxApiCallsPerMonth: number
         hasAutoSchedule: boolean
         hasWebhooks: boolean
@@ -317,6 +318,7 @@ export default function BillingPage() {
                         {[
                             { icon: <Zap className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.maxChannels'), value: plan.maxChannels === -1 ? '∞' : plan.maxChannels },
                             { icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiPostsMonth'), value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth },
+                            { icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />, label: 'AI Text/Month', value: plan.maxAiTextPerMonth === -1 ? '∞' : plan.maxAiTextPerMonth },
                             { icon: <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiImagesMonth'), value: plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? t('billing.byokOnly') : plan.maxAiImagesPerMonth },
                             { icon: <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.storage'), value: fmtStorage(plan.maxStorageMB, t('billing.unlimited')) },
                             { icon: <Code2 className="h-3.5 w-3.5 text-muted-foreground" />, label: 'API Calls/Month', value: plan.maxApiCallsPerMonth === -1 ? '∞' : plan.maxApiCallsPerMonth === 0 ? 'Disabled' : plan.maxApiCallsPerMonth.toLocaleString() },

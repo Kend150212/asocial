@@ -18,6 +18,7 @@ type Plan = {
     maxPostsPerMonth: number
     maxMembersPerChannel: number
     maxAiImagesPerMonth: number
+    maxAiTextPerMonth: number
     maxStorageMB: number
     maxApiCallsPerMonth: number
     hasAutoSchedule: boolean
@@ -192,6 +193,11 @@ export default function PricingPage() {
                                     />
                                     {plan.hasAutoSchedule && (
                                         <FeatureItem label={locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling'} />
+                                    )}
+                                    {plan.maxAiTextPerMonth !== 0 && (
+                                        <FeatureItem label={plan.maxAiTextPerMonth === -1
+                                            ? (locale === 'vi' ? 'Tạo bài AI không giới hạn' : 'Unlimited AI text gen')
+                                            : (locale === 'vi' ? `${plan.maxAiTextPerMonth} bài AI/tháng` : `${plan.maxAiTextPerMonth} AI posts/mo`)} />
                                     )}
                                     {plan.maxAiImagesPerMonth !== 0 && (
                                         <FeatureItem label={plan.maxAiImagesPerMonth === -1
