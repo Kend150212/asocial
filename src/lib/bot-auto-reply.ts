@@ -416,7 +416,7 @@ ${botConfig.personality ? `Personality: ${botConfig.personality}` : ''}
 Language: ${botConfig.language || 'vi'}
 Keep it short (1-2 sentences), warm, and professional. Reply with ONLY the greeting text.`
                     greetingText = await callAI(
-                        ownerKey.provider, ownerKey.apiKey, ownerKey.model || getDefaultModel(ownerKey.provider || 'openai', {}),
+                        ownerKey.provider!, ownerKey.apiKey!, ownerKey.model || getDefaultModel(ownerKey.provider || 'openai', {}),
                         'You are a greeting message generator.', prompt
                     )
                     greetingText = greetingText.trim()
