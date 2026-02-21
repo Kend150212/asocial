@@ -299,6 +299,10 @@ export default function ChannelDetailPage({
     const [webhookTelegramChatId, setWebhookTelegramChatId] = useState('')
     const [webhookSlackUrl, setWebhookSlackUrl] = useState('')
     const [webhookCustomUrl, setWebhookCustomUrl] = useState('')
+    const [webhookZaloAppId, setWebhookZaloAppId] = useState('')
+    const [webhookZaloSecretKey, setWebhookZaloSecretKey] = useState('')
+    const [webhookZaloRefreshToken, setWebhookZaloRefreshToken] = useState('')
+    const [webhookZaloUserId, setWebhookZaloUserId] = useState('')
     const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
 
     // Business Info state
@@ -366,6 +370,10 @@ export default function ChannelDetailPage({
                 setWebhookTelegramToken(data.webhookTelegram?.botToken || '')
                 setWebhookTelegramChatId(data.webhookTelegram?.chatId || '')
                 setWebhookSlackUrl(data.webhookSlack?.url || '')
+                setWebhookZaloAppId(data.webhookZalo?.appId || '')
+                setWebhookZaloSecretKey(data.webhookZalo?.secretKey || '')
+                setWebhookZaloRefreshToken(data.webhookZalo?.refreshToken || '')
+                setWebhookZaloUserId(data.webhookZalo?.userId || '')
                 setWebhookCustomUrl(data.webhookCustom?.url || '')
                 // Business Info
                 const biz = data.businessInfo || {}
@@ -545,6 +553,7 @@ export default function ChannelDetailPage({
                     webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
                     webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
+                    webhookZalo: webhookZaloRefreshToken ? { appId: webhookZaloAppId, secretKey: webhookZaloSecretKey, refreshToken: webhookZaloRefreshToken, userId: webhookZaloUserId } : {},
                     webhookCustom: webhookCustomUrl ? { url: webhookCustomUrl } : {},
                     brandProfile: {
                         targetAudience: brandTargetAudience || undefined,
@@ -944,6 +953,12 @@ export default function ChannelDetailPage({
                 payload.chatId = webhookTelegramChatId
             }
             if (platform === 'slack') payload.url = webhookSlackUrl
+            if (platform === 'zalo') {
+                payload.appId = webhookZaloAppId
+                payload.secretKey = webhookZaloSecretKey
+                payload.refreshToken = webhookZaloRefreshToken
+                payload.userId = webhookZaloUserId
+            }
             if (platform === 'custom') payload.url = webhookCustomUrl
 
             const res = await fetch(`/api/admin/channels/${id}/webhook-test`, {
@@ -2506,6 +2521,68 @@ export default function ChannelDetailPage({
                                         )}
                                     </Button>
                                 </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Zalo OA */}
+                            <div className="space-y-3">
+                                <Label className="flex items-center gap-2">
+                                    <span className="h-4 w-4 rounded-full bg-[#0068FF] inline-block" />
+                                    Zalo OA
+                                </Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">App ID</Label>
+                                        <Input
+                                            placeholder="Your Zalo App ID"
+                                            value={webhookZaloAppId}
+                                            onChange={(e) => setWebhookZaloAppId(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Secret Key</Label>
+                                        <Input
+                                            type="password"
+                                            placeholder="Your Zalo app secret key"
+                                            value={webhookZaloSecretKey}
+                                            onChange={(e) => setWebhookZaloSecretKey(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Refresh Token</Label>
+                                        <Input
+                                            type="password"
+                                            placeholder="OA refresh token (valid 3 months)"
+                                            value={webhookZaloRefreshToken}
+                                            onChange={(e) => setWebhookZaloRefreshToken(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">User ID</Label>
+                                        <Input
+                                            placeholder="Recipient user ID on Zalo"
+                                            value={webhookZaloUserId}
+                                            onChange={(e) => setWebhookZaloUserId(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleWebhookTest('zalo')}
+                                    disabled={!webhookZaloRefreshToken || !webhookZaloAppId || !webhookZaloSecretKey || !webhookZaloUserId || testingWebhook === 'zalo'}
+                                    className="gap-1.5"
+                                >
+                                    {testingWebhook === 'zalo' ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                    ) : (
+                                        <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                    )}
+                                </Button>
+                                <p className="text-xs text-muted-foreground">
+                                    Lấy thông tin từ <a href="https://developers.zalo.me" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">developers.zalo.me</a>. Access token sẽ tự động refresh.
+                                </p>
                             </div>
 
                             <Separator />

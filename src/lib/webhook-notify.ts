@@ -1,7 +1,8 @@
 // Webhook notification helper — sends post-publish notifications to
-// Discord, Telegram, Slack, and custom webhook endpoints configured on a channel.
+// Discord, Telegram, Slack, Zalo, and custom webhook endpoints configured on a channel.
 
 import { getBrandingServer } from '@/lib/use-branding-server'
+import { prisma } from '@/lib/prisma'
 
 // Cached app name for webhook payloads
 let _cachedAppName: string | null = null
@@ -16,6 +17,7 @@ interface WebhookConfig {
     webhookDiscord?: { url?: string } | null
     webhookTelegram?: { botToken?: string; chatId?: string } | null
     webhookSlack?: { url?: string } | null
+    webhookZalo?: { accessToken?: string; refreshToken?: string; appId?: string; secretKey?: string; userId?: string; channelId?: string } | null
     webhookCustom?: { url?: string } | null
     webhookEvents?: string[] | null
 }
@@ -158,6 +160,118 @@ function buildSlackPayload(data: PublishNotificationData) {
     }
 }
 
+// ─── Format message for Zalo OA ─────────────────────────────────────
+
+function buildZaloMessage(data: PublishNotificationData): string {
+    const successResults = data.results.filter(r => r.success)
+    const failedResults = data.results.filter(r => !r.success)
+
+    const platformLines = successResults.map(r =>
+        `✅ ${getPlatformLabel(r.platform)}`
+    ).join('\n')
+
+    const failedLines = failedResults.map(r =>
+        `❌ ${getPlatformLabel(r.platform)}: ${r.error || 'Unknown error'}`
+    ).join('\n')
+
+    const truncatedContent = data.content.length > 200
+        ? data.content.slice(0, 200) + '…'
+        : data.content
+
+    let msg = `📢 Post Published\n\n`
+    msg += `📝 ${truncatedContent}\n\n`
+    msg += `📡 Channel: ${data.channelName}\n`
+    msg += `👤 Published by: ${data.publishedBy}\n`
+    msg += `🕐 Time: ${data.publishedAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+    if (data.mediaCount > 0) msg += `📎 Media: ${data.mediaCount} file(s)\n`
+    msg += `\nPlatforms:\n${platformLines}`
+    if (failedLines) msg += `\n\nFailed:\n${failedLines}`
+
+    return msg
+}
+
+// ─── Zalo OA: Access Token refresh ──────────────────────────────────
+
+async function getZaloAccessToken(zaloConfig: Record<string, string>): Promise<string | null> {
+    // If we already have an accessToken, try using it
+    if (zaloConfig.accessToken) {
+        // Attempt a quick validation (get OA info)
+        const checkRes = await fetch('https://openapi.zalo.me/v2.0/oa/getoa', {
+            headers: { access_token: zaloConfig.accessToken },
+        }).catch(() => null)
+        if (checkRes?.ok) return zaloConfig.accessToken
+    }
+
+    // Token expired or missing — try refreshing
+    if (!zaloConfig.refreshToken || !zaloConfig.appId || !zaloConfig.secretKey) {
+        console.warn('[Webhook] Zalo: Missing refresh credentials')
+        return null
+    }
+
+    try {
+        const res = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', secret_key: zaloConfig.secretKey },
+            body: new URLSearchParams({
+                refresh_token: zaloConfig.refreshToken,
+                app_id: zaloConfig.appId,
+                grant_type: 'refresh_token',
+            }),
+        })
+        const data = await res.json()
+        if (data.access_token) {
+            console.log('[Webhook] Zalo: Access token refreshed successfully')
+            // Persist new tokens back to DB
+            if (zaloConfig.channelId) {
+                const updatePayload: Record<string, string> = {
+                    ...zaloConfig,
+                    accessToken: data.access_token,
+                }
+                if (data.refresh_token) {
+                    updatePayload.refreshToken = data.refresh_token
+                }
+                await prisma.channel.update({
+                    where: { id: zaloConfig.channelId },
+                    data: { webhookZalo: updatePayload },
+                })
+            }
+            return data.access_token
+        }
+        console.warn('[Webhook] Zalo: Token refresh failed:', data)
+        return null
+    } catch (err) {
+        console.warn('[Webhook] Zalo: Token refresh error:', err)
+        return null
+    }
+}
+
+async function sendZaloMessage(zaloConfig: Record<string, string>, text: string): Promise<void> {
+    const accessToken = await getZaloAccessToken(zaloConfig)
+    if (!accessToken || !zaloConfig.userId) {
+        console.warn('[Webhook] Zalo: Cannot send — missing token or userId')
+        return
+    }
+
+    const res = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            access_token: accessToken,
+        },
+        body: JSON.stringify({
+            recipient: { user_id: zaloConfig.userId },
+            message: { text },
+        }),
+    })
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        console.warn(`[Webhook] Zalo failed: ${res.status}`, errorData)
+    } else {
+        console.log('[Webhook] Zalo notification sent')
+    }
+}
+
 // ─── Format message for Custom Webhook (JSON) ───────────────────────
 
 function buildCustomPayload(data: PublishNotificationData, appName: string) {
@@ -242,6 +356,15 @@ export async function sendPublishWebhooks(
                     else console.log('[Webhook] Slack notification sent')
                 })
                 .catch(err => console.warn('[Webhook] Slack error:', err.message))
+        )
+    }
+
+    // Zalo OA
+    const zaloConfig = webhookConfig.webhookZalo as Record<string, string> | null
+    if (zaloConfig?.refreshToken && zaloConfig?.userId) {
+        tasks.push(
+            sendZaloMessage(zaloConfig, buildZaloMessage(data))
+                .catch(err => console.warn('[Webhook] Zalo error:', err.message))
         )
     }
 
@@ -387,6 +510,21 @@ export async function sendApprovalWebhooks(
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Approval Slack failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Approval Slack error:', err.message))
         )
+    }
+
+    // Zalo OA
+    const zaloConfigApproval = webhookConfig.webhookZalo as Record<string, string> | null
+    if (zaloConfigApproval?.refreshToken && zaloConfigApproval?.userId) {
+        const isApproved = data.action === 'approved'
+        const truncated = data.content.length > 200 ? data.content.slice(0, 200) + '…' : data.content
+        let msg = isApproved ? `✅ Post Approved\n\n` : `❌ Post Rejected\n\n`
+        msg += `📝 ${truncated}\n\n`
+        msg += `📡 Channel: ${data.channelName}\n`
+        msg += `👤 Author: ${data.authorName}\n`
+        msg += `🔍 Reviewed by: ${data.reviewedBy}\n`
+        if (data.scheduledAt && isApproved) msg += `📅 Scheduled: ${data.scheduledAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+        if (data.comment) msg += `💬 Comment: ${data.comment}\n`
+        tasks.push(sendZaloMessage(zaloConfigApproval, msg).catch(err => console.warn('[Webhook] Approval Zalo error:', err.message)))
     }
 
     const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url
@@ -576,6 +714,21 @@ export async function sendPendingApprovalWebhooks(
                 .then(res => { if (!res.ok) console.warn(`[Webhook] Pending Slack failed: ${res.status}`) })
                 .catch(err => console.warn('[Webhook] Pending Slack error:', err.message))
         )
+    }
+
+    // Zalo OA
+    const zaloConfigPending = webhookConfig.webhookZalo as Record<string, string> | null
+    if (zaloConfigPending?.refreshToken && zaloConfigPending?.userId) {
+        const truncated = data.content.length > 300 ? data.content.slice(0, 300) + '…' : data.content
+        const platformsLine = data.platforms.map(p => getPlatformLabel(p)).join(', ') || '—'
+        let msg = `🔔 Post Pending Approval\n\n`
+        msg += `📝 ${truncated}\n\n`
+        msg += `📡 Channel: ${data.channelName}\n`
+        msg += `👤 Author: ${data.authorName}\n`
+        msg += `📱 Platforms: ${platformsLine}\n`
+        if (data.scheduledAt) msg += `📅 Scheduled: ${data.scheduledAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}\n`
+        msg += `\n🔗 Review: ${approvalsUrl(data.appBaseUrl)}`
+        tasks.push(sendZaloMessage(zaloConfigPending, msg).catch(err => console.warn('[Webhook] Pending Zalo error:', err.message)))
     }
 
     const customUrl = (webhookConfig.webhookCustom as Record<string, string> | null)?.url

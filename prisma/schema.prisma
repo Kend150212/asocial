@@ -258,6 +258,7 @@ model Channel {
   webhookDiscord  Json? @map("webhook_discord") @default("{}")
   webhookTelegram Json? @map("webhook_telegram") @default("{}")
   webhookSlack    Json? @map("webhook_slack") @default("{}")
+  webhookZalo     Json? @map("webhook_zalo") @default("{}")
   webhookCustom   Json? @map("webhook_custom") @default("{}")
   webhookEvents   Json? @map("webhook_events") @default("[]")
 

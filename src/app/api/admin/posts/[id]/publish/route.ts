@@ -1254,6 +1254,7 @@ export async function POST(
                 webhookDiscord: post.channel.webhookDiscord as Record<string, string> | null,
                 webhookTelegram: post.channel.webhookTelegram as Record<string, string> | null,
                 webhookSlack: post.channel.webhookSlack as Record<string, string> | null,
+                webhookZalo: { ...(post.channel.webhookZalo as Record<string, string> || {}), channelId: post.channel.id } as Record<string, string> | null,
                 webhookCustom: post.channel.webhookCustom as Record<string, string> | null,
                 webhookEvents: post.channel.webhookEvents as string[] | null,
             },

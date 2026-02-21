@@ -103,7 +103,7 @@ export async function PUT(
         'defaultAiProvider', 'defaultAiModel',
         'defaultImageProvider', 'defaultImageModel',
         'storageProvider', 'storageConfig', 'useDefaultStorage',
-        'webhookDiscord', 'webhookTelegram', 'webhookSlack',
+        'webhookDiscord', 'webhookTelegram', 'webhookSlack', 'webhookZalo',
         'webhookCustom', 'webhookEvents',
         'businessInfo',
         'brandProfile',

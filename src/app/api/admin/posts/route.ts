@@ -189,6 +189,7 @@ export async function POST(req: NextRequest) {
                     webhookDiscord: channel?.webhookDiscord as Record<string, string> | null,
                     webhookTelegram: channel?.webhookTelegram as Record<string, string> | null,
                     webhookSlack: channel?.webhookSlack as Record<string, string> | null,
+                    webhookZalo: { ...(channel?.webhookZalo as Record<string, string> || {}), channelId: channel?.id } as Record<string, string> | null,
                     webhookCustom: channel?.webhookCustom as Record<string, string> | null,
                     webhookEvents: channel?.webhookEvents as string[] | null,
                 },

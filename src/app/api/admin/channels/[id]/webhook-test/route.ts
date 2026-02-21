@@ -92,6 +92,36 @@ export async function POST(
                 break
             }
 
+            case 'zalo': {
+                const { refreshToken: rt, appId: ai, secretKey: sk, userId: uid } = body
+                if (!rt || !ai || !sk || !uid) {
+                    return NextResponse.json({ error: 'App ID, Secret Key, Refresh Token, and User ID are required' }, { status: 400 })
+                }
+                // Step 1: Get access token via refresh
+                const tokenRes = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', secret_key: sk },
+                    body: new URLSearchParams({ refresh_token: rt, app_id: ai, grant_type: 'refresh_token' }),
+                })
+                const tokenData = await tokenRes.json()
+                if (!tokenData.access_token) {
+                    return NextResponse.json({ success: false, message: `Zalo token refresh failed: ${tokenData.error_description || tokenData.error_name || JSON.stringify(tokenData)}` })
+                }
+                // Step 2: Send test message
+                const msgRes = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', access_token: tokenData.access_token },
+                    body: JSON.stringify({
+                        recipient: { user_id: uid },
+                        message: { text: `✅ ${brand.appName} Webhook Test — Kết nối Zalo OA thành công! Channel này sẽ nhận notifications.` },
+                    }),
+                })
+                const msgData = await msgRes.json()
+                success = msgData.error === 0 || msgRes.ok
+                message = success ? 'Zalo OA test successful!' : `Zalo error: ${msgData.message || JSON.stringify(msgData)}`
+                break
+            }
+
             default:
                 return NextResponse.json({ error: `Unknown platform: ${platform}` }, { status: 400 })
         }
