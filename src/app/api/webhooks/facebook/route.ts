@@ -107,8 +107,8 @@ async function handleFeedChange(pageId: string, value: any) {
         where: {
             channelId: platformAccount.channelId,
             OR: [
-                { publishedId: externalPostId },
-                { publishedId: { contains: externalPostId.split('_').pop() || '' } },
+                { externalId: externalPostId },
+                { externalId: { contains: externalPostId.split('_').pop() || '' } },
             ],
         },
     })
