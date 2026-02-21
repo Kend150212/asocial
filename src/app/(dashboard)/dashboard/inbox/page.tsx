@@ -37,6 +37,8 @@ import {
     Reply,
     Heart,
     ExternalLink,
+    Volume2,
+    VolumeX,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -252,9 +254,26 @@ export default function InboxPage() {
     const prevUnreadRef = useRef<number>(0)
     const audioContextRef = useRef<AudioContext | null>(null)
     const notifIntervalRef = useRef<NodeJS.Timeout | null>(null)
+    const [soundMuted, setSoundMuted] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('inbox-sound-muted') === 'true'
+        }
+        return false
+    })
+    const soundMutedRef = useRef(soundMuted)
 
     // ─── Notification sound (Web Audio API — two-tone chime) ─
+    const toggleSoundMute = useCallback(() => {
+        setSoundMuted(prev => {
+            const next = !prev
+            soundMutedRef.current = next
+            localStorage.setItem('inbox-sound-muted', String(next))
+            return next
+        })
+    }, [])
+
     const playNotificationSound = useCallback(() => {
+        if (soundMutedRef.current) return
         try {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -770,6 +789,19 @@ export default function InboxPage() {
                             className="h-8 pl-8 text-xs"
                         />
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={toggleSoundMute}
+                        title={soundMuted ? 'Unmute notifications' : 'Mute notifications'}
+                    >
+                        {soundMuted ? (
+                            <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                            <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
