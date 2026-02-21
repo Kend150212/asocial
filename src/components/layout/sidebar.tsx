@@ -75,7 +75,6 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
     { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
-    { titleKey: 'nav.developer', href: '/dashboard/developer', icon: Code2 },
     { titleKey: 'nav.billing', href: '/dashboard/billing', icon: CreditCard },
 ]
 
@@ -288,6 +287,12 @@ export function Sidebar({ session }: { session: Session }) {
                             <a href="/dashboard/profile" className="flex items-center cursor-pointer">
                                 <UserCircle className="mr-2 h-4 w-4" />
                                 {t('nav.profile')}
+                            </a>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <a href="/dashboard/developer" className="flex items-center cursor-pointer">
+                                <Code2 className="mr-2 h-4 w-4" />
+                                {t('nav.developerApi') || 'Developer API'}
                             </a>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })}>

@@ -66,6 +66,7 @@
         "billing": "Billing",
         "plans": "Plans",
         "profile": "My Profile",
+        "developerApi": "Developer API",
         "branding": "Branding"
     },
     "auth": {
