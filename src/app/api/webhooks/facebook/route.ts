@@ -84,9 +84,18 @@ async function handleFeedChange(pageId: string, value: any) {
     })
 
     if (!platformAccount) {
-        console.warn(`[FB Webhook] No platform account found for page ${pageId}`)
+        // Log all Facebook platform accounts for debugging
+        const allFbAccounts = await prisma.channelPlatform.findMany({
+            where: { platform: 'facebook' },
+            select: { accountId: true, accountName: true, isActive: true },
+        })
+        console.warn(`[FB Webhook] ❌ No platform account for page ${pageId}. Available FB accounts:`,
+            allFbAccounts.map(a => `${a.accountName}(${a.accountId}, active=${a.isActive})`).join(', ')
+        )
         return
     }
+
+    console.log(`[FB Webhook] ✅ Matched page ${pageId} → ${platformAccount.accountName} (${platformAccount.id})`)
 
     const externalPostId = value.post_id || ''
     const externalCommentId = value.comment_id || ''
