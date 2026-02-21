@@ -65,6 +65,8 @@ interface Conversation {
     tags: string[]
     sentiment: string | null
     intent: string | null
+    type: string
+    metadata: any
     priority: number
     aiSummary: string | null
     lastMessageAt: string | null
@@ -716,6 +718,55 @@ export default function InboxPage() {
                                 </DropdownMenu>
                             </div>
                         </div>
+
+                        {/* Post preview for comment conversations */}
+                        {selectedConversation?.type === 'comment' && selectedConversation.metadata && (
+                            <div className="px-4 pt-3 pb-1 border-b border-border/50">
+                                <a
+                                    href={(selectedConversation.metadata as any).postPermalink || '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors overflow-hidden"
+                                >
+                                    <div className="p-3">
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <span className="text-[10px] font-medium text-blue-400/80">📄 Original Post</span>
+                                            <span className="text-[10px] text-muted-foreground">• Click to view on Facebook</span>
+                                        </div>
+                                        {(selectedConversation.metadata as any).postContent && (
+                                            <p className="text-xs text-foreground/80 line-clamp-3 leading-relaxed">
+                                                {(selectedConversation.metadata as any).postContent}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {(selectedConversation.metadata as any).postImages?.length > 0 && (
+                                        <div className={cn(
+                                            'grid gap-0.5',
+                                            (selectedConversation.metadata as any).postImages.length === 1 ? 'grid-cols-1' :
+                                                (selectedConversation.metadata as any).postImages.length === 2 ? 'grid-cols-2' :
+                                                    'grid-cols-2'
+                                        )}>
+                                            {((selectedConversation.metadata as any).postImages as string[]).slice(0, 4).map((img: string, idx: number) => (
+                                                <div key={idx} className="relative aspect-video bg-muted overflow-hidden">
+                                                    <img
+                                                        src={img}
+                                                        alt={`Post image ${idx + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    {idx === 3 && (selectedConversation.metadata as any).postImages.length > 4 && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                            <span className="text-white font-bold text-lg">
+                                                                +{(selectedConversation.metadata as any).postImages.length - 4}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </a>
+                            </div>
+                        )}
 
                         {/* Chat history */}
                         <ScrollArea className="flex-1 p-4">

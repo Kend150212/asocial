@@ -114,6 +114,58 @@ async function handleFeedChange(pageId: string, value: any) {
         postId = platformStatus?.postId || null
     }
 
+    // ── Fetch post details from Graph API ──
+    let postMetadata: any = null
+    if (externalPostId && platformAccount.accessToken) {
+        try {
+            const postRes = await fetch(
+                `https://graph.facebook.com/v19.0/${externalPostId}?fields=message,permalink_url,full_picture,attachments{media,media_type,url,subattachments}&access_token=${platformAccount.accessToken}`
+            )
+            if (postRes.ok) {
+                const postData = await postRes.json()
+                const images: string[] = []
+
+                // Get full_picture
+                if (postData.full_picture) {
+                    images.push(postData.full_picture)
+                }
+
+                // Get additional images from attachments
+                if (postData.attachments?.data) {
+                    for (const att of postData.attachments.data) {
+                        if (att.media?.image?.src && !images.includes(att.media.image.src)) {
+                            images.push(att.media.image.src)
+                        }
+                        // Carousel / multi-photo posts
+                        if (att.subattachments?.data) {
+                            for (const sub of att.subattachments.data) {
+                                if (sub.media?.image?.src && !images.includes(sub.media.image.src)) {
+                                    images.push(sub.media.image.src)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                postMetadata = {
+                    externalPostId,
+                    postContent: postData.message || '',
+                    postImages: images.slice(0, 5), // max 5 images
+                    postPermalink: postData.permalink_url || `https://facebook.com/${externalPostId}`,
+                }
+                console.log(`[FB Webhook] 📄 Post fetched: "${(postData.message || '').substring(0, 50)}" with ${images.length} images`)
+            }
+        } catch (err) {
+            console.warn(`[FB Webhook] ⚠️ Failed to fetch post ${externalPostId}:`, err)
+            postMetadata = {
+                externalPostId,
+                postContent: '',
+                postImages: [],
+                postPermalink: `https://facebook.com/${externalPostId}`,
+            }
+        }
+    }
+
     // Upsert the comment
     await prisma.socialComment.upsert({
         where: { externalCommentId },
@@ -139,7 +191,7 @@ async function handleFeedChange(pageId: string, value: any) {
 
     console.log(`[FB Webhook] 💬 Comment saved: "${content.substring(0, 50)}" by ${authorName}`)
 
-    // Also create/update a conversation for this commenter
+    // Create/update a conversation grouped by POST (not user) so all comments on same post are together
     await upsertConversation({
         channelId: platformAccount.channelId,
         platformAccountId: platformAccount.id,
@@ -150,6 +202,8 @@ async function handleFeedChange(pageId: string, value: any) {
         content,
         direction: 'inbound',
         senderType: 'customer',
+        type: 'comment',
+        metadata: postMetadata,
     })
 }
 
@@ -233,6 +287,8 @@ async function upsertConversation(opts: {
     mediaUrl?: string | null
     mediaType?: string | null
     externalId?: string | null
+    type?: string
+    metadata?: any
 }) {
     // Find or create conversation
     let conversation = await prisma.conversation.findFirst({
@@ -254,6 +310,8 @@ async function upsertConversation(opts: {
                 externalUserAvatar: opts.externalUserAvatar || null,
                 status: 'new',
                 mode: 'BOT',
+                type: opts.type || 'message',
+                metadata: opts.metadata || null,
                 unreadCount: 1,
                 lastMessageAt: new Date(),
                 tags: [],
@@ -277,6 +335,11 @@ async function upsertConversation(opts: {
         }
         if (opts.externalUserAvatar && !conversation.externalUserAvatar) {
             updateData.externalUserAvatar = opts.externalUserAvatar
+        }
+        // Update metadata if we have post info and conversation doesn't have it yet
+        if (opts.metadata && !conversation.metadata) {
+            updateData.metadata = opts.metadata
+            updateData.type = opts.type || conversation.type
         }
         await prisma.conversation.update({
             where: { id: conversation.id },

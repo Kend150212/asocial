@@ -758,6 +758,8 @@ model Conversation {
   tags               Json?            @default("[]")
   sentiment          String?          // positive, neutral, negative
   intent             String?          // buy, support, complaint, info
+  type               String           @default("message") // message, comment
+  metadata           Json?            // Post context for comments: { postId, postContent, postImages, postPermalink }
   priority           Int              @default(0)
   aiSummary          String?          @map("ai_summary") @db.Text
   lastMessageAt      DateTime?        @map("last_message_at")
