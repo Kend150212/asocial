@@ -244,6 +244,93 @@ export default function InboxPage() {
     const [updatingConv, setUpdatingConv] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const prevUnreadRef = useRef<number>(0)
+    const audioContextRef = useRef<AudioContext | null>(null)
+    const notifIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+    // ─── Notification sound (Web Audio API) ─
+    const playNotificationSound = useCallback(() => {
+        try {
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+            }
+            const ctx = audioContextRef.current
+            const oscillator = ctx.createOscillator()
+            const gain = ctx.createGain()
+            oscillator.connect(gain)
+            gain.connect(ctx.destination)
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime) // A5 note
+            oscillator.type = 'sine'
+            gain.gain.setValueAtTime(0.3, ctx.currentTime)
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+            oscillator.start(ctx.currentTime)
+            oscillator.stop(ctx.currentTime + 0.5)
+        } catch (e) {
+            console.warn('Could not play notification sound:', e)
+        }
+    }, [])
+
+    // ─── Browser notification ─────────
+    const showBrowserNotification = useCallback((title: string, body: string) => {
+        if (typeof window === 'undefined') return
+        if (Notification.permission === 'granted') {
+            const n = new Notification(title, {
+                body,
+                icon: '/icon-192.png',
+                tag: 'inbox-notification',
+            })
+            n.onclick = () => {
+                window.focus()
+                n.close()
+            }
+            setTimeout(() => n.close(), 8000)
+        }
+    }, [])
+
+    // ─── Request notification permission ─
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission()
+        }
+    }, [])
+
+    // ─── Polling for new messages ─────
+    useEffect(() => {
+        const pollNewMessages = async () => {
+            try {
+                const params = new URLSearchParams()
+                if (activeChannel?.id) params.set('channelId', activeChannel.id)
+                const res = await fetch(`/api/inbox/conversations?${params}&limit=5`)
+                if (!res.ok) return
+                const data = await res.json()
+                const totalUnread = (data.conversations || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
+
+                if (prevUnreadRef.current > 0 && totalUnread > prevUnreadRef.current) {
+                    const newCount = totalUnread - prevUnreadRef.current
+                    playNotificationSound()
+                    const newest = data.conversations?.[0]
+                    showBrowserNotification(
+                        `📬 ${newCount} new message${newCount > 1 ? 's' : ''}`,
+                        newest?.lastMessage?.substring(0, 80) || 'New activity in your inbox'
+                    )
+                    // Refresh the conversation list
+                    fetchConversations()
+                }
+                prevUnreadRef.current = totalUnread
+            } catch (e) {
+                // Silently ignore polling errors
+            }
+        }
+
+        // Initial unread count
+        prevUnreadRef.current = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
+
+        notifIntervalRef.current = setInterval(pollNewMessages, 15000) // Every 15 seconds
+
+        return () => {
+            if (notifIntervalRef.current) clearInterval(notifIntervalRef.current)
+        }
+    }, [activeChannel?.id, playNotificationSound, showBrowserNotification]) // eslint-disable-line
 
     // ─── Fetch platform accounts ──────
     const fetchPlatforms = useCallback(async () => {
