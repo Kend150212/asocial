@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import {
     MessageSquare,
@@ -33,6 +33,10 @@ import {
     Inbox,
     Loader2,
     RefreshCcw,
+    ThumbsUp,
+    Reply,
+    Heart,
+    ExternalLink,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -103,14 +107,76 @@ interface StatusCounts {
     all: number
 }
 
-// ─── Platform icons / colors ──────────
-const platformConfig: Record<string, { icon: string; color: string; label: string }> = {
-    facebook: { icon: '📘', color: 'bg-blue-500/10 text-blue-600', label: 'Facebook' },
-    instagram: { icon: '📸', color: 'bg-pink-500/10 text-pink-600', label: 'Instagram' },
-    tiktok: { icon: '🎵', color: 'bg-gray-800/10 text-gray-800 dark:text-gray-200', label: 'TikTok' },
-    linkedin: { icon: '💼', color: 'bg-blue-700/10 text-blue-700', label: 'LinkedIn' },
-    zalo: { icon: '💬', color: 'bg-blue-400/10 text-blue-500', label: 'Zalo' },
-    youtube: { icon: '🎬', color: 'bg-red-500/10 text-red-600', label: 'YouTube' },
+// ─── Platform SVG icons ───────────────
+function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number }) {
+    switch (platform) {
+        case 'facebook':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <path d="M24 12c0-6.627-5.373-12-12-12S0 5.373 0 12c0 5.99 4.388 10.954 10.125 11.854V15.47H7.078V12h3.047V9.356c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.875V12h3.328l-.532 3.47h-2.796v8.385C19.612 22.954 24 17.99 24 12" fill="#1877F2" />
+                </svg>
+            )
+        case 'instagram':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <defs>
+                        <linearGradient id="ig-grad" x1="0" y1="24" x2="24" y2="0" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#FFC107" />
+                            <stop offset=".5" stopColor="#F44336" />
+                            <stop offset="1" stopColor="#9C27B0" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="24" height="24" rx="6" fill="url(#ig-grad)" />
+                    <circle cx="12" cy="12" r="4.5" stroke="white" strokeWidth="1.8" fill="none" />
+                    <circle cx="17.5" cy="6.5" r="1.2" fill="white" />
+                </svg>
+            )
+        case 'tiktok':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <rect width="24" height="24" rx="6" fill="#010101" />
+                    <path d="M16.6 5.82a4.28 4.28 0 01-1.04-2.47h-.01V3.2h-2.97v11.88a2.56 2.56 0 01-2.56 2.44 2.56 2.56 0 01-2.56-2.56 2.56 2.56 0 012.56-2.56c.27 0 .53.04.77.11V9.44a5.6 5.6 0 00-.77-.05 5.56 5.56 0 00-5.56 5.56A5.56 5.56 0 009.97 20.5a5.56 5.56 0 005.56-5.56V9.2a7.24 7.24 0 004.24 1.36V7.6a4.28 4.28 0 01-3.17-1.78z" fill="white" />
+                </svg>
+            )
+        case 'linkedin':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <rect width="24" height="24" rx="4" fill="#0A66C2" />
+                    <path d="M7.5 10v7.5M7.5 7v.01M10.5 17.5v-4.25c0-1.5 1-2.25 2-2.25s1.5.75 1.5 2v4.5M10.5 10v7.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+            )
+        case 'youtube':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <rect width="24" height="24" rx="6" fill="#FF0000" />
+                    <path d="M10 15.5v-7l6 3.5-6 3.5z" fill="white" />
+                </svg>
+            )
+        case 'pinterest':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="12" fill="#E60023" />
+                    <path d="M12 5.5c-3.59 0-6.5 2.91-6.5 6.5 0 2.76 1.72 5.11 4.14 6.05-.06-.52-.11-1.32.02-1.89l.78-3.33s-.2-.4-.2-.98c0-.92.53-1.6 1.2-1.6.56 0 .84.42.84.93 0 .57-.36 1.42-.55 2.2-.16.66.33 1.2.98 1.2 1.18 0 2.09-1.24 2.09-3.04 0-1.59-1.14-2.7-2.77-2.7-1.89 0-3 1.42-3 2.88 0 .57.22 1.18.5 1.52a.2.2 0 01.04.19l-.18.76c-.03.12-.1.15-.22.09-.82-.38-1.34-1.59-1.34-2.56 0-2.08 1.51-4 4.36-4 2.29 0 4.06 1.63 4.06 3.81 0 2.27-1.43 4.1-3.42 4.1-.67 0-1.3-.35-1.51-.76l-.41 1.57c-.15.57-.55 1.29-.82 1.73.62.19 1.27.3 1.96.3 3.59 0 6.5-2.91 6.5-6.5s-2.91-6.5-6.5-6.5z" fill="white" />
+                </svg>
+            )
+        default:
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <rect width="24" height="24" rx="6" fill="#666" />
+                    <path d="M12 7v5l3 3" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+            )
+    }
+}
+
+const platformConfig: Record<string, { color: string; label: string }> = {
+    facebook: { color: 'bg-blue-500/10 text-blue-600', label: 'Facebook' },
+    instagram: { color: 'bg-pink-500/10 text-pink-600', label: 'Instagram' },
+    tiktok: { color: 'bg-gray-800/10 text-gray-800 dark:text-gray-200', label: 'TikTok' },
+    linkedin: { color: 'bg-blue-700/10 text-blue-700', label: 'LinkedIn' },
+    zalo: { color: 'bg-blue-400/10 text-blue-500', label: 'Zalo' },
+    youtube: { color: 'bg-red-500/10 text-red-600', label: 'YouTube' },
+    pinterest: { color: 'bg-red-400/10 text-red-500', label: 'Pinterest' },
 }
 
 // ─── Status filters config ───────────
@@ -164,6 +230,7 @@ export default function InboxPage() {
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
     const [messages, setMessages] = useState<InboxMessage[]>([])
     const [replyText, setReplyText] = useState('')
+    const [replyToName, setReplyToName] = useState<string | null>(null)
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
     const [counts, setCounts] = useState<StatusCounts>({ new: 0, open: 0, done: 0, archived: 0, mine: 0, all: 0 })
@@ -422,7 +489,7 @@ export default function InboxPage() {
                                 {Object.entries(platformTree).map(([platform, accounts]) => (
                                     <div key={platform}>
                                         <div className="w-full flex items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground">
-                                            <span className="text-sm">{platformConfig[platform]?.icon || '🌐'}</span>
+                                            <PlatformIcon platform={platform} size={16} />
                                             <span className="font-medium">{platformConfig[platform]?.label || platform}</span>
                                         </div>
                                         {accounts.map(account => (
@@ -551,6 +618,9 @@ export default function InboxPage() {
                                     {/* Avatar */}
                                     <div className="relative">
                                         <Avatar className="h-9 w-9">
+                                            {conv.externalUserAvatar && (
+                                                <AvatarImage src={conv.externalUserAvatar} alt={conv.externalUserName || ''} />
+                                            )}
                                             <AvatarFallback className={cn(
                                                 'text-xs font-medium',
                                                 platformConfig[conv.platform]?.color || 'bg-gray-100'
@@ -558,8 +628,8 @@ export default function InboxPage() {
                                                 {conv.externalUserName?.charAt(0)?.toUpperCase() || '?'}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">
-                                            {platformConfig[conv.platform]?.icon}
+                                        <span className="absolute -bottom-0.5 -right-0.5">
+                                            <PlatformIcon platform={conv.platform} size={14} />
                                         </span>
                                     </div>
 
@@ -618,6 +688,9 @@ export default function InboxPage() {
                         {/* Header */}
                         <div className="flex items-center gap-3 px-4 py-3 border-b bg-card">
                             <Avatar className="h-8 w-8">
+                                {selectedConversation.externalUserAvatar && (
+                                    <AvatarImage src={selectedConversation.externalUserAvatar} alt={selectedConversation.externalUserName || ''} />
+                                )}
                                 <AvatarFallback className={cn(
                                     'text-xs',
                                     platformConfig[selectedConversation.platform]?.color
@@ -630,9 +703,7 @@ export default function InboxPage() {
                                     <span className="text-sm font-semibold">
                                         {selectedConversation.externalUserName}
                                     </span>
-                                    <span className="text-[10px]">
-                                        {platformConfig[selectedConversation.platform]?.icon}
-                                    </span>
+                                    <PlatformIcon platform={selectedConversation.platform} size={16} />
                                     <span className="text-[10px] text-muted-foreground">
                                         {selectedConversation.platformAccount?.accountName}
                                     </span>
@@ -778,7 +849,75 @@ export default function InboxPage() {
                                 <div className="flex items-center justify-center h-32">
                                     <p className="text-xs text-muted-foreground">No messages yet</p>
                                 </div>
+                            ) : selectedConversation?.type === 'comment' ? (
+                                /* ═══ Facebook-style comment thread ═══ */
+                                <div className="max-w-2xl mx-auto space-y-1">
+                                    {messages.map(msg => (
+                                        <div key={msg.id} className="group">
+                                            <div className="flex gap-2.5 py-1">
+                                                {/* Avatar */}
+                                                <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                                                    {msg.direction === 'inbound' && selectedConversation.externalUserAvatar ? (
+                                                        <AvatarImage src={selectedConversation.externalUserAvatar} alt={selectedConversation.externalUserName || ''} />
+                                                    ) : null}
+                                                    <AvatarFallback className={cn(
+                                                        'text-[10px] font-medium',
+                                                        msg.direction === 'outbound'
+                                                            ? msg.senderType === 'bot'
+                                                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                                            : 'bg-gray-100 dark:bg-gray-800'
+                                                    )}>
+                                                        {msg.direction === 'outbound'
+                                                            ? msg.senderType === 'bot' ? '🤖' : 'A'
+                                                            : selectedConversation.externalUserName?.charAt(0)?.toUpperCase() || '?'
+                                                        }
+                                                    </AvatarFallback>
+                                                </Avatar>
+
+                                                {/* Comment body */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="inline-block rounded-2xl bg-muted/60 dark:bg-muted/40 px-3 py-2 max-w-[85%]">
+                                                        <span className="text-xs font-semibold block">
+                                                            {msg.direction === 'outbound'
+                                                                ? msg.senderType === 'bot'
+                                                                    ? '🤖 AI Bot'
+                                                                    : selectedConversation.platformAccount?.accountName || 'You'
+                                                                : selectedConversation.externalUserName || 'User'
+                                                            }
+                                                        </span>
+                                                        <p className="text-xs leading-relaxed whitespace-pre-wrap mt-0.5">
+                                                            {msg.content}
+                                                        </p>
+                                                    </div>
+                                                    {/* Like · Reply · Time */}
+                                                    <div className="flex items-center gap-3 mt-0.5 ml-3">
+                                                        <button className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                                                            Like
+                                                        </button>
+                                                        <button
+                                                            className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                                            onClick={() => {
+                                                                const name = msg.direction === 'inbound'
+                                                                    ? selectedConversation.externalUserName || 'User'
+                                                                    : msg.senderType === 'bot' ? 'AI Bot' : 'You'
+                                                                setReplyToName(name)
+                                                            }}
+                                                        >
+                                                            Reply
+                                                        </button>
+                                                        <span className="text-[10px] text-muted-foreground/60">
+                                                            {timeAgo(msg.sentAt)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div ref={messagesEndRef} />
+                                </div>
                             ) : (
+                                /* ═══ Normal DM-style chat ═══ */
                                 <div className="max-w-2xl mx-auto space-y-4">
                                     {messages.map(msg => (
                                         <div
@@ -790,6 +929,9 @@ export default function InboxPage() {
                                         >
                                             {msg.direction === 'inbound' && (
                                                 <Avatar className="h-7 w-7 shrink-0 mt-1">
+                                                    {selectedConversation.externalUserAvatar && (
+                                                        <AvatarImage src={selectedConversation.externalUserAvatar} alt={selectedConversation.externalUserName || ''} />
+                                                    )}
                                                     <AvatarFallback className="text-[10px] bg-gray-100 dark:bg-gray-800">
                                                         {selectedConversation.externalUserName?.charAt(0)}
                                                     </AvatarFallback>
@@ -840,6 +982,21 @@ export default function InboxPage() {
 
                         {/* Reply box */}
                         <div className="border-t bg-card p-3">
+                            {/* Reply-to indicator */}
+                            {replyToName && (
+                                <div className="flex items-center gap-2 mb-2 px-1">
+                                    <Reply className="h-3 w-3 text-muted-foreground rotate-180" />
+                                    <span className="text-[11px] text-muted-foreground">
+                                        Replying to <strong className="text-foreground">{replyToName}</strong>
+                                    </span>
+                                    <button
+                                        onClick={() => setReplyToName(null)}
+                                        className="text-[10px] text-muted-foreground hover:text-foreground ml-auto"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2 mb-2">
                                 {selectedConversation.mode === 'BOT' ? (
                                     <div className="flex items-center gap-1.5 text-[10px] text-green-600 dark:text-green-400 font-medium">
