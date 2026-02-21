@@ -196,8 +196,8 @@ export default function PricingPage() {
                                     )}
                                     {plan.maxAiTextPerMonth !== 0 && (
                                         <FeatureItem label={plan.maxAiTextPerMonth === -1
-                                            ? (locale === 'vi' ? 'Tạo bài AI không giới hạn' : 'Unlimited AI text gen')
-                                            : (locale === 'vi' ? `${plan.maxAiTextPerMonth} bài AI/tháng` : `${plan.maxAiTextPerMonth} AI posts/mo`)} />
+                                            ? (locale === 'vi' ? 'Tạo nội dung AI không giới hạn' : 'Unlimited AI content')
+                                            : (locale === 'vi' ? `${plan.maxAiTextPerMonth} nội dung AI/tháng` : `${plan.maxAiTextPerMonth} AI content/mo`)} />
                                     )}
                                     {plan.maxAiImagesPerMonth !== 0 && (
                                         <FeatureItem label={plan.maxAiImagesPerMonth === -1

@@ -211,7 +211,7 @@ export default function AdminPlansPage() {
                                     <div>Channels: {plan.maxChannels === -1 ? '∞' : plan.maxChannels}</div>
                                     <div>Posts/mo: {plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth}</div>
                                     <div>Members/ch: {plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel}</div>
-                                    <div>AI Text/mo: <span className="font-medium text-foreground">{plan.maxAiTextPerMonth === -1 ? '∞' : plan.maxAiTextPerMonth}</span></div>
+                                    <div>AI Content/mo: <span className="font-medium text-foreground">{plan.maxAiTextPerMonth === -1 ? '∞' : plan.maxAiTextPerMonth}</span></div>
                                     <div>AI Images/mo: <span className="font-medium text-foreground">{plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? 'BYOK only' : plan.maxAiImagesPerMonth}</span></div>
                                     <div>Storage: <span className="font-medium text-foreground">{plan.maxStorageMB === -1 ? '∞' : plan.maxStorageMB >= 1024 ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB` : `${plan.maxStorageMB} MB`}</span></div>
                                     <div>API calls/mo: <span className="font-medium text-foreground">{plan.maxApiCallsPerMonth === -1 ? '∞' : plan.maxApiCallsPerMonth === 0 ? 'Disabled' : plan.maxApiCallsPerMonth.toLocaleString()}</span></div>
@@ -287,7 +287,7 @@ export default function AdminPlansPage() {
                             </div>
                             <div className="mt-3 grid grid-cols-3 gap-3">
                                 <div>
-                                    {field('maxAiTextPerMonth', 'AI Text/Month', 'number')}
+                                    {field('maxAiTextPerMonth', 'AI Content/Month', 'number')}
                                     <p className="text-xs text-muted-foreground mt-1">-1=unlimited</p>
                                 </div>
                                 <div>
