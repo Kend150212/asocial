@@ -39,6 +39,13 @@ import {
     ExternalLink,
     Volume2,
     VolumeX,
+    Settings,
+    ChevronDown,
+    ChevronUp,
+    Eye,
+    EyeOff,
+    Save,
+    KeyRound,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -261,6 +268,79 @@ export default function InboxPage() {
         return false
     })
     const soundMutedRef = useRef(soundMuted)
+
+    // ─── AI Settings state ───────────
+    const [showAiSettings, setShowAiSettings] = useState(false)
+    const [aiProvider, setAiProvider] = useState('')
+    const [aiModel, setAiModel] = useState('')
+    const [aiApiKey, setAiApiKey] = useState('')
+    const [showApiKey, setShowApiKey] = useState(false)
+    const [savingAi, setSavingAi] = useState(false)
+    const [hasAiApiKey, setHasAiApiKey] = useState(false)
+
+    const AI_MODELS: Record<string, { label: string; value: string }[]> = {
+        openai: [
+            { label: 'GPT-4o', value: 'gpt-4o' },
+            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
+            { label: 'GPT-4.1', value: 'gpt-4.1' },
+            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
+            { label: 'GPT-4.1 Nano', value: 'gpt-4.1-nano' },
+            { label: 'o3 Mini', value: 'o3-mini' },
+        ],
+        gemini: [
+            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+            { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash-preview-05-20' },
+            { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro-preview-05-06' },
+            { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+        ],
+    }
+
+    // Fetch AI settings from channel
+    useEffect(() => {
+        if (!activeChannel?.id) return
+        const fetchAiSettings = async () => {
+            try {
+                const res = await fetch(`/api/admin/channels/${activeChannel.id}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setAiProvider(data.defaultAiProvider || '')
+                    setAiModel(data.defaultAiModel || '')
+                    setHasAiApiKey(!!data.hasAiApiKey)
+                }
+            } catch { /* ignore */ }
+        }
+        fetchAiSettings()
+    }, [activeChannel?.id])
+
+    const saveAiSettings = useCallback(async () => {
+        if (!activeChannel?.id) return
+        setSavingAi(true)
+        try {
+            const body: any = {
+                defaultAiProvider: aiProvider || null,
+                defaultAiModel: aiModel || null,
+            }
+            if (aiApiKey.trim()) {
+                body.aiApiKey = aiApiKey.trim()
+            }
+            const res = await fetch(`/api/admin/channels/${activeChannel.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (res.ok) {
+                toast.success('AI settings saved')
+                setAiApiKey('')
+                if (aiApiKey.trim()) setHasAiApiKey(true)
+            } else {
+                toast.error('Failed to save AI settings')
+            }
+        } catch {
+            toast.error('Network error')
+        } finally {
+            setSavingAi(false)
+        }
+    }, [activeChannel?.id, aiProvider, aiModel, aiApiKey])
 
     // ─── Notification sound (Web Audio API — two-tone chime) ─
     const toggleSoundMute = useCallback(() => {
@@ -745,6 +825,109 @@ export default function InboxPage() {
                                 <span>{waitingCount} waiting</span>
                             </div>
                         </div>
+                    </div>
+
+                    <Separator className="mx-2" />
+
+                    {/* AI Settings */}
+                    <div className="p-2">
+                        <button
+                            onClick={() => setShowAiSettings(!showAiSettings)}
+                            className="w-full flex items-center justify-between px-2 py-1 cursor-pointer"
+                        >
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                AI Settings
+                            </p>
+                            {showAiSettings ? (
+                                <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            )}
+                        </button>
+                        {showAiSettings && (
+                            <div className="space-y-2 mt-2 px-1">
+                                {/* Provider */}
+                                <div>
+                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Provider</label>
+                                    <select
+                                        value={aiProvider}
+                                        onChange={e => {
+                                            setAiProvider(e.target.value)
+                                            setAiModel('') // reset model on provider change
+                                        }}
+                                        className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    >
+                                        <option value="">Select provider...</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="gemini">Google Gemini</option>
+                                    </select>
+                                </div>
+
+                                {/* Model */}
+                                {aiProvider && (
+                                    <div>
+                                        <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Model</label>
+                                        <select
+                                            value={aiModel}
+                                            onChange={e => setAiModel(e.target.value)}
+                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                        >
+                                            <option value="">Select model...</option>
+                                            {AI_MODELS[aiProvider]?.map(m => (
+                                                <option key={m.value} value={m.value}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* API Key */}
+                                <div>
+                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                                        <KeyRound className="h-2.5 w-2.5" />
+                                        API Key
+                                        {hasAiApiKey && <span className="text-green-500">✓ Set</span>}
+                                    </label>
+                                    <div className="relative mt-0.5">
+                                        <input
+                                            type={showApiKey ? 'text' : 'password'}
+                                            value={aiApiKey}
+                                            onChange={e => setAiApiKey(e.target.value)}
+                                            placeholder={hasAiApiKey ? '••••••••••••••' : 'sk-... or AIza...'}
+                                            className="w-full h-7 px-2 pr-7 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <button
+                                            onClick={() => setShowApiKey(!showApiKey)}
+                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                                        >
+                                            {showApiKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Save */}
+                                <Button
+                                    size="sm"
+                                    className="w-full h-7 text-[10px]"
+                                    onClick={saveAiSettings}
+                                    disabled={savingAi || (!aiProvider && !aiApiKey.trim())}
+                                >
+                                    {savingAi ? (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                    ) : (
+                                        <Save className="h-3 w-3 mr-1" />
+                                    )}
+                                    Save AI Settings
+                                </Button>
+
+                                {/* Current config display */}
+                                {aiProvider && aiModel && (
+                                    <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
+                                        <p className="text-[9px] text-muted-foreground">Current: <span className="text-foreground font-medium">{aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}</span></p>
+                                        <p className="text-[9px] text-muted-foreground">Model: <span className="text-foreground font-medium">{AI_MODELS[aiProvider]?.find(m => m.value === aiModel)?.label || aiModel}</span></p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </ScrollArea>
             </div>
