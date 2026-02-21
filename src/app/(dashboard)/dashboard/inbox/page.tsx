@@ -252,23 +252,35 @@ export default function InboxPage() {
     const audioContextRef = useRef<AudioContext | null>(null)
     const notifIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    // ─── Notification sound (Web Audio API) ─
+    // ─── Notification sound (Web Audio API — two-tone chime) ─
     const playNotificationSound = useCallback(() => {
         try {
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
             }
             const ctx = audioContextRef.current
-            const oscillator = ctx.createOscillator()
-            const gain = ctx.createGain()
-            oscillator.connect(gain)
-            gain.connect(ctx.destination)
-            oscillator.frequency.setValueAtTime(880, ctx.currentTime) // A5 note
-            oscillator.type = 'sine'
-            gain.gain.setValueAtTime(0.3, ctx.currentTime)
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
-            oscillator.start(ctx.currentTime)
-            oscillator.stop(ctx.currentTime + 0.5)
+            // First tone — C6
+            const osc1 = ctx.createOscillator()
+            const gain1 = ctx.createGain()
+            osc1.connect(gain1)
+            gain1.connect(ctx.destination)
+            osc1.frequency.setValueAtTime(1047, ctx.currentTime) // C6
+            osc1.type = 'sine'
+            gain1.gain.setValueAtTime(0.25, ctx.currentTime)
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
+            osc1.start(ctx.currentTime)
+            osc1.stop(ctx.currentTime + 0.15)
+            // Second tone — E6 (higher)
+            const osc2 = ctx.createOscillator()
+            const gain2 = ctx.createGain()
+            osc2.connect(gain2)
+            gain2.connect(ctx.destination)
+            osc2.frequency.setValueAtTime(1319, ctx.currentTime + 0.15) // E6
+            osc2.type = 'sine'
+            gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.15)
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
+            osc2.start(ctx.currentTime + 0.15)
+            osc2.stop(ctx.currentTime + 0.4)
         } catch (e) {
             console.warn('Could not play notification sound:', e)
         }
@@ -298,43 +310,73 @@ export default function InboxPage() {
         }
     }, [])
 
-    // ─── Polling for new messages ─────
+    // ─── Background polling — auto-refresh conversations + messages ─
     useEffect(() => {
-        const pollNewMessages = async () => {
+        const pollInterval = setInterval(async () => {
             try {
+                // 1. Fetch latest conversations
                 const params = new URLSearchParams()
                 if (activeChannel?.id) params.set('channelId', activeChannel.id)
-                const res = await fetch(`/api/inbox/conversations?${params}&limit=5`)
+                if (statusFilter !== 'all' && statusFilter !== 'mine') params.set('status', statusFilter)
+                if (statusFilter === 'mine') params.set('mine', 'true')
+                if (activeTab !== 'all') params.set('tab', activeTab)
+                if (selectedPlatformIds.length === 1) params.set('platformAccountId', selectedPlatformIds[0])
+
+                const res = await fetch(`/api/inbox/conversations?${params}`)
                 if (!res.ok) return
                 const data = await res.json()
-                const totalUnread = (data.conversations || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
+                const freshConversations = data.conversations || []
+                const freshCounts = data.counts || counts
 
+                // 2. Detect new inbound messages by comparing total unread
+                const totalUnread = freshConversations.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
                 if (prevUnreadRef.current > 0 && totalUnread > prevUnreadRef.current) {
                     const newCount = totalUnread - prevUnreadRef.current
                     playNotificationSound()
-                    const newest = data.conversations?.[0]
-                    showBrowserNotification(
-                        `📬 ${newCount} new message${newCount > 1 ? 's' : ''}`,
-                        newest?.lastMessage?.substring(0, 80) || 'New activity in your inbox'
-                    )
-                    // Refresh the conversation list
-                    fetchConversations()
+                    // Show in-app toast
+                    const newest = freshConversations[0]
+                    const senderName = newest?.externalUserName || 'Someone'
+                    const preview = newest?.lastMessage?.substring(0, 60) || 'New message'
+                    toast(`📬 ${senderName}`, { description: preview })
+                    // Browser notification (if tab is in background)
+                    if (document.hidden) {
+                        showBrowserNotification(
+                            `📬 ${newCount} new message${newCount > 1 ? 's' : ''}`,
+                            `${senderName}: ${preview}`
+                        )
+                    }
                 }
                 prevUnreadRef.current = totalUnread
-            } catch (e) {
+
+                // 3. Update conversation list (smart merge — preserve selection)
+                setConversations(freshConversations)
+                setCounts(freshCounts)
+
+                // 4. If a conversation is selected, also refresh its messages
+                if (selectedConversation) {
+                    const msgRes = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`)
+                    if (msgRes.ok) {
+                        const msgData = await msgRes.json()
+                        setMessages(prev => {
+                            const freshMsgs = msgData.messages || []
+                            // Only update if message count changed (avoid scroll reset)
+                            if (freshMsgs.length !== prev.length || freshMsgs[freshMsgs.length - 1]?.id !== prev[prev.length - 1]?.id) {
+                                return freshMsgs
+                            }
+                            return prev
+                        })
+                    }
+                }
+            } catch {
                 // Silently ignore polling errors
             }
-        }
+        }, 10000) // Every 10 seconds
 
         // Initial unread count
         prevUnreadRef.current = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
 
-        notifIntervalRef.current = setInterval(pollNewMessages, 15000) // Every 15 seconds
-
-        return () => {
-            if (notifIntervalRef.current) clearInterval(notifIntervalRef.current)
-        }
-    }, [activeChannel?.id, playNotificationSound, showBrowserNotification]) // eslint-disable-line
+        return () => clearInterval(pollInterval)
+    }, [activeChannel?.id, statusFilter, activeTab, selectedPlatformIds, selectedConversation?.id, playNotificationSound, showBrowserNotification]) // eslint-disable-line
 
     // ─── Fetch platform accounts ──────
     const fetchPlatforms = useCallback(async () => {
@@ -789,17 +831,17 @@ export default function InboxPage() {
                                             <span className="text-xs font-semibold truncate flex-1">
                                                 {conv.externalUserName || 'Unknown'}
                                             </span>
-                                            {conv.type === 'message' && (
+                                            {(conv.type || 'message') === 'message' && (
                                                 <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500 font-bold uppercase tracking-wide shrink-0">
                                                     Message
                                                 </span>
                                             )}
-                                            {conv.type === 'comment' && (
+                                            {(conv.type || 'message') === 'comment' && (
                                                 <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 font-bold uppercase tracking-wide shrink-0">
                                                     Comment
                                                 </span>
                                             )}
-                                            {conv.type === 'review' && (
+                                            {(conv.type || 'message') === 'review' && (
                                                 <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500 font-bold uppercase tracking-wide shrink-0">
                                                     Review
                                                 </span>
