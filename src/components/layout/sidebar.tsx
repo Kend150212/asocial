@@ -48,6 +48,7 @@ import {
     Check,
     CreditCard,
     LayoutList,
+    Code2,
     Plus,
     Paintbrush,
 } from 'lucide-react'
@@ -74,6 +75,7 @@ const mainNav: NavItem[] = [
     { titleKey: 'nav.media', href: '/dashboard/media', icon: Image },
     { titleKey: 'nav.reports', href: '/dashboard/reports', icon: BarChart3 },
     { titleKey: 'nav.apiKeys', href: '/dashboard/api-keys', icon: Key },
+    { titleKey: 'nav.developer', href: '/dashboard/developer', icon: Code2 },
     { titleKey: 'nav.billing', href: '/dashboard/billing', icon: CreditCard },
 ]
 
