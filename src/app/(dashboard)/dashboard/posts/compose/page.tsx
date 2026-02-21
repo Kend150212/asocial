@@ -659,6 +659,7 @@ export default function ComposePage() {
     const selectedChannelRef = useRef<Channel | null>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [aiScheduleSuggestions, setAiScheduleSuggestions] = useState<any[]>([])
+    const [aiScheduleLoading, setAiScheduleLoading] = useState(false)
 
     // Load channels — only include active platforms
     useEffect(() => {
@@ -1368,6 +1369,29 @@ export default function ComposePage() {
             } else {
                 toast.success('Content generated!')
             }
+
+            // Auto-download and attach article images (og:image) when generating from URL
+            if (data.imageUrls && data.imageUrls.length > 0 && selectedChannel) {
+                for (const imgUrl of data.imageUrls.slice(0, 3)) {
+                    try {
+                        const uploadRes = await fetch('/api/admin/media/from-url', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: imgUrl, channelId: selectedChannel.id }),
+                        })
+                        if (uploadRes.ok) {
+                            const media = await uploadRes.json()
+                            if (media && media.id) {
+                                setAttachedMedia((prev) => {
+                                    if (prev.some((m) => m.id === media.id)) return prev
+                                    return [...prev, media]
+                                })
+                            }
+                        }
+                    } catch { /* skip failed image download */ }
+                }
+                toast.success('Article images attached!')
+            }
         } catch { toast.error('AI generation failed — check your AI API key in API Hub') }
         finally { setGenerating(false) }
     }
@@ -1897,7 +1921,7 @@ export default function ComposePage() {
                                     variant="outline"
                                     size="sm"
                                     className="w-full text-xs cursor-pointer gap-2"
-                                    disabled={!selectedChannel || generating}
+                                    disabled={!selectedChannel || generating || aiScheduleLoading}
                                     onClick={async () => {
                                         if (!selectedChannel) return
                                         const platforms = activePlatforms
@@ -1907,6 +1931,7 @@ export default function ComposePage() {
                                             toast.error('Select at least one platform')
                                             return
                                         }
+                                        setAiScheduleLoading(true)
                                         try {
                                             const res = await fetch('/api/admin/posts/suggest-schedule', {
                                                 method: 'POST',
@@ -1926,11 +1951,13 @@ export default function ComposePage() {
                                             toast.success('AI schedule suggestions ready!')
                                         } catch {
                                             toast.error('Failed to get AI suggestions')
+                                        } finally {
+                                            setAiScheduleLoading(false)
                                         }
                                     }}
                                 >
-                                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                                    AI Suggest Best Times
+                                    {aiScheduleLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                                    {aiScheduleLoading ? 'Analyzing best times...' : 'AI Suggest Best Times'}
                                 </Button>
                                 {aiScheduleSuggestions.length > 0 && (
                                     <div className="grid grid-cols-1 gap-1.5 mt-2">

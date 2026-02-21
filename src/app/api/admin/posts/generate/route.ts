@@ -8,7 +8,7 @@ import { getChannelOwnerKey } from '@/lib/channel-owner-key'
 // ─── URL detection & article scraping ────────────────────────────────
 const URL_REGEX = /https?:\/\/[^\s<>"']+/gi
 
-async function fetchArticleContent(url: string): Promise<string> {
+async function fetchArticleContent(url: string): Promise<{ text: string; images: string[] }> {
     try {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
@@ -20,7 +20,7 @@ async function fetchArticleContent(url: string): Promise<string> {
             signal: controller.signal,
         })
         clearTimeout(timeout)
-        if (!res.ok) return ''
+        if (!res.ok) return { text: '', images: [] }
         const html = await res.text()
 
         // Strip HTML tags, scripts, styles to get text content
@@ -46,18 +46,29 @@ async function fetchArticleContent(url: string): Promise<string> {
         const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i)
         const metaDesc = html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i)
 
+        // Extract og:image and twitter:image
+        const ogImage = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i)
+            || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i)
+        const twitterImage = html.match(/<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"/i)
+            || html.match(/<meta[^>]*content="([^"]+)"[^>]*name="twitter:image"/i)
+        const images: string[] = []
+        if (ogImage?.[1]) images.push(ogImage[1])
+        else if (twitterImage?.[1]) images.push(twitterImage[1])
+
         const title = ogTitle?.[1] || titleMatch?.[1] || ''
         const description = ogDesc?.[1] || metaDesc?.[1] || ''
 
         // Return structured article info, limited to ~3000 chars
         const articleBody = text.slice(0, 2500)
-        return [
+        const articleText = [
             title ? `Title: ${title}` : '',
             description ? `Summary: ${description}` : '',
             `Content: ${articleBody}`,
         ].filter(Boolean).join('\n')
+
+        return { text: articleText, images }
     } catch {
-        return ''
+        return { text: '', images: [] }
     }
 }
 
@@ -166,15 +177,20 @@ export async function POST(req: NextRequest) {
     // ── Detect URLs in topic and fetch article content ──
     const urls = topic.match(URL_REGEX) || []
     let articleContext = ''
+    const imageUrls: string[] = []
     if (urls.length > 0) {
         const fetches = await Promise.allSettled(
             urls.slice(0, 3).map((u: string) => fetchArticleContent(u))
         )
         const articles = fetches
-            .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled' && !!r.value)
+            .filter((r): r is PromiseFulfilledResult<{ text: string; images: string[] }> => r.status === 'fulfilled' && !!r.value.text)
             .map((r) => r.value)
         if (articles.length > 0) {
-            articleContext = `\n\nArticle(s) referenced by the user:\n${articles.join('\n---\n')}`
+            articleContext = `\n\nArticle(s) referenced by the user:\n${articles.map(a => a.text).join('\n---\n')}`
+            // Collect all og:image URLs
+            for (const a of articles) {
+                imageUrls.push(...a.images)
+            }
         }
     }
 
@@ -257,6 +273,7 @@ Rules:
             provider: providerName,
             model,
             articlesFetched: urls.length,
+            imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         })
     } catch (error) {
         console.error('AI Generate error:', error)
