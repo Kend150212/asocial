@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { botAutoReply, sendBotGreeting } from '@/lib/bot-auto-reply'
 
 // ─── Webhook verify token ──────────────
 const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'asocial_webhook_2024'
@@ -316,6 +317,7 @@ async function upsertConversation(opts: {
     metadata?: any
 }) {
     // Find or create conversation
+    let isNewConversation = false
     let conversation = await prisma.conversation.findFirst({
         where: {
             channelId: opts.channelId,
@@ -325,6 +327,7 @@ async function upsertConversation(opts: {
     })
 
     if (!conversation) {
+        isNewConversation = true
         conversation = await prisma.conversation.create({
             data: {
                 channelId: opts.channelId,
@@ -395,4 +398,20 @@ async function upsertConversation(opts: {
             sentAt: new Date(),
         },
     })
+
+    // ─── Bot Auto-Reply (fire-and-forget) ─────────────────────
+    if (opts.direction === 'inbound' && conversation.mode === 'BOT') {
+        if (isNewConversation) {
+            // New conversation: send greeting first, then auto-reply
+            sendBotGreeting(conversation.id, opts.platform)
+                .then(() => botAutoReply(conversation.id, opts.content, opts.platform))
+                .then(r => console.log(`[Bot Auto-Reply] Result:`, r))
+                .catch(e => console.error(`[Bot Auto-Reply] ❌`, e))
+        } else {
+            // Existing conversation: just auto-reply
+            botAutoReply(conversation.id, opts.content, opts.platform)
+                .then(r => console.log(`[Bot Auto-Reply] Result:`, r))
+                .catch(e => console.error(`[Bot Auto-Reply] ❌`, e))
+        }
+    }
 }

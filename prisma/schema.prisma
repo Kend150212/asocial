@@ -835,8 +835,13 @@ model BotConfig {
   isEnabled       Boolean @default(true) @map("is_enabled")
   botName         String  @default("AI Assistant") @map("bot_name")
   greeting        String? @db.Text
+  greetingImages  Json?   @default("[]") @map("greeting_images") // Array of image URLs
   personality     String? @db.Text
   language        String  @default("vi")
+
+  // Image library & video consultation
+  imageFolderId   String? @map("image_folder_id") // Drive folder for bot images
+  consultVideos   Json?   @default("[]") @map("consult_videos") // [{title, url, description}]
 
   // AI behavior
   confidenceThreshold Float   @default(0.7) @map("confidence_threshold")
