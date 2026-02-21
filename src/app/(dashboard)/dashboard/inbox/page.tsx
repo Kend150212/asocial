@@ -767,6 +767,21 @@ export default function InboxPage() {
                                             <span className="text-xs font-semibold truncate flex-1">
                                                 {conv.externalUserName || 'Unknown'}
                                             </span>
+                                            {conv.type === 'message' && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500 font-bold uppercase tracking-wide shrink-0">
+                                                    Message
+                                                </span>
+                                            )}
+                                            {conv.type === 'comment' && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 font-bold uppercase tracking-wide shrink-0">
+                                                    Comment
+                                                </span>
+                                            )}
+                                            {conv.type === 'review' && (
+                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500 font-bold uppercase tracking-wide shrink-0">
+                                                    Review
+                                                </span>
+                                            )}
                                             <span className="text-[10px] text-muted-foreground shrink-0">
                                                 {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
                                             </span>
