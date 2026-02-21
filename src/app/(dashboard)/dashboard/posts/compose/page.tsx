@@ -69,6 +69,7 @@ import {
     RefreshCw,
     Lightbulb,
     ExternalLink,
+    Building2,
 } from 'lucide-react'
 import { PlatformIcon } from '@/components/platform-icons'
 import { useTranslation } from '@/lib/i18n'
@@ -2063,14 +2064,15 @@ export default function ComposePage() {
                                         🔗 Include source link
                                     </label>
                                 )}
-                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
                                     <input
                                         type="checkbox"
                                         checked={includeBusinessInfo}
                                         onChange={(e) => setIncludeBusinessInfo(e.target.checked)}
                                         className="h-3 w-3 rounded accent-primary"
                                     />
-                                    🏢 Include business info
+                                    <Building2 className="h-3 w-3 text-blue-400" />
+                                    Include business info
                                 </label>
                             </div>
 
