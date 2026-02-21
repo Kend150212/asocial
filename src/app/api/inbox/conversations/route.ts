@@ -126,6 +126,8 @@ export async function GET(req: NextRequest) {
         tags: (c.tags as string[]) || [],
         sentiment: c.sentiment,
         intent: c.intent,
+        type: c.type,
+        metadata: c.metadata,
         priority: c.priority,
         aiSummary: c.aiSummary,
         lastMessageAt: c.lastMessageAt?.toISOString() || null,
