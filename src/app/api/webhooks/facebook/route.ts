@@ -102,16 +102,17 @@ async function handleFeedChange(pageId: string, value: any) {
         return
     }
 
-    // Try to find matching post in our DB
-    const post = await prisma.post.findFirst({
-        where: {
-            channelId: platformAccount.channelId,
-            OR: [
-                { externalId: externalPostId },
-                { externalId: { contains: externalPostId.split('_').pop() || '' } },
-            ],
-        },
-    })
+    // Try to find matching post via PostPlatformStatus
+    let postId: string | null = null
+    if (externalPostId) {
+        const platformStatus = await prisma.postPlatformStatus.findFirst({
+            where: {
+                externalId: externalPostId,
+            },
+            select: { postId: true },
+        })
+        postId = platformStatus?.postId || null
+    }
 
     // Upsert the comment
     await prisma.socialComment.upsert({
@@ -123,7 +124,7 @@ async function handleFeedChange(pageId: string, value: any) {
         create: {
             channelId: platformAccount.channelId,
             platformAccountId: platformAccount.id,
-            postId: post?.id || null,
+            postId: postId,
             platform: 'facebook',
             externalPostId,
             externalCommentId,
