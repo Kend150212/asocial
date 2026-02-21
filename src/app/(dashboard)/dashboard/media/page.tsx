@@ -49,6 +49,8 @@ import {
     FolderInput,
     FileVideo,
     File,
+    Maximize2,
+    ChevronLeft,
 } from 'lucide-react'
 import { GDriveGuard } from '@/components/gdrive-guard'
 
@@ -157,6 +159,9 @@ export default function MediaLibraryPage() {
     const [uploading, setUploading] = useState(false)
     const [isDraggingOver, setIsDraggingOver] = useState(false)
     const dragCounter = useRef(0)
+
+    // Lightbox
+    const [lightboxItem, setLightboxItem] = useState<MediaItem | null>(null)
 
     /* ─── channels come from workspace context — no local fetch needed ─── */
 
@@ -813,7 +818,14 @@ export default function MediaLibraryPage() {
                                                     </div>
 
                                                     {/* Image/Video */}
-                                                    <div className="h-full w-full">
+                                                    <div
+                                                        className="h-full w-full cursor-pointer"
+                                                        onClick={(e) => {
+                                                            // Don't open lightbox if clicking checkbox or menu
+                                                            if ((e.target as HTMLElement).closest('[role="checkbox"]') || (e.target as HTMLElement).closest('button')) return
+                                                            setLightboxItem(item)
+                                                        }}
+                                                    >
                                                         {isVideo(item) ? (
                                                             <div className="relative h-full w-full bg-muted">
                                                                 <img
@@ -834,6 +846,12 @@ export default function MediaLibraryPage() {
                                                                 className="h-full w-full object-cover"
                                                             />
                                                         )}
+                                                        {/* Zoom hint */}
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                            <div className="h-8 w-8 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
+                                                                <Maximize2 className="h-3.5 w-3.5 text-white" />
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     {/* Context menu */}
@@ -900,7 +918,10 @@ export default function MediaLibraryPage() {
                                                                 />
                                                             </td>
                                                             <td className="p-2">
-                                                                <div className="h-8 w-8 rounded bg-muted overflow-hidden">
+                                                                <div
+                                                                    className="h-8 w-8 rounded bg-muted overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                                                    onClick={() => setLightboxItem(item)}
+                                                                >
                                                                     <img
                                                                         src={item.thumbnailUrl || item.url}
                                                                         alt=""
@@ -984,6 +1005,92 @@ export default function MediaLibraryPage() {
                     </>
                 )}
             </div>
+
+            {/* ─── Lightbox Overlay ─── */}
+            {lightboxItem && (
+                <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+                    onClick={(e) => { if (e.target === e.currentTarget) setLightboxItem(null) }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Escape') setLightboxItem(null)
+                        if (e.key === 'ArrowRight') {
+                            const idx = media.findIndex(m => m.id === lightboxItem.id)
+                            if (idx < media.length - 1) setLightboxItem(media[idx + 1])
+                        }
+                        if (e.key === 'ArrowLeft') {
+                            const idx = media.findIndex(m => m.id === lightboxItem.id)
+                            if (idx > 0) setLightboxItem(media[idx - 1])
+                        }
+                    }}
+                    tabIndex={0}
+                    ref={(el) => el?.focus()}
+                >
+                    {/* Close button */}
+                    <button
+                        onClick={() => setLightboxItem(null)}
+                        className="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+
+                    {/* Previous */}
+                    {media.findIndex(m => m.id === lightboxItem.id) > 0 && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                const idx = media.findIndex(m => m.id === lightboxItem.id)
+                                setLightboxItem(media[idx - 1])
+                            }}
+                            className="absolute left-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                        >
+                            <ChevronLeft className="h-5 w-5" />
+                        </button>
+                    )}
+
+                    {/* Next */}
+                    {media.findIndex(m => m.id === lightboxItem.id) < media.length - 1 && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                const idx = media.findIndex(m => m.id === lightboxItem.id)
+                                setLightboxItem(media[idx + 1])
+                            }}
+                            className="absolute right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                        >
+                            <ChevronRight className="h-5 w-5" />
+                        </button>
+                    )}
+
+                    {/* Content */}
+                    <div className="max-w-[90vw] max-h-[85vh] flex flex-col items-center gap-3">
+                        {isVideo(lightboxItem) ? (
+                            <video
+                                src={lightboxItem.url}
+                                controls
+                                autoPlay
+                                className="max-w-full max-h-[80vh] rounded-lg shadow-2xl"
+                            />
+                        ) : (
+                            <img
+                                src={lightboxItem.url}
+                                alt={lightboxItem.originalName || ''}
+                                className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain"
+                            />
+                        )}
+                        {/* Info bar */}
+                        <div className="flex items-center gap-3 text-white/80 text-xs">
+                            <span className="font-medium text-white">{lightboxItem.originalName}</span>
+                            {lightboxItem.fileSize && (
+                                <span className="text-white/50">{formatBytes(lightboxItem.fileSize)}</span>
+                            )}
+                            <span className="text-white/30">
+                                {media.findIndex(m => m.id === lightboxItem.id) + 1} / {media.length}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Create Folder Dialog ─── */}
             <Dialog open={showCreateFolder} onOpenChange={setShowCreateFolder}>
