@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { channelId, prompt, width = 1024, height = 1024 } = await req.json()
+    const { channelId, prompt, width = 1024, height = 1024, provider: requestedProvider, model: requestedModel } = await req.json()
 
     if (!channelId || !prompt) {
         return NextResponse.json({ error: 'channelId and prompt are required' }, { status: 400 })
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     // ─── Resolve API key: use Channel Owner's BYOK ────────────────────
     // Staff and managers in a channel share the Owner's API key.
     // No admin API Hub fallback — the owner must configure their own key.
-    const preferredProvider = channel.defaultImageProvider || null
+    const preferredProvider = requestedProvider || channel.defaultImageProvider || null
 
     const ownerKey = await getChannelOwnerKey(channelId, preferredProvider)
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const resolvedProvider = ownerKey.provider!
     const apiKey = ownerKey.apiKey!
-    const imageModel = ownerKey.model || channel.defaultImageModel || null
+    const imageModel = requestedModel || ownerKey.model || channel.defaultImageModel || null
 
 
     if (!resolvedProvider || !apiKey) {

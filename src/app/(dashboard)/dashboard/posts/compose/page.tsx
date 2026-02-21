@@ -583,6 +583,11 @@ export default function ComposePage() {
     const [generatingImage, setGeneratingImage] = useState(false)
     const [aiGeneratedPreview, setAiGeneratedPreview] = useState<string | null>(null)
     const [lastUsedImageModel, setLastUsedImageModel] = useState<string | null>(null)
+    // Image provider/model override for Generate Image dialog
+    const [overrideImageProvider, setOverrideImageProvider] = useState('')
+    const [overrideImageModel, setOverrideImageModel] = useState('')
+    const [availableImageModels, setAvailableImageModels] = useState<{ id: string; name: string; type?: string }[]>([])
+    const [loadingImageModels, setLoadingImageModels] = useState(false)
     const [stockQuery, setStockQuery] = useState('')
     const [stockPhotos, setStockPhotos] = useState<{ id: number; src: { original: string; medium: string; small: string }; photographer: string; alt: string }[]>([])
     const [searchingStock, setSearchingStock] = useState(false)
@@ -1448,10 +1453,13 @@ export default function ComposePage() {
         setAiGeneratedPreview(null)
         try {
             const promptToUse = useContentAsPrompt && content.trim() ? content.substring(0, 500) : aiImagePrompt
+            const body: Record<string, unknown> = { channelId: selectedChannel.id, prompt: promptToUse }
+            if (overrideImageProvider) body.provider = overrideImageProvider
+            if (overrideImageModel) body.model = overrideImageModel
             const res = await fetch('/api/admin/posts/generate-image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId: selectedChannel.id, prompt: promptToUse }),
+                body: JSON.stringify(body),
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error)
@@ -3856,14 +3864,67 @@ export default function ComposePage() {
                         {/* AI Generate */}
                         {imagePickerTab === 'ai' && (
                             <div className="space-y-4">
-                                {/* Model badge */}
+                                {/* Provider / Model selector */}
                                 <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] px-2 py-0.5">
-                                        {selectedChannel?.defaultImageProvider
-                                            ? `${selectedChannel.defaultImageProvider}${selectedChannel.defaultImageModel ? ' / ' + selectedChannel.defaultImageModel : ''}`
-                                            : 'Auto-detect provider'
-                                        }
-                                    </Badge>
+                                    <select
+                                        value={overrideImageProvider || selectedChannel?.defaultImageProvider || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value
+                                            setOverrideImageProvider(val)
+                                            setOverrideImageModel('')
+                                            setAvailableImageModels([])
+                                            if (val) {
+                                                setLoadingImageModels(true)
+                                                fetch('/api/user/api-keys/models', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ provider: val }),
+                                                }).then(r => r.json()).then(d => {
+                                                    setAvailableImageModels(
+                                                        (d.models || []).filter((m: { type?: string }) => m.type === 'image')
+                                                    )
+                                                }).catch(() => { }).finally(() => setLoadingImageModels(false))
+                                            }
+                                        }}
+                                        className="h-7 text-[11px] rounded-md border bg-muted/50 px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                                    >
+                                        <option value="">Auto-detect provider</option>
+                                        <option value="runware">Runware</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="gemini">Gemini</option>
+                                    </select>
+                                    <select
+                                        value={overrideImageModel || selectedChannel?.defaultImageModel || ''}
+                                        onChange={(e) => setOverrideImageModel(e.target.value)}
+                                        disabled={loadingImageModels}
+                                        className="h-7 text-[11px] rounded-md border bg-muted/50 px-2 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                                    >
+                                        <option value="">Default model</option>
+                                        {availableImageModels.map(m => (
+                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                        ))}
+                                        {/* Fallback well-known models if none fetched */}
+                                        {availableImageModels.length === 0 && (overrideImageProvider || selectedChannel?.defaultImageProvider) === 'runware' && (
+                                            <>
+                                                <option value="runware:100@1">FLUX.1 [Dev]</option>
+                                                <option value="runware:101@1">FLUX.1 [Schnell]</option>
+                                            </>
+                                        )}
+                                        {availableImageModels.length === 0 && (overrideImageProvider || selectedChannel?.defaultImageProvider) === 'openai' && (
+                                            <>
+                                                <option value="dall-e-3">DALL·E 3</option>
+                                                <option value="dall-e-2">DALL·E 2</option>
+                                                <option value="gpt-image-1">GPT Image 1</option>
+                                            </>
+                                        )}
+                                        {availableImageModels.length === 0 && (overrideImageProvider || selectedChannel?.defaultImageProvider) === 'gemini' && (
+                                            <>
+                                                <option value="imagen-3.0-generate-002">Imagen 3</option>
+                                                <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+                                            </>
+                                        )}
+                                    </select>
+                                    {loadingImageModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                                 </div>
 
                                 {/* Option: Use content as prompt or custom */}
