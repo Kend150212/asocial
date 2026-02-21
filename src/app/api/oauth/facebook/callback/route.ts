@@ -141,6 +141,31 @@ export async function GET(req: NextRequest) {
         }
         console.log(`[Facebook OAuth] Successfully imported ${imported}/${pages.length} pages. Errors: ${errors.length}`)
 
+        // ── Subscribe pages to webhook for real-time events ──
+        for (const page of pages) {
+            try {
+                const subRes = await fetch(
+                    `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            subscribed_fields: 'feed,messages,messaging_postbacks,message_deliveries,message_reads',
+                            access_token: page.access_token,
+                        }),
+                    }
+                )
+                const subData = await subRes.json()
+                if (subData.success) {
+                    console.log(`[Facebook OAuth] 🔔 Webhook subscribed: ${page.name}`)
+                } else {
+                    console.warn(`[Facebook OAuth] ⚠️ Webhook subscription failed for ${page.name}:`, JSON.stringify(subData))
+                }
+            } catch (subErr) {
+                console.error(`[Facebook OAuth] ❌ Webhook subscription error for ${page.name}:`, subErr)
+            }
+        }
+
         // If no pages, store user profile
         if (imported === 0) {
             const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${userAccessToken}`)
