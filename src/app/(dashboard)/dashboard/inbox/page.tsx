@@ -863,8 +863,16 @@ export default function InboxPage() {
                                         const prevMsg = idx > 0 ? messages[idx - 1] : null
                                         const isFirstReplyInGroup = isReply && (!prevMsg || prevMsg.direction === 'inbound')
 
-                                        // Extract @mention from content
-                                        const mentionMatch = msg.content.match(/^@(\S+)\s/)
+                                        // Resolve sender info with fallback for old messages
+                                        const senderName = msg.senderName
+                                            || (msg.direction === 'inbound' ? selectedConversation.externalUserName : null)
+                                            || 'User'
+                                        const senderAvatar = msg.senderAvatar
+                                            || (msg.direction === 'inbound' ? selectedConversation.externalUserAvatar : null)
+                                            || null
+
+                                        // Extract @mention from content (supports multi-word names)
+                                        const mentionMatch = msg.content.match(/^@([^\n]+?)\s(?=\S)/)
                                         const mentionName = mentionMatch ? mentionMatch[1] : null
                                         const contentWithoutMention = mentionName
                                             ? msg.content.substring(mentionMatch![0].length)
@@ -883,8 +891,8 @@ export default function InboxPage() {
                                                 <div className="flex gap-2 py-1">
                                                     {/* Avatar */}
                                                     <Avatar className={cn('shrink-0 mt-0.5', isReply ? 'h-7 w-7' : 'h-8 w-8')}>
-                                                        {msg.direction === 'inbound' && msg.senderAvatar ? (
-                                                            <AvatarImage src={msg.senderAvatar} alt={msg.senderName || ''} />
+                                                        {msg.direction === 'inbound' && senderAvatar ? (
+                                                            <AvatarImage src={senderAvatar} alt={senderName} />
                                                         ) : null}
                                                         <AvatarFallback className={cn(
                                                             'text-[10px] font-medium',
@@ -896,7 +904,7 @@ export default function InboxPage() {
                                                         )}>
                                                             {msg.direction === 'outbound'
                                                                 ? msg.senderType === 'bot' ? '🤖' : 'S'
-                                                                : msg.senderName?.charAt(0)?.toUpperCase() || '?'
+                                                                : senderName.charAt(0).toUpperCase()
                                                             }
                                                         </AvatarFallback>
                                                     </Avatar>
@@ -915,7 +923,7 @@ export default function InboxPage() {
                                                                         ? msg.senderType === 'bot'
                                                                             ? '🤖 AI Bot'
                                                                             : selectedConversation.platformAccount?.accountName || 'Page'
-                                                                        : msg.senderName || 'User'
+                                                                        : senderName
                                                                     }
                                                                 </span>
                                                                 {msg.direction === 'outbound' && msg.senderType !== 'bot' && (
@@ -940,9 +948,8 @@ export default function InboxPage() {
                                                                 <button
                                                                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                                                     onClick={() => {
-                                                                        const name = msg.senderName || 'User'
-                                                                        setReplyToName(name)
-                                                                        setReplyText(`@${name} `)
+                                                                        setReplyToName(senderName)
+                                                                        setReplyText(`@${senderName} `)
                                                                         // Focus the textarea
                                                                         setTimeout(() => {
                                                                             const textarea = document.querySelector('textarea')
