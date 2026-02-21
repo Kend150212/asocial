@@ -57,6 +57,7 @@ export async function GET(
     return NextResponse.json({
         messages: messages.map(m => ({
             id: m.id,
+            externalId: m.externalId,
             direction: m.direction,
             senderType: m.senderType,
             content: m.content,
@@ -174,7 +175,7 @@ export async function POST(
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    message: content.trim(),
+                                    message: content.trim().replace(/@\[([^\]]+)\]/g, '@$1'),
                                     access_token: platformAccount.accessToken,
                                 }),
                             }

@@ -87,6 +87,7 @@ interface Conversation {
 
 interface InboxMessage {
     id: string
+    externalId: string | null
     direction: string
     senderType: string
     content: string
@@ -876,11 +877,13 @@ export default function InboxPage() {
                                             || (msg.direction === 'inbound' ? selectedConversation.externalUserAvatar : null)
                                             || null
 
-                                        // Extract @mention from content (supports multi-word names)
-                                        const mentionMatch = msg.content.match(/^@([^\n]+?)\s(?=\S)/)
-                                        const mentionName = mentionMatch ? mentionMatch[1] : null
-                                        const contentWithoutMention = mentionName
-                                            ? msg.content.substring(mentionMatch![0].length)
+                                        // Extract @mention from content — bracket syntax @[Name] for multi-word names
+                                        const bracketMatch = msg.content.match(/^@\[([^\]]+)\]\s?/)
+                                        const legacyMatch = !bracketMatch ? msg.content.match(/^@(\S+)\s/) : null
+                                        const mentionName = bracketMatch ? bracketMatch[1] : legacyMatch ? legacyMatch[1] : null
+                                        const mentionMatchUsed = bracketMatch || legacyMatch
+                                        const contentWithoutMention = mentionName && mentionMatchUsed
+                                            ? msg.content.substring(mentionMatchUsed[0].length)
                                             : msg.content
 
                                         return (
@@ -946,15 +949,36 @@ export default function InboxPage() {
                                                         </div>
                                                         {/* Like · Reply · Time */}
                                                         <div className="flex items-center gap-3 mt-0.5 ml-3">
-                                                            <button className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                                                                Like
-                                                            </button>
+                                                            {msg.direction === 'inbound' && msg.externalId && selectedConversation && (
+                                                                <button
+                                                                    className="text-[10px] font-semibold text-muted-foreground hover:text-blue-500 transition-colors"
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/like`, {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({ commentExternalId: msg.externalId }),
+                                                                            })
+                                                                            if (res.ok) {
+                                                                                toast.success('👍 Liked!')
+                                                                            } else {
+                                                                                const data = await res.json()
+                                                                                toast.error(data.error || 'Failed to like')
+                                                                            }
+                                                                        } catch {
+                                                                            toast.error('Failed to like')
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    👍 Like
+                                                                </button>
+                                                            )}
                                                             {msg.direction === 'inbound' && (
                                                                 <button
                                                                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                                                     onClick={() => {
                                                                         setReplyToName(senderName)
-                                                                        setReplyText(`@${senderName} `)
+                                                                        setReplyText(`@[${senderName}] `)
                                                                         // Focus the textarea
                                                                         setTimeout(() => {
                                                                             const textarea = document.querySelector('textarea')
