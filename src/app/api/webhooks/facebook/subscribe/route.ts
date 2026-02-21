@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
         where: {
             channelId: { in: channelIds },
             platform: 'facebook',
-            isActive: true,
             accessToken: { not: null },
         },
     })
