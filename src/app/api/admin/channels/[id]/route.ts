@@ -105,6 +105,7 @@ export async function PUT(
         'storageProvider', 'storageConfig', 'useDefaultStorage',
         'webhookDiscord', 'webhookTelegram', 'webhookSlack',
         'webhookCustom', 'webhookEvents',
+        'businessInfo',
     ]
 
     for (const field of allowedFields) {

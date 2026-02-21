@@ -80,7 +80,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { channelId, topic, platforms, provider: requestedProvider, model: requestedModel } = body
+    const {
+        channelId, topic, platforms,
+        provider: requestedProvider, model: requestedModel,
+        includeSourceLink, includeBusinessInfo,
+    } = body
 
     if (!channelId || !topic) {
         return NextResponse.json({ error: 'Channel and topic are required' }, { status: 400 })
@@ -197,6 +201,42 @@ export async function POST(req: NextRequest) {
     // Clean topic: keep the user's text but note what URLs were fetched
     const cleanTopic = topic
 
+    // ── Build business info context ──
+    const bizInfo = (channel as any).businessInfo as {
+        phone?: string; address?: string; website?: string;
+        socials?: Record<string, string>;
+        custom?: { label: string; url: string }[]
+    } | null
+    let businessContext = ''
+    if (includeBusinessInfo && bizInfo) {
+        const parts: string[] = []
+        if (bizInfo.phone) parts.push(`Phone: ${bizInfo.phone}`)
+        if (bizInfo.address) parts.push(`Address: ${bizInfo.address}`)
+        if (bizInfo.website) parts.push(`Website: ${bizInfo.website}`)
+        // Social links
+        const socialParts: string[] = []
+        if (bizInfo.socials) {
+            for (const [platform, url] of Object.entries(bizInfo.socials)) {
+                if (url) socialParts.push(`${platform}: ${url}`)
+            }
+        }
+        if (bizInfo.custom) {
+            for (const c of bizInfo.custom) {
+                if (c.label && c.url) socialParts.push(`${c.label}: ${c.url}`)
+            }
+        }
+        if (socialParts.length > 0) parts.push(`Social Links: ${socialParts.join(', ')}`)
+        if (parts.length > 0) {
+            businessContext = `\nBusiness Contact Info:\n${parts.join('\n')}`
+        }
+    }
+
+    // ── Source link instruction ──
+    const isUrlTopic = urls.length > 0
+    const sourceUrlText = isUrlTopic && includeSourceLink
+        ? `\n- At the END of the post, append: "\n\n🔗 ${urls[0]}"`
+        : ''
+
     const systemPrompt = `You are a world-class social media content creator. Write engaging, high-converting posts. Respond ONLY with valid JSON.`
 
     const userPrompt = `Create social media post content for these platforms: ${platformList}
@@ -207,6 +247,7 @@ Language: ${langLabel}
 ${vibeStr ? `Tone & Style: ${vibeStr}` : ''}
 ${kbContext ? `\nBrand Context:\n${kbContext}` : ''}
 ${articleContext}
+${businessContext}
 ${allHashtags.length > 0 ? `\nAvailable hashtags: ${allHashtags.join(' ')}` : ''}
 
 Respond with this exact JSON structure:
@@ -218,14 +259,15 @@ Respond with this exact JSON structure:
 
 Rules:
 - Write ENTIRELY in ${langLabel}
-- If the user provided article link(s), USE the article content to create an engaging social media post summarizing or discussing the article
-- Start with a hook/attention grabber
+- If the user provided article link(s), REWRITE the article content into an original, engaging social media post that is LONGER and MORE DETAILED than a typical post. Paraphrase and add your own creative flair — do NOT copy the article verbatim.
+- Start with a powerful hook/attention grabber
 - Include a clear call-to-action
-- Keep it concise but engaging
-- Use emojis strategically (2-3 max)
+${isUrlTopic ? '- For article-based content: write between 500-2000 characters. Be thorough, insightful, and add value beyond the original article.' : '- Keep it concise but engaging (100-800 characters)'}
+- Use emojis strategically (2-5)
 - Include 3-8 relevant hashtags
-- Sound authentic, NOT robotic
-- Make the content between 100-800 characters for cross-platform compatibility`
+- Sound authentic, NOT robotic or like an advertisement
+${businessContext ? `- Naturally incorporate the business contact information into the post in a way that fits the context. Do NOT just list the info — weave it naturally. For example, end with "Visit us at [address]" or "DM us or call [phone]". Pick the most relevant pieces based on the platform (${platformList}). For TikTok/Instagram focus on social links, for Facebook/LinkedIn include phone/address/website.` : ''}
+${sourceUrlText}`
 
     try {
         const result = await callAI(

@@ -586,6 +586,8 @@ export default function ComposePage() {
     const [stockPhotos, setStockPhotos] = useState<{ id: number; src: { original: string; medium: string; small: string }; photographer: string; alt: string }[]>([])
     const [searchingStock, setSearchingStock] = useState(false)
     const [downloadingStock, setDownloadingStock] = useState<number | null>(null)
+    const [includeSourceLink, setIncludeSourceLink] = useState(true)
+    const [includeBusinessInfo, setIncludeBusinessInfo] = useState(true)
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story' | 'reel'>>({})
     const [fbCarousel, setFbCarousel] = useState(false)
@@ -1356,7 +1358,13 @@ export default function ComposePage() {
             const res = await fetch('/api/admin/posts/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId: selectedChannel.id, topic: aiTopic, platforms }),
+                body: JSON.stringify({
+                    channelId: selectedChannel.id,
+                    topic: aiTopic,
+                    platforms,
+                    includeSourceLink,
+                    includeBusinessInfo,
+                }),
             })
             const data = await res.json()
             if (!res.ok) {
@@ -2023,6 +2031,30 @@ export default function ComposePage() {
                                 <Button onClick={handleGenerate} disabled={generating || !aiTopic.trim()} size="sm" className="shrink-0 cursor-pointer">
                                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                                 </Button>
+                            </div>
+
+                            {/* URL & Business Info toggles */}
+                            <div className="flex flex-wrap gap-3">
+                                {aiTopic.startsWith('http') && (
+                                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={includeSourceLink}
+                                            onChange={(e) => setIncludeSourceLink(e.target.checked)}
+                                            className="h-3 w-3 rounded accent-primary"
+                                        />
+                                        🔗 Include source link
+                                    </label>
+                                )}
+                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeBusinessInfo}
+                                        onChange={(e) => setIncludeBusinessInfo(e.target.checked)}
+                                        className="h-3 w-3 rounded accent-primary"
+                                    />
+                                    🏢 Include business info
+                                </label>
                             </div>
 
                             {/* Suggested Topics */}

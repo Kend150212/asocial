@@ -41,6 +41,9 @@ import {
     Eye,
     EyeOff,
     X,
+    Phone,
+    MapPin,
+    Globe as Globe2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -190,6 +193,13 @@ interface ChannelDetail {
     defaultAiModel: string | null
     defaultImageProvider: string | null
     defaultImageModel: string | null
+    businessInfo: {
+        phone?: string
+        address?: string
+        website?: string
+        socials?: Record<string, string>
+        custom?: { label: string; url: string }[]
+    } | null
 }
 
 const sourceTypeIcons: Record<string, typeof Type> = {
@@ -281,6 +291,15 @@ export default function ChannelDetailPage({
     const [webhookCustomUrl, setWebhookCustomUrl] = useState('')
     const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
 
+    // Business Info state
+    const [bizPhone, setBizPhone] = useState('')
+    const [bizAddress, setBizAddress] = useState('')
+    const [bizWebsite, setBizWebsite] = useState('')
+    const [bizSocials, setBizSocials] = useState<Record<string, string>>({})
+    const [bizCustomLinks, setBizCustomLinks] = useState<{ label: string; url: string }[]>([])
+    const [newCustomLabel, setNewCustomLabel] = useState('')
+    const [newCustomUrl, setNewCustomUrl] = useState('')
+
     // Platform state
     const [platforms, setPlatforms] = useState<ChannelPlatformEntry[]>([])
     const [addingPlatform, setAddingPlatform] = useState(false)
@@ -331,6 +350,13 @@ export default function ChannelDetailPage({
                 setWebhookTelegramChatId(data.webhookTelegram?.chatId || '')
                 setWebhookSlackUrl(data.webhookSlack?.url || '')
                 setWebhookCustomUrl(data.webhookCustom?.url || '')
+                // Business Info
+                const biz = data.businessInfo || {}
+                setBizPhone(biz.phone || '')
+                setBizAddress(biz.address || '')
+                setBizWebsite(biz.website || '')
+                setBizSocials(biz.socials || {})
+                setBizCustomLinks(biz.custom || [])
             } else {
                 toast.error(t('channels.notFound'))
                 router.push('/dashboard/channels')
@@ -496,6 +522,13 @@ export default function ChannelDetailPage({
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
                     webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
                     webhookCustom: webhookCustomUrl ? { url: webhookCustomUrl } : {},
+                    businessInfo: {
+                        phone: bizPhone || undefined,
+                        address: bizAddress || undefined,
+                        website: bizWebsite || undefined,
+                        socials: Object.keys(bizSocials).length > 0 ? bizSocials : undefined,
+                        custom: bizCustomLinks.length > 0 ? bizCustomLinks : undefined,
+                    },
                 }),
             })
             if (res.ok) {
@@ -532,6 +565,13 @@ export default function ChannelDetailPage({
                     defaultImageProvider: imageProvider || null,
                     defaultImageModel: imageModel || null,
                     ...(isAdmin ? { requireOwnApiKey } : {}),
+                    businessInfo: {
+                        phone: bizPhone || undefined,
+                        address: bizAddress || undefined,
+                        website: bizWebsite || undefined,
+                        socials: Object.keys(bizSocials).length > 0 ? bizSocials : undefined,
+                        custom: bizCustomLinks.length > 0 ? bizCustomLinks : undefined,
+                    },
                 }),
             })
             if (res.ok) {
@@ -544,7 +584,7 @@ export default function ChannelDetailPage({
             setAutoSaveStatus('idle')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey])
+    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks])
 
     useEffect(() => {
         // Skip auto-save on initial load
@@ -563,7 +603,7 @@ export default function ChannelDetailPage({
             if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, requireOwnApiKey])
+    }, [displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks])
 
     // ─── AI Analysis ────────────────────────────────
     const handleAnalyze = async () => {
@@ -1303,6 +1343,155 @@ export default function ChannelDetailPage({
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Business Info Card ────────────── */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm flex items-center gap-2">
+                                <Globe2 className="h-4 w-4" />
+                                Business Info
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Contact details & social links — AI will use these naturally in generated posts
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs flex items-center gap-1.5">
+                                        <Phone className="h-3 w-3" /> Phone
+                                    </Label>
+                                    <Input
+                                        placeholder="+1 (234) 567-8900"
+                                        value={bizPhone}
+                                        onChange={(e) => setBizPhone(e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs flex items-center gap-1.5">
+                                        <Globe2 className="h-3 w-3" /> Website
+                                    </Label>
+                                    <Input
+                                        placeholder="https://example.com"
+                                        value={bizWebsite}
+                                        onChange={(e) => setBizWebsite(e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs flex items-center gap-1.5">
+                                    <MapPin className="h-3 w-3" /> Address
+                                </Label>
+                                <Input
+                                    placeholder="123 Main St, City, State, ZIP"
+                                    value={bizAddress}
+                                    onChange={(e) => setBizAddress(e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+
+                            <Separator />
+
+                            {/* Social Links */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-medium">Social Media Links</Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {[
+                                        { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/brand' },
+                                        { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/brand' },
+                                        { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@brand' },
+                                        { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@brand' },
+                                        { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/brand' },
+                                        { key: 'x', label: 'X / Twitter', placeholder: 'https://x.com/brand' },
+                                        { key: 'threads', label: 'Threads', placeholder: 'https://threads.net/@brand' },
+                                        { key: 'pinterest', label: 'Pinterest', placeholder: 'https://pinterest.com/brand' },
+                                    ].map((social) => (
+                                        <div key={social.key} className="flex items-center gap-2">
+                                            <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+                                                {platformIcons[social.key] || <Globe2 className="h-3.5 w-3.5" />}
+                                            </div>
+                                            <Input
+                                                placeholder={social.placeholder}
+                                                value={bizSocials[social.key] || ''}
+                                                onChange={(e) => setBizSocials((prev) => ({
+                                                    ...prev,
+                                                    [social.key]: e.target.value,
+                                                }))}
+                                                className="h-7 text-xs flex-1"
+                                            />
+                                            {bizSocials[social.key] && (
+                                                <button
+                                                    onClick={() => setBizSocials((prev) => {
+                                                        const next = { ...prev }
+                                                        delete next[social.key]
+                                                        return next
+                                                    })}
+                                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Custom Links */}
+                            <div className="space-y-3">
+                                <Label className="text-xs font-medium">Custom Links</Label>
+                                {bizCustomLinks.length > 0 && (
+                                    <div className="space-y-2">
+                                        {bizCustomLinks.map((link, i) => (
+                                            <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-md p-2">
+                                                <LinkIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium truncate">{link.label}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{link.url}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setBizCustomLinks((prev) => prev.filter((_, idx) => idx !== i))}
+                                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="Label (e.g. Book Now)"
+                                        value={newCustomLabel}
+                                        onChange={(e) => setNewCustomLabel(e.target.value)}
+                                        className="h-7 text-xs flex-1"
+                                    />
+                                    <Input
+                                        placeholder="https://..."
+                                        value={newCustomUrl}
+                                        onChange={(e) => setNewCustomUrl(e.target.value)}
+                                        className="h-7 text-xs flex-1"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs cursor-pointer"
+                                        disabled={!newCustomLabel.trim() || !newCustomUrl.trim()}
+                                        onClick={() => {
+                                            setBizCustomLinks((prev) => [...prev, { label: newCustomLabel, url: newCustomUrl }])
+                                            setNewCustomLabel('')
+                                            setNewCustomUrl('')
+                                        }}
+                                    >
+                                        <Plus className="h-3 w-3 mr-1" /> Add
+                                    </Button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
