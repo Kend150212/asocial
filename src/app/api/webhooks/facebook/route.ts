@@ -40,7 +40,11 @@ export async function POST(req: NextRequest) {
             if (entry.changes) {
                 for (const change of entry.changes) {
                     if (change.field === 'feed') {
-                        await handleFeedChange(pageId, change.value)
+                        try {
+                            await handleFeedChange(pageId, change.value)
+                        } catch (err) {
+                            console.error(`[FB Webhook] ❌ Error processing feed change for page ${pageId}:`, err)
+                        }
                     }
                 }
             }
@@ -48,7 +52,11 @@ export async function POST(req: NextRequest) {
             // ── Messaging (DMs) ──
             if (entry.messaging) {
                 for (const msgEvent of entry.messaging) {
-                    await handleMessaging(pageId, msgEvent)
+                    try {
+                        await handleMessaging(pageId, msgEvent)
+                    } catch (err) {
+                        console.error(`[FB Webhook] ❌ Error processing message for page ${pageId}:`, err)
+                    }
                 }
             }
         }
