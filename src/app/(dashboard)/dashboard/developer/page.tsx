@@ -214,11 +214,37 @@ export default function DeveloperPortalPage() {
     const [activeSection, setActiveSection] = useState('overview')
 
     const responseRef = useRef<HTMLPreElement>(null)
+    const wrapperRef = useRef<HTMLDivElement>(null)
+    const [navLeft, setNavLeft] = useState(0)
 
     useEffect(() => { fetchKeys() }, [])
 
+    // ─── Find the dashboard scroll container & measure nav position ──
+    const getScrollContainer = useCallback(() => {
+        // DashboardMain's <main> has overflow-y-auto
+        let el: HTMLElement | null = wrapperRef.current
+        while (el) {
+            const style = window.getComputedStyle(el)
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll') return el
+            el = el.parentElement
+        }
+        return null
+    }, [])
+
+    useEffect(() => {
+        function measure() {
+            if (wrapperRef.current) {
+                setNavLeft(wrapperRef.current.getBoundingClientRect().left)
+            }
+        }
+        measure()
+        window.addEventListener('resize', measure)
+        return () => window.removeEventListener('resize', measure)
+    }, [])
+
     // ─── Intersection observer for active section tracking ─────────
     useEffect(() => {
+        const scrollRoot = getScrollContainer()
         const allIds = [
             ...FIXED_SECTIONS.map(s => s.id),
             ...CATEGORIES.map(c => `cat-${c.toLowerCase().replace(/\s+/g, '-')}`),
@@ -233,14 +259,14 @@ export default function DeveloperPortalPage() {
                     }
                 }
             },
-            { rootMargin: '-80px 0px -70% 0px', threshold: 0.1 }
+            { root: scrollRoot, rootMargin: '-80px 0px -70% 0px', threshold: 0.1 }
         )
         allIds.forEach(id => {
             const el = document.getElementById(id)
             if (el) observer.observe(el)
         })
         return () => observer.disconnect()
-    }, [])
+    }, [getScrollContainer])
 
     async function fetchKeys() {
         try {
@@ -298,8 +324,16 @@ export default function DeveloperPortalPage() {
         setPlaygroundResponse(null)
         setPlaygroundStatus(null)
         setPlaygroundHeaders({})
-        document.getElementById('playground')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, [])
+        // Scroll within the dashboard scroll container
+        const target = document.getElementById('playground')
+        const scrollRoot = getScrollContainer()
+        if (target && scrollRoot) {
+            const offset = target.offsetTop - scrollRoot.offsetTop
+            scrollRoot.scrollTo({ top: offset, behavior: 'smooth' })
+        } else {
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+    }, [getScrollContainer])
 
     async function executeRequest() {
         if (!apiKeyInput.trim()) { toast.error('Enter your API key first'); return }
@@ -345,15 +379,31 @@ export default function DeveloperPortalPage() {
     const domain = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
 
     function scrollTo(id: string) {
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const target = document.getElementById(id)
+        const scrollRoot = getScrollContainer()
+        if (target && scrollRoot) {
+            const offset = target.offsetTop - scrollRoot.offsetTop
+            scrollRoot.scrollTo({ top: offset, behavior: 'smooth' })
+        } else {
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
     }
 
     // ─── Render ─────────────────────────────────────────────────
     return (
-        <div className="flex min-h-screen -mx-3 -my-4 sm:-mx-6 sm:-my-6" style={{ overflow: 'visible' }}>
+        <div ref={wrapperRef} className="min-h-screen -mx-3 -my-4 sm:-mx-6 sm:-my-6">
 
-            {/* ─── Sticky Side Navigation ── */}
-            <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r bg-muted/20 sticky top-0 self-start max-h-screen overflow-y-auto py-4 px-2">
+            {/* ─── Fixed Side Navigation ── */}
+            <aside
+                className="hidden lg:flex flex-col w-56 shrink-0 border-r bg-muted/20 overflow-y-auto py-4 px-2"
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: navLeft,
+                    height: '100vh',
+                    zIndex: 30,
+                }}
+            >
                 {/* Logo area */}
                 <div className="px-3 mb-6">
                     <div className="flex items-center gap-2 text-sm font-bold">
@@ -435,8 +485,8 @@ export default function DeveloperPortalPage() {
                 </button>
             </aside>
 
-            {/* ─── Main Content ── */}
-            <main className="flex-1 max-w-4xl mx-auto px-4 md:px-8 py-8 space-y-16">
+            {/* ─── Main Content (pushed right on lg to account for fixed sidebar) ── */}
+            <main className="lg:ml-56 flex-1 max-w-4xl mx-auto px-4 md:px-8 py-8 space-y-16">
 
                 {/* ═══ OVERVIEW ═══ */}
                 <section id="overview" className="scroll-mt-6">
