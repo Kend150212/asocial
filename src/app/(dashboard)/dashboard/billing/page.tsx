@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
     CreditCard, Zap, Calendar, AlertCircle, CheckCircle2,
-    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot
+    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot, Code2
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
 import { useTranslation } from '@/lib/i18n'
@@ -27,6 +27,7 @@ type BillingInfo = {
         maxMembersPerChannel: number
         maxStorageMB: number
         maxAiImagesPerMonth: number
+        maxApiCallsPerMonth: number
         hasAutoSchedule: boolean
         hasWebhooks: boolean
         hasAdvancedReports: boolean
@@ -47,6 +48,7 @@ type BillingInfo = {
         channelCount: number
         month: string
         imagesThisMonth: number
+        apiCallsThisMonth: number
     }
     aiImage: {
         hasByokKey: boolean
@@ -103,6 +105,7 @@ export default function BillingPage() {
     const postsPercent = plan.maxPostsPerMonth === -1 ? 0 : Math.min(100, (usage.postsThisMonth / plan.maxPostsPerMonth) * 100)
     const channelsPercent = plan.maxChannels === -1 ? 0 : Math.min(100, (usage.channelCount / plan.maxChannels) * 100)
     const imagesPercent = aiImage.maxPerMonth <= 0 ? 0 : Math.min(100, (usage.imagesThisMonth / aiImage.maxPerMonth) * 100)
+    const apiPercent = plan.maxApiCallsPerMonth <= 0 ? 0 : Math.min(100, (usage.apiCallsThisMonth / plan.maxApiCallsPerMonth) * 100)
 
     const statusColor = subscription?.status === 'active' ? 'text-green-500' : subscription?.status === 'past_due' ? 'text-red-500' : 'text-orange-500'
     const StatusIcon = subscription?.status === 'active' ? CheckCircle2 : AlertCircle
@@ -271,6 +274,36 @@ export default function BillingPage() {
                 </CardContent>
             </Card>
 
+            {/* API Calls */}
+            {plan.maxApiCallsPerMonth !== 0 && (
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <Code2 className="h-4 w-4" />
+                            API Calls ({usage.month})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div className="flex items-end justify-between">
+                            <span className="text-2xl font-bold">{usage.apiCallsThisMonth.toLocaleString()}</span>
+                            <span className="text-sm text-muted-foreground">
+                                / {plan.maxApiCallsPerMonth === -1
+                                    ? `∞ ${t('billing.unlimited').toLowerCase()}`
+                                    : plan.maxApiCallsPerMonth.toLocaleString()}
+                            </span>
+                        </div>
+                        {plan.maxApiCallsPerMonth > 0 && plan.maxApiCallsPerMonth !== -1 && (
+                            <Progress value={apiPercent} className={`h-2 ${apiPercent >= 90 ? '[&>div]:bg-red-500' : apiPercent >= 70 ? '[&>div]:bg-orange-500' : ''}`} />
+                        )}
+                        {plan.maxApiCallsPerMonth === -1 && <p className="text-xs text-green-500">{t('billing.unlimited')}</p>}
+                        {plan.maxApiCallsPerMonth > 0 && apiPercent >= 90 && <p className="text-xs text-red-500">{t('billing.nearLimit')}</p>}
+                        <p className="text-xs text-muted-foreground">
+                            Manage your API keys in <a href="/dashboard/developer" className="text-primary underline">Developer API</a>
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Plan Features */}
             <Card>
                 <CardHeader>
@@ -286,6 +319,7 @@ export default function BillingPage() {
                             { icon: <Bot className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiPostsMonth'), value: plan.maxPostsPerMonth === -1 ? '∞' : plan.maxPostsPerMonth },
                             { icon: <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.aiImagesMonth'), value: plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? t('billing.byokOnly') : plan.maxAiImagesPerMonth },
                             { icon: <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.storage'), value: fmtStorage(plan.maxStorageMB, t('billing.unlimited')) },
+                            { icon: <Code2 className="h-3.5 w-3.5 text-muted-foreground" />, label: 'API Calls/Month', value: plan.maxApiCallsPerMonth === -1 ? '∞' : plan.maxApiCallsPerMonth === 0 ? 'Disabled' : plan.maxApiCallsPerMonth.toLocaleString() },
                             { icon: <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />, label: t('billing.membersPerChannel'), value: plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel },
                         ].map(({ icon, label, value }) => (
                             <div key={label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">

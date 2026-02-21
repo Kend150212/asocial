@@ -51,6 +51,15 @@ export async function GET(_req: NextRequest) {
         select: { provider: true },
     })
 
+    // API calls this month
+    let apiCallsThisMonth = 0
+    if (sub) {
+        const usageRecord = await db.usage.findUnique({
+            where: { subscriptionId_month: { subscriptionId: sub.id, month } },
+        })
+        apiCallsThisMonth = usageRecord?.apiCalls ?? 0
+    }
+
     return NextResponse.json({
         plan,
         subscription: sub
@@ -68,6 +77,7 @@ export async function GET(_req: NextRequest) {
             channelCount,
             month,
             imagesThisMonth,
+            apiCallsThisMonth,
         },
         aiImage: {
             hasByokKey: !!byokKey,

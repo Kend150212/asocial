@@ -17,6 +17,9 @@ type Plan = {
     maxChannels: number
     maxPostsPerMonth: number
     maxMembersPerChannel: number
+    maxAiImagesPerMonth: number
+    maxStorageMB: number
+    maxApiCallsPerMonth: number
     hasAutoSchedule: boolean
     hasWebhooks: boolean
     hasAdvancedReports: boolean
@@ -189,6 +192,23 @@ export default function PricingPage() {
                                     />
                                     {plan.hasAutoSchedule && (
                                         <FeatureItem label={locale === 'vi' ? 'Lên lịch tự động' : 'Auto scheduling'} />
+                                    )}
+                                    {plan.maxAiImagesPerMonth !== 0 && (
+                                        <FeatureItem label={plan.maxAiImagesPerMonth === -1
+                                            ? (locale === 'vi' ? 'AI Image không giới hạn' : 'Unlimited AI images')
+                                            : (locale === 'vi' ? `${plan.maxAiImagesPerMonth} AI Image/tháng` : `${plan.maxAiImagesPerMonth} AI images/mo`)} />
+                                    )}
+                                    {plan.maxApiCallsPerMonth !== 0 && (
+                                        <FeatureItem label={plan.maxApiCallsPerMonth === -1
+                                            ? 'Unlimited API calls'
+                                            : `${plan.maxApiCallsPerMonth.toLocaleString()} API calls/mo`} />
+                                    )}
+                                    {plan.maxStorageMB > 0 && (
+                                        <FeatureItem label={plan.maxStorageMB === -1
+                                            ? (locale === 'vi' ? 'Lưu trữ không giới hạn' : 'Unlimited storage')
+                                            : plan.maxStorageMB >= 1024
+                                                ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB storage`
+                                                : `${plan.maxStorageMB} MB storage`} />
                                     )}
                                     {plan.hasWebhooks && <FeatureItem label="Webhooks" />}
                                     {plan.hasAdvancedReports && (
