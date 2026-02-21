@@ -96,7 +96,7 @@ export async function PUT(
     const updateData: any = {}
 
     const allowedFields = [
-        'displayName', 'description', 'isActive', 'language',
+        'displayName', 'description', 'isActive', 'language', 'timezone',
         'descriptionsPerPlatform', 'vibeTone', 'seoTags',
         'colorPalette', 'logoPrompts', 'bannerPrompts',
         'notificationEmail', 'requireApproval',

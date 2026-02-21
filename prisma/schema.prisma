@@ -230,6 +230,7 @@ model Channel {
   description             String?  @db.Text
   isActive                Boolean  @default(true) @map("is_active")
   language                String   @default("vi")
+  timezone                String   @default("UTC")
   descriptionsPerPlatform Json?    @map("descriptions_per_platform") @default("{}")
   vibeTone                Json?    @map("vibe_tone") @default("{}")
   seoTags                 Json?    @map("seo_tags") @default("[]")

@@ -708,9 +708,13 @@ export default function ComposePage() {
                 if (ch) setSelectedChannel(ch)
                 // Restore schedule
                 if (post.scheduledAt) {
+                    const channelTz = (post.channel as any)?.timezone || (selectedChannel as any)?.timezone || 'UTC'
                     const d = new Date(post.scheduledAt)
-                    setScheduleDate(d.toISOString().split('T')[0])
-                    setScheduleTime(d.toTimeString().slice(0, 5))
+                    // Format date and time in channel timezone
+                    const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: channelTz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+                    const timeParts = new Intl.DateTimeFormat('en-GB', { timeZone: channelTz, hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+                    setScheduleDate(dateParts)
+                    setScheduleTime(timeParts)
                 }
                 // Restore selected platforms from platformStatuses
                 if (post.platformStatuses && ch) {
@@ -1651,7 +1655,18 @@ export default function ComposePage() {
             if (scheduleDate) {
                 // Default time to 09:00 if user picked a date but left time blank
                 const time = scheduleTime || '09:00'
-                scheduledAt = new Date(`${scheduleDate}T${time}`).toISOString()
+                // Interpret date+time in channel's timezone, convert to UTC
+                const channelTz = (selectedChannel as any)?.timezone || 'UTC'
+                // Build a date string and use Intl to find the UTC offset
+                const localStr = `${scheduleDate}T${time}:00`
+                const naive = new Date(localStr)
+                // Get the offset between UTC and channel timezone at that moment
+                const utcStr = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(naive)
+                const tzStr = new Intl.DateTimeFormat('en-US', { timeZone: channelTz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(naive)
+                const utcDate = new Date(utcStr)
+                const tzDate = new Date(tzStr)
+                const offsetMs = tzDate.getTime() - utcDate.getTime()
+                scheduledAt = new Date(naive.getTime() - offsetMs).toISOString()
             }
 
             const existingId = editPostId || postIdRef.current
@@ -2046,6 +2061,12 @@ export default function ComposePage() {
                             <div>
                                 <Label className="text-[10px] text-muted-foreground">{t('compose.scheduleTime')}</Label>
                                 <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="mt-0.5 h-7 text-xs" />
+                            </div>
+                            {/* Timezone indicator */}
+                            <div className="flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-[9px] text-muted-foreground">
+                                    🌐 {(selectedChannel as any)?.timezone || 'UTC'}
+                                </span>
                             </div>
                             {scheduleDate && (
                                 <Button variant="ghost" size="sm" onClick={() => { setScheduleDate(''); setScheduleTime(''); setAiScheduleSuggestions([]) }} className="text-xs cursor-pointer">

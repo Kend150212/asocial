@@ -250,6 +250,7 @@ export default function ChannelDetailPage({
     const [displayName, setDisplayName] = useState('')
     const [description, setDescription] = useState('')
     const [language, setLanguage] = useState('en')
+    const [timezone, setTimezone] = useState('UTC')
     const [isActive, setIsActive] = useState(true)
     const [notificationEmail, setNotificationEmail] = useState('')
     const [requireApproval, setRequireApproval] = useState<'none' | 'optional' | 'required'>('none')
@@ -346,6 +347,7 @@ export default function ChannelDetailPage({
                 setDisplayName(data.displayName)
                 setDescription(data.description || '')
                 setLanguage(data.language)
+                setTimezone(data.timezone || 'UTC')
                 setIsActive(data.isActive)
                 setNotificationEmail(data.notificationEmail || '')
                 setRequireApproval((data.requireApproval as 'none' | 'optional' | 'required') || 'none')
@@ -529,6 +531,7 @@ export default function ChannelDetailPage({
                     displayName,
                     description: description || null,
                     language,
+                    timezone,
                     isActive,
                     notificationEmail: notificationEmail || null,
                     requireApproval,
@@ -583,6 +586,7 @@ export default function ChannelDetailPage({
                     displayName,
                     description: description || null,
                     language,
+                    timezone,
                     isActive,
                     notificationEmail: notificationEmail || null,
                     requireApproval,
@@ -617,7 +621,7 @@ export default function ChannelDetailPage({
             setAutoSaveStatus('idle')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks, brandTargetAudience, brandContentTypes, brandValues, brandCommStyle])
+    }, [channel, id, displayName, description, language, timezone, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks, brandTargetAudience, brandContentTypes, brandValues, brandCommStyle])
 
     useEffect(() => {
         // Skip auto-save on initial load
@@ -1133,7 +1137,7 @@ export default function ChannelDetailPage({
                             <CardDescription>{t('channels.generalSettingsDesc')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-2">
                                     <Label>{t('channels.displayName')}</Label>
                                     <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
@@ -1153,6 +1157,59 @@ export default function ChannelDetailPage({
                                             <SelectItem value="es">Spanish</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Timezone</Label>
+                                    <select
+                                        value={timezone}
+                                        onChange={(e) => setTimezone(e.target.value)}
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+                                    >
+                                        <optgroup label="North America">
+                                            <option value="America/New_York">Eastern (New York)</option>
+                                            <option value="America/Chicago">Central (Chicago)</option>
+                                            <option value="America/Denver">Mountain (Denver)</option>
+                                            <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
+                                            <option value="America/Anchorage">Alaska</option>
+                                            <option value="Pacific/Honolulu">Hawaii</option>
+                                            <option value="America/Toronto">Toronto</option>
+                                            <option value="America/Vancouver">Vancouver</option>
+                                        </optgroup>
+                                        <optgroup label="Europe">
+                                            <option value="Europe/London">London (GMT)</option>
+                                            <option value="Europe/Paris">Paris (CET)</option>
+                                            <option value="Europe/Berlin">Berlin (CET)</option>
+                                            <option value="Europe/Amsterdam">Amsterdam (CET)</option>
+                                            <option value="Europe/Moscow">Moscow</option>
+                                            <option value="Europe/Istanbul">Istanbul</option>
+                                        </optgroup>
+                                        <optgroup label="Asia">
+                                            <option value="Asia/Ho_Chi_Minh">Ho Chi Minh (ICT)</option>
+                                            <option value="Asia/Bangkok">Bangkok (ICT)</option>
+                                            <option value="Asia/Singapore">Singapore (SGT)</option>
+                                            <option value="Asia/Tokyo">Tokyo (JST)</option>
+                                            <option value="Asia/Seoul">Seoul (KST)</option>
+                                            <option value="Asia/Shanghai">Shanghai (CST)</option>
+                                            <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                                            <option value="Asia/Taipei">Taipei (CST)</option>
+                                            <option value="Asia/Dubai">Dubai (GST)</option>
+                                            <option value="Asia/Kolkata">India (IST)</option>
+                                            <option value="Asia/Jakarta">Jakarta (WIB)</option>
+                                        </optgroup>
+                                        <optgroup label="Oceania">
+                                            <option value="Australia/Sydney">Sydney (AEST)</option>
+                                            <option value="Australia/Melbourne">Melbourne (AEST)</option>
+                                            <option value="Pacific/Auckland">Auckland (NZST)</option>
+                                        </optgroup>
+                                        <optgroup label="South America">
+                                            <option value="America/Sao_Paulo">São Paulo (BRT)</option>
+                                            <option value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</option>
+                                            <option value="America/Bogota">Bogotá (COT)</option>
+                                        </optgroup>
+                                        <optgroup label="Other">
+                                            <option value="UTC">UTC</option>
+                                        </optgroup>
+                                    </select>
                                 </div>
                             </div>
 
