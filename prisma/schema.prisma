@@ -56,6 +56,7 @@ model User {
   activityLogs   ActivityLog[]
   apiKeys        UserApiKey[]
   appApiKeys     AppApiKey[]
+  assignedConversations Conversation[]
   subscription   Subscription?
 
   // NextAuth
@@ -276,6 +277,9 @@ model Channel {
   mediaItems           MediaItem[]
   mediaFolders         MediaFolder[]
   invites              ChannelInvite[]
+  conversations        Conversation[]
+  socialComments       SocialComment[]
+  botConfig            BotConfig?
 
   @@map("channels")
 }
@@ -332,6 +336,9 @@ model ChannelPlatform {
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [connectedBy], references: [id])
+
+  conversations Conversation[]
+  socialComments SocialComment[]
 
   @@unique([channelId, platform, accountId])
   @@map("channel_platforms")
@@ -417,6 +424,7 @@ model Post {
   media           PostMedia[]
   approvals       PostApproval[]
   platformStatuses PostPlatformStatus[]
+  socialComments   SocialComment[]
 
   @@index([channelId, status])
   @@index([scheduledAt])
@@ -725,3 +733,140 @@ model SiteSettings {
 
   @@map("site_settings")
 }
+
+// ==========================================
+// SOCIAL INBOX
+// ==========================================
+
+enum ConversationMode {
+  BOT
+  AGENT
+  PAUSED
+}
+
+model Conversation {
+  id                 String           @id @default(cuid())
+  channelId          String           @map("channel_id")
+  platformAccountId  String           @map("platform_account_id")
+  platform           String
+  externalUserId     String           @map("external_user_id")
+  externalUserName   String?          @map("external_user_name")
+  externalUserAvatar String?          @map("external_user_avatar")
+  status             String           @default("new") // new, open, done, archived
+  mode               ConversationMode @default(BOT)
+  assignedTo         String?          @map("assigned_to")
+  tags               Json?            @default("[]")
+  sentiment          String?          // positive, neutral, negative
+  intent             String?          // buy, support, complaint, info
+  priority           Int              @default(0)
+  aiSummary          String?          @map("ai_summary") @db.Text
+  lastMessageAt      DateTime?        @map("last_message_at")
+  unreadCount        Int              @default(0) @map("unread_count")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  channel         Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  agent           User?           @relation(fields: [assignedTo], references: [id])
+  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id])
+  messages        InboxMessage[]
+
+  @@unique([channelId, platform, externalUserId])
+  @@index([channelId, status])
+  @@index([platformAccountId])
+  @@map("conversations")
+}
+
+model InboxMessage {
+  id              String   @id @default(cuid())
+  conversationId  String   @map("conversation_id")
+  externalId      String?  @map("external_id")
+  direction       String   // inbound, outbound
+  senderType      String   @default("customer") @map("sender_type") // customer, bot, agent
+  content         String   @db.Text
+  contentOriginal String?  @map("content_original") @db.Text
+  detectedLang    String?  @map("detected_lang")
+  mediaUrl        String?  @map("media_url")
+  mediaType       String?  @map("media_type")
+  confidence      Float?
+  sentAt          DateTime @default(now()) @map("sent_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sentAt])
+  @@map("inbox_messages")
+}
+
+model SocialComment {
+  id                String    @id @default(cuid())
+  channelId         String    @map("channel_id")
+  platformAccountId String    @map("platform_account_id")
+  postId            String?   @map("post_id")
+  platform          String
+  externalPostId    String    @map("external_post_id")
+  externalCommentId String    @unique @map("external_comment_id")
+  parentCommentId   String?   @map("parent_comment_id")
+  authorName        String    @map("author_name")
+  authorAvatar      String?   @map("author_avatar")
+  content           String    @db.Text
+  sentiment         String?
+  isSpam            Boolean   @default(false) @map("is_spam")
+  status            String    @default("new") // new, replied, hidden, archived
+  replyContent      String?   @map("reply_content") @db.Text
+  repliedBy         String?   @map("replied_by")
+  repliedAt         DateTime? @map("replied_at")
+  commentedAt       DateTime  @map("commented_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  channel         Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id])
+  post            Post?           @relation(fields: [postId], references: [id])
+
+  @@index([channelId, status])
+  @@map("social_comments")
+}
+
+model BotConfig {
+  id              String  @id @default(cuid())
+  channelId       String  @unique @map("channel_id")
+  isEnabled       Boolean @default(true) @map("is_enabled")
+  botName         String  @default("AI Assistant") @map("bot_name")
+  greeting        String? @db.Text
+  personality     String? @db.Text
+  language        String  @default("vi")
+
+  // AI behavior
+  confidenceThreshold Float   @default(0.7) @map("confidence_threshold")
+  maxBotReplies       Int     @default(10) @map("max_bot_replies")
+  autoTagEnabled      Boolean @default(true) @map("auto_tag_enabled")
+  sentimentEnabled    Boolean @default(true) @map("sentiment_enabled")
+  spamFilterEnabled   Boolean @default(true) @map("spam_filter_enabled")
+  autoTranslate       Boolean @default(false) @map("auto_translate")
+  smartAssignEnabled  Boolean @default(false) @map("smart_assign_enabled")
+
+  // Escalation
+  autoEscalateKeywords Json? @default("[]") @map("auto_escalate_keywords")
+  forbiddenTopics      Json? @default("[]") @map("forbidden_topics")
+
+  // Working hours
+  workingHoursOnly  Boolean @default(false) @map("working_hours_only")
+  workingHoursStart String? @map("working_hours_start")
+  workingHoursEnd   String? @map("working_hours_end")
+  offHoursMessage   String? @map("off_hours_message") @db.Text
+
+  // Training
+  trainingPairs Json? @default("[]") @map("training_pairs")
+  exampleConvos Json? @default("[]") @map("example_convos")
+
+  // Scope
+  enabledPlatforms Json?   @default("[\"all\"]") @map("enabled_platforms")
+  applyToComments  Boolean @default(true) @map("apply_to_comments")
+  applyToMessages  Boolean @default(true) @map("apply_to_messages")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@map("bot_configs")
+}
+
