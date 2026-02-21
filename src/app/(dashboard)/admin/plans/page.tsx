@@ -29,6 +29,7 @@ type Plan = {
     maxAiImagesPerMonth: number
     maxAiTextPerMonth: number
     maxStorageMB: number
+    maxApiCallsPerMonth: number
     hasAutoSchedule: boolean
     hasWebhooks: boolean
     hasAdvancedReports: boolean
@@ -46,6 +47,7 @@ const EMPTY_PLAN: Omit<Plan, 'id' | '_count'> = {
     stripePriceIdMonthly: null, stripePriceIdAnnual: null,
     maxChannels: 1, maxPostsPerMonth: 50, maxMembersPerChannel: 2,
     maxAiImagesPerMonth: 0, maxAiTextPerMonth: 20, maxStorageMB: 512,
+    maxApiCallsPerMonth: 0,
     hasAutoSchedule: false, hasWebhooks: false, hasAdvancedReports: false,
     hasPrioritySupport: false, hasWhiteLabel: false,
     isActive: true, isPublic: true, sortOrder: 0,
@@ -209,7 +211,9 @@ export default function AdminPlansPage() {
                                     <div>Members/ch: {plan.maxMembersPerChannel === -1 ? '∞' : plan.maxMembersPerChannel}</div>
                                     <div>AI Images/mo: <span className="font-medium text-foreground">{plan.maxAiImagesPerMonth === -1 ? '∞' : plan.maxAiImagesPerMonth === 0 ? 'BYOK only' : plan.maxAiImagesPerMonth}</span></div>
                                     <div>Storage: <span className="font-medium text-foreground">{plan.maxStorageMB === -1 ? '∞' : plan.maxStorageMB >= 1024 ? `${(plan.maxStorageMB / 1024).toFixed(0)} GB` : `${plan.maxStorageMB} MB`}</span></div>
+                                    <div>API calls/mo: <span className="font-medium text-foreground">{plan.maxApiCallsPerMonth === -1 ? '∞' : plan.maxApiCallsPerMonth === 0 ? 'Disabled' : plan.maxApiCallsPerMonth.toLocaleString()}</span></div>
                                     <div className="flex flex-wrap gap-1 pt-1">
+                                        {plan.maxApiCallsPerMonth !== 0 && <Badge variant="secondary" className="text-xs px-1">API Access</Badge>}
                                         {plan.hasAutoSchedule && <Badge variant="secondary" className="text-xs px-1">Auto-schedule</Badge>}
                                         {plan.hasWebhooks && <Badge variant="secondary" className="text-xs px-1">Webhooks</Badge>}
                                         {plan.hasAdvancedReports && <Badge variant="secondary" className="text-xs px-1">Reports</Badge>}
@@ -283,7 +287,10 @@ export default function AdminPlansPage() {
                                     {field('maxAiImagesPerMonth', 'AI Images/Month', 'number')}
                                     <p className="text-xs text-muted-foreground mt-1">0=BYOK only, -1=unlimited</p>
                                 </div>
-                                <div>{/* reserved for future quota */}</div>
+                                <div>
+                                    {field('maxApiCallsPerMonth', 'API Calls/Month', 'number')}
+                                    <p className="text-xs text-muted-foreground mt-1">0=disabled, -1=unlimited</p>
+                                </div>
                             </div>
                             <div className="mt-3">
                                 {storageField}
@@ -293,6 +300,13 @@ export default function AdminPlansPage() {
                         <div className="border-t pt-3">
                             <p className="text-xs font-medium text-muted-foreground mb-2">FEATURES</p>
                             <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm">API Access</Label>
+                                    <Switch
+                                        checked={editPlan.maxApiCallsPerMonth !== 0}
+                                        onCheckedChange={v => setEditPlan(p => ({ ...p, maxApiCallsPerMonth: v ? (p.maxApiCallsPerMonth === 0 ? 1000 : p.maxApiCallsPerMonth) : 0 }))}
+                                    />
+                                </div>
                                 {toggle('hasAutoSchedule', 'Auto Scheduling')}
                                 {toggle('hasWebhooks', 'Webhooks')}
                                 {toggle('hasAdvancedReports', 'Advanced Reports')}
