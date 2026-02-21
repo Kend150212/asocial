@@ -239,6 +239,7 @@ export default function InboxPage() {
     const [dragOver, setDragOver] = useState(false)
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
     const [aiSuggesting, setAiSuggesting] = useState(false)
+    const [postExpanded, setPostExpanded] = useState(false)
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
     const [counts, setCounts] = useState<StatusCounts>({ new: 0, open: 0, done: 0, archived: 0, mine: 0, all: 0 })
@@ -577,6 +578,7 @@ export default function InboxPage() {
     // Select conversation
     const selectConversation = (conv: Conversation) => {
         setSelectedConversation(conv)
+        setPostExpanded(false)
         fetchMessages(conv.id)
     }
 
@@ -850,6 +852,12 @@ export default function InboxPage() {
                                                 {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
                                             </span>
                                         </div>
+                                        {/* Page name */}
+                                        {conv.platformAccount?.accountName && (
+                                            <div className="text-[9px] text-muted-foreground/60 truncate mt-0.5">
+                                                via {conv.platformAccount.accountName}
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-1 mt-0.5">
                                             <p className="text-[11px] text-muted-foreground truncate flex-1">
                                                 {(conv.lastMessage || 'No messages').replace(/@\[([^\]]+)\]/g, '@$1')}
@@ -1000,49 +1008,73 @@ export default function InboxPage() {
                         {/* Post preview for comment conversations */}
                         {selectedConversation?.type === 'comment' && selectedConversation.metadata && (
                             <div className="px-4 pt-3 pb-1 border-b border-border/50">
-                                <a
-                                    href={(selectedConversation.metadata as any).postPermalink || '#'}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/50 transition-colors overflow-hidden"
-                                >
+                                <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
                                     <div className="p-3">
                                         <div className="flex items-center gap-1.5 mb-1.5">
                                             <span className="text-[10px] font-medium text-blue-400/80">📄 Original Post</span>
-                                            <span className="text-[10px] text-muted-foreground">• Click to view on Facebook</span>
+                                            <a
+                                                href={(selectedConversation.metadata as any).postPermalink || '#'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] text-muted-foreground hover:text-blue-400 transition-colors"
+                                            >
+                                                • Click to view on Facebook
+                                            </a>
                                         </div>
                                         {(selectedConversation.metadata as any).postContent && (
-                                            <p className="text-xs text-foreground/80 line-clamp-3 leading-relaxed">
-                                                {(selectedConversation.metadata as any).postContent}
-                                            </p>
+                                            <div>
+                                                <p className={cn(
+                                                    'text-xs text-foreground/80 leading-relaxed whitespace-pre-wrap',
+                                                    !postExpanded && 'line-clamp-3'
+                                                )}>
+                                                    {(selectedConversation.metadata as any).postContent}
+                                                </p>
+                                                {(selectedConversation.metadata as any).postContent.length > 200 && (
+                                                    <button
+                                                        onClick={() => setPostExpanded(!postExpanded)}
+                                                        className="text-[10px] text-blue-400 hover:text-blue-300 font-medium mt-1 cursor-pointer"
+                                                    >
+                                                        {postExpanded ? 'See less' : 'See more'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
+                                    {/* Post images — auto aspect ratio */}
                                     {(selectedConversation.metadata as any).postImages?.length > 0 && (
-                                        <div className={cn(
-                                            'grid gap-0.5',
-                                            (selectedConversation.metadata as any).postImages.length === 1 ? 'grid-cols-1' :
-                                                (selectedConversation.metadata as any).postImages.length === 2 ? 'grid-cols-2' :
-                                                    'grid-cols-2'
-                                        )}>
-                                            {((selectedConversation.metadata as any).postImages as string[]).slice(0, 4).map((img: string, idx: number) => (
-                                                <div key={idx} className="relative aspect-video bg-muted overflow-hidden">
-                                                    <img
-                                                        src={img}
-                                                        alt={`Post image ${idx + 1}`}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                    {idx === 3 && (selectedConversation.metadata as any).postImages.length > 4 && (
-                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                            <span className="text-white font-bold text-lg">
-                                                                +{(selectedConversation.metadata as any).postImages.length - 4}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
+                                        (selectedConversation.metadata as any).postImages.length === 1 ? (
+                                            <div className="w-full bg-black/20">
+                                                <img
+                                                    src={(selectedConversation.metadata as any).postImages[0]}
+                                                    alt="Post image"
+                                                    className="w-full h-auto max-h-[500px] object-contain"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className={cn(
+                                                'grid gap-0.5',
+                                                (selectedConversation.metadata as any).postImages.length === 2 ? 'grid-cols-2' : 'grid-cols-2'
+                                            )}>
+                                                {((selectedConversation.metadata as any).postImages as string[]).slice(0, 4).map((img: string, idx: number) => (
+                                                    <div key={idx} className="relative bg-black/20 overflow-hidden">
+                                                        <img
+                                                            src={img}
+                                                            alt={`Post image ${idx + 1}`}
+                                                            className="w-full h-auto object-contain max-h-[300px]"
+                                                        />
+                                                        {idx === 3 && (selectedConversation.metadata as any).postImages.length > 4 && (
+                                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                                <span className="text-white font-bold text-lg">
+                                                                    +{(selectedConversation.metadata as any).postImages.length - 4}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
                                     )}
-                                </a>
+                                </div>
                             </div>
                         )}
 
