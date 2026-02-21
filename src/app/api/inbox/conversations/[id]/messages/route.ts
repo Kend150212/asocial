@@ -133,7 +133,93 @@ export async function POST(
         },
     })
 
-    // TODO: Phase 3+ — actually send this message via platform API (Facebook, Zalo, etc.)
+    // ── Send reply via Facebook API ──
+    if (conversation.platform === 'facebook') {
+        const platformAccount = await prisma.channelPlatform.findUnique({
+            where: { id: conversation.platformAccountId },
+        })
+
+        if (platformAccount?.accessToken) {
+            const conv = await prisma.conversation.findUnique({
+                where: { id },
+                select: { type: true, metadata: true, externalUserId: true },
+            })
+
+            try {
+                if (conv?.type === 'comment') {
+                    // Reply to comment: find the latest inbound comment to reply to
+                    const lastInbound = await prisma.inboxMessage.findFirst({
+                        where: { conversationId: id, direction: 'inbound' },
+                        orderBy: { sentAt: 'desc' },
+                        select: { externalId: true },
+                    })
+
+                    // Also check social_comments for the external comment ID
+                    const lastComment = await prisma.socialComment.findFirst({
+                        where: {
+                            channelId: conversation.channelId,
+                            platform: 'facebook',
+                        },
+                        orderBy: { commentedAt: 'desc' },
+                        select: { externalCommentId: true, externalPostId: true },
+                    })
+
+                    const commentId = lastComment?.externalCommentId
+                    if (commentId) {
+                        const fbRes = await fetch(
+                            `https://graph.facebook.com/v19.0/${commentId}/comments`,
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    message: content.trim(),
+                                    access_token: platformAccount.accessToken,
+                                }),
+                            }
+                        )
+                        const fbData = await fbRes.json()
+                        if (fbData.id) {
+                            // Update the message with external ID
+                            await prisma.inboxMessage.update({
+                                where: { id: message.id },
+                                data: { externalId: fbData.id },
+                            })
+                            console.log(`[FB Reply] ✅ Comment reply posted: ${fbData.id}`)
+                        } else {
+                            console.warn(`[FB Reply] ⚠️ Comment reply failed:`, JSON.stringify(fbData))
+                        }
+                    }
+                } else {
+                    // Send DM via Send API
+                    const fbRes = await fetch(
+                        `https://graph.facebook.com/v19.0/me/messages?access_token=${platformAccount.accessToken}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                recipient: { id: conv?.externalUserId },
+                                message: { text: content.trim() },
+                                messaging_type: 'RESPONSE',
+                            }),
+                        }
+                    )
+                    const fbData = await fbRes.json()
+                    if (fbData.message_id) {
+                        await prisma.inboxMessage.update({
+                            where: { id: message.id },
+                            data: { externalId: fbData.message_id },
+                        })
+                        console.log(`[FB Reply] ✅ DM sent: ${fbData.message_id}`)
+                    } else {
+                        console.warn(`[FB Reply] ⚠️ DM send failed:`, JSON.stringify(fbData))
+                    }
+                }
+            } catch (err) {
+                console.error(`[FB Reply] ❌ Error sending reply:`, err)
+                // Don't fail the API — message is still saved locally
+            }
+        }
+    }
 
     return NextResponse.json({
         message: {

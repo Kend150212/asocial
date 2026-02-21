@@ -125,26 +125,25 @@ async function handleFeedChange(pageId: string, value: any) {
                 const postData = await postRes.json()
                 const images: string[] = []
 
-                // Get full_picture
-                if (postData.full_picture) {
-                    images.push(postData.full_picture)
-                }
-
-                // Get additional images from attachments
+                // Prefer attachment images (more accurate for multi-image posts)
                 if (postData.attachments?.data) {
                     for (const att of postData.attachments.data) {
-                        if (att.media?.image?.src && !images.includes(att.media.image.src)) {
-                            images.push(att.media.image.src)
-                        }
                         // Carousel / multi-photo posts
                         if (att.subattachments?.data) {
                             for (const sub of att.subattachments.data) {
-                                if (sub.media?.image?.src && !images.includes(sub.media.image.src)) {
+                                if (sub.media?.image?.src) {
                                     images.push(sub.media.image.src)
                                 }
                             }
+                        } else if (att.media?.image?.src) {
+                            images.push(att.media.image.src)
                         }
                     }
+                }
+
+                // Fallback to full_picture only if no attachment images found
+                if (images.length === 0 && postData.full_picture) {
+                    images.push(postData.full_picture)
                 }
 
                 postMetadata = {
@@ -204,6 +203,7 @@ async function handleFeedChange(pageId: string, value: any) {
         senderType: 'customer',
         type: 'comment',
         metadata: postMetadata,
+        externalId: externalCommentId,
     })
 }
 
