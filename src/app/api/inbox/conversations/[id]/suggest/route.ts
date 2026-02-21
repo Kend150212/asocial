@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { callAI, getDefaultModel } from '@/lib/ai-caller'
+import { callAI } from '@/lib/ai-caller'
+import { decrypt } from '@/lib/encryption'
 
 /**
  * POST /api/inbox/conversations/[id]/suggest
@@ -18,11 +19,18 @@ export async function POST(
 
     const { id } = await params
 
-    // Get conversation with recent messages
+    // Get conversation with channel AI config
     const conversation = await prisma.conversation.findUnique({
         where: { id },
         include: {
-            channel: { select: { defaultAiProvider: true, id: true } },
+            channel: {
+                select: {
+                    id: true,
+                    defaultAiProvider: true,
+                    defaultAiModel: true,
+                    aiApiKeyEncrypted: true,
+                },
+            },
         },
     })
 
@@ -30,29 +38,21 @@ export async function POST(
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    const channel = conversation.channel
+    if (!channel?.aiApiKeyEncrypted) {
+        return NextResponse.json({ error: 'No AI API key configured for this channel. Go to Channel Settings → AI to add one.' }, { status: 400 })
+    }
+
+    const provider = channel.defaultAiProvider || 'openai'
+    const apiKey = decrypt(channel.aiApiKeyEncrypted)
+    const model = channel.defaultAiModel || (provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-4o-mini')
+
     // Get recent messages for context
     const messages = await prisma.inboxMessage.findMany({
         where: { conversationId: id },
         orderBy: { sentAt: 'desc' },
         take: 10,
     })
-
-    // Get AI config from channel or system
-    const channel = conversation.channel
-    const provider = channel?.defaultAiProvider || 'openai'
-
-    // Get API key from channel config or system settings
-    const aiConfig = await prisma.setting.findFirst({
-        where: { key: 'ai_config' },
-    })
-    const config = (aiConfig?.value as Record<string, string>) || {}
-    const apiKey = config[`${provider}ApiKey`] || config.openaiApiKey || process.env.OPENAI_API_KEY || ''
-
-    if (!apiKey) {
-        return NextResponse.json({ error: 'No AI API key configured' }, { status: 400 })
-    }
-
-    const model = getDefaultModel(provider, config)
 
     // Build conversation context
     const messageContext = messages
@@ -62,8 +62,7 @@ export async function POST(
 
     const systemPrompt = `You are a helpful customer service agent. Based on the conversation history, suggest a professional and friendly reply. Keep it concise and natural. Reply in the same language the customer is using. Do NOT include any prefix like "Agent:" — just the reply text.`
 
-    const userPrompt = `Conversation type: ${conversation.type || 'message'}
-Customer name: ${conversation.externalUserName || 'Customer'}
+    const userPrompt = `Customer name: ${conversation.externalUserName || 'Customer'}
 
 Recent messages:
 ${messageContext}
