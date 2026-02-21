@@ -350,10 +350,10 @@ export default function DeveloperPortalPage() {
 
     // ─── Render ─────────────────────────────────────────────────
     return (
-        <div className="flex gap-0 min-h-screen -mx-4 -mt-4 md:-mx-6 md:-mt-6">
+        <div className="flex min-h-screen -mx-3 -my-4 sm:-mx-6 sm:-my-6" style={{ overflow: 'visible' }}>
 
             {/* ─── Sticky Side Navigation ── */}
-            <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r bg-muted/20 sticky top-0 self-start h-screen overflow-y-auto py-4 px-2">
+            <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r bg-muted/20 sticky top-0 self-start max-h-screen overflow-y-auto py-4 px-2">
                 {/* Logo area */}
                 <div className="px-3 mb-6">
                     <div className="flex items-center gap-2 text-sm font-bold">
