@@ -54,6 +54,15 @@ export async function GET(req: NextRequest) {
         where.platformAccountId = platformAccountId
     }
 
+    // Tab-based type filter
+    if (tab === 'messages') {
+        where.type = 'message'
+    } else if (tab === 'comments') {
+        where.type = 'comment'
+    } else if (tab === 'reviews') {
+        where.type = 'review'
+    }
+
     if (search) {
         where.OR = [
             { externalUserName: { contains: search, mode: 'insensitive' } },
