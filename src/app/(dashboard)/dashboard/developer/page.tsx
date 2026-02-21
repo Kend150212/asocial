@@ -4,12 +4,11 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
     Key, Plus, Trash2, Copy, Check, Loader2, AlertTriangle, Shield,
     Play, ChevronDown, ChevronRight, Send, Code2, BookOpen, Zap,
-    Globe, Lock, BarChart3, FileText, ArrowLeft
+    Globe, Lock, BarChart3, FileText, Hash, Terminal, Eye, EyeOff,
+    Layers, Cpu, MessageSquare, Users, Workflow, Settings2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 
@@ -161,13 +160,35 @@ const METHOD_COLORS: Record<string, string> = {
     DELETE: 'bg-red-500/15 text-red-400 border-red-500/30',
 }
 
+const METHOD_DOT: Record<string, string> = {
+    GET: 'bg-emerald-400',
+    POST: 'bg-blue-400',
+    PUT: 'bg-amber-400',
+    DELETE: 'bg-red-400',
+}
+
 const CATEGORIES = [...new Set(ENDPOINTS.map(e => e.category))]
+
+const CATEGORY_ICONS: Record<string, typeof Code2> = {
+    'Channels': Layers,
+    'Posts': FileText,
+    'Post Actions': Workflow,
+    'Approvals': MessageSquare,
+    'AI Content': Cpu,
+    'Account': Users,
+    'Key Management': Key,
+}
+
+/* ─── Side‑nav section IDs ──────────────────────────────────────── */
+const FIXED_SECTIONS = [
+    { id: 'overview', label: 'Overview', icon: BookOpen },
+    { id: 'authentication', label: 'Authentication', icon: Lock },
+    { id: 'rate-limits', label: 'Rate Limits', icon: BarChart3 },
+    { id: 'response-format', label: 'Response Format', icon: FileText },
+]
 
 // ─── Component ──────────────────────────────────────────────────
 export default function DeveloperPortalPage() {
-    // Tab state
-    const [activeTab, setActiveTab] = useState<'docs' | 'playground' | 'keys'>('docs')
-
     // Key management state
     const [keys, setKeys] = useState<ApiKey[]>([])
     const [keysLoading, setKeysLoading] = useState(true)
@@ -178,7 +199,8 @@ export default function DeveloperPortalPage() {
 
     // Playground state
     const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointDef | null>(null)
-    const [apiKey, setApiKey] = useState('')
+    const [apiKeyInput, setApiKeyInput] = useState('')
+    const [showApiKey, setShowApiKey] = useState(false)
     const [playgroundBody, setPlaygroundBody] = useState('')
     const [playgroundPath, setPlaygroundPath] = useState('')
     const [playgroundQuery, setPlaygroundQuery] = useState('')
@@ -188,12 +210,37 @@ export default function DeveloperPortalPage() {
     const [playgroundHeaders, setPlaygroundHeaders] = useState<Record<string, string>>({})
 
     // Docs state
-    const [expandedCategory, setExpandedCategory] = useState<string>(CATEGORIES[0])
     const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null)
+    const [activeSection, setActiveSection] = useState('overview')
 
     const responseRef = useRef<HTMLPreElement>(null)
 
     useEffect(() => { fetchKeys() }, [])
+
+    // ─── Intersection observer for active section tracking ─────────
+    useEffect(() => {
+        const allIds = [
+            ...FIXED_SECTIONS.map(s => s.id),
+            ...CATEGORIES.map(c => `cat-${c.toLowerCase().replace(/\s+/g, '-')}`),
+            'playground',
+            'api-keys',
+        ]
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        setActiveSection(entry.target.id)
+                    }
+                }
+            },
+            { rootMargin: '-80px 0px -70% 0px', threshold: 0.1 }
+        )
+        allIds.forEach(id => {
+            const el = document.getElementById(id)
+            if (el) observer.observe(el)
+        })
+        return () => observer.disconnect()
+    }, [])
 
     async function fetchKeys() {
         try {
@@ -216,7 +263,7 @@ export default function DeveloperPortalPage() {
             const data = await res.json()
             if (data.success) {
                 setShowNewKey(data.data.apiKey)
-                setApiKey(data.data.apiKey)
+                setApiKeyInput(data.data.apiKey)
                 setNewKeyName('')
                 fetchKeys()
                 toast.success('API key created!')
@@ -239,6 +286,7 @@ export default function DeveloperPortalPage() {
     function copyText(text: string, id: string) {
         navigator.clipboard.writeText(text)
         setCopiedId(id)
+        toast.success('Copied!')
         setTimeout(() => setCopiedId(null), 2000)
     }
 
@@ -250,11 +298,11 @@ export default function DeveloperPortalPage() {
         setPlaygroundResponse(null)
         setPlaygroundStatus(null)
         setPlaygroundHeaders({})
-        setActiveTab('playground')
+        document.getElementById('playground')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, [])
 
     async function executeRequest() {
-        if (!apiKey.trim()) { toast.error('Enter your API key first'); return }
+        if (!apiKeyInput.trim()) { toast.error('Enter your API key first'); return }
         if (!selectedEndpoint) return
 
         setPlaygroundLoading(true)
@@ -262,17 +310,11 @@ export default function DeveloperPortalPage() {
 
         try {
             let url = playgroundPath
-            // Replace path params
-            const pathParamMatches = url.match(/\{(\w+)\}/g)
-            if (pathParamMatches) {
-                // Path params should already be filled in playgroundPath
-            }
-
             if (playgroundQuery) url += `?${playgroundQuery}`
 
             const opts: RequestInit = {
                 method: selectedEndpoint.method,
-                headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+                headers: { 'X-API-Key': apiKeyInput, 'Content-Type': 'application/json' },
             }
             if (['POST', 'PUT', 'DELETE'].includes(selectedEndpoint.method) && playgroundBody.trim()) {
                 opts.body = playgroundBody
@@ -302,420 +344,546 @@ export default function DeveloperPortalPage() {
 
     const domain = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
 
+    function scrollTo(id: string) {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
     // ─── Render ─────────────────────────────────────────────────
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Code2 className="h-6 w-6 text-primary" />
-                        Developer API
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Programmatic access to channels, posts, AI generation, and more.
-                    </p>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground border rounded-full px-3 py-1">
-                    <Globe className="h-3 w-3" />
-                    <span className="font-mono">{domain}/api/v1</span>
-                </div>
-            </div>
+        <div className="flex gap-0 min-h-screen -mx-4 -mt-4 md:-mx-6 md:-mt-6">
 
-            {/* Tab Navigation */}
-            <div className="flex gap-1 bg-muted/50 rounded-lg p-1 w-fit">
-                {[
-                    { key: 'docs', icon: BookOpen, label: 'Documentation' },
-                    { key: 'playground', icon: Play, label: 'Playground' },
-                    { key: 'keys', icon: Key, label: 'API Keys' },
-                ].map(tab => (
+            {/* ─── Sticky Side Navigation ── */}
+            <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r bg-muted/20 sticky top-0 self-start h-screen overflow-y-auto py-4 px-2">
+                {/* Logo area */}
+                <div className="px-3 mb-6">
+                    <div className="flex items-center gap-2 text-sm font-bold">
+                        <Code2 className="h-5 w-5 text-primary" />
+                        <span>Developer API</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-1.5 bg-muted/50 rounded px-2 py-1">
+                        <Globe className="h-3 w-3 shrink-0" />
+                        <span className="truncate">/api/v1</span>
+                    </div>
+                </div>
+
+                {/* Getting Started */}
+                <div className="px-3 mb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Getting Started</p>
+                </div>
+                {FIXED_SECTIONS.map(s => (
                     <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key as 'docs' | 'playground' | 'keys')}
-                        className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === tab.key
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
+                        key={s.id}
+                        onClick={() => scrollTo(s.id)}
+                        className={`flex items-center gap-2 px-3 py-1.5 mx-1 rounded-md text-sm transition-all ${activeSection === s.id
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                             }`}
                     >
-                        <tab.icon className="h-4 w-4" />
-                        {tab.label}
+                        <s.icon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{s.label}</span>
                     </button>
                 ))}
-            </div>
 
-            {/* ─── DOCS TAB ──────────────────────────────────────── */}
-            {activeTab === 'docs' && (
-                <div className="space-y-6">
-                    {/* Authentication Guide */}
-                    <Card className="border-primary/20">
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Lock className="h-4 w-4 text-primary" /> Authentication
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
-                            <p>All API requests require an API key passed via the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">X-API-Key</code> header.</p>
-                            <pre className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+                {/* API Reference */}
+                <div className="px-3 mt-5 mb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">API Reference</p>
+                </div>
+                {CATEGORIES.map(cat => {
+                    const CatIcon = CATEGORY_ICONS[cat] || Hash
+                    const catId = `cat-${cat.toLowerCase().replace(/\s+/g, '-')}`
+                    return (
+                        <button
+                            key={cat}
+                            onClick={() => scrollTo(catId)}
+                            className={`flex items-center gap-2 px-3 py-1.5 mx-1 rounded-md text-sm transition-all ${activeSection === catId
+                                ? 'bg-primary/10 text-primary font-medium'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                }`}
+                        >
+                            <CatIcon className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{cat}</span>
+                            <Badge variant="outline" className="ml-auto text-[9px] px-1 py-0 h-4">
+                                {ENDPOINTS.filter(e => e.category === cat).length}
+                            </Badge>
+                        </button>
+                    )
+                })}
+
+                {/* Tools */}
+                <div className="px-3 mt-5 mb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tools</p>
+                </div>
+                <button
+                    onClick={() => scrollTo('playground')}
+                    className={`flex items-center gap-2 px-3 py-1.5 mx-1 rounded-md text-sm transition-all ${activeSection === 'playground'
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                >
+                    <Terminal className="h-3.5 w-3.5" />
+                    Playground
+                </button>
+                <button
+                    onClick={() => scrollTo('api-keys')}
+                    className={`flex items-center gap-2 px-3 py-1.5 mx-1 rounded-md text-sm transition-all ${activeSection === 'api-keys'
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                >
+                    <Key className="h-3.5 w-3.5" />
+                    API Keys
+                </button>
+            </aside>
+
+            {/* ─── Main Content ── */}
+            <main className="flex-1 max-w-4xl mx-auto px-4 md:px-8 py-8 space-y-16">
+
+                {/* ═══ OVERVIEW ═══ */}
+                <section id="overview" className="scroll-mt-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2.5 rounded-xl bg-primary/10">
+                            <Code2 className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold">Developer API</h1>
+                            <p className="text-sm text-muted-foreground">
+                                Programmatic access to channels, posts, AI generation, and more.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-xl border p-4 mt-6">
+                        <div className="flex items-center gap-2 mb-3 text-sm font-medium">
+                            <Zap className="h-4 w-4 text-primary" />
+                            Quick Start
+                        </div>
+                        <div className="space-y-3 text-sm">
+                            <div className="flex gap-3">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">1</div>
+                                <p className="text-muted-foreground pt-0.5">Create an API key in the <button onClick={() => scrollTo('api-keys')} className="text-primary hover:underline">API Keys</button> section below.</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">2</div>
+                                <p className="text-muted-foreground pt-0.5">Include the key in the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">X-API-Key</code> header of each request.</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold shrink-0">3</div>
+                                <p className="text-muted-foreground pt-0.5">Test your calls in the <button onClick={() => scrollTo('playground')} className="text-primary hover:underline">Playground</button>, then integrate into your app.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Base URL */}
+                    <div className="mt-6 flex items-center gap-3 bg-background border rounded-lg px-4 py-3">
+                        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div>
+                            <p className="text-xs text-muted-foreground mb-0.5">Base URL</p>
+                            <code className="text-sm font-mono font-medium">{domain}/api/v1</code>
+                        </div>
+                        <Button variant="ghost" size="sm" className="ml-auto h-8 w-8 p-0" onClick={() => copyText(`${domain}/api/v1`, 'base-url')}>
+                            {copiedId === 'base-url' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        </Button>
+                    </div>
+                </section>
+
+                {/* ═══ AUTHENTICATION ═══ */}
+                <section id="authentication" className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Lock className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">Authentication</h2>
+                    </div>
+                    <div className="space-y-4 text-sm">
+                        <p className="text-muted-foreground">
+                            All API requests require an API key passed via the <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">X-API-Key</code> header.
+                        </p>
+                        <div className="relative group">
+                            <pre className="bg-muted/50 rounded-xl border p-4 text-xs font-mono overflow-x-auto">
                                 {`curl -H "X-API-Key: ask_xxxxxxxxxxxxxxxx" \\
   ${domain}/api/v1/channels`}
                             </pre>
-                            <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                                <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                                <div className="text-xs">
-                                    <strong>Security:</strong> API keys are hashed using bcrypt — the raw key is shown only once at creation. Treat your key like a password and rotate regularly.
+                            <Button
+                                variant="ghost" size="sm"
+                                className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => copyText(`curl -H "X-API-Key: ask_xxxxxxxxxxxxxxxx" \\\n  ${domain}/api/v1/channels`, 'auth-curl')}
+                            >
+                                {copiedId === 'auth-curl' ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                            </Button>
+                        </div>
+                        <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                            <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                            <div className="text-xs text-muted-foreground">
+                                <strong className="text-foreground">Security:</strong> API keys are hashed using bcrypt — the raw key is shown only once at creation. Treat your key like a password and rotate regularly.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ═══ RATE LIMITS ═══ */}
+                <section id="rate-limits" className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">Rate Limits</h2>
+                    </div>
+                    <div className="space-y-4 text-sm">
+                        <p className="text-muted-foreground">API calls are quota-limited per plan per month. Check your limits in the response headers:</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {[
+                                { header: 'X-RateLimit-Limit', desc: 'Monthly quota', color: 'text-blue-400' },
+                                { header: 'X-RateLimit-Remaining', desc: 'Calls remaining', color: 'text-emerald-400' },
+                                { header: 'X-RateLimit-Reset', desc: 'Reset timestamp (ISO 8601)', color: 'text-amber-400' },
+                            ].map(h => (
+                                <div key={h.header} className="bg-muted/30 border rounded-xl p-4">
+                                    <code className={`text-xs font-mono font-semibold ${h.color}`}>{h.header}</code>
+                                    <p className="text-xs text-muted-foreground mt-1.5">{h.desc}</p>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            When your quota is exhausted, the API returns <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">429 Too Many Requests</code>.
+                        </p>
+                    </div>
+                </section>
 
-                    {/* Rate Limiting */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4" /> Rate Limiting
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
-                            <p>API calls are quota-limited per plan per month. Check your limits in the response headers:</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                {[
-                                    { header: 'X-RateLimit-Limit', desc: 'Monthly quota' },
-                                    { header: 'X-RateLimit-Remaining', desc: 'Calls remaining' },
-                                    { header: 'X-RateLimit-Reset', desc: 'Reset timestamp (ISO 8601)' },
-                                ].map(h => (
-                                    <div key={h.header} className="bg-muted/30 rounded-lg p-3">
-                                        <code className="text-xs font-mono text-primary">{h.header}</code>
-                                        <p className="text-xs text-muted-foreground mt-1">{h.desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-xs text-muted-foreground">When your quota is exhausted, the API returns <code className="bg-muted px-1 rounded">429 Too Many Requests</code>.</p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Response Format */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <FileText className="h-4 w-4" /> Response Format
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm space-y-3">
-                            <p>All responses follow this structure:</p>
-                            <pre className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-                                {`// Success
-{
+                {/* ═══ RESPONSE FORMAT ═══ */}
+                <section id="response-format" className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">Response Format</h2>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                        <p className="text-muted-foreground">All responses follow a consistent JSON structure:</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="relative group">
+                                <p className="text-xs font-medium text-emerald-400 mb-2">✓ Success</p>
+                                <pre className="bg-muted/50 border rounded-xl p-4 text-xs font-mono overflow-x-auto">
+                                    {`{
   "success": true,
   "data": { ... }
-}
-
-// Error
-{
+}`}
+                                </pre>
+                            </div>
+                            <div className="relative group">
+                                <p className="text-xs font-medium text-red-400 mb-2">✕ Error</p>
+                                <pre className="bg-muted/50 border rounded-xl p-4 text-xs font-mono overflow-x-auto">
+                                    {`{
   "success": false,
   "error": {
     "code": "ERROR_CODE",
-    "message": "Human-readable description"
+    "message": "Description"
   }
 }`}
-                            </pre>
-                        </CardContent>
-                    </Card>
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                    {/* Endpoint Reference */}
-                    <div className="space-y-2">
-                        <h2 className="text-lg font-bold flex items-center gap-2">
-                            <Zap className="h-5 w-5 text-primary" /> Endpoint Reference
-                        </h2>
+                {/* ═══ ENDPOINT REFERENCE (per category) ═══ */}
+                {CATEGORIES.map(cat => {
+                    const catId = `cat-${cat.toLowerCase().replace(/\s+/g, '-')}`
+                    const CatIcon = CATEGORY_ICONS[cat] || Hash
+                    const endpoints = ENDPOINTS.filter(e => e.category === cat)
 
-                        {CATEGORIES.map(cat => (
-                            <Card key={cat} className="overflow-hidden">
-                                <button
-                                    onClick={() => setExpandedCategory(expandedCategory === cat ? '' : cat)}
-                                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
-                                >
-                                    <span className="font-semibold text-sm">{cat}</span>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="text-xs">{ENDPOINTS.filter(e => e.category === cat).length}</Badge>
-                                        {expandedCategory === cat ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                    </div>
-                                </button>
-                                {expandedCategory === cat && (
-                                    <CardContent className="pt-0 pb-2 space-y-1">
-                                        {ENDPOINTS.filter(e => e.category === cat).map((ep, i) => {
-                                            const epKey = `${ep.method}-${ep.path}`
-                                            const isExpanded = expandedEndpoint === epKey
-                                            return (
-                                                <div key={i} className="border rounded-lg overflow-hidden">
-                                                    <button
-                                                        onClick={() => setExpandedEndpoint(isExpanded ? null : epKey)}
-                                                        className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-muted/20 transition-colors text-left"
-                                                    >
-                                                        <Badge variant="outline" className={`text-[10px] font-mono font-bold px-2 shrink-0 ${METHOD_COLORS[ep.method]}`}>
-                                                            {ep.method}
-                                                        </Badge>
-                                                        <code className="text-xs font-mono flex-1 text-muted-foreground">{ep.path}</code>
-                                                        <span className="text-xs text-foreground shrink-0">{ep.title}</span>
-                                                        {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-                                                    </button>
-                                                    {isExpanded && (
-                                                        <div className="px-3 pb-3 space-y-3 border-t bg-muted/10">
-                                                            <p className="text-xs text-muted-foreground pt-2">{ep.description}</p>
+                    return (
+                        <section key={cat} id={catId} className="scroll-mt-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <CatIcon className="h-5 w-5 text-primary" />
+                                <h2 className="text-xl font-bold">{cat}</h2>
+                                <Badge variant="outline" className="ml-1 text-[10px]">{endpoints.length} endpoint{endpoints.length > 1 ? 's' : ''}</Badge>
+                            </div>
 
-                                                            {ep.pathParams && (
-                                                                <div>
-                                                                    <h4 className="text-xs font-semibold mb-1">Path Parameters</h4>
-                                                                    {ep.pathParams.map(p => (
-                                                                        <div key={p.name} className="flex gap-2 text-xs">
-                                                                            <code className="bg-muted px-1 rounded font-mono text-primary">{`{${p.name}}`}</code>
-                                                                            <span className="text-muted-foreground">{p.desc}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                            <div className="space-y-3">
+                                {endpoints.map((ep, i) => {
+                                    const epKey = `${ep.method}-${ep.path}`
+                                    const isExpanded = expandedEndpoint === epKey
+                                    return (
+                                        <div key={i} className={`border rounded-xl overflow-hidden transition-all ${isExpanded ? 'ring-1 ring-primary/30' : ''}`}>
+                                            {/* Endpoint header row */}
+                                            <button
+                                                onClick={() => setExpandedEndpoint(isExpanded ? null : epKey)}
+                                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/30 transition-colors text-left"
+                                            >
+                                                <Badge variant="outline" className={`text-[10px] font-mono font-bold px-2 py-0.5 shrink-0 ${METHOD_COLORS[ep.method]}`}>
+                                                    {ep.method}
+                                                </Badge>
+                                                <code className="text-xs font-mono flex-1 text-muted-foreground">{ep.path}</code>
+                                                <span className="text-xs font-medium text-foreground shrink-0 hidden sm:inline">{ep.title}</span>
+                                                {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                                            </button>
 
-                                                            {ep.queryParams && (
-                                                                <div>
-                                                                    <h4 className="text-xs font-semibold mb-1">Query Parameters</h4>
-                                                                    <div className="space-y-1">
-                                                                        {ep.queryParams.map(q => (
-                                                                            <div key={q.name} className="flex gap-2 text-xs">
-                                                                                <code className="bg-muted px-1 rounded font-mono text-primary">{q.name}</code>
-                                                                                <span className="text-muted-foreground">{q.desc}</span>
-                                                                                {q.required && <Badge variant="destructive" className="text-[9px] h-4">required</Badge>}
-                                                                            </div>
-                                                                        ))}
+                                            {/* Expanded detail */}
+                                            {isExpanded && (
+                                                <div className="border-t bg-muted/5 px-4 pb-4 space-y-4">
+                                                    <p className="text-sm text-muted-foreground pt-3">{ep.description}</p>
+
+                                                    {/* Path Params */}
+                                                    {ep.pathParams && (
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                                                                <Hash className="h-3 w-3 text-primary" />
+                                                                Path Parameters
+                                                            </h4>
+                                                            <div className="space-y-1">
+                                                                {ep.pathParams.map(p => (
+                                                                    <div key={p.name} className="flex items-center gap-2 text-xs">
+                                                                        <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-primary">{`{${p.name}}`}</code>
+                                                                        <span className="text-muted-foreground">{p.desc}</span>
                                                                     </div>
-                                                                </div>
-                                                            )}
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
 
-                                                            {ep.bodyExample && (
-                                                                <div>
-                                                                    <h4 className="text-xs font-semibold mb-1">Request Body</h4>
-                                                                    <pre className="bg-muted/50 rounded p-2 text-[11px] font-mono overflow-x-auto">
-                                                                        {JSON.stringify(ep.bodyExample, null, 2)}
-                                                                    </pre>
-                                                                </div>
-                                                            )}
+                                                    {/* Query Params */}
+                                                    {ep.queryParams && (
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                                                                <Settings2 className="h-3 w-3 text-primary" />
+                                                                Query Parameters
+                                                            </h4>
+                                                            <div className="bg-muted/30 rounded-lg overflow-hidden border">
+                                                                {ep.queryParams.map((q, qi) => (
+                                                                    <div key={q.name} className={`flex items-center gap-2 px-3 py-2 text-xs ${qi > 0 ? 'border-t' : ''}`}>
+                                                                        <code className="font-mono text-primary font-medium w-20 shrink-0">{q.name}</code>
+                                                                        <span className="text-muted-foreground flex-1">{q.desc}</span>
+                                                                        {q.required && <Badge variant="destructive" className="text-[9px] h-4 px-1">required</Badge>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
 
-                                                            {/* curl Example */}
-                                                            <div>
-                                                                <h4 className="text-xs font-semibold mb-1">Example</h4>
-                                                                <div className="relative">
-                                                                    <pre className="bg-muted/50 rounded p-2 text-[11px] font-mono overflow-x-auto">
-                                                                        {`curl${ep.method !== 'GET' ? ` -X ${ep.method}` : ''} \\
+                                                    {/* Body Example */}
+                                                    {ep.bodyExample && (
+                                                        <div>
+                                                            <h4 className="text-xs font-semibold mb-2">Request Body</h4>
+                                                            <div className="relative group">
+                                                                <pre className="bg-muted/50 border rounded-lg p-3 text-[11px] font-mono overflow-x-auto">
+                                                                    {JSON.stringify(ep.bodyExample, null, 2)}
+                                                                </pre>
+                                                                <Button
+                                                                    variant="ghost" size="sm"
+                                                                    className="absolute top-1.5 right-1.5 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    onClick={() => copyText(JSON.stringify(ep.bodyExample, null, 2), `body-${epKey}`)}
+                                                                >
+                                                                    {copiedId === `body-${epKey}` ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* curl Example */}
+                                                    <div>
+                                                        <h4 className="text-xs font-semibold mb-2">cURL Example</h4>
+                                                        <div className="relative group">
+                                                            <pre className="bg-muted/50 border rounded-lg p-3 text-[11px] font-mono overflow-x-auto">
+                                                                {`curl${ep.method !== 'GET' ? ` -X ${ep.method}` : ''} \\
   -H "X-API-Key: YOUR_KEY" \\${ep.bodyExample ? `
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(ep.bodyExample)}' \\` : ''}
   ${domain}${ep.path}${ep.queryParams ? '?' + ep.queryParams.map(q => q.name + '=...').join('&') : ''}`}
-                                                                    </pre>
-                                                                </div>
-                                                            </div>
-
-                                                            <Button size="sm" variant="outline" className="text-xs" onClick={() => selectEndpoint(ep)}>
-                                                                <Play className="h-3 w-3 mr-1" /> Try in Playground
-                                                            </Button>
+                                                            </pre>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
-                                    </CardContent>
-                                )}
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            )}
+                                                    </div>
 
-            {/* ─── PLAYGROUND TAB ─────────────────────────────────── */}
-            {activeTab === 'playground' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Left: Request */}
-                    <div className="space-y-4">
-                        {/* API Key Input */}
-                        <Card>
-                            <CardHeader className="py-3">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <Lock className="h-3.5 w-3.5" /> API Key
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                                <Input
-                                    type="password"
-                                    placeholder="ask_xxxxxxxxxxxxxxxx"
-                                    value={apiKey}
-                                    onChange={e => setApiKey(e.target.value)}
-                                    className="font-mono text-xs"
-                                />
-                                {!apiKey && keys.length === 0 && (
+                                                    <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => selectEndpoint(ep)}>
+                                                        <Play className="h-3 w-3" /> Try in Playground
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </section>
+                    )
+                })}
+
+                {/* ═══ PLAYGROUND ═══ */}
+                <section id="playground" className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Terminal className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">Playground</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Left: Request */}
+                        <div className="space-y-4">
+                            {/* API Key */}
+                            <div className="bg-muted/30 border rounded-xl p-4">
+                                <label className="text-xs font-semibold mb-2 block flex items-center gap-1.5">
+                                    <Lock className="h-3 w-3" /> API Key
+                                </label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Input
+                                            type={showApiKey ? 'text' : 'password'}
+                                            placeholder="ask_xxxxxxxxxxxxxxxx"
+                                            value={apiKeyInput}
+                                            onChange={e => setApiKeyInput(e.target.value)}
+                                            className="font-mono text-xs pr-8"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowApiKey(!showApiKey)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                        </button>
+                                    </div>
+                                </div>
+                                {!apiKeyInput && keys.length === 0 && (
                                     <p className="text-xs text-muted-foreground mt-2">
-                                        No API key yet? Go to the <button onClick={() => setActiveTab('keys')} className="text-primary underline">API Keys</button> tab to create one.
+                                        No API key yet? <button onClick={() => scrollTo('api-keys')} className="text-primary hover:underline">Create one below ↓</button>
                                     </p>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
 
-                        {/* Endpoint Selector */}
-                        <Card>
-                            <CardHeader className="py-3">
-                                <CardTitle className="text-sm">Select Endpoint</CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0 space-y-1 max-h-60 overflow-y-auto">
-                                {ENDPOINTS.filter(e => e.category !== 'Key Management').map((ep, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => selectEndpoint(ep)}
-                                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-muted/50 transition-colors ${selectedEndpoint === ep ? 'bg-primary/10 border border-primary/30' : ''
-                                            }`}
-                                    >
-                                        <Badge variant="outline" className={`text-[9px] font-mono font-bold px-1.5 shrink-0 ${METHOD_COLORS[ep.method]}`}>
-                                            {ep.method}
-                                        </Badge>
-                                        <span className="text-xs truncate">{ep.title}</span>
-                                    </button>
-                                ))}
-                            </CardContent>
-                        </Card>
+                            {/* Endpoint Selector */}
+                            <div className="bg-muted/30 border rounded-xl p-4">
+                                <label className="text-xs font-semibold mb-2 block">Select Endpoint</label>
+                                <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+                                    {ENDPOINTS.filter(e => e.category !== 'Key Management').map((ep, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => selectEndpoint(ep)}
+                                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all ${selectedEndpoint === ep
+                                                ? 'bg-primary/10 border border-primary/30'
+                                                : 'hover:bg-muted/50'
+                                                }`}
+                                        >
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${METHOD_DOT[ep.method]}`} />
+                                            <Badge variant="outline" className={`text-[9px] font-mono font-bold px-1.5 shrink-0 ${METHOD_COLORS[ep.method]}`}>
+                                                {ep.method}
+                                            </Badge>
+                                            <span className="text-xs truncate">{ep.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                        {/* Request Config */}
-                        {selectedEndpoint && (
-                            <Card>
-                                <CardHeader className="py-3">
-                                    <CardTitle className="text-sm flex items-center gap-2">
+                            {/* Request Config */}
+                            {selectedEndpoint && (
+                                <div className="bg-muted/30 border rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 mb-1">
                                         <Badge variant="outline" className={`text-[10px] font-mono font-bold ${METHOD_COLORS[selectedEndpoint.method]}`}>
                                             {selectedEndpoint.method}
                                         </Badge>
-                                        {selectedEndpoint.title}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pt-0 space-y-3">
+                                        <span className="text-sm font-medium">{selectedEndpoint.title}</span>
+                                    </div>
                                     <p className="text-xs text-muted-foreground">{selectedEndpoint.description}</p>
 
-                                    {/* Path */}
                                     <div>
                                         <label className="text-xs font-medium mb-1 block">URL Path</label>
-                                        <Input
-                                            value={playgroundPath}
-                                            onChange={e => setPlaygroundPath(e.target.value)}
-                                            className="font-mono text-xs"
-                                        />
+                                        <Input value={playgroundPath} onChange={e => setPlaygroundPath(e.target.value)} className="font-mono text-xs" />
                                         {selectedEndpoint.pathParams && (
-                                            <p className="text-[10px] text-muted-foreground mt-1">
-                                                Replace <code>{'{id}'}</code> with an actual ID
-                                            </p>
+                                            <p className="text-[10px] text-muted-foreground mt-1">Replace <code>{'{id}'}</code> with an actual ID</p>
                                         )}
                                     </div>
 
-                                    {/* Query Params */}
                                     {selectedEndpoint.queryParams && (
                                         <div>
                                             <label className="text-xs font-medium mb-1 block">Query Parameters</label>
-                                            <Input
-                                                value={playgroundQuery}
-                                                onChange={e => setPlaygroundQuery(e.target.value)}
-                                                placeholder="key=value&key2=value2"
-                                                className="font-mono text-xs"
-                                            />
+                                            <Input value={playgroundQuery} onChange={e => setPlaygroundQuery(e.target.value)} placeholder="key=value&key2=value2" className="font-mono text-xs" />
                                         </div>
                                     )}
 
-                                    {/* Body */}
                                     {['POST', 'PUT', 'DELETE'].includes(selectedEndpoint.method) && (
                                         <div>
                                             <label className="text-xs font-medium mb-1 block">Request Body (JSON)</label>
                                             <textarea
                                                 value={playgroundBody}
                                                 onChange={e => setPlaygroundBody(e.target.value)}
-                                                rows={Math.min(12, (playgroundBody.split('\n').length || 3) + 1)}
-                                                className="w-full bg-muted/30 border rounded-lg p-3 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                rows={Math.min(10, (playgroundBody.split('\n').length || 3) + 1)}
+                                                className="w-full bg-background border rounded-lg p-3 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
                                                 spellCheck={false}
                                             />
                                         </div>
                                     )}
 
                                     <Button onClick={executeRequest} disabled={playgroundLoading} className="w-full">
-                                        {playgroundLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                                        {playgroundLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Send className="h-4 w-4 mr-1.5" />}
                                         Send Request
                                     </Button>
-                                </CardContent>
-                            </Card>
-                        )}
+                                </div>
+                            )}
 
-                        {!selectedEndpoint && (
-                            <div className="text-center py-12 text-muted-foreground text-sm">
-                                <Play className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                                Select an endpoint from the list above to start testing
+                            {!selectedEndpoint && (
+                                <div className="text-center py-10 text-muted-foreground text-sm border border-dashed rounded-xl">
+                                    <Play className="h-8 w-8 mx-auto mb-3 opacity-20" />
+                                    Select an endpoint above to start testing
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right: Response */}
+                        <div className="lg:sticky lg:top-6 self-start">
+                            <div className="bg-muted/30 border rounded-xl overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3 border-b">
+                                    <span className="text-sm font-semibold">Response</span>
+                                    {playgroundStatus !== null && (
+                                        <Badge variant={playgroundStatus >= 200 && playgroundStatus < 300 ? 'default' : 'destructive'} className="text-xs">
+                                            {playgroundStatus}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <div className="p-4">
+                                    {/* Rate Limit Headers */}
+                                    {Object.keys(playgroundHeaders).length > 0 && (
+                                        <div className="mb-3 space-y-1 pb-3 border-b border-border/50">
+                                            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Headers</h4>
+                                            {Object.entries(playgroundHeaders).map(([k, v]) => (
+                                                <div key={k} className="flex gap-2 text-[11px]">
+                                                    <code className="text-primary font-mono">{k}:</code>
+                                                    <code className="text-muted-foreground font-mono">{v}</code>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {playgroundResponse ? (
+                                        <div className="relative group">
+                                            <pre
+                                                ref={responseRef}
+                                                className="bg-background rounded-lg p-3 text-xs font-mono overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap border"
+                                            >
+                                                {playgroundResponse}
+                                            </pre>
+                                            <Button
+                                                variant="ghost" size="sm"
+                                                className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => copyText(playgroundResponse, 'response')}
+                                            >
+                                                {copiedId === 'response' ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                                            </Button>
+                                        </div>
+                                    ) : playgroundLoading ? (
+                                        <div className="text-center py-12">
+                                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                                            <p className="text-xs text-muted-foreground mt-2">Sending request...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 text-muted-foreground text-xs">
+                                            Response will appear here after sending a request
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        )}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ═══ API KEYS ═══ */}
+                <section id="api-keys" className="scroll-mt-6">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Key className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-bold">API Keys</h2>
                     </div>
 
-                    {/* Right: Response */}
-                    <div className="space-y-4">
-                        <Card className="sticky top-4">
-                            <CardHeader className="py-3 flex flex-row items-center justify-between">
-                                <CardTitle className="text-sm">Response</CardTitle>
-                                {playgroundStatus !== null && (
-                                    <Badge variant={playgroundStatus >= 200 && playgroundStatus < 300 ? 'default' : 'destructive'} className="text-xs">
-                                        {playgroundStatus}
-                                    </Badge>
-                                )}
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                                {/* Rate Limit Headers */}
-                                {Object.keys(playgroundHeaders).length > 0 && (
-                                    <div className="mb-3 space-y-1">
-                                        <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Response Headers</h4>
-                                        {Object.entries(playgroundHeaders).map(([k, v]) => (
-                                            <div key={k} className="flex gap-2 text-[11px]">
-                                                <code className="text-primary font-mono">{k}:</code>
-                                                <code className="text-muted-foreground font-mono">{v}</code>
-                                            </div>
-                                        ))}
-                                        <Separator className="my-2" />
-                                    </div>
-                                )}
-
-                                {playgroundResponse ? (
-                                    <div className="relative">
-                                        <pre
-                                            ref={responseRef}
-                                            className="bg-muted/30 rounded-lg p-3 text-xs font-mono overflow-x-auto max-h-[600px] overflow-y-auto whitespace-pre-wrap"
-                                        >
-                                            {playgroundResponse}
-                                        </pre>
-                                        <Button
-                                            variant="ghost" size="sm"
-                                            className="absolute top-2 right-2 h-7 w-7 p-0"
-                                            onClick={() => copyText(playgroundResponse, 'response')}
-                                        >
-                                            {copiedId === 'response' ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-                                        </Button>
-                                    </div>
-                                ) : playgroundLoading ? (
-                                    <div className="text-center py-12">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                                        <p className="text-xs text-muted-foreground mt-2">Sending request...</p>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-12 text-muted-foreground text-xs">
-                                        Response will appear here after sending a request
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-            )}
-
-            {/* ─── KEYS TAB ────────────────────────────────────────── */}
-            {activeTab === 'keys' && (
-                <div className="max-w-2xl space-y-4">
-                    {/* Create */}
-                    <Card>
-                        <CardHeader className="py-3">
-                            <CardTitle className="text-sm">Create New API Key</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
+                    <div className="max-w-2xl space-y-4">
+                        {/* Create new key */}
+                        <div className="bg-muted/30 border rounded-xl p-4">
+                            <label className="text-xs font-semibold mb-2 block">Create New API Key</label>
                             <div className="flex gap-2">
                                 <Input
                                     placeholder="Key name (e.g. My App)"
@@ -730,83 +898,88 @@ export default function DeveloperPortalPage() {
                                     Create
                                 </Button>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
 
-                    {/* Newly created */}
-                    {showNewKey && (
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 space-y-2">
-                            <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
-                                <Shield className="h-4 w-4" />
-                                API Key Created — Copy Now!
+                        {/* Newly created key */}
+                        {showNewKey && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                                    <Shield className="h-4 w-4" />
+                                    API Key Created — Copy Now!
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 bg-background rounded-lg px-3 py-2 text-sm font-mono break-all border">
+                                        {showNewKey}
+                                    </code>
+                                    <Button variant="outline" size="sm" onClick={() => copyText(showNewKey, 'new')}>
+                                        {copiedId === 'new' ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-amber-400 flex items-center gap-1">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    This key will not be shown again. Store it securely.
+                                </p>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" onClick={() => setShowNewKey(null)} className="text-xs">Dismiss</Button>
+                                    <Button variant="outline" size="sm" onClick={() => { scrollTo('playground'); setShowNewKey(null) }} className="text-xs gap-1">
+                                        <Play className="h-3 w-3" /> Try in Playground
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <code className="flex-1 bg-background rounded px-3 py-2 text-sm font-mono break-all">
-                                    {showNewKey}
-                                </code>
-                                <Button variant="outline" size="sm" onClick={() => copyText(showNewKey, 'new')}>
-                                    {copiedId === 'new' ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-                                </Button>
+                        )}
+
+                        {/* Keys list */}
+                        <div className="bg-muted/30 border rounded-xl overflow-hidden">
+                            <div className="px-4 py-3 border-b">
+                                <span className="text-sm font-semibold">Your API Keys ({keys.length}/10)</span>
                             </div>
-                            <p className="text-xs text-amber-400 flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                This key will not be shown again. Store it securely.
-                            </p>
-                            <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" onClick={() => setShowNewKey(null)} className="text-xs">
-                                    Dismiss
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => { setActiveTab('playground'); setShowNewKey(null) }} className="text-xs">
-                                    <Play className="h-3 w-3 mr-1" /> Try in Playground
-                                </Button>
+                            <div className="p-4">
+                                {keysLoading ? (
+                                    <div className="text-center py-6">
+                                        <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                                    </div>
+                                ) : keys.length === 0 ? (
+                                    <p className="text-center py-6 text-sm text-muted-foreground">No keys yet. Create one above to get started.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {keys.map(key => (
+                                            <div
+                                                key={key.id}
+                                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${key.isActive
+                                                    ? 'bg-background hover:shadow-sm'
+                                                    : 'bg-muted/30 opacity-50'
+                                                    }`}
+                                            >
+                                                <div className={`p-1.5 rounded-md ${key.isActive ? 'bg-emerald-500/10' : 'bg-muted'}`}>
+                                                    <Key className={`h-3.5 w-3.5 ${key.isActive ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium">{key.name}</div>
+                                                    <div className="text-xs text-muted-foreground font-mono">{key.keyPrefix}••••••••</div>
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground text-right shrink-0">
+                                                    <div>{key.lastUsedAt ? `Used ${new Date(key.lastUsedAt).toLocaleDateString()}` : 'Never used'}</div>
+                                                    <div>Created {new Date(key.createdAt).toLocaleDateString()}</div>
+                                                </div>
+                                                {key.isActive ? (
+                                                    <Button variant="ghost" size="sm" onClick={() => revokeKey(key.id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 h-8 w-8 p-0">
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                ) : (
+                                                    <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    )}
+                    </div>
+                </section>
 
-                    {/* List */}
-                    <Card>
-                        <CardHeader className="py-3">
-                            <CardTitle className="text-sm">Your API Keys ({keys.length}/10)</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                            {keysLoading ? (
-                                <div className="text-center py-6">
-                                    <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-                                </div>
-                            ) : keys.length === 0 ? (
-                                <p className="text-center py-6 text-sm text-muted-foreground">No keys yet.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {keys.map(key => (
-                                        <div
-                                            key={key.id}
-                                            className={`flex items-center gap-3 p-3 rounded-lg border ${key.isActive ? 'bg-background' : 'bg-muted/30 opacity-50'
-                                                }`}
-                                        >
-                                            <Key className={`h-4 w-4 shrink-0 ${key.isActive ? 'text-emerald-400' : 'text-muted-foreground'}`} />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium">{key.name}</div>
-                                                <div className="text-xs text-muted-foreground font-mono">{key.keyPrefix}••••••••</div>
-                                            </div>
-                                            <div className="text-[10px] text-muted-foreground text-right shrink-0">
-                                                <div>{key.lastUsedAt ? `Used ${new Date(key.lastUsedAt).toLocaleDateString()}` : 'Never used'}</div>
-                                                <div>Created {new Date(key.createdAt).toLocaleDateString()}</div>
-                                            </div>
-                                            {key.isActive ? (
-                                                <Button variant="ghost" size="sm" onClick={() => revokeKey(key.id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            ) : (
-                                                <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+                {/* Bottom spacer */}
+                <div className="h-24" />
+            </main>
         </div>
     )
 }
