@@ -201,7 +201,7 @@ export async function POST(
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 recipient: { id: conv?.externalUserId },
-                                message: { text: content.trim() },
+                                message: { text: content.trim().replace(/^@\[[^\]]+\]\s*/, '').replace(/@\[([^\]]+)\]/g, '@$1') },
                                 messaging_type: 'RESPONSE',
                             }),
                         }

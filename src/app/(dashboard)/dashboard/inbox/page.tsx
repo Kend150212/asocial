@@ -393,13 +393,52 @@ export default function InboxPage() {
 
     // ─── Send reply ───────────────────
     const handleSendReply = useCallback(async () => {
-        if (!selectedConversation || !replyText.trim() || sendingReply) return
+        if (!selectedConversation || !replyText.trim()) return
 
-        setSendingReply(true)
+        let contentToSend = replyText.trim()
+
+        // Only keep @[Name] tag for comment conversations — strip for DMs
+        if (selectedConversation.type !== 'comment') {
+            contentToSend = contentToSend.replace(/^@\[[^\]]+\]\s*/, '')
+            if (!contentToSend) return
+        }
+
+        // ── Optimistic: show message instantly ──
+        const tempId = `temp-${Date.now()}`
+        const optimisticMessage: InboxMessage = {
+            id: tempId,
+            externalId: null,
+            direction: 'outbound',
+            senderType: 'agent',
+            content: contentToSend,
+            contentOriginal: null,
+            detectedLang: null,
+            mediaUrl: null,
+            mediaType: null,
+            senderName: null,
+            senderAvatar: null,
+            confidence: null,
+            sentAt: new Date().toISOString(),
+        }
+
+        // Show message instantly + clear input
+        setMessages(prev => [...prev, optimisticMessage])
+        setReplyText('')
+        setReplyToName(null)
+
+        // Update conversation list instantly
+        const displayContent = contentToSend.replace(/@\[([^\]]+)\]/g, '@$1')
+        setConversations(prev =>
+            prev.map(c =>
+                c.id === selectedConversation.id
+                    ? { ...c, lastMessage: displayContent, lastMessageSender: 'agent', mode: 'AGENT' as const, lastMessageAt: new Date().toISOString() }
+                    : c
+            )
+        )
+        setSelectedConversation(prev => prev ? { ...prev, mode: 'AGENT' } : null)
+
+        // ── Background: send via API ──
         try {
-            // For comment conversations, prepend @name tag if replying to someone
-            let contentToSend = replyText.trim()
-
             const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -407,28 +446,17 @@ export default function InboxPage() {
             })
             if (res.ok) {
                 const data = await res.json()
-                setMessages(prev => [...prev, data.message])
-                setReplyText('')
-                setReplyToName(null)
-                // Update conversation in list
-                setConversations(prev =>
-                    prev.map(c =>
-                        c.id === selectedConversation.id
-                            ? { ...c, lastMessage: contentToSend, lastMessageSender: 'agent', mode: 'AGENT' as const, lastMessageAt: new Date().toISOString() }
-                            : c
-                    )
+                // Replace temp message with real one (for externalId etc.)
+                setMessages(prev =>
+                    prev.map(m => m.id === tempId ? { ...optimisticMessage, ...data.message } : m)
                 )
-                // Update selected conversation mode
-                setSelectedConversation(prev => prev ? { ...prev, mode: 'AGENT' } : null)
             } else {
-                toast.error('Failed to send reply')
+                toast.error('Failed to send — message saved locally')
             }
-        } catch (e) {
-            toast.error('Failed to send reply')
-        } finally {
-            setSendingReply(false)
+        } catch {
+            toast.error('Network error — message saved locally')
         }
-    }, [selectedConversation, replyText, sendingReply])
+    }, [selectedConversation, replyText])
 
     // ─── Update conversation ──────────
     const updateConversation = useCallback(async (convId: string, body: Record<string, any>) => {
@@ -745,7 +773,7 @@ export default function InboxPage() {
                                         </div>
                                         <div className="flex items-center gap-1 mt-0.5">
                                             <p className="text-[11px] text-muted-foreground truncate flex-1">
-                                                {conv.lastMessage || 'No messages'}
+                                                {(conv.lastMessage || 'No messages').replace(/@\[([^\]]+)\]/g, '@$1')}
                                             </p>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {conv.mode === 'BOT' && <Bot className="h-3 w-3 text-green-500" />}
