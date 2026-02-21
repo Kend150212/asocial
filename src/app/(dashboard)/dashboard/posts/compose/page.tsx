@@ -589,6 +589,10 @@ export default function ComposePage() {
     const [downloadingStock, setDownloadingStock] = useState<number | null>(null)
     const [includeSourceLink, setIncludeSourceLink] = useState(true)
     const [includeBusinessInfo, setIncludeBusinessInfo] = useState(true)
+    const [appliedContext, setAppliedContext] = useState<{
+        vibe?: boolean; knowledge?: number; hashtags?: number;
+        templates?: number; businessInfo?: boolean; brandProfile?: boolean;
+    } | null>(null)
     const [visualIdea, setVisualIdea] = useState('')
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story' | 'reel'>>({})
@@ -1396,6 +1400,11 @@ export default function ComposePage() {
                 setAiImagePrompt(data.visualIdea)
             }
 
+            // Save applied context metadata
+            if (data.appliedContext) {
+                setAppliedContext(data.appliedContext)
+            }
+
             // Auto-download and attach article images (og:image) when generating from URL
             if (data.imageUrls && data.imageUrls.length > 0 && selectedChannel) {
                 for (const imgUrl of data.imageUrls.slice(0, 3)) {
@@ -2075,6 +2084,43 @@ export default function ComposePage() {
                                     Include business info
                                 </label>
                             </div>
+
+                            {/* Applied Context Indicator */}
+                            {appliedContext && (
+                                <div className="flex flex-wrap items-center gap-1">
+                                    <span className="text-[9px] text-muted-foreground mr-0.5">AI used:</span>
+                                    {appliedContext.vibe && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 text-[9px] font-medium">
+                                            🎨 Vibe
+                                        </span>
+                                    )}
+                                    {(appliedContext.knowledge ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[9px] font-medium">
+                                            📚 Knowledge ({appliedContext.knowledge})
+                                        </span>
+                                    )}
+                                    {(appliedContext.hashtags ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[9px] font-medium">
+                                            # Hashtags ({appliedContext.hashtags})
+                                        </span>
+                                    )}
+                                    {(appliedContext.templates ?? 0) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-400 text-[9px] font-medium">
+                                            📋 Templates ({appliedContext.templates})
+                                        </span>
+                                    )}
+                                    {appliedContext.businessInfo && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 text-[9px] font-medium">
+                                            🏢 Business
+                                        </span>
+                                    )}
+                                    {appliedContext.brandProfile && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-pink-500/10 text-pink-400 text-[9px] font-medium">
+                                            🎯 Brand
+                                        </span>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Suggested Topics */}
                             <div>

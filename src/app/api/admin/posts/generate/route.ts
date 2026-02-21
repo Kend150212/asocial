@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
         include: {
             knowledgeBase: { take: 5, orderBy: { updatedAt: 'desc' } },
             hashtagGroups: true,
+            contentTemplates: { take: 5 },
         },
     })
     if (!channel) {
@@ -169,6 +170,12 @@ export async function POST(req: NextRequest) {
     const allHashtags = channel.hashtagGroups
         .flatMap((g) => (g.hashtags as string[]) || [])
         .slice(0, 20)
+
+    // Content Templates
+    const templateContext = channel.contentTemplates
+        .filter(t => !t.platform || (platforms as string[])?.includes(t.platform))
+        .map(t => `[Template: ${t.name}${t.platform ? ` (${t.platform})` : ''}]: ${t.templateContent.slice(0, 300)}`)
+        .join('\n')
 
     const langMap: Record<string, string> = {
         vi: 'Vietnamese', fr: 'French', de: 'German', ja: 'Japanese',
@@ -353,6 +360,7 @@ Language: ${langLabel}
 ${vibeStr ? `Tone & Style: ${vibeStr}` : ''}
 ${brandProfileContext}
 ${kbContext ? `\nBrand Knowledge:\n${kbContext}` : ''}
+${templateContext ? `\nContent Templates (use as style reference):\n${templateContext}` : ''}
 ${articleContext}
 ${businessContext ? `\n${businessContext}\nIMPORTANT: You MUST include the business contact information in each platform's content. Follow the platform-specific guidelines on HOW to include it (sign-off, link in bio, footer, etc.). Do NOT ignore this data.` : ''}
 ${allHashtags.length > 0 ? `\nAvailable hashtags to use/reference: ${allHashtags.join(' ')}` : ''}
@@ -443,6 +451,14 @@ ${sourceUrlText}`
             model,
             articlesFetched: urls.length,
             imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+            appliedContext: {
+                vibe: !!vibeStr,
+                knowledge: channel.knowledgeBase.length,
+                hashtags: allHashtags.length,
+                templates: channel.contentTemplates.filter(t => !t.platform || (platforms as string[])?.includes(t.platform)).length,
+                businessInfo: !!businessContext,
+                brandProfile: !!brandProfileContext,
+            },
         })
     } catch (error) {
         console.error('AI Generate error:', error)
