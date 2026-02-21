@@ -1150,6 +1150,87 @@ export default function ChannelDetailPage({
                                     </Select>
                                 </div>
                             </div>
+
+                            {/* ─── Brand Profile (Important for AI) ────── */}
+                            <div className="rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-amber-500/5 p-4 space-y-4">
+                                <div>
+                                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                                        <Target className="h-4 w-4 text-amber-500" />
+                                        Brand Profile
+                                        <span className="text-[10px] font-medium bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">RECOMMENDED</span>
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                        ⚡ <strong>Fill these in BEFORE generating content.</strong> AI uses this information to write the Description, generate SEO content, create brand-specific posts, and analyze your brand voice. The more detail you provide, the more accurate and personalized AI output will be.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs flex items-center gap-1.5">
+                                            <Target className="h-3 w-3" /> Target Audience
+                                        </Label>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                            Who are your ideal customers/followers? Include age, interests, problems they face.
+                                        </p>
+                                        <Textarea
+                                            placeholder={"Example: Millennials & Gen Z (ages 22-35), tech-savvy professionals interested in productivity and career growth. They struggle with work-life balance."}
+                                            value={brandTargetAudience}
+                                            onChange={(e) => setBrandTargetAudience(e.target.value)}
+                                            className="text-xs min-h-[60px]"
+                                            rows={2}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs flex items-center gap-1.5">
+                                            <FileText className="h-3 w-3" /> Content Types
+                                        </Label>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                            What kinds of content does your brand create? List all types.
+                                        </p>
+                                        <Textarea
+                                            placeholder={"Example: Educational carousels, product demos, customer success stories, industry news, behind-the-scenes, Q&A sessions, tutorials"}
+                                            value={brandContentTypes}
+                                            onChange={(e) => setBrandContentTypes(e.target.value)}
+                                            className="text-xs min-h-[60px]"
+                                            rows={2}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs flex items-center gap-1.5">
+                                            <Lightbulb className="h-3 w-3" /> Core Brand Values
+                                        </Label>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                            What does your brand stand for? List 3-5 core values.
+                                        </p>
+                                        <Textarea
+                                            placeholder={"Example: Innovation — We embrace new ideas. Reliability — We deliver on promises. Community — We build genuine connections."}
+                                            value={brandValues}
+                                            onChange={(e) => setBrandValues(e.target.value)}
+                                            className="text-xs min-h-[60px]"
+                                            rows={2}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs flex items-center gap-1.5">
+                                            <Megaphone className="h-3 w-3" /> Communication Style
+                                        </Label>
+                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                            How does your brand speak? Describe the tone and feel.
+                                        </p>
+                                        <Textarea
+                                            placeholder={"Example: Friendly and conversational, like talking to a knowledgeable friend. Short paragraphs, occasional humor, no corporate jargon."}
+                                            value={brandCommStyle}
+                                            onChange={(e) => setBrandCommStyle(e.target.value)}
+                                            className="text-xs min-h-[60px]"
+                                            rows={2}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <Label>{t('channels.descriptionLabel')}</Label>
@@ -1387,83 +1468,6 @@ export default function ChannelDetailPage({
                         </CardContent>
                     </Card>
 
-                    {/* ─── Brand Profile Card ────────────── */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm flex items-center gap-2">
-                                <Target className="h-4 w-4" />
-                                Brand Profile
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                                Help AI understand your brand better — fill these in for more accurate content generation
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs flex items-center gap-1.5">
-                                    <Target className="h-3 w-3" /> Target Audience
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                    Describe who your ideal customers/followers are. Include age, gender, interests, problems they face.
-                                </p>
-                                <Textarea
-                                    placeholder={"Example: Millennials & Gen Z (ages 22-35), tech-savvy professionals interested in productivity and career growth. They struggle with work-life balance and seek practical tips. Active on LinkedIn and Instagram."}
-                                    value={brandTargetAudience}
-                                    onChange={(e) => setBrandTargetAudience(e.target.value)}
-                                    className="text-xs min-h-[70px]"
-                                    rows={3}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs flex items-center gap-1.5">
-                                    <FileText className="h-3 w-3" /> Content Types
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                    What kinds of content does your brand create? List all types.
-                                </p>
-                                <Textarea
-                                    placeholder={"Example: Educational carousels, product demos, customer success stories, industry news commentary, behind-the-scenes, Q&A sessions, motivational quotes, how-to tutorials"}
-                                    value={brandContentTypes}
-                                    onChange={(e) => setBrandContentTypes(e.target.value)}
-                                    className="text-xs min-h-[60px]"
-                                    rows={2}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs flex items-center gap-1.5">
-                                    <Lightbulb className="h-3 w-3" /> Core Brand Values
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                    What does your brand stand for? List 3-5 core values that guide your content.
-                                </p>
-                                <Textarea
-                                    placeholder={"Example: Innovation — We embrace new ideas and technology. Reliability — We deliver on our promises. Community — We build genuine connections. Sustainability — We care about long-term impact."}
-                                    value={brandValues}
-                                    onChange={(e) => setBrandValues(e.target.value)}
-                                    className="text-xs min-h-[60px]"
-                                    rows={2}
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-xs flex items-center gap-1.5">
-                                    <Megaphone className="h-3 w-3" /> Current Communication Style
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                    How does your brand currently speak? Describe the tone and feel.
-                                </p>
-                                <Textarea
-                                    placeholder={"Example: Friendly and conversational, like talking to a knowledgeable friend. We use humor occasionally but stay professional. We prefer short paragraphs and ask questions to engage. We avoid corporate jargon."}
-                                    value={brandCommStyle}
-                                    onChange={(e) => setBrandCommStyle(e.target.value)}
-                                    className="text-xs min-h-[60px]"
-                                    rows={2}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     {/* ─── Business Info Card ────────────── */}
                     <Card>
