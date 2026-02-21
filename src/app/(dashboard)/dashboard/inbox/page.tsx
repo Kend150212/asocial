@@ -10,17 +10,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { toast } from 'sonner'
 import {
     MessageSquare,
-    MessageCircle,
-    Star,
     Search,
     Bot,
     UserCircle,
     Send,
     Sparkles,
     StickyNote,
-    ChevronDown,
     Check,
     MoreVertical,
     Tag,
@@ -29,14 +27,12 @@ import {
     Archive,
     Mail,
     Clock,
-    AlertCircle,
     Smile,
     Frown,
     Meh,
-    ArrowRightLeft,
-    Filter,
-    RefreshCcw,
     Inbox,
+    Loader2,
+    RefreshCcw,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -52,17 +48,20 @@ interface PlatformAccount {
     platform: string
     accountId: string
     accountName: string
-    isActive: boolean
+    channelId: string
 }
 
 interface Conversation {
     id: string
+    channelId: string
     platform: string
+    externalUserId: string
     externalUserName: string | null
     externalUserAvatar: string | null
     status: string
     mode: 'BOT' | 'AGENT' | 'PAUSED'
     assignedTo: string | null
+    agent: { id: string; name: string | null; email: string } | null
     tags: string[]
     sentiment: string | null
     intent: string | null
@@ -70,11 +69,14 @@ interface Conversation {
     aiSummary: string | null
     lastMessageAt: string | null
     unreadCount: number
-    lastMessage?: string
-    platformAccount?: {
+    lastMessage: string | null
+    lastMessageSender: string | null
+    platformAccount: {
+        id: string
         accountName: string
         platform: string
     }
+    createdAt: string
 }
 
 interface InboxMessage {
@@ -82,9 +84,21 @@ interface InboxMessage {
     direction: string
     senderType: string
     content: string
+    contentOriginal: string | null
+    detectedLang: string | null
     mediaUrl: string | null
+    mediaType: string | null
     confidence: number | null
     sentAt: string
+}
+
+interface StatusCounts {
+    new: number
+    open: number
+    done: number
+    archived: number
+    mine: number
+    all: number
 }
 
 // ─── Platform icons / colors ──────────
@@ -93,18 +107,18 @@ const platformConfig: Record<string, { icon: string; color: string; label: strin
     instagram: { icon: '📸', color: 'bg-pink-500/10 text-pink-600', label: 'Instagram' },
     tiktok: { icon: '🎵', color: 'bg-gray-800/10 text-gray-800 dark:text-gray-200', label: 'TikTok' },
     linkedin: { icon: '💼', color: 'bg-blue-700/10 text-blue-700', label: 'LinkedIn' },
-    zalo: { icon: '📘', color: 'bg-blue-400/10 text-blue-500', label: 'Zalo' },
+    zalo: { icon: '💬', color: 'bg-blue-400/10 text-blue-500', label: 'Zalo' },
     youtube: { icon: '🎬', color: 'bg-red-500/10 text-red-600', label: 'YouTube' },
 }
 
-// ─── Status filters ───────────────────
-const statusFilters = [
-    { key: 'new', label: 'Unassigned', icon: Mail, count: 0 },
-    { key: 'open', label: 'Assigned', icon: UserPlus, count: 0 },
-    { key: 'mine', label: 'Mine', icon: UserCircle, count: 0 },
-    { key: 'done', label: 'Done', icon: CheckCircle2, count: 0 },
-    { key: 'archived', label: 'Archived', icon: Archive, count: 0 },
-    { key: 'all', label: 'All', icon: Inbox, count: 0 },
+// ─── Status filters config ───────────
+const statusFilterItems = [
+    { key: 'new', label: 'Unassigned', icon: Mail },
+    { key: 'open', label: 'Assigned', icon: UserPlus },
+    { key: 'mine', label: 'Mine', icon: UserCircle },
+    { key: 'done', label: 'Done', icon: CheckCircle2 },
+    { key: 'archived', label: 'Archived', icon: Archive },
+    { key: 'all', label: 'All', icon: Inbox },
 ]
 
 // ─── Tabs ─────────────────────────────
@@ -115,121 +129,12 @@ const inboxTabs = [
     { key: 'reviews', label: 'Reviews' },
 ]
 
-// ─── Sentiment icons ──────────────────
+// ─── Sentiment icon ───────────────────
 function SentimentIcon({ sentiment }: { sentiment: string | null }) {
     if (sentiment === 'positive') return <Smile className="h-3.5 w-3.5 text-green-500" />
     if (sentiment === 'negative') return <Frown className="h-3.5 w-3.5 text-red-500" />
     return <Meh className="h-3.5 w-3.5 text-muted-foreground/50" />
 }
-
-// ─── Mock data for UI shell ───────────
-const mockConversations: Conversation[] = [
-    {
-        id: '1',
-        platform: 'facebook',
-        externalUserName: 'Thanh Dan',
-        externalUserAvatar: null,
-        status: 'new',
-        mode: 'BOT',
-        assignedTo: null,
-        tags: ['order'],
-        sentiment: 'positive',
-        intent: 'buy',
-        priority: 80,
-        aiSummary: null,
-        lastMessageAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-        unreadCount: 2,
-        lastMessage: 'Em muốn đặt sản phẩm này',
-        platformAccount: { accountName: 'Lux Home Official', platform: 'facebook' },
-    },
-    {
-        id: '2',
-        platform: 'instagram',
-        externalUserName: 'Vinh Nguyen',
-        externalUserAvatar: null,
-        status: 'open',
-        mode: 'AGENT',
-        assignedTo: 'user1',
-        tags: ['support'],
-        sentiment: 'neutral',
-        intent: 'support',
-        priority: 50,
-        aiSummary: null,
-        lastMessageAt: new Date(Date.now() - 10 * 3600000).toISOString(),
-        unreadCount: 0,
-        lastMessage: 'Giá sản phẩm như nào ạ?',
-        platformAccount: { accountName: '@luxhome.vn', platform: 'instagram' },
-    },
-    {
-        id: '3',
-        platform: 'zalo',
-        externalUserName: 'Mai Linh',
-        externalUserAvatar: null,
-        status: 'new',
-        mode: 'BOT',
-        assignedTo: null,
-        tags: ['complaint'],
-        sentiment: 'negative',
-        intent: 'complaint',
-        priority: 95,
-        aiSummary: null,
-        lastMessageAt: new Date(Date.now() - 1 * 3600000).toISOString(),
-        unreadCount: 5,
-        lastMessage: 'Sản phẩm bị lỗi, tôi muốn đổi trả',
-        platformAccount: { accountName: 'Lux Home Zalo', platform: 'zalo' },
-    },
-    {
-        id: '4',
-        platform: 'facebook',
-        externalUserName: 'Hùng Trần',
-        externalUserAvatar: null,
-        status: 'done',
-        mode: 'AGENT',
-        assignedTo: 'user1',
-        tags: [],
-        sentiment: 'positive',
-        intent: 'info',
-        priority: 20,
-        aiSummary: null,
-        lastMessageAt: new Date(Date.now() - 24 * 3600000).toISOString(),
-        unreadCount: 0,
-        lastMessage: 'Cảm ơn shop đã tư vấn',
-        platformAccount: { accountName: 'Lux Home VN', platform: 'facebook' },
-    },
-    {
-        id: '5',
-        platform: 'tiktok',
-        externalUserName: 'Bảo Ngọc',
-        externalUserAvatar: null,
-        status: 'new',
-        mode: 'BOT',
-        assignedTo: null,
-        tags: ['buy'],
-        sentiment: 'positive',
-        intent: 'buy',
-        priority: 70,
-        aiSummary: null,
-        lastMessageAt: new Date(Date.now() - 30 * 60000).toISOString(),
-        unreadCount: 1,
-        lastMessage: 'Cho mình hỏi có ship COD không?',
-        platformAccount: { accountName: '@luxhome', platform: 'tiktok' },
-    },
-]
-
-const mockMessages: InboxMessage[] = [
-    { id: 'm1', direction: 'inbound', senderType: 'customer', content: 'Chào shop, em muốn hỏi về sản phẩm sofa góc L', mediaUrl: null, confidence: null, sentAt: new Date(Date.now() - 4 * 3600000).toISOString() },
-    { id: 'm2', direction: 'outbound', senderType: 'bot', content: 'Dạ chào anh/chị! 🤖 Em là trợ lý AI của Lux Home. Anh/chị muốn hỏi về sofa góc L model nào ạ? Hiện tại shop đang có 3 mẫu:\n\n1. Sofa góc L Classic - 15.900.000đ\n2. Sofa góc L Premium - 22.500.000đ\n3. Sofa góc L Luxury - 35.000.000đ\n\nAnh/chị quan tâm mẫu nào ạ?', mediaUrl: null, confidence: 0.92, sentAt: new Date(Date.now() - 3.9 * 3600000).toISOString() },
-    { id: 'm3', direction: 'inbound', senderType: 'customer', content: 'Em muốn đặt sofa Premium, có thể trả góp không shop?', mediaUrl: null, confidence: null, sentAt: new Date(Date.now() - 3 * 3600000).toISOString() },
-    { id: 'm4', direction: 'outbound', senderType: 'bot', content: 'Dạ sofa góc L Premium giá 22.500.000đ ạ! Shop hiện hỗ trợ trả góp 0% qua:%\n\n🏦 Thẻ tín dụng: 3-12 tháng\n💳 Ví điện tử: MoMo, ZaloPay\n\nAnh/chị muốn tìm hiểu thêm chi tiết trả góp không ạ?', mediaUrl: null, confidence: 0.85, sentAt: new Date(Date.now() - 2.9 * 3600000).toISOString() },
-]
-
-const mockPlatformAccounts: PlatformAccount[] = [
-    { id: 'p1', platform: 'facebook', accountId: '123', accountName: 'Lux Home Official', isActive: true },
-    { id: 'p2', platform: 'facebook', accountId: '456', accountName: 'Lux Home VN', isActive: true },
-    { id: 'p3', platform: 'instagram', accountId: '789', accountName: '@luxhome.vn', isActive: true },
-    { id: 'p4', platform: 'tiktok', accountId: 'abc', accountName: '@luxhome', isActive: true },
-    { id: 'p5', platform: 'zalo', accountId: 'def', accountName: 'Lux Home Zalo', isActive: true },
-]
 
 // ─── Time formatter ───────────────────
 function timeAgo(date: string) {
@@ -246,74 +151,203 @@ function timeAgo(date: string) {
 // MAIN COMPONENT
 // ═══════════════════════════════════════
 export default function InboxPage() {
-    const { activeChannel, channels } = useWorkspace()
+    const { activeChannel } = useWorkspace()
     const t = useTranslation()
 
     // ─── State ────────────────────────
     const [statusFilter, setStatusFilter] = useState('all')
     const [activeTab, setActiveTab] = useState('all')
     const [searchQuery, setSearchQuery] = useState('')
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
+    const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>([])
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
     const [messages, setMessages] = useState<InboxMessage[]>([])
     const [replyText, setReplyText] = useState('')
-    const [conversations, setConversations] = useState<Conversation[]>(mockConversations)
-    const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>(mockPlatformAccounts)
+    const [conversations, setConversations] = useState<Conversation[]>([])
+    const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
+    const [counts, setCounts] = useState<StatusCounts>({ new: 0, open: 0, done: 0, archived: 0, mine: 0, all: 0 })
+    const [loading, setLoading] = useState(true)
+    const [loadingMessages, setLoadingMessages] = useState(false)
+    const [sendingReply, setSendingReply] = useState(false)
+    const [updatingConv, setUpdatingConv] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Auto-select first conversation
-    useEffect(() => {
-        if (conversations.length > 0 && !selectedConversation) {
-            setSelectedConversation(conversations[0])
-            setMessages(mockMessages)
+    // ─── Fetch platform accounts ──────
+    const fetchPlatforms = useCallback(async () => {
+        try {
+            const params = new URLSearchParams()
+            if (activeChannel?.id) params.set('channelId', activeChannel.id)
+            const res = await fetch(`/api/inbox/platforms?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setPlatformAccounts(data.platforms || [])
+            }
+        } catch (e) {
+            console.error('Failed to fetch platforms:', e)
         }
-    }, [conversations])
+    }, [activeChannel?.id])
 
-    // Scroll to bottom on new messages
+    // ─── Fetch conversations ──────────
+    const fetchConversations = useCallback(async () => {
+        setLoading(true)
+        try {
+            const params = new URLSearchParams()
+            if (activeChannel?.id) params.set('channelId', activeChannel.id)
+            if (statusFilter !== 'all' && statusFilter !== 'mine') params.set('status', statusFilter)
+            if (statusFilter === 'mine') params.set('mine', 'true')
+            if (searchQuery) params.set('search', searchQuery)
+            // If filtering by specific platform accounts
+            if (selectedPlatformIds.length === 1) {
+                params.set('platformAccountId', selectedPlatformIds[0])
+            }
+
+            const res = await fetch(`/api/inbox/conversations?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setConversations(data.conversations || [])
+                setCounts(data.counts || { new: 0, open: 0, done: 0, archived: 0, mine: 0, all: 0 })
+            }
+        } catch (e) {
+            console.error('Failed to fetch conversations:', e)
+        } finally {
+            setLoading(false)
+        }
+    }, [activeChannel?.id, statusFilter, searchQuery, selectedPlatformIds])
+
+    // ─── Fetch messages for a conversation ─
+    const fetchMessages = useCallback(async (convId: string) => {
+        setLoadingMessages(true)
+        try {
+            const res = await fetch(`/api/inbox/conversations/${convId}/messages`)
+            if (res.ok) {
+                const data = await res.json()
+                setMessages(data.messages || [])
+            }
+        } catch (e) {
+            console.error('Failed to fetch messages:', e)
+        } finally {
+            setLoadingMessages(false)
+        }
+    }, [])
+
+    // ─── Send reply ───────────────────
+    const handleSendReply = useCallback(async () => {
+        if (!selectedConversation || !replyText.trim() || sendingReply) return
+
+        setSendingReply(true)
+        try {
+            const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: replyText.trim() }),
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setMessages(prev => [...prev, data.message])
+                setReplyText('')
+                // Update conversation in list
+                setConversations(prev =>
+                    prev.map(c =>
+                        c.id === selectedConversation.id
+                            ? { ...c, lastMessage: replyText.trim(), lastMessageSender: 'agent', mode: 'AGENT' as const, lastMessageAt: new Date().toISOString() }
+                            : c
+                    )
+                )
+                // Update selected conversation mode
+                setSelectedConversation(prev => prev ? { ...prev, mode: 'AGENT' } : null)
+            } else {
+                toast.error('Failed to send reply')
+            }
+        } catch (e) {
+            toast.error('Failed to send reply')
+        } finally {
+            setSendingReply(false)
+        }
+    }, [selectedConversation, replyText, sendingReply])
+
+    // ─── Update conversation ──────────
+    const updateConversation = useCallback(async (convId: string, body: Record<string, any>) => {
+        setUpdatingConv(true)
+        try {
+            const res = await fetch(`/api/inbox/conversations/${convId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (res.ok) {
+                const data = await res.json()
+                const updated = data.conversation
+                // Update in list
+                setConversations(prev =>
+                    prev.map(c => c.id === convId ? { ...c, ...updated } : c)
+                )
+                // Update selected
+                if (selectedConversation?.id === convId) {
+                    setSelectedConversation(prev => prev ? { ...prev, ...updated } : null)
+                }
+                toast.success('Updated')
+                // Refresh counts
+                fetchConversations()
+            } else {
+                toast.error('Update failed')
+            }
+        } catch (e) {
+            toast.error('Update failed')
+        } finally {
+            setUpdatingConv(false)
+        }
+    }, [selectedConversation, fetchConversations])
+
+    // ─── Effects ──────────────────────
+    useEffect(() => {
+        fetchPlatforms()
+    }, [fetchPlatforms])
+
+    useEffect(() => {
+        fetchConversations()
+    }, [fetchConversations])
+
+    // Auto-scroll messages to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
-    // ─── Filtered conversations ───────
-    const filteredConversations = conversations.filter(c => {
-        if (statusFilter !== 'all' && statusFilter !== 'mine') {
-            if (c.status !== statusFilter) return false
-        }
-        if (selectedPlatforms.length > 0 && !selectedPlatforms.includes(c.platform)) {
-            return false
-        }
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase()
-            return c.externalUserName?.toLowerCase().includes(q) || c.lastMessage?.toLowerCase().includes(q)
-        }
-        return true
-    })
+    // Debounced search
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value)
+    }
 
-    // ─── Count by status ──────────────
-    const counts = {
-        new: conversations.filter(c => c.status === 'new').length,
-        open: conversations.filter(c => c.status === 'open').length,
-        mine: conversations.filter(c => c.assignedTo === 'currentUser').length,
-        done: conversations.filter(c => c.status === 'done').length,
-        archived: conversations.filter(c => c.status === 'archived').length,
-        all: conversations.length,
+    // Select conversation
+    const selectConversation = (conv: Conversation) => {
+        setSelectedConversation(conv)
+        fetchMessages(conv.id)
     }
 
     // ─── Toggle platform filter ───────
-    const togglePlatform = (platformId: string) => {
-        setSelectedPlatforms(prev =>
+    const togglePlatformFilter = (platformId: string) => {
+        setSelectedPlatformIds(prev =>
             prev.includes(platformId)
                 ? prev.filter(p => p !== platformId)
                 : [...prev, platformId]
         )
     }
 
-    // ─── Platform tree (group by platform) 
+    // ─── Platform tree (group by platform type) ─
     const platformTree = platformAccounts.reduce((acc, p) => {
         if (!acc[p.platform]) acc[p.platform] = []
         acc[p.platform].push(p)
         return acc
     }, {} as Record<string, PlatformAccount[]>)
+
+    // ─── Filter conversations client-side by selected platforms ─
+    const filteredConversations = selectedPlatformIds.length > 0
+        ? conversations.filter(c => selectedPlatformIds.includes(c.platformAccount?.id))
+        : conversations
+
+    // ─── AI stats ─────────────────────
+    const botActive = conversations.filter(c => c.mode === 'BOT').length
+    const angryCount = conversations.filter(c => c.sentiment === 'negative').length
+    const waitingCount = conversations.filter(c => c.status === 'new').length
 
     return (
         <div className="-mx-3 -my-4 sm:-mx-6 sm:-my-6 flex h-screen overflow-hidden">
@@ -337,7 +371,7 @@ export default function InboxPage() {
                             Status
                         </p>
                         <nav className="space-y-0.5 mt-1">
-                            {statusFilters.map(f => (
+                            {statusFilterItems.map(f => (
                                 <button
                                     key={f.key}
                                     onClick={() => setStatusFilter(f.key)}
@@ -350,9 +384,9 @@ export default function InboxPage() {
                                 >
                                     <f.icon className="h-3.5 w-3.5 shrink-0" />
                                     <span className="flex-1 text-left">{f.label}</span>
-                                    {counts[f.key as keyof typeof counts] > 0 && (
+                                    {(counts[f.key as keyof StatusCounts] ?? 0) > 0 && (
                                         <Badge variant="secondary" className="h-4 min-w-[16px] px-1 text-[9px]">
-                                            {counts[f.key as keyof typeof counts]}
+                                            {counts[f.key as keyof StatusCounts]}
                                         </Badge>
                                     )}
                                 </button>
@@ -364,48 +398,52 @@ export default function InboxPage() {
 
                     {/* Platform / Account tree */}
                     <div className="p-2">
-                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Platforms
-                        </p>
-                        <div className="space-y-1 mt-1">
-                            {Object.entries(platformTree).map(([platform, accounts]) => (
-                                <div key={platform}>
-                                    <button
-                                        onClick={() => {
-                                            // Toggle all accounts of this platform
-                                            const allIds = accounts.map(a => a.platform)
-                                            const allSelected = accounts.every(a => selectedPlatforms.includes(a.id))
-                                            if (allSelected) {
-                                                setSelectedPlatforms(prev => prev.filter(p => !accounts.some(a => a.id === p)))
-                                            } else {
-                                                setSelectedPlatforms(prev => [...new Set([...prev, ...accounts.map(a => a.id)])])
-                                            }
-                                        }}
-                                        className="w-full flex items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                    >
-                                        <span className="text-sm">{platformConfig[platform]?.icon || '🌐'}</span>
-                                        <span className="font-medium">{platformConfig[platform]?.label || platform}</span>
-                                    </button>
-                                    {accounts.map(account => (
-                                        <button
-                                            key={account.id}
-                                            onClick={() => togglePlatform(account.id)}
-                                            className={cn(
-                                                'w-full flex items-center gap-2 pl-7 pr-2 py-1 text-[11px] rounded-md transition-colors cursor-pointer',
-                                                selectedPlatforms.includes(account.id)
-                                                    ? 'bg-primary/10 text-primary font-medium'
-                                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                                            )}
-                                        >
-                                            <span className="flex-1 text-left truncate">{account.accountName}</span>
-                                            {selectedPlatforms.includes(account.id) && (
-                                                <Check className="h-3 w-3 text-primary shrink-0" />
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            ))}
+                        <div className="flex items-center justify-between px-2 py-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Platforms
+                            </p>
+                            {selectedPlatformIds.length > 0 && (
+                                <button
+                                    onClick={() => setSelectedPlatformIds([])}
+                                    className="text-[9px] text-primary hover:underline cursor-pointer"
+                                >
+                                    Clear
+                                </button>
+                            )}
                         </div>
+                        {Object.keys(platformTree).length === 0 ? (
+                            <p className="px-2.5 py-2 text-[11px] text-muted-foreground/60 italic">
+                                No platforms connected
+                            </p>
+                        ) : (
+                            <div className="space-y-1 mt-1">
+                                {Object.entries(platformTree).map(([platform, accounts]) => (
+                                    <div key={platform}>
+                                        <div className="w-full flex items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground">
+                                            <span className="text-sm">{platformConfig[platform]?.icon || '🌐'}</span>
+                                            <span className="font-medium">{platformConfig[platform]?.label || platform}</span>
+                                        </div>
+                                        {accounts.map(account => (
+                                            <button
+                                                key={account.id}
+                                                onClick={() => togglePlatformFilter(account.id)}
+                                                className={cn(
+                                                    'w-full flex items-center gap-2 pl-7 pr-2 py-1 text-[11px] rounded-md transition-colors cursor-pointer',
+                                                    selectedPlatformIds.includes(account.id)
+                                                        ? 'bg-primary/10 text-primary font-medium'
+                                                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                                )}
+                                            >
+                                                <span className="flex-1 text-left truncate">{account.accountName}</span>
+                                                {selectedPlatformIds.includes(account.id) && (
+                                                    <Check className="h-3 w-3 text-primary shrink-0" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <Separator className="mx-2" />
@@ -418,15 +456,15 @@ export default function InboxPage() {
                         <div className="space-y-1 mt-1 px-2.5">
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                 <Bot className="h-3.5 w-3.5 text-green-500" />
-                                <span>{conversations.filter(c => c.mode === 'BOT').length} bot active</span>
+                                <span>{botActive} bot active</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                 <Frown className="h-3.5 w-3.5 text-red-500" />
-                                <span>{conversations.filter(c => c.sentiment === 'negative').length} angry</span>
+                                <span>{angryCount} negative</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                 <Clock className="h-3.5 w-3.5 text-amber-500" />
-                                <span>{conversations.filter(c => c.status === 'new').length} waiting</span>
+                                <span>{waitingCount} waiting</span>
                             </div>
                         </div>
                     </div>
@@ -458,103 +496,116 @@ export default function InboxPage() {
                     </div>
                 </div>
 
-                {/* Search */}
-                <div className="p-2 border-b">
-                    <div className="relative">
+                {/* Search + refresh */}
+                <div className="p-2 border-b flex gap-1.5">
+                    <div className="relative flex-1">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
                             value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
+                            onChange={e => handleSearchChange(e.target.value)}
                             placeholder="Search conversations..."
                             className="h-8 pl-8 text-xs"
                         />
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => fetchConversations()}
+                        disabled={loading}
+                    >
+                        <RefreshCcw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+                    </Button>
                 </div>
 
                 {/* Conversation list */}
                 <ScrollArea className="flex-1">
-                    <div className="divide-y">
-                        {filteredConversations.map(conv => (
-                            <button
-                                key={conv.id}
-                                onClick={() => {
-                                    setSelectedConversation(conv)
-                                    setMessages(mockMessages)
-                                }}
-                                className={cn(
-                                    'w-full flex gap-3 p-3 text-left transition-colors cursor-pointer',
-                                    selectedConversation?.id === conv.id
-                                        ? 'bg-primary/5 border-l-2 border-l-primary'
-                                        : 'hover:bg-accent/50 border-l-2 border-l-transparent'
-                                )}
-                            >
-                                {/* Avatar */}
-                                <div className="relative">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarFallback className={cn(
-                                            'text-xs font-medium',
-                                            platformConfig[conv.platform]?.color || 'bg-gray-100'
-                                        )}>
-                                            {conv.externalUserName?.charAt(0)?.toUpperCase() || '?'}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    {/* Platform badge */}
-                                    <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">
-                                        {platformConfig[conv.platform]?.icon}
-                                    </span>
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-semibold truncate flex-1">
-                                            {conv.externalUserName || 'Unknown'}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground shrink-0">
-                                            {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                        <p className="text-[11px] text-muted-foreground truncate flex-1">
-                                            {conv.lastMessage}
-                                        </p>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            {conv.mode === 'BOT' && <Bot className="h-3 w-3 text-green-500" />}
-                                            {conv.mode === 'AGENT' && <UserCircle className="h-3 w-3 text-blue-500" />}
-                                            {conv.unreadCount > 0 && (
-                                                <Badge className="h-4 min-w-[16px] px-1 text-[9px] bg-primary">
-                                                    {conv.unreadCount}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {/* Tags + sentiment */}
-                                    {(conv.tags.length > 0 || conv.sentiment) && (
-                                        <div className="flex items-center gap-1 mt-1">
-                                            <SentimentIcon sentiment={conv.sentiment} />
-                                            {conv.tags.slice(0, 2).map(tag => (
-                                                <Badge key={tag} variant="outline" className="h-3.5 px-1 text-[8px] font-normal">
-                                                    {tag}
-                                                </Badge>
-                                            ))}
-                                            {conv.intent && (
-                                                <Badge variant="secondary" className="h-3.5 px-1 text-[8px]">
-                                                    {conv.intent === 'buy' ? '🛒' : conv.intent === 'complaint' ? '⚠️' : conv.intent === 'support' ? '🔧' : 'ℹ️'}
-                                                </Badge>
-                                            )}
-                                        </div>
+                    {loading ? (
+                        <div className="p-8 text-center">
+                            <Loader2 className="h-6 w-6 text-muted-foreground/50 mx-auto mb-2 animate-spin" />
+                            <p className="text-xs text-muted-foreground">Loading...</p>
+                        </div>
+                    ) : filteredConversations.length === 0 ? (
+                        <div className="p-8 text-center">
+                            <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground font-medium">No conversations yet</p>
+                            <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                Conversations will appear here when customers message you via connected platforms
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {filteredConversations.map(conv => (
+                                <button
+                                    key={conv.id}
+                                    onClick={() => selectConversation(conv)}
+                                    className={cn(
+                                        'w-full flex gap-3 p-3 text-left transition-colors cursor-pointer',
+                                        selectedConversation?.id === conv.id
+                                            ? 'bg-primary/5 border-l-2 border-l-primary'
+                                            : 'hover:bg-accent/50 border-l-2 border-l-transparent'
                                     )}
-                                </div>
-                            </button>
-                        ))}
+                                >
+                                    {/* Avatar */}
+                                    <div className="relative">
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarFallback className={cn(
+                                                'text-xs font-medium',
+                                                platformConfig[conv.platform]?.color || 'bg-gray-100'
+                                            )}>
+                                                {conv.externalUserName?.charAt(0)?.toUpperCase() || '?'}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">
+                                            {platformConfig[conv.platform]?.icon}
+                                        </span>
+                                    </div>
 
-                        {filteredConversations.length === 0 && (
-                            <div className="p-8 text-center">
-                                <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                                <p className="text-xs text-muted-foreground">No conversations found</p>
-                            </div>
-                        )}
-                    </div>
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-xs font-semibold truncate flex-1">
+                                                {conv.externalUserName || 'Unknown'}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground shrink-0">
+                                                {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                            <p className="text-[11px] text-muted-foreground truncate flex-1">
+                                                {conv.lastMessage || 'No messages'}
+                                            </p>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {conv.mode === 'BOT' && <Bot className="h-3 w-3 text-green-500" />}
+                                                {conv.mode === 'AGENT' && <UserCircle className="h-3 w-3 text-blue-500" />}
+                                                {conv.unreadCount > 0 && (
+                                                    <Badge className="h-4 min-w-[16px] px-1 text-[9px] bg-primary">
+                                                        {conv.unreadCount}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* Tags + sentiment */}
+                                        {(conv.tags.length > 0 || conv.sentiment) && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <SentimentIcon sentiment={conv.sentiment} />
+                                                {conv.tags.slice(0, 2).map(tag => (
+                                                    <Badge key={tag} variant="outline" className="h-3.5 px-1 text-[8px] font-normal">
+                                                        {tag}
+                                                    </Badge>
+                                                ))}
+                                                {conv.intent && (
+                                                    <Badge variant="secondary" className="h-3.5 px-1 text-[8px]">
+                                                        {conv.intent === 'buy' ? '🛒' : conv.intent === 'complaint' ? '⚠️' : conv.intent === 'support' ? '🔧' : 'ℹ️'}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </ScrollArea>
             </div>
 
@@ -611,35 +662,35 @@ export default function InboxPage() {
                             {/* Action buttons */}
                             <div className="flex items-center gap-1.5">
                                 {selectedConversation.mode === 'BOT' ? (
-                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs gap-1.5"
+                                        disabled={updatingConv}
+                                        onClick={() => updateConversation(selectedConversation.id, { action: 'takeover' })}
+                                    >
                                         <UserCircle className="h-3.5 w-3.5" />
                                         Take Over
                                     </Button>
                                 ) : (
-                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs gap-1.5"
+                                        disabled={updatingConv}
+                                        onClick={() => updateConversation(selectedConversation.id, { action: 'transferToBot' })}
+                                    >
                                         <Bot className="h-3.5 w-3.5" />
                                         Transfer to Bot
                                     </Button>
                                 )}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
-                                            <UserPlus className="h-3.5 w-3.5" />
-                                            Assign
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem className="text-xs cursor-pointer">Assign to me</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-xs cursor-pointer">Team Member 1</DropdownMenuItem>
-                                        <DropdownMenuItem className="text-xs cursor-pointer">Team Member 2</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5">
-                                    <Tag className="h-3.5 w-3.5" />
-                                    Tags
-                                </Button>
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 text-green-600 hover:text-green-700 hover:bg-green-50">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs gap-1.5 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    disabled={updatingConv}
+                                    onClick={() => updateConversation(selectedConversation.id, { status: 'done' })}
+                                >
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     Done
                                 </Button>
@@ -650,7 +701,10 @@ export default function InboxPage() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem className="text-xs cursor-pointer">
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
+                                            onClick={() => updateConversation(selectedConversation.id, { status: 'archived' })}
+                                        >
                                             <Archive className="h-3.5 w-3.5 mr-2" />
                                             Archive
                                         </DropdownMenuItem>
@@ -665,79 +719,73 @@ export default function InboxPage() {
 
                         {/* Chat history */}
                         <ScrollArea className="flex-1 p-4">
-                            <div className="max-w-2xl mx-auto space-y-4">
-                                {messages.map(msg => (
-                                    <div
-                                        key={msg.id}
-                                        className={cn(
-                                            'flex gap-2',
-                                            msg.direction === 'outbound' ? 'justify-end' : 'justify-start'
-                                        )}
-                                    >
-                                        {msg.direction === 'inbound' && (
-                                            <Avatar className="h-7 w-7 shrink-0 mt-1">
-                                                <AvatarFallback className="text-[10px] bg-gray-100">
-                                                    {selectedConversation.externalUserName?.charAt(0)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        )}
-                                        <div className={cn(
-                                            'max-w-[75%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed',
-                                            msg.direction === 'outbound'
-                                                ? msg.senderType === 'bot'
-                                                    ? 'bg-green-500/10 text-foreground border border-green-200 dark:border-green-800'
-                                                    : 'bg-primary text-primary-foreground'
-                                                : 'bg-muted'
-                                        )}>
-                                            {msg.senderType === 'bot' && (
-                                                <div className="flex items-center gap-1 mb-1.5 text-green-600 dark:text-green-400 text-[10px] font-medium">
-                                                    <Bot className="h-3 w-3" />
-                                                    AI Bot
-                                                    {msg.confidence && (
-                                                        <span className="text-muted-foreground">
-                                                            · {Math.round(msg.confidence * 100)}% conf
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            <div className="whitespace-pre-wrap">{msg.content}</div>
-                                            <div className={cn(
-                                                'text-[9px] mt-1.5',
-                                                msg.direction === 'outbound' && msg.senderType !== 'bot'
-                                                    ? 'text-primary-foreground/70'
-                                                    : 'text-muted-foreground'
-                                            )}>
-                                                {new Date(msg.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                        {msg.direction === 'outbound' && msg.senderType !== 'bot' && (
-                                            <Avatar className="h-7 w-7 shrink-0 mt-1">
-                                                <AvatarFallback className="text-[10px] bg-primary/10">
-                                                    A
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        )}
-                                    </div>
-                                ))}
-                                <div ref={messagesEndRef} />
-                            </div>
-                        </ScrollArea>
-
-                        {/* AI Insights bar */}
-                        {selectedConversation.mode === 'AGENT' && (
-                            <div className="mx-4 mb-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800">
-                                <div className="flex items-center gap-2 text-[11px]">
-                                    <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                    <span className="text-amber-700 dark:text-amber-300 font-medium">AI Suggestion:</span>
-                                    <span className="text-amber-600 dark:text-amber-400 flex-1 truncate">
-                                        &quot;Dạ anh/chị có thể chọn trả góp 0% qua thẻ tín dụng 6-12 tháng...&quot;
-                                    </span>
-                                    <Button variant="ghost" size="sm" className="h-5 px-2 text-[10px] text-amber-600 hover:bg-amber-100">
-                                        Use
-                                    </Button>
+                            {loadingMessages ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                                 </div>
-                            </div>
-                        )}
+                            ) : messages.length === 0 ? (
+                                <div className="flex items-center justify-center h-32">
+                                    <p className="text-xs text-muted-foreground">No messages yet</p>
+                                </div>
+                            ) : (
+                                <div className="max-w-2xl mx-auto space-y-4">
+                                    {messages.map(msg => (
+                                        <div
+                                            key={msg.id}
+                                            className={cn(
+                                                'flex gap-2',
+                                                msg.direction === 'outbound' ? 'justify-end' : 'justify-start'
+                                            )}
+                                        >
+                                            {msg.direction === 'inbound' && (
+                                                <Avatar className="h-7 w-7 shrink-0 mt-1">
+                                                    <AvatarFallback className="text-[10px] bg-gray-100 dark:bg-gray-800">
+                                                        {selectedConversation.externalUserName?.charAt(0)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            )}
+                                            <div className={cn(
+                                                'max-w-[75%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed',
+                                                msg.direction === 'outbound'
+                                                    ? msg.senderType === 'bot'
+                                                        ? 'bg-green-500/10 text-foreground border border-green-200 dark:border-green-800'
+                                                        : 'bg-primary text-primary-foreground'
+                                                    : 'bg-muted'
+                                            )}>
+                                                {msg.senderType === 'bot' && (
+                                                    <div className="flex items-center gap-1 mb-1.5 text-green-600 dark:text-green-400 text-[10px] font-medium">
+                                                        <Bot className="h-3 w-3" />
+                                                        AI Bot
+                                                        {msg.confidence != null && (
+                                                            <span className="text-muted-foreground">
+                                                                · {Math.round(msg.confidence * 100)}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className="whitespace-pre-wrap">{msg.content}</div>
+                                                <div className={cn(
+                                                    'text-[9px] mt-1.5',
+                                                    msg.direction === 'outbound' && msg.senderType !== 'bot'
+                                                        ? 'text-primary-foreground/70'
+                                                        : 'text-muted-foreground'
+                                                )}>
+                                                    {new Date(msg.sentAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                            </div>
+                                            {msg.direction === 'outbound' && msg.senderType === 'agent' && (
+                                                <Avatar className="h-7 w-7 shrink-0 mt-1">
+                                                    <AvatarFallback className="text-[10px] bg-primary/10">
+                                                        A
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <div ref={messagesEndRef} />
+                                </div>
+                            )}
+                        </ScrollArea>
 
                         {/* Reply box */}
                         <div className="border-t bg-card p-3">
@@ -759,7 +807,13 @@ export default function InboxPage() {
                                     <textarea
                                         value={replyText}
                                         onChange={e => setReplyText(e.target.value)}
-                                        placeholder={selectedConversation.mode === 'BOT' ? 'Take over to reply...' : 'Type your reply...'}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault()
+                                                handleSendReply()
+                                            }
+                                        }}
+                                        placeholder={selectedConversation.mode === 'BOT' ? 'Take over to reply...' : 'Type your reply... (Enter to send)'}
                                         disabled={selectedConversation.mode === 'BOT'}
                                         rows={2}
                                         className="w-full resize-none rounded-xl border bg-background px-3.5 py-2.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -787,9 +841,14 @@ export default function InboxPage() {
                                     <Button
                                         size="sm"
                                         className="h-7 w-7 p-0"
-                                        disabled={selectedConversation.mode === 'BOT' || !replyText.trim()}
+                                        disabled={selectedConversation.mode === 'BOT' || !replyText.trim() || sendingReply}
+                                        onClick={handleSendReply}
                                     >
-                                        <Send className="h-3.5 w-3.5" />
+                                        {sendingReply ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <Send className="h-3.5 w-3.5" />
+                                        )}
                                     </Button>
                                 </div>
                             </div>
