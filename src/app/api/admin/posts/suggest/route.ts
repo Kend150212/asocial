@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { UserRole } from '@prisma/client'
 import { decrypt } from '@/lib/encryption'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
+import { getChannelOwnerKey } from '@/lib/channel-owner-key'
 
 // POST /api/admin/posts/suggest — AI-generate topic suggestions for a channel
 export async function POST(req: NextRequest) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
     }
 
-    // Verify user has access to this channel (session ADMIN bypasses; channel OWNER/MANAGER/ADMIN allowed)
+    // Verify user has access to this channel
     if (session.user.role !== 'ADMIN') {
         const membership = await prisma.channelMember.findFirst({
             where: { channelId, userId: session.user.id, role: { in: [UserRole.OWNER, UserRole.ADMIN, UserRole.MANAGER] } },
@@ -30,40 +31,27 @@ export async function POST(req: NextRequest) {
     const channel = await prisma.channel.findUnique({
         where: { id: channelId },
         include: {
-            knowledgeBase: { take: 3, orderBy: { updatedAt: 'desc' } },
+            knowledgeBase: { take: 5, orderBy: { updatedAt: 'desc' } },
             hashtagGroups: true,
+            contentTemplates: { take: 5 },
         },
     })
     if (!channel) {
         return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
     }
 
-    // ── Resolve AI provider/key (same priority chain as generate) ──
+    // ── Resolve AI provider/key ──
     const providerToUse = channel.defaultAiProvider
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channelData = channel as any
-    const channelAiKey = channelData.aiApiKeyEncrypted
-    const mustUseOwnKey = channelData.requireOwnApiKey === true
     let apiKey: string
     let providerName: string
     let config: Record<string, string> = {}
     let baseUrl: string | undefined | null
 
-    // Try user key → channel key → global integration (admin)
-    let userApiKey = providerToUse
-        ? await prisma.userApiKey.findFirst({ where: { userId: session.user.id!, provider: providerToUse, isActive: true } })
-        : null
-    if (!userApiKey) userApiKey = await prisma.userApiKey.findFirst({ where: { userId: session.user.id!, isDefault: true, isActive: true } })
-    if (!userApiKey) userApiKey = await prisma.userApiKey.findFirst({ where: { userId: session.user.id!, isActive: true }, orderBy: { provider: 'asc' } })
+    const ownerKey = await getChannelOwnerKey(channelId, providerToUse || null)
 
-    if (userApiKey) {
-        apiKey = decrypt(userApiKey.apiKeyEncrypted)
-        providerName = userApiKey.provider
-    } else if (channelAiKey) {
-        apiKey = decrypt(channelAiKey)
-        providerName = providerToUse || 'gemini'
-    } else if (mustUseOwnKey) {
-        return NextResponse.json({ error: 'No API key configured' }, { status: 400 })
+    if (!ownerKey.error) {
+        apiKey = ownerKey.apiKey!
+        providerName = ownerKey.provider!
     } else if (session.user.role === 'ADMIN') {
         const aiIntegration = await prisma.apiIntegration.findFirst({
             where: { category: 'AI', status: 'ACTIVE', apiKeyEncrypted: { not: null } },
@@ -80,33 +68,109 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No AI API key found' }, { status: 400 })
     }
 
-    const model = userApiKey?.defaultModel || channel.defaultAiModel || getDefaultModel(providerName, config)
+    const model = ownerKey.model || channel.defaultAiModel || getDefaultModel(providerName, config)
 
-    // Build channel context for suggestion
-    const kbTitles = channel.knowledgeBase.map(kb => kb.title).join(', ')
-    const seoTags = ((channel.seoTags as string[]) || []).join(', ')
-    const hashtags = channel.hashtagGroups.flatMap(g => (g.hashtags as string[]) || []).slice(0, 15).join(' ')
+    // ── Build rich channel context ──
     const langMap: Record<string, string> = { vi: 'Vietnamese', en: 'English', fr: 'French', de: 'German', ja: 'Japanese', ko: 'Korean', zh: 'Chinese', es: 'Spanish' }
     const langLabel = langMap[channel.language] || 'English'
 
-    const systemPrompt = `You are a social media content strategist. Suggest engaging post topics. Respond ONLY with valid JSON.`
-    const userPrompt = `Suggest 6 diverse, engaging social media post topics for this brand:
+    // Vibe & Tone
+    const vibeTone = (channel.vibeTone as Record<string, string>) || {}
+    const vibeStr = Object.entries(vibeTone).map(([k, v]) => `${k}: ${v}`).join(', ')
 
+    // Brand Profile
+    const brandProfile = (channel as any).brandProfile as {
+        targetAudience?: string; contentTypes?: string;
+        brandValues?: string; communicationStyle?: string;
+    } | null
+    let brandContext = ''
+    if (brandProfile) {
+        const parts: string[] = []
+        if (brandProfile.targetAudience) parts.push(`Target Audience: ${brandProfile.targetAudience}`)
+        if (brandProfile.contentTypes) parts.push(`Content Types: ${brandProfile.contentTypes}`)
+        if (brandProfile.brandValues) parts.push(`Brand Values: ${brandProfile.brandValues}`)
+        if (brandProfile.communicationStyle) parts.push(`Communication Style: ${brandProfile.communicationStyle}`)
+        if (parts.length > 0) brandContext = parts.join('\n')
+    }
+
+    // Knowledge Base (content, not just titles)
+    const kbContext = channel.knowledgeBase
+        .map(kb => `[${kb.title}]: ${kb.content.slice(0, 300)}`)
+        .join('\n')
+
+    // SEO Tags
+    const seoTags = ((channel.seoTags as string[]) || []).join(', ')
+
+    // Hashtags
+    const hashtags = channel.hashtagGroups.flatMap(g => (g.hashtags as string[]) || []).slice(0, 20).join(' ')
+
+    // Content Templates
+    const templateNames = channel.contentTemplates.map(t => t.name).join(', ')
+
+    // Business Info
+    const bizInfo = (channel as any).businessInfo as {
+        phone?: string; address?: string; website?: string;
+    } | null
+    let bizContext = ''
+    if (bizInfo) {
+        const parts: string[] = []
+        if (bizInfo.website) parts.push(`Website: ${bizInfo.website}`)
+        if (bizInfo.address) parts.push(`Location: ${bizInfo.address}`)
+        if (parts.length > 0) bizContext = parts.join(', ')
+    }
+
+    const systemPrompt = `You are an expert SEO copywriter and social media content strategist. You deeply understand how to create compelling, SEO-optimized content ideas that resonate with specific target audiences and drive engagement. Analyze the brand data provided and generate highly relevant, data-driven topic suggestions. Respond ONLY with valid JSON.`
+
+    const userPrompt = `As an expert SEO copywriter and content strategist, brainstorm 8 highly compelling, SEO-optimized social media post ideas for this brand. Analyze ALL the brand data below to create hyper-relevant, targeted topics.
+
+═══ BRAND DATA ═══
 Brand: ${channel.displayName}
 Description: ${channel.description || 'N/A'}
 Language: ${langLabel}
-SEO Tags: ${seoTags || 'N/A'}
-Knowledge Base Topics: ${kbTitles || 'N/A'}
-Hashtags: ${hashtags || 'N/A'}
+${vibeStr ? `Tone & Style: ${vibeStr}` : ''}
+${brandContext ? `\n${brandContext}` : ''}
+${kbContext ? `\nKnowledge Base:\n${kbContext}` : ''}
+${seoTags ? `SEO Tags: ${seoTags}` : ''}
+${hashtags ? `Popular Hashtags: ${hashtags}` : ''}
+${templateNames ? `Content Templates: ${templateNames}` : ''}
+${bizContext ? `Business: ${bizContext}` : ''}
 
-Return JSON: { "suggestions": [{ "topic": "short topic text", "emoji": "relevant emoji" }] }
+═══ INSTRUCTIONS ═══
+For each topic, provide:
+1. A catchy, SEO-friendly headline that's optimized for social engagement
+2. The primary target keyword this post should rank for
+3. A brief angle explaining the core value (solving a problem, answering a question, providing insight)
+4. 2-3 related keywords or long-tail phrases
 
-Rules:
-- Topics should be diverse (mix of educational, engaging, promotional, trending)
-- Each topic: 3-8 words, actionable, specific
-- Use ${langLabel} language
-- Include seasonal/timely topics where relevant
-- Make topics that would work well on social media`
+═══ DIVERSITY RULES ═══
+Mix these content types across the 8 suggestions:
+- 2 Educational/How-To (teach something valuable to the target audience)
+- 2 Engagement/Community (conversation starters, polls, debates, "hot takes")
+- 1 Trending/Timely (connect to current events, seasons, or trends)
+- 1 Behind-the-Scenes/Story (brand personality, journey, lessons learned)
+- 1 Promotional/Value (showcase product/service without being salesy)
+- 1 Thought Leadership (industry insights, predictions, expert analysis)
+
+═══ RESPONSE FORMAT ═══
+Return EXACTLY this JSON:
+{
+  "suggestions": [
+    {
+      "topic": "Short catchy headline (5-12 words)",
+      "emoji": "🔥",
+      "keyword": "primary target keyword",
+      "angle": "Brief description of the content angle and value (1 sentence)",
+      "relatedKeywords": ["keyword1", "keyword2"]
+    }
+  ]
+}
+
+CRITICAL:
+- Write ALL topics in ${langLabel}
+- Topics MUST be specific to THIS brand's niche — NOT generic social media advice
+- Each topic should feel like it was crafted by someone who deeply understands this brand
+- Include actionable, specific hooks — avoid vague topics like "Tips for success"
+- Make headlines click-worthy but NOT clickbait`
 
     try {
         const result = await callAI(providerName, apiKey, model, systemPrompt, userPrompt, baseUrl)
@@ -114,7 +178,7 @@ Rules:
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
         if (jsonMatch) cleaned = jsonMatch[0]
 
-        let parsed: { suggestions?: { topic: string; emoji: string }[] }
+        let parsed: { suggestions?: { topic: string; emoji: string; keyword?: string; angle?: string; relatedKeywords?: string[] }[] }
         try { parsed = JSON.parse(cleaned) } catch { parsed = { suggestions: [] } }
 
         return NextResponse.json({ suggestions: parsed.suggestions || [] })

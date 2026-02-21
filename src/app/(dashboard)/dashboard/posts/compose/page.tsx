@@ -568,7 +568,7 @@ export default function ComposePage() {
     const [aiTopic, setAiTopic] = useState('')
     // AI Suggestions & Trending
     const [showSuggestions, setShowSuggestions] = useState(false)
-    const [suggestions, setSuggestions] = useState<{ topic: string; emoji: string }[]>([])
+    const [suggestions, setSuggestions] = useState<{ topic: string; emoji: string; keyword?: string; angle?: string; relatedKeywords?: string[] }[]>([])
     const [loadingSuggestions, setLoadingSuggestions] = useState(false)
     const [showTrending, setShowTrending] = useState(false)
     const [trendingArticles, setTrendingArticles] = useState<{ title: string; source: string; link: string; publishedAt: string }[]>([])
@@ -2141,21 +2141,33 @@ export default function ComposePage() {
                                                 <span className="text-[10px] text-muted-foreground">Generating suggestions...</span>
                                             </div>
                                         ) : suggestions.length > 0 ? (
-                                            <div className="flex flex-wrap gap-1">
+                                            <div className="flex flex-wrap gap-1.5">
                                                 {suggestions.map((s, i) => (
                                                     <button
                                                         key={i}
                                                         onClick={() => { setAiTopic(s.topic); setShowSuggestions(false) }}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full border bg-card hover:bg-accent/50 text-[10px] transition-colors cursor-pointer"
+                                                        title={s.angle || s.topic}
+                                                        className="group inline-flex flex-col items-start gap-0.5 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 text-left transition-all cursor-pointer"
                                                     >
-                                                        <span>{s.emoji}</span>
-                                                        <span>{s.topic}</span>
+                                                        <span className="inline-flex items-center gap-1 text-[10px]">
+                                                            <span>{s.emoji}</span>
+                                                            <span className="font-medium group-hover:text-primary transition-colors">{s.topic}</span>
+                                                        </span>
+                                                        {s.keyword && (
+                                                            <span className="inline-flex items-center gap-1 text-[8px] text-muted-foreground">
+                                                                <Search className="h-2 w-2" />
+                                                                {s.keyword}
+                                                                {s.relatedKeywords && s.relatedKeywords.length > 0 && (
+                                                                    <span className="text-muted-foreground/50">· {s.relatedKeywords.slice(0, 2).join(' · ')}</span>
+                                                                )}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 ))}
                                                 <button
                                                     onClick={fetchSuggestions}
                                                     disabled={loadingSuggestions}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-dashed text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer self-start"
                                                 >
                                                     <RefreshCw className="h-2.5 w-2.5" /> Refresh
                                                 </button>
