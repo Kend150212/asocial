@@ -46,6 +46,7 @@ import {
     Globe as Globe2,
     Target,
     Lightbulb,
+    Bot,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -1086,6 +1087,10 @@ export default function ChannelDetailPage({
                         <Settings className="h-3.5 w-3.5" />
                         <span className="hidden lg:inline">{t('channels.tabs.general')}</span>
                     </TabsTrigger>
+                    <TabsTrigger value="ai" className="gap-1.5 text-xs">
+                        <Bot className="h-3.5 w-3.5" />
+                        <span className="hidden lg:inline">AI Setup</span>
+                    </TabsTrigger>
                     <TabsTrigger value="platforms" className="gap-1.5 text-xs">
                         <Globe className="h-3.5 w-3.5" />
                         <span className="hidden lg:inline">{t('channels.tabs.platforms')}</span>
@@ -1288,132 +1293,34 @@ export default function ChannelDetailPage({
 
                             <Separator />
 
-                            {isAdminOrManager ? (
-                                <>
-                                    {/* Channel AI Setup — Admin Only */}
-                                    <div className="space-y-4">
-                                        <Label className="text-base font-semibold">Channel AI Configuration</Label>
-
-                                        {/* User Key Status */}
-                                        {userConfiguredProviders.length === 0 ? (
-                                            <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
-                                                <p className="text-xs text-orange-400 font-medium">⚠ You haven&apos;t set up any AI API keys yet.</p>
-                                                <a href="/dashboard/api-keys" className="text-xs text-primary hover:underline font-medium mt-1 inline-block">→ Go to AI API Keys to add your keys</a>
-                                            </div>
-                                        ) : (
-                                            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center justify-between">
-                                                <p className="text-xs text-emerald-500">✓ You have {userConfiguredProviders.length} AI provider{userConfiguredProviders.length > 1 ? 's' : ''} configured</p>
-                                                <a href="/dashboard/api-keys" className="text-[11px] text-primary hover:underline">Manage keys →</a>
-                                            </div>
-                                        )}
-
-                                        {/* Provider & Model */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>{t('channels.ai.provider')}</Label>
-                                                <Select value={aiProvider || '__default__'} onValueChange={(v) => { setAiProvider(v === '__default__' ? '' : v); setAiModel('') }}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={t('channels.ai.useGlobal')} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                                        {availableProviders
-                                                            .filter(p => userConfiguredProviders.includes(p.provider))
-                                                            .map((p) => (
-                                                                <SelectItem key={p.provider} value={p.provider}>
-                                                                    {p.name} ✓
-                                                                </SelectItem>
-                                                            ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-xs text-muted-foreground">Only shows providers you&apos;ve set up in AI API Keys</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="flex items-center gap-2">
-                                                    {t('channels.ai.model')}
-                                                    {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                                                </Label>
-                                                <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels || !aiProvider}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={aiProvider ? 'Select a model...' : 'Select provider first'} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
-                                                        {availableModels.map((m) => (
-                                                            <SelectItem key={m.id} value={m.id}>
-                                                                {m.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Image AI Configuration */}
-                                    <Separator />
-                                    <div className="space-y-4">
-                                        <Label className="text-base font-semibold flex items-center gap-2">
-                                            🖼️ AI Image Provider
-                                        </Label>
-                                        <p className="text-xs text-muted-foreground -mt-2">
-                                            Choose which AI provider to use for image generation. Providers with image models: Runware, OpenAI (DALL-E), Gemini (Imagen).
+                            {/* AI Setup Notice */}
+                            <div className={`rounded-lg border p-3 flex items-center justify-between ${userConfiguredProviders.length > 0 ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-orange-500/30 bg-orange-500/5 border-dashed'}`}>
+                                <div className="flex items-center gap-3">
+                                    <Bot className={`h-5 w-5 ${userConfiguredProviders.length > 0 ? 'text-emerald-500' : 'text-orange-400'}`} />
+                                    <div>
+                                        <p className={`text-xs font-medium ${userConfiguredProviders.length > 0 ? 'text-emerald-500' : 'text-orange-400'}`}>
+                                            {userConfiguredProviders.length > 0
+                                                ? `✓ AI configured — ${userConfiguredProviders.length} provider${userConfiguredProviders.length > 1 ? 's' : ''} active`
+                                                : '⚠ AI not configured — set up your AI provider to use content generation, SEO, image creation, and brand analysis'
+                                            }
                                         </p>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>Image Provider</Label>
-                                                <Select value={imageProvider || '__default__'} onValueChange={(v) => { setImageProvider(v === '__default__' ? '' : v); setImageModel('') }}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Auto-detect" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__default__">Auto-detect (use any available)</SelectItem>
-                                                        {availableProviders
-                                                            .filter(p => userConfiguredProviders.includes(p.provider) && ['runware', 'openai', 'gemini'].includes(p.provider))
-                                                            .map((p) => (
-                                                                <SelectItem key={p.provider} value={p.provider}>
-                                                                    {p.name} ✓
-                                                                </SelectItem>
-                                                            ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-xs text-muted-foreground">Only shows image-capable providers</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="flex items-center gap-2">
-                                                    Image Model
-                                                    {loadingImageModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                                                </Label>
-                                                <Select value={imageModel || '__default__'} onValueChange={(v) => setImageModel(v === '__default__' ? '' : v)} disabled={loadingImageModels || !imageProvider}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={imageProvider ? 'Select a model...' : 'Select provider first'} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__default__">Default model</SelectItem>
-                                                        {availableImageModels.map((m) => (
-                                                            <SelectItem key={m.id} value={m.id}>
-                                                                {m.name} {m.description ? `— ${m.description}` : ''}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-xs text-muted-foreground">e.g. FLUX.1 Dev, DALL-E 3, Imagen 3</p>
-                                            </div>
-                                        </div>
+                                        {userConfiguredProviders.length === 0 && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                                Go to the AI Setup tab to configure your AI provider and model
+                                            </p>
+                                        )}
                                     </div>
-                                </>
-                            ) : (
-                                <div className="rounded-lg border border-dashed p-4 bg-muted/30 space-y-2">
-                                    <p className="text-sm font-medium text-muted-foreground">AI Configuration</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Channel AI settings are managed by the admin. You can set up your own AI API keys to use for content generation.
-                                    </p>
-                                    <a href="/dashboard/api-keys" className="text-xs text-primary hover:underline font-medium inline-block">
-                                        → Manage your AI API Keys
-                                    </a>
                                 </div>
-                            )}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setActiveTab('ai')}
+                                    className="gap-1.5 text-xs h-7 shrink-0"
+                                >
+                                    <Bot className="h-3 w-3" />
+                                    {userConfiguredProviders.length > 0 ? 'Manage' : 'Set Up'}
+                                </Button>
+                            </div>
 
                             <Separator />
 
@@ -1633,6 +1540,155 @@ export default function ChannelDetailPage({
                             </Card>
                         ))}
                     </div>
+                </TabsContent>
+
+                {/* ─── AI Setup Tab ───────────────── */}
+                <TabsContent value="ai" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Bot className="h-5 w-5" />
+                                Channel AI Configuration
+                            </CardTitle>
+                            <CardDescription>
+                                Configure which AI provider and model to use for content generation, SEO descriptions, and brand analysis for this channel.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {isAdminOrManager ? (
+                                <>
+                                    {/* ── Text AI Provider ─── */}
+                                    <div className="space-y-4">
+                                        <Label className="text-sm font-semibold flex items-center gap-2">
+                                            🧠 Text AI Provider
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground -mt-2">
+                                            Choose which AI provider and model to use for text generation (content, descriptions, brand voice analysis).
+                                        </p>
+
+                                        {/* User Key Status */}
+                                        {userConfiguredProviders.length === 0 ? (
+                                            <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
+                                                <p className="text-xs text-orange-400 font-medium">⚠ You haven&apos;t set up any AI API keys yet.</p>
+                                                <a href="/dashboard/api-keys" className="text-xs text-primary hover:underline font-medium mt-1 inline-block">→ Go to AI API Keys to add your keys</a>
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center justify-between">
+                                                <p className="text-xs text-emerald-500">✓ You have {userConfiguredProviders.length} AI provider{userConfiguredProviders.length > 1 ? 's' : ''} configured</p>
+                                                <a href="/dashboard/api-keys" className="text-[11px] text-primary hover:underline">Manage keys →</a>
+                                            </div>
+                                        )}
+
+                                        {/* Provider & Model */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>{t('channels.ai.provider')}</Label>
+                                                <Select value={aiProvider || '__default__'} onValueChange={(v) => { setAiProvider(v === '__default__' ? '' : v); setAiModel('') }}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={t('channels.ai.useGlobal')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
+                                                        {availableProviders
+                                                            .filter(p => userConfiguredProviders.includes(p.provider))
+                                                            .map((p) => (
+                                                                <SelectItem key={p.provider} value={p.provider}>
+                                                                    {p.name} ✓
+                                                                </SelectItem>
+                                                            ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">Only shows providers you&apos;ve set up in AI API Keys</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="flex items-center gap-2">
+                                                    {t('channels.ai.model')}
+                                                    {loadingModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                                </Label>
+                                                <Select value={aiModel || '__default__'} onValueChange={(v) => setAiModel(v === '__default__' ? '' : v)} disabled={loadingModels || !aiProvider}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={aiProvider ? 'Select a model...' : 'Select provider first'} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">{t('channels.ai.useGlobal')}</SelectItem>
+                                                        {availableModels.map((m) => (
+                                                            <SelectItem key={m.id} value={m.id}>
+                                                                {m.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">{t('channels.ai.modelDesc')}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* ── Image AI Provider ─── */}
+                                    <div className="space-y-4">
+                                        <Label className="text-sm font-semibold flex items-center gap-2">
+                                            🖼️ Image AI Provider
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground -mt-2">
+                                            Choose which AI provider to use for image generation. Providers with image models: Runware, OpenAI (DALL-E), Gemini (Imagen).
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Image Provider</Label>
+                                                <Select value={imageProvider || '__default__'} onValueChange={(v) => { setImageProvider(v === '__default__' ? '' : v); setImageModel('') }}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Auto-detect" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">Auto-detect (use any available)</SelectItem>
+                                                        {availableProviders
+                                                            .filter(p => userConfiguredProviders.includes(p.provider) && ['runware', 'openai', 'gemini'].includes(p.provider))
+                                                            .map((p) => (
+                                                                <SelectItem key={p.provider} value={p.provider}>
+                                                                    {p.name} ✓
+                                                                </SelectItem>
+                                                            ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">Only shows image-capable providers</p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="flex items-center gap-2">
+                                                    Image Model
+                                                    {loadingImageModels && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                                </Label>
+                                                <Select value={imageModel || '__default__'} onValueChange={(v) => setImageModel(v === '__default__' ? '' : v)} disabled={loadingImageModels || !imageProvider}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder={imageProvider ? 'Select a model...' : 'Select provider first'} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__default__">Default model</SelectItem>
+                                                        {availableImageModels.map((m) => (
+                                                            <SelectItem key={m.id} value={m.id}>
+                                                                {m.name} {m.description ? `— ${m.description}` : ''}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-xs text-muted-foreground">e.g. FLUX.1 Dev, DALL-E 3, Imagen 3</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-4 bg-muted/30 space-y-2">
+                                    <p className="text-sm font-medium text-muted-foreground">AI Configuration</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Channel AI settings are managed by the admin. You can set up your own AI API keys to use for content generation.
+                                    </p>
+                                    <a href="/dashboard/api-keys" className="text-xs text-primary hover:underline font-medium inline-block">
+                                        → Manage your AI API Keys
+                                    </a>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* ─── Platforms Tab ───────────────── */}
