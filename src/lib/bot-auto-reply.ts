@@ -158,7 +158,7 @@ export async function botAutoReply(
             .join('\n')
 
         // Load image library metadata
-        let imageLibrary: { originalName: string; url: string }[] = []
+        let imageLibrary: { originalName: string | null; url: string }[] = []
         if (botConfig?.imageFolderId) {
             imageLibrary = await prisma.mediaItem.findMany({
                 where: {
