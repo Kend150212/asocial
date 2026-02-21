@@ -835,6 +835,7 @@ model BotConfig {
   isEnabled       Boolean @default(true) @map("is_enabled")
   botName         String  @default("AI Assistant") @map("bot_name")
   greeting        String? @db.Text
+  greetingMode    String  @default("template") @map("greeting_mode") // template | auto
   greetingImages  Json?   @default("[]") @map("greeting_images") // Array of image URLs
   personality     String? @db.Text
   language        String  @default("vi")

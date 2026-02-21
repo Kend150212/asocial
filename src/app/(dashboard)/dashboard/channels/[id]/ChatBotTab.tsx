@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from '@/lib/i18n'
+
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
     Save, Plus, Trash2, Loader2, Bot,
     MessageSquare, Brain, Shield, Clock, Target,
     Image as ImageIcon, Video, HelpCircle, FileText,
     Link as LinkIcon, FileSpreadsheet, ExternalLink,
+    Upload, FolderOpen, X, Check, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -24,10 +27,15 @@ import {
 } from '@/components/ui/accordion'
 
 // ─── Types ──────────────────────────────────────────────
+interface MediaItem {
+    id: string; url: string; thumbnailUrl?: string | null
+    originalName?: string | null; type: string
+}
 interface BotConfigData {
     isEnabled: boolean
     botName: string
     greeting: string
+    greetingMode: 'template' | 'auto'
     greetingImages: string[]
     personality: string
     language: string
@@ -46,7 +54,7 @@ interface BotConfigData {
     workingHoursStart: string | null
     workingHoursEnd: string | null
     offHoursMessage: string | null
-    trainingPairs: { q: string; a: string }[]
+    trainingPairs: { q: string; a: string; images?: string[] }[]
     exampleConvos: string[]
     enabledPlatforms: string[]
     applyToComments: boolean
@@ -58,12 +66,14 @@ interface ChatBotTabProps {
 }
 
 export default function ChatBotTab({ channelId }: ChatBotTabProps) {
+    const t = useTranslation()
     const [config, setConfig] = useState<BotConfigData | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
 
     // Training inputs
     const [newTrainingText, setNewTrainingText] = useState('')
+    const [newTrainingImages, setNewTrainingImages] = useState<string[]>([])
     const [newTrainingUrl, setNewTrainingUrl] = useState('')
     const [newQaPair, setNewQaPair] = useState({ q: '', a: '' })
     const [newVideoTitle, setNewVideoTitle] = useState('')
@@ -71,7 +81,113 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     const [newVideoDesc, setNewVideoDesc] = useState('')
     const [newEscalateKeyword, setNewEscalateKeyword] = useState('')
     const [newForbiddenTopic, setNewForbiddenTopic] = useState('')
-    const [newGreetingImage, setNewGreetingImage] = useState('')
+
+    // Media state
+    const [uploading, setUploading] = useState(false)
+    const [mediaBrowserTarget, setMediaBrowserTarget] = useState<'greeting' | 'training' | 'library' | null>(null)
+    const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+    const [mediaLoading, setMediaLoading] = useState(false)
+    const [botFolderId, setBotFolderId] = useState<string | null>(null)
+    const [libraryImages, setLibraryImages] = useState<MediaItem[]>([])
+    const greetingDropRef = useRef<HTMLDivElement>(null)
+    const trainingDropRef = useRef<HTMLDivElement>(null)
+    const libraryDropRef = useRef<HTMLDivElement>(null)
+    const [dragOver, setDragOver] = useState<string | null>(null)
+
+    // ─── Upload helper ────────────────────────────────────
+    const uploadFiles = async (files: FileList | File[], targetFolderId?: string): Promise<string[]> => {
+        const urls: string[] = []
+        setUploading(true)
+        for (const file of Array.from(files)) {
+            try {
+                const formData = new FormData()
+                formData.append('file', file)
+                formData.append('channelId', channelId)
+                if (targetFolderId) formData.append('folderId', targetFolderId)
+                const res = await fetch('/api/admin/media', { method: 'POST', body: formData })
+                if (res.ok) {
+                    const data = await res.json()
+                    urls.push(data.url || data.media?.url)
+                } else {
+                    const data = await res.json().catch(() => ({}))
+                    if (res.status === 403 && data.code === 'GDRIVE_NOT_CONNECTED') {
+                        toast.error('Chưa kết nối Google Drive', {
+                            description: 'Vào Settings → API Keys để kết nối.',
+                            action: { label: 'Kết nối', onClick: () => window.location.href = '/dashboard/api-keys' },
+                        })
+                        break
+                    }
+                    toast.error(`Upload failed: ${file.name}`)
+                }
+            } catch { toast.error(`Upload error: ${file.name}`) }
+        }
+        setUploading(false)
+        return urls
+    }
+
+    // ─── Ensure bot media folder exists ───────────────────
+    const ensureBotFolder = useCallback(async (): Promise<string | null> => {
+        if (botFolderId) return botFolderId
+        try {
+            // Check if "ChatBot" folder exists
+            const listRes = await fetch(`/api/admin/media/folders?channelId=${channelId}`)
+            if (listRes.ok) {
+                const { folders } = await listRes.json()
+                const existing = folders.find((f: any) => f.name === 'ChatBot')
+                if (existing) { setBotFolderId(existing.id); return existing.id }
+            }
+            // Create it
+            const createRes = await fetch('/api/admin/media/folders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId, name: 'ChatBot' }),
+            })
+            if (createRes.ok) {
+                const { folder } = await createRes.json()
+                setBotFolderId(folder.id)
+                return folder.id
+            }
+        } catch { }
+        return null
+    }, [channelId, botFolderId])
+
+    // ─── Load media browser items ─────────────────────────
+    const loadMediaItems = useCallback(async (folderId?: string) => {
+        setMediaLoading(true)
+        try {
+            const params = new URLSearchParams({ channelId, type: 'image' })
+            if (folderId) params.set('folderId', folderId)
+            const res = await fetch(`/api/admin/media?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setMediaItems(data.media || data.items || [])
+            }
+        } catch { }
+        setMediaLoading(false)
+    }, [channelId])
+
+    // ─── Load library images ──────────────────────────────
+    const loadLibraryImages = useCallback(async () => {
+        if (!config?.imageFolderId) return
+        try {
+            const params = new URLSearchParams({ channelId, type: 'image', folderId: config.imageFolderId })
+            const res = await fetch(`/api/admin/media?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setLibraryImages(data.media || data.items || [])
+            }
+        } catch { }
+    }, [channelId, config?.imageFolderId])
+
+    // ─── Drag & drop handler factory ──────────────────────
+    const makeDragHandlers = (zone: string, onDrop: (files: FileList) => void) => ({
+        onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(zone) },
+        onDragLeave: () => setDragOver(null),
+        onDrop: (e: React.DragEvent) => {
+            e.preventDefault(); setDragOver(null)
+            if (e.dataTransfer.files.length) onDrop(e.dataTransfer.files)
+        },
+    })
 
     // ─── Fetch config ─────────────────────────────────────
     useEffect(() => {
@@ -84,6 +200,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         isEnabled: data.isEnabled ?? true,
                         botName: data.botName || 'AI Assistant',
                         greeting: data.greeting || '',
+                        greetingMode: data.greetingMode || 'template',
                         greetingImages: data.greetingImages || [],
                         personality: data.personality || '',
                         language: data.language || 'vi',
@@ -185,13 +302,13 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                 <div className="flex items-center gap-3">
                     <Bot className="h-5 w-5 text-primary" />
                     <div>
-                        <h3 className="font-semibold">Chat Bot Settings</h3>
-                        <p className="text-xs text-muted-foreground">Configure AI auto-reply behavior and training</p>
+                        <h3 className="font-semibold">{t('chatbot.title')}</h3>
+                        <p className="text-xs text-muted-foreground">{t('chatbot.subtitle')}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
-                        <Label htmlFor="bot-enable" className="text-sm">Enable Bot</Label>
+                        <Label htmlFor="bot-enable" className="text-sm">{t('chatbot.enableBot')}</Label>
                         <Switch
                             id="bot-enable"
                             checked={config.isEnabled}
@@ -200,7 +317,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     </div>
                     <Button onClick={saveConfig} disabled={saving} size="sm">
                         {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-                        Save Bot Settings
+                        {t('chatbot.save')}
                     </Button>
                 </div>
             </div>
@@ -209,7 +326,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                 <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
                     <CardContent className="py-3">
                         <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                            ⚠️ Bot is disabled. Enable it to auto-reply to customer messages.
+                            ⚠️ {t('chatbot.botDisabled')}
                         </p>
                     </CardContent>
                 </Card>
@@ -223,13 +340,13 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">General</span>
+                            <span className="font-medium">{t('chatbot.general.title')}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pb-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label className="text-xs">Bot Name</Label>
+                                <Label className="text-xs">{t('chatbot.general.botName')}</Label>
                                 <Input
                                     value={config.botName}
                                     onChange={e => update('botName', e.target.value)}
@@ -238,7 +355,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 />
                             </div>
                             <div>
-                                <Label className="text-xs">Language</Label>
+                                <Label className="text-xs">{t('chatbot.general.language')}</Label>
                                 <select
                                     value={config.language}
                                     onChange={e => update('language', e.target.value)}
@@ -253,66 +370,93 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 </select>
                             </div>
                         </div>
-
+                        {/* Greeting Mode Toggle */}
                         <div>
-                            <Label className="text-xs">Greeting Message (first message to customer)</Label>
-                            <Textarea
-                                value={config.greeting}
-                                onChange={e => update('greeting', e.target.value)}
-                                placeholder="Xin chào! Tôi là trợ lý AI. Tôi có thể giúp gì cho bạn?"
-                                rows={3}
-                                className="mt-1"
-                            />
+                            <Label className="text-xs">{t('chatbot.general.greetingMode')}</Label>
+                            <div className="flex gap-2 mt-1">
+                                <Button size="sm" variant={config.greetingMode === 'template' ? 'default' : 'outline'}
+                                    onClick={() => update('greetingMode', 'template')} className="text-xs gap-1">
+                                    <MessageSquare className="h-3 w-3" /> {t('chatbot.general.modeTemplate')}
+                                </Button>
+                                <Button size="sm" variant={config.greetingMode === 'auto' ? 'default' : 'outline'}
+                                    onClick={() => update('greetingMode', 'auto')} className="text-xs gap-1">
+                                    <Sparkles className="h-3 w-3" /> {t('chatbot.general.modeAuto')}
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                {config.greetingMode === 'template'
+                                    ? t('chatbot.general.modeTemplateDesc')
+                                    : t('chatbot.general.modeAutoDesc')}
+                            </p>
                         </div>
 
-                        {/* Greeting Images */}
+                        {config.greetingMode === 'template' && (
+                            <div>
+                                <Label className="text-xs">{t('chatbot.general.greetingMessage')}</Label>
+                                <Textarea
+                                    value={config.greeting}
+                                    onChange={e => update('greeting', e.target.value)}
+                                    placeholder={t('chatbot.general.greetingPlaceholder')}
+                                    rows={3} className="mt-1"
+                                />
+                            </div>
+                        )}
+
+                        {/* Greeting Images — Drag & Drop + Media Browse */}
                         <div>
                             <Label className="text-xs flex items-center gap-1">
-                                <ImageIcon className="h-3 w-3" /> Greeting Images (sent with greeting)
+                                <ImageIcon className="h-3 w-3" /> {t('chatbot.general.greetingImages')}
                             </Label>
-                            <div className="mt-1 space-y-2">
-                                {config.greetingImages.map((url, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                        <img src={url} alt="" className="h-10 w-10 rounded object-cover border" />
-                                        <span className="text-xs text-muted-foreground flex-1 truncate">{url}</span>
-                                        <Button
-                                            size="sm" variant="ghost"
-                                            onClick={() => update('greetingImages', config.greetingImages.filter((_, j) => j !== i))}
-                                        >
-                                            <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                ))}
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={newGreetingImage}
-                                        onChange={e => setNewGreetingImage(e.target.value)}
-                                        placeholder="Paste image URL..."
-                                        className="text-xs"
-                                    />
-                                    <Button size="sm" variant="outline" onClick={() => {
-                                        if (newGreetingImage.trim()) {
-                                            update('greetingImages', [...config.greetingImages, newGreetingImage.trim()])
-                                            setNewGreetingImage('')
-                                        }
-                                    }}>
-                                        <Plus className="h-3 w-3 mr-1" /> Add
-                                    </Button>
+                            {config.greetingImages.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {config.greetingImages.map((url, i) => (
+                                        <div key={i} className="relative group">
+                                            <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover border" />
+                                            <button
+                                                className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => update('greetingImages', config.greetingImages.filter((_, j) => j !== i))}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
+                            )}
+                            <div
+                                ref={greetingDropRef}
+                                className={`mt-2 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+                                    ${dragOver === 'greeting' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+                                {...makeDragHandlers('greeting', async (files) => {
+                                    const folderId = await ensureBotFolder()
+                                    const urls = await uploadFiles(files, folderId || undefined)
+                                    if (urls.length) update('greetingImages', [...config.greetingImages, ...urls])
+                                })}
+                                onClick={() => { setMediaBrowserTarget('greeting'); loadMediaItems() }}
+                            >
+                                {uploading ? (
+                                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
+                                        <p className="text-xs text-muted-foreground">{t('chatbot.mediaBrowser.dragDropHint')}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         <div>
-                            <Label className="text-xs">Personality & Instructions</Label>
+                            <Label className="text-xs">{t('chatbot.general.personality')}</Label>
                             <Textarea
                                 value={config.personality}
                                 onChange={e => update('personality', e.target.value)}
-                                placeholder="Bạn là trợ lý thân thiện, chuyên nghiệp. Trả lời ngắn gọn, chính xác. Khi không biết thông tin, hãy để lại số điện thoại của khách để nhân viên liên hệ lại."
+                                placeholder={t('chatbot.general.personalityPlaceholder')}
                                 rows={4}
                                 className="mt-1"
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                Đây là hướng dẫn cho bot cách trả lời khách hàng. Càng chi tiết càng tốt.
+                                {t('chatbot.general.personalityHint')}
                             </p>
                         </div>
                     </AccordionContent>
@@ -325,8 +469,8 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <Brain className="h-4 w-4 text-purple-500" />
-                            <span className="font-medium">Training</span>
-                            <Badge variant="secondary" className="text-[9px]">Core</Badge>
+                            <span className="font-medium">{t('chatbot.training.title')}</span>
+                            <Badge variant="secondary" className="text-[9px]">{t('chatbot.training.core')}</Badge>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 pb-4">
@@ -336,32 +480,63 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <FileText className="h-4 w-4 text-blue-500" />
-                                    Text Training
+                                    {t('chatbot.training.textTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Nhập thông tin sản phẩm/dịch vụ để bot học và trả lời khách hàng
+                                    {t('chatbot.training.textDesc')}
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-2">
+                            <CardContent className="px-4 pb-3 space-y-3">
                                 <Textarea
                                     value={newTrainingText}
                                     onChange={e => setNewTrainingText(e.target.value)}
-                                    placeholder={`Nhập thông tin theo mẫu:\n\n📦 Sản phẩm: Cà phê sữa đá\n💰 Giá: 35.000đ\n📝 Mô tả: Cà phê nguyên chất pha phin truyền thống...\n📍 Địa chỉ: 123 Nguyễn Huệ, Q1\n📞 Hotline: 0909 123 456\n\nHoặc nhập FAQ:\nHỏi: Giờ mở cửa?\nĐáp: Chúng tôi mở cửa từ 7h - 22h hàng ngày.`}
+                                    placeholder={t('chatbot.training.textPlaceholder')}
                                     rows={6}
                                 />
+                                {/* Training Image Attachments */}
+                                {newTrainingImages.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {newTrainingImages.map((url, i) => (
+                                            <div key={i} className="relative group">
+                                                <img src={url} alt="" className="h-12 w-12 rounded object-cover border" />
+                                                <button className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={() => setNewTrainingImages(prev => prev.filter((_, j) => j !== i))}>
+                                                    <X className="h-2.5 w-2.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div
+                                    ref={trainingDropRef}
+                                    className={`border-2 border-dashed rounded-md p-2 text-center transition-colors
+                                        ${dragOver === 'training' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'}`}
+                                    {...makeDragHandlers('training', async (files) => {
+                                        const folderId = await ensureBotFolder()
+                                        const urls = await uploadFiles(files, folderId || undefined)
+                                        if (urls.length) setNewTrainingImages(prev => [...prev, ...urls])
+                                    })}
+                                >
+                                    <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                        <ImageIcon className="h-3 w-3" /> {t('chatbot.training.dragImagesHint')}
+                                    </p>
+                                </div>
                                 <Button
                                     size="sm" variant="outline"
                                     onClick={async () => {
                                         if (!newTrainingText.trim()) return
+                                        const content = newTrainingImages.length
+                                            ? `${newTrainingText.trim()}\n\n[Attached images: ${newTrainingImages.join(', ')}]`
+                                            : newTrainingText.trim()
                                         await addKnowledgeEntry(
                                             `Training text - ${new Date().toLocaleDateString()}`,
-                                            newTrainingText.trim(),
-                                            'text'
+                                            content, 'text'
                                         )
                                         setNewTrainingText('')
+                                        setNewTrainingImages([])
                                     }}
                                 >
-                                    <Plus className="h-3 w-3 mr-1" /> Add Text Training
+                                    <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addTextTraining')}
                                 </Button>
                             </CardContent>
                         </Card>
@@ -371,10 +546,10 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <LinkIcon className="h-4 w-4 text-green-500" />
-                                    URL Training
+                                    {t('chatbot.training.urlTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Nhập URL website → hệ thống sẽ crawl nội dung để bot học
+                                    {t('chatbot.training.urlDesc')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-4 pb-3">
@@ -382,7 +557,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                     <Input
                                         value={newTrainingUrl}
                                         onChange={e => setNewTrainingUrl(e.target.value)}
-                                        placeholder="https://example.com/san-pham"
+                                        placeholder={t('chatbot.training.urlPlaceholder')}
                                         className="text-sm"
                                     />
                                     <Button
@@ -398,7 +573,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                             setNewTrainingUrl('')
                                         }}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> Add URL
+                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addUrl')}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -409,16 +584,16 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
-                                    Google Sheet Training
+                                    {t('chatbot.training.sheetTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Nhập URL Google Sheet chứa dữ liệu sản phẩm/dịch vụ
+                                    {t('chatbot.training.sheetDesc')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-4 pb-3">
                                 <div className="flex gap-2">
                                     <Input
-                                        placeholder="https://docs.google.com/spreadsheets/d/..."
+                                        placeholder={t('chatbot.training.sheetPlaceholder')}
                                         className="text-sm"
                                         onKeyDown={async (e) => {
                                             if (e.key === 'Enter') {
@@ -435,7 +610,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                         }}
                                     />
                                     <Button size="sm" variant="outline" className="shrink-0">
-                                        <ExternalLink className="h-3 w-3 mr-1" /> Add Sheet
+                                        <ExternalLink className="h-3 w-3 mr-1" /> {t('chatbot.training.addSheet')}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -446,34 +621,72 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <ImageIcon className="h-4 w-4 text-orange-500" />
-                                    Image Library
+                                    {t('chatbot.training.imageLibTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Kho hình ảnh từ Google Drive. Bot sẽ tìm hình theo tên và gửi cho khách hàng.
+                                    {t('chatbot.training.imageLibDesc')}
                                     <br />
-                                    Ví dụ: Hình tên "Phong-109.jpg" → khi khách hỏi "cho xem phòng 109" → bot gửi hình đó.
+                                    {t('chatbot.training.imageLibExample')}
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-2">
-                                <div>
-                                    <Label className="text-xs">Google Drive Folder ID</Label>
-                                    <Input
-                                        value={config.imageFolderId || ''}
-                                        onChange={e => update('imageFolderId', e.target.value || null)}
-                                        placeholder="Paste Google Drive folder ID (from URL)"
-                                        className="mt-1 text-sm"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                        Lấy ID từ URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
-                                    </p>
+                            <CardContent className="px-4 pb-3 space-y-3">
+                                {/* Auto-create or connect to dedicated folder */}
+                                <div className="flex items-center gap-2">
+                                    <Button size="sm" variant="outline" className="text-xs gap-1"
+                                        onClick={async () => {
+                                            const fId = await ensureBotFolder()
+                                            if (fId) {
+                                                update('imageFolderId', fId)
+                                                toast.success(t('chatbot.training.folderReady'))
+                                                loadLibraryImages()
+                                            }
+                                        }}>
+                                        <FolderOpen className="h-3 w-3" /> {config.imageFolderId ? t('chatbot.training.refresh') : t('chatbot.training.createBotFolder')}
+                                    </Button>
+                                    {config.imageFolderId && (
+                                        <Badge variant="secondary" className="text-[9px] gap-1">
+                                            <Check className="h-2.5 w-2.5" /> {t('chatbot.training.folderConnected')}
+                                        </Badge>
+                                    )}
                                 </div>
-                                {config.imageFolderId && (
-                                    <div className="rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-2">
-                                        <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
-                                            ✅ Image folder connected. Bot will search images by filename when customers ask.
-                                        </p>
+
+                                {/* Thumbnails grid */}
+                                {libraryImages.length > 0 && (
+                                    <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
+                                        {libraryImages.map(img => (
+                                            <div key={img.id} className="relative group" title={img.originalName || ''}>
+                                                <img src={img.thumbnailUrl || img.url} alt={img.originalName || ''}
+                                                    className="h-14 w-full rounded object-cover border" />
+                                                <p className="text-[8px] text-muted-foreground truncate mt-0.5">{img.originalName}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
+
+                                {/* Drag-drop upload area */}
+                                <div
+                                    ref={libraryDropRef}
+                                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+                                        ${dragOver === 'library' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+                                    {...makeDragHandlers('library', async (files) => {
+                                        const fId = config.imageFolderId || await ensureBotFolder()
+                                        if (fId && !config.imageFolderId) update('imageFolderId', fId)
+                                        const urls = await uploadFiles(files, fId || undefined)
+                                        if (urls.length) { toast.success(t('chatbot.training.imagesAdded').replace('{count}', String(urls.length))); loadLibraryImages() }
+                                    })}
+                                    onClick={() => { setMediaBrowserTarget('library'); loadMediaItems() }}
+                                >
+                                    {uploading ? (
+                                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                            <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
+                                            <p className="text-xs text-muted-foreground">{t('chatbot.training.dragOrBrowse')}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -482,10 +695,10 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <Video className="h-4 w-4 text-red-500" />
-                                    Video Consultation
+                                    {t('chatbot.training.videoTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Video hướng dẫn tư vấn. Bot sẽ gửi link video khi khách hỏi liên quan.
+                                    {t('chatbot.training.videoDesc')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-4 pb-3 space-y-2">
@@ -509,19 +722,19 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                     <Input
                                         value={newVideoTitle}
                                         onChange={e => setNewVideoTitle(e.target.value)}
-                                        placeholder="Video title (e.g. Hướng dẫn đặt phòng)"
+                                        placeholder={t('chatbot.training.videoTitleInput')}
                                         className="text-sm"
                                     />
                                     <Input
                                         value={newVideoUrl}
                                         onChange={e => setNewVideoUrl(e.target.value)}
-                                        placeholder="Video URL (YouTube, Vimeo...)"
+                                        placeholder={t('chatbot.training.videoUrlInput')}
                                         className="text-sm"
                                     />
                                     <Input
                                         value={newVideoDesc}
                                         onChange={e => setNewVideoDesc(e.target.value)}
-                                        placeholder="Short description (optional)"
+                                        placeholder={t('chatbot.training.videoDescInput')}
                                         className="text-sm"
                                     />
                                     <Button
@@ -537,7 +750,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                             setNewVideoDesc('')
                                         }}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> Add Video
+                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addVideo')}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -548,10 +761,10 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <CardHeader className="py-3 px-4">
                                 <CardTitle className="text-sm flex items-center gap-2">
                                     <HelpCircle className="h-4 w-4 text-indigo-500" />
-                                    Q&A Training Pairs
+                                    {t('chatbot.training.qaTitle')}
                                 </CardTitle>
                                 <CardDescription className="text-[11px]">
-                                    Các cặp câu hỏi → trả lời. Bot sẽ ưu tiên dùng câu trả lời chính xác nếu khớp.
+                                    {t('chatbot.training.qaDesc')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-4 pb-3 space-y-2">
@@ -573,13 +786,13 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                     <Input
                                         value={newQaPair.q}
                                         onChange={e => setNewQaPair({ ...newQaPair, q: e.target.value })}
-                                        placeholder="Question: Giờ mở cửa?"
+                                        placeholder={t('chatbot.training.questionPlaceholder')}
                                         className="text-sm"
                                     />
                                     <Textarea
                                         value={newQaPair.a}
                                         onChange={e => setNewQaPair({ ...newQaPair, a: e.target.value })}
-                                        placeholder="Answer: Chúng tôi mở cửa từ 7h - 22h hàng ngày, kể cả lễ tết."
+                                        placeholder={t('chatbot.training.answerPlaceholder')}
                                         rows={2}
                                         className="text-sm"
                                     />
@@ -594,7 +807,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                             setNewQaPair({ q: '', a: '' })
                                         }}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> Add Q&A Pair
+                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addQaPair')}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -610,14 +823,14 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <Target className="h-4 w-4 text-cyan-500" />
-                            <span className="font-medium">Behavior</span>
+                            <span className="font-medium">{t('chatbot.behavior.title')}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pb-4">
                         <div>
-                            <Label className="text-xs">Confidence Threshold: {(config.confidenceThreshold * 100).toFixed(0)}%</Label>
+                            <Label className="text-xs">{t('chatbot.behavior.confidence')}: {(config.confidenceThreshold * 100).toFixed(0)}%</Label>
                             <p className="text-[10px] text-muted-foreground mb-2">
-                                Bot chỉ trả lời nếu độ tự tin ≥ ngưỡng này. Dưới ngưỡng → chuyển cho nhân viên.
+                                {t('chatbot.behavior.confidenceDesc')}
                             </p>
                             <Slider
                                 value={[config.confidenceThreshold]}
@@ -627,7 +840,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         </div>
 
                         <div>
-                            <Label className="text-xs">Max Bot Replies (before escalation)</Label>
+                            <Label className="text-xs">{t('chatbot.behavior.maxReplies')}</Label>
                             <Input
                                 type="number" min={1} max={100}
                                 value={config.maxBotReplies}
@@ -635,7 +848,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 className="mt-1 w-24"
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                Sau {config.maxBotReplies} lần trả lời → tự động chuyển cho nhân viên.
+                                {t('chatbot.behavior.maxRepliesDesc').replace('{count}', String(config.maxBotReplies))}
                             </p>
                         </div>
 
@@ -643,11 +856,11 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
 
                         <div className="grid grid-cols-2 gap-3">
                             {[
-                                { key: 'autoTagEnabled' as const, label: 'Auto Tag', desc: 'Tự động tag conversation' },
-                                { key: 'sentimentEnabled' as const, label: 'Sentiment Analysis', desc: 'Phân tích cảm xúc khách' },
-                                { key: 'spamFilterEnabled' as const, label: 'Spam Filter', desc: 'Lọc tin nhắn spam' },
-                                { key: 'autoTranslate' as const, label: 'Auto Translate', desc: 'Tự dịch ngôn ngữ khách' },
-                                { key: 'smartAssignEnabled' as const, label: 'Smart Assign', desc: 'Giao cho agent phù hợp' },
+                                { key: 'autoTagEnabled' as const, label: t('chatbot.behavior.autoTag'), desc: t('chatbot.behavior.autoTagDesc') },
+                                { key: 'sentimentEnabled' as const, label: t('chatbot.behavior.sentiment'), desc: t('chatbot.behavior.sentimentDesc') },
+                                { key: 'spamFilterEnabled' as const, label: t('chatbot.behavior.spamFilter'), desc: t('chatbot.behavior.spamFilterDesc') },
+                                { key: 'autoTranslate' as const, label: t('chatbot.behavior.autoTranslate'), desc: t('chatbot.behavior.autoTranslateDesc') },
+                                { key: 'smartAssignEnabled' as const, label: t('chatbot.behavior.smartAssign'), desc: t('chatbot.behavior.smartAssignDesc') },
                             ].map(item => (
                                 <div key={item.key} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
                                     <div>
@@ -671,14 +884,14 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <Shield className="h-4 w-4 text-red-500" />
-                            <span className="font-medium">Escalation</span>
+                            <span className="font-medium">{t('chatbot.escalation.title')}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pb-4">
                         <div>
-                            <Label className="text-xs">Auto-Escalate Keywords</Label>
+                            <Label className="text-xs">{t('chatbot.escalation.keywordsLabel')}</Label>
                             <p className="text-[10px] text-muted-foreground mb-2">
-                                Khi khách nhắn chứa từ khóa này → chuyển ngay cho nhân viên.
+                                {t('chatbot.escalation.keywordsDesc')}
                             </p>
                             <div className="flex flex-wrap gap-1 mb-2">
                                 {config.autoEscalateKeywords.map((kw, i) => (
@@ -692,7 +905,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 <Input
                                     value={newEscalateKeyword}
                                     onChange={e => setNewEscalateKeyword(e.target.value)}
-                                    placeholder="e.g. refund, complaint, angry..."
+                                    placeholder={t('chatbot.escalation.keywordsPlaceholder')}
                                     className="text-sm"
                                     onKeyDown={e => {
                                         if (e.key === 'Enter' && newEscalateKeyword.trim()) {
@@ -715,9 +928,9 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         <Separator />
 
                         <div>
-                            <Label className="text-xs">Forbidden Topics</Label>
+                            <Label className="text-xs">{t('chatbot.escalation.forbiddenLabel')}</Label>
                             <p className="text-[10px] text-muted-foreground mb-2">
-                                Bot sẽ KHÔNG trả lời về các chủ đề này → thông báo liên hệ nhân viên.
+                                {t('chatbot.escalation.forbiddenDesc')}
                             </p>
                             <div className="flex flex-wrap gap-1 mb-2">
                                 {config.forbiddenTopics.map((topic, i) => (
@@ -731,7 +944,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                 <Input
                                     value={newForbiddenTopic}
                                     onChange={e => setNewForbiddenTopic(e.target.value)}
-                                    placeholder="e.g. giá cả, khuyến mãi, bảo hành..."
+                                    placeholder={t('chatbot.escalation.forbiddenPlaceholder')}
                                     className="text-sm"
                                     onKeyDown={e => {
                                         if (e.key === 'Enter' && newForbiddenTopic.trim()) {
@@ -760,14 +973,14 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-amber-500" />
-                            <span className="font-medium">Working Hours</span>
+                            <span className="font-medium">{t('chatbot.hours.title')}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pb-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-medium">Only respond during working hours</p>
-                                <p className="text-[10px] text-muted-foreground">Ngoài giờ làm việc → gửi tin nhắn off-hours</p>
+                                <p className="text-xs font-medium">{t('chatbot.hours.enableLabel')}</p>
+                                <p className="text-[10px] text-muted-foreground">{t('chatbot.hours.enableDesc')}</p>
                             </div>
                             <Switch
                                 checked={config.workingHoursOnly}
@@ -779,7 +992,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             <>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label className="text-xs">Start Time</Label>
+                                        <Label className="text-xs">{t('chatbot.hours.startTime')}</Label>
                                         <Input
                                             type="time"
                                             value={config.workingHoursStart || '08:00'}
@@ -788,7 +1001,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                         />
                                     </div>
                                     <div>
-                                        <Label className="text-xs">End Time</Label>
+                                        <Label className="text-xs">{t('chatbot.hours.endTime')}</Label>
                                         <Input
                                             type="time"
                                             value={config.workingHoursEnd || '22:00'}
@@ -798,11 +1011,11 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                                     </div>
                                 </div>
                                 <div>
-                                    <Label className="text-xs">Off-Hours Message</Label>
+                                    <Label className="text-xs">{t('chatbot.hours.offHoursMessage')}</Label>
                                     <Textarea
                                         value={config.offHoursMessage || ''}
                                         onChange={e => update('offHoursMessage', e.target.value)}
-                                        placeholder="Cảm ơn bạn đã liên hệ! Hiện tại ngoài giờ làm việc. Chúng tôi sẽ phản hồi sớm nhất vào ngày mai. 🙏"
+                                        placeholder={t('chatbot.hours.offHoursPlaceholder')}
                                         rows={2}
                                         className="mt-1"
                                     />
@@ -819,15 +1032,15 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
                             <Target className="h-4 w-4 text-teal-500" />
-                            <span className="font-medium">Scope</span>
+                            <span className="font-medium">{t('chatbot.scope.title')}</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-4 pb-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
                                 <div>
-                                    <p className="text-xs font-medium">Apply to Messages</p>
-                                    <p className="text-[10px] text-muted-foreground">Bot trả lời tin nhắn DM</p>
+                                    <p className="text-xs font-medium">{t('chatbot.scope.messages')}</p>
+                                    <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.messagesDesc')}</p>
                                 </div>
                                 <Switch
                                     checked={config.applyToMessages}
@@ -836,8 +1049,8 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             </div>
                             <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
                                 <div>
-                                    <p className="text-xs font-medium">Apply to Comments</p>
-                                    <p className="text-[10px] text-muted-foreground">Bot trả lời comment</p>
+                                    <p className="text-xs font-medium">{t('chatbot.scope.comments')}</p>
+                                    <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.commentsDesc')}</p>
                                 </div>
                                 <Switch
                                     checked={config.applyToComments}
@@ -853,9 +1066,65 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
             <div className="flex justify-end pt-2">
                 <Button onClick={saveConfig} disabled={saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-                    Save Bot Settings
+                    {t('chatbot.save')}
                 </Button>
             </div>
+
+            {/* ═══════════════════════════════════════ */}
+            {/* MEDIA BROWSER MODAL                    */}
+            {mediaBrowserTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setMediaBrowserTarget(null)}>
+                    <div className="bg-background rounded-xl shadow-2xl w-[600px] max-h-[500px] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-4 py-3 border-b">
+                            <h4 className="font-medium text-sm flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4" /> {t('chatbot.mediaBrowser.title')}
+                            </h4>
+                            <Button size="sm" variant="ghost" onClick={() => setMediaBrowserTarget(null)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {mediaLoading ? (
+                                <div className="flex items-center justify-center py-10">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : mediaItems.length === 0 ? (
+                                <div className="text-center py-10 text-sm text-muted-foreground">
+                                    <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                                    {t('chatbot.mediaBrowser.empty')}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-4 gap-3">
+                                    {mediaItems.map(item => (
+                                        <button key={item.id}
+                                            className="group relative rounded-lg overflow-hidden border hover:border-primary transition-colors"
+                                            onClick={() => {
+                                                const url = item.url
+                                                if (mediaBrowserTarget === 'greeting') {
+                                                    update('greetingImages', [...(config?.greetingImages || []), url])
+                                                } else if (mediaBrowserTarget === 'training') {
+                                                    setNewTrainingImages(prev => [...prev, url])
+                                                } else if (mediaBrowserTarget === 'library') {
+                                                    // Copy image reference — it's already in media
+                                                    toast.success(t('chatbot.mediaBrowser.selectedForLibrary'))
+                                                }
+                                                setMediaBrowserTarget(null)
+                                            }}
+                                        >
+                                            <img src={item.thumbnailUrl || item.url} alt={item.originalName || ''}
+                                                className="h-24 w-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <Check className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                            </div>
+                                            <p className="text-[9px] text-muted-foreground p-1 truncate">{item.originalName}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

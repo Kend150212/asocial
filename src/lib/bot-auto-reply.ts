@@ -385,7 +385,7 @@ export async function sendBotGreeting(
         const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
             include: {
-                channel: { select: { id: true } },
+                channel: { select: { id: true, vibeTone: true, businessInfo: true } },
             },
         })
 
@@ -395,17 +395,48 @@ export async function sendBotGreeting(
             where: { channelId: conversation.channel.id },
         })
 
-        if (!botConfig?.isEnabled || !botConfig.greeting) return
+        if (!botConfig?.isEnabled) return
 
+        const greetingMode = (botConfig as any).greetingMode || 'template'
         const greetingImages = (botConfig.greetingImages as string[]) || []
+        let greetingText = botConfig.greeting || ''
+
+        // Auto mode: generate greeting via AI
+        if (greetingMode === 'auto') {
+            try {
+                const ownerKey = await getChannelOwnerKey(conversation.channel.id)
+                if (ownerKey.apiKey) {
+                    const vibeTone = (conversation.channel as any).vibeTone || ''
+                    const businessInfo = (conversation.channel as any).businessInfo || ''
+                    const prompt = `Generate a brief, friendly greeting message for a customer who just started a chat. 
+Bot name: ${botConfig.botName || 'AI Assistant'}
+${vibeTone ? `Brand voice/tone: ${vibeTone}` : ''}
+${businessInfo ? `Business: ${businessInfo}` : ''}
+${botConfig.personality ? `Personality: ${botConfig.personality}` : ''}
+Language: ${botConfig.language || 'vi'}
+Keep it short (1-2 sentences), warm, and professional. Reply with ONLY the greeting text.`
+                    greetingText = await callAI(
+                        ownerKey.provider, ownerKey.apiKey, ownerKey.model,
+                        'You are a greeting message generator.', prompt
+                    )
+                    greetingText = greetingText.trim()
+                }
+            } catch (err) {
+                console.error('[Bot Greeting] AI greeting failed, using fallback:', err)
+            }
+            if (!greetingText) greetingText = `Xin chào! Tôi là ${botConfig.botName || 'AI Assistant'}. Tôi có thể giúp gì cho bạn?`
+        }
+
+        if (!greetingText) return
+
         await sendAndSaveReply(
             conversation,
-            botConfig.greeting,
+            greetingText,
             platform,
             greetingImages.length > 0 ? greetingImages : undefined
         )
 
-        console.log(`[Bot Greeting] ✅ Sent greeting for conversation ${conversationId}`)
+        console.log(`[Bot Greeting] ✅ Sent ${greetingMode} greeting for conversation ${conversationId}`)
     } catch (err) {
         console.error('[Bot Greeting] ❌ Error:', err)
     }

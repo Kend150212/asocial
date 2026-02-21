@@ -27,6 +27,7 @@ export async function GET(
             isEnabled: true,
             botName: 'AI Assistant',
             greeting: '',
+            greetingMode: 'template',
             greetingImages: [],
             personality: '',
             language: 'vi',
@@ -74,7 +75,7 @@ export async function PUT(
 
     // Allowed fields
     const allowedFields = [
-        'isEnabled', 'botName', 'greeting', 'greetingImages', 'personality', 'language',
+        'isEnabled', 'botName', 'greeting', 'greetingMode', 'greetingImages', 'personality', 'language',
         'imageFolderId', 'consultVideos',
         'confidenceThreshold', 'maxBotReplies',
         'autoTagEnabled', 'sentimentEnabled', 'spamFilterEnabled', 'autoTranslate', 'smartAssignEnabled',
