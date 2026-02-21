@@ -588,6 +588,7 @@ export default function ComposePage() {
     const [downloadingStock, setDownloadingStock] = useState<number | null>(null)
     const [includeSourceLink, setIncludeSourceLink] = useState(true)
     const [includeBusinessInfo, setIncludeBusinessInfo] = useState(true)
+    const [visualIdea, setVisualIdea] = useState('')
     // Facebook post type per platform ID
     const [fbPostTypes, setFbPostTypes] = useState<Record<string, 'feed' | 'story' | 'reel'>>({})
     const [fbCarousel, setFbCarousel] = useState(false)
@@ -1372,10 +1373,26 @@ export default function ComposePage() {
                 return
             }
             setContent(data.content || '')
-            if (data.articlesFetched > 0) {
+
+            // Populate per-platform content if returned
+            if (data.contentPerPlatform && Object.keys(data.contentPerPlatform).length > 0) {
+                setContentPerPlatform(data.contentPerPlatform)
+                const platforms = activePlatforms
+                    .filter((p) => selectedPlatformIds.has(p.id))
+                    .map((p) => p.platform)
+                const firstPlatform = [...new Set(platforms)].find(p => data.contentPerPlatform[p])
+                if (firstPlatform) setActiveContentTab(firstPlatform)
+                toast.success(`✨ Content generated for ${Object.keys(data.contentPerPlatform).length} platform(s)!`)
+            } else if (data.articlesFetched > 0) {
                 toast.success(`Content generated from ${data.articlesFetched} article(s)!`)
             } else {
                 toast.success('Content generated!')
+            }
+
+            // Set visual idea for image generation
+            if (data.visualIdea) {
+                setVisualIdea(data.visualIdea)
+                setAiImagePrompt(data.visualIdea)
             }
 
             // Auto-download and attach article images (og:image) when generating from URL
@@ -3823,6 +3840,11 @@ export default function ComposePage() {
                                             onChange={(e) => setAiImagePrompt(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && aiImagePrompt.trim() && handleAiImageGenerate()}
                                         />
+                                    )}
+                                    {visualIdea && !useContentAsPrompt && (
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            💡 AI suggestion: <span className="italic">{visualIdea}</span>
+                                        </p>
                                     )}
                                 </div>
 

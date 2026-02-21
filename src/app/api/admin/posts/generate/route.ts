@@ -237,9 +237,31 @@ export async function POST(req: NextRequest) {
         ? `\n- At the END of the post, append: "\n\n🔗 ${urls[0]}"`
         : ''
 
-    const systemPrompt = `You are a world-class social media content creator. Write engaging, high-converting posts. Respond ONLY with valid JSON.`
+    const systemPrompt = `You are a world-class social media content creator who specializes in platform-specific content optimization. You understand the unique audience, format, and best practices of each social media platform. Write engaging, high-converting posts tailored to each platform. Respond ONLY with valid JSON.`
 
-    const userPrompt = `Create social media post content for these platforms: ${platformList}
+    // Build platform-specific instructions
+    const platformInstructions: Record<string, string> = {
+        facebook: `FACEBOOK: Write engaging, conversational content like a personal story or genuine share — NOT an advertisement. Use a storytelling approach. 1-3 paragraphs with line breaks. Include a community-building CTA (ask a question, invite comments). Use emojis naturally (3-5). Add 3-5 hashtags at the end. Suitable for sharing in groups naturally.`,
+        instagram: `INSTAGRAM: Write aesthetic, visually-inspired caption. Start with a powerful hook line. Use emojis generously throughout. Break into short paragraphs with line breaks. Include a CTA (save this, share with a friend, comment below). Add 15-25 relevant hashtags at the end (mix popular + niche). Keep main caption under 200 words.`,
+        tiktok: `TIKTOK: Write SHORT, punchy, viral caption. Must create curiosity to watch. Gen-Z/viral tone — trendy, authentic, relatable. Under 150 characters for the main caption. Start with a hook that stops scrolling. Add 3-5 trending hashtags. Minimal emojis (1-2 max). Include a CTA like "Follow for more" or "Watch till end".`,
+        x: `X (TWITTER): Must be under 280 characters TOTAL including hashtags. Be witty, concise, and impactful. Use 1-2 relevant hashtags max. Strong opinion or insight format works best. No fluff, every word counts.`,
+        linkedin: `LINKEDIN: Professional, thought-leadership tone. Start with a bold hook or contrarian take. Share expertise, lessons learned, or industry insights. Use line breaks between short paragraphs. End with a question to drive engagement. 3-5 relevant hashtags. Can be longer (500-1500 chars). NO emojis or maximum 1-2 professional ones.`,
+        youtube: `YOUTUBE: Write SEO-rich video description. First 2 lines are critical (shown before "Show More"). Include key points and value proposition. Add timestamps if relevant. CTA to subscribe and engage. Natural keywords throughout. 300-800 chars.`,
+        pinterest: `PINTEREST: Write keyword-rich, SEO-optimized description. Describe what the viewer will learn or find. Include relevant search terms naturally. 2-3 informative sentences. Add 3-5 hashtags. Focus on being discoverable.`,
+    }
+
+    const selectedPlatforms = (platforms as string[]) || []
+    const uniquePlatforms = [...new Set(selectedPlatforms)]
+    const platformRulesText = uniquePlatforms
+        .filter(p => platformInstructions[p])
+        .map(p => `- ${platformInstructions[p]}`)
+        .join('\n')
+
+    const contentPerPlatformJson = uniquePlatforms.length > 1
+        ? `,\n  "contentPerPlatform": {\n${uniquePlatforms.map(p => `    "${p}": "Platform-optimized content for ${p}"`).join(',\n')}\n  }`
+        : ''
+
+    const userPrompt = `Create social media post content.
 
 Topic / Input: ${cleanTopic}
 Brand: ${channel.displayName}
@@ -250,23 +272,30 @@ ${articleContext}
 ${businessContext}
 ${allHashtags.length > 0 ? `\nAvailable hashtags: ${allHashtags.join(' ')}` : ''}
 
+Target Platforms: ${platformList}
+
+${platformRulesText ? `Platform-Specific Instructions:\n${platformRulesText}` : ''}
+
 Respond with this exact JSON structure:
 {
-  "content": "The main post content (write a single version that works across platforms)",
+  "content": "The MAIN post content — a strong, universal version that works as a default"${contentPerPlatformJson},
   "hashtags": ["#relevant", "#hashtags"],
-  "hook": "A short attention-grabbing first line"
+  "hook": "A short attention-grabbing first line",
+  "visualIdea": "1-2 sentence description of an ideal image or visual to accompany this post (for AI image generation)"
 }
 
 Rules:
 - Write ENTIRELY in ${langLabel}
-- If the user provided article link(s), REWRITE the article content into an original, engaging social media post that is LONGER and MORE DETAILED than a typical post. Paraphrase and add your own creative flair — do NOT copy the article verbatim.
+${isUrlTopic ? `- REWRITE the article content into an original, engaging post. Paraphrase creatively — do NOT copy verbatim.
+- For article-based content: write between 500-2000 characters for the main content. Be thorough and insightful.` : '- Keep the main content concise but engaging (100-800 characters)'}
+${uniquePlatforms.length > 1 ? `- For contentPerPlatform: write a DIFFERENT, platform-native version for EACH platform. Do NOT just copy the main content — each version must feel like it was written specifically for that platform.
+- TikTok content MUST be under 150 chars. X/Twitter MUST be under 280 chars. Instagram should have lots of hashtags. LinkedIn should be professional.` : ''}
 - Start with a powerful hook/attention grabber
-- Include a clear call-to-action
-${isUrlTopic ? '- For article-based content: write between 500-2000 characters. Be thorough, insightful, and add value beyond the original article.' : '- Keep it concise but engaging (100-800 characters)'}
-- Use emojis strategically (2-5)
-- Include 3-8 relevant hashtags
+- Include a clear call-to-action appropriate to each platform
+- Use emojis strategically (vary by platform)
 - Sound authentic, NOT robotic or like an advertisement
-${businessContext ? `- Naturally incorporate the business contact information into the post in a way that fits the context. Do NOT just list the info — weave it naturally. For example, end with "Visit us at [address]" or "DM us or call [phone]". Pick the most relevant pieces based on the platform (${platformList}). For TikTok/Instagram focus on social links, for Facebook/LinkedIn include phone/address/website.` : ''}
+- The visualIdea should describe a compelling image concept (style, composition, mood, subject) that could be generated by AI
+${businessContext ? `- Naturally incorporate business contact info — weave it in, don't list it. For TikTok/Instagram focus on social links, for Facebook/LinkedIn include phone/address/website.` : ''}
 ${sourceUrlText}`
 
     try {
@@ -286,7 +315,13 @@ ${sourceUrlText}`
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
         if (jsonMatch) cleaned = jsonMatch[0]
 
-        let parsed: { content?: string; hashtags?: string[]; hook?: string }
+        let parsed: {
+            content?: string
+            contentPerPlatform?: Record<string, string>
+            hashtags?: string[]
+            hook?: string
+            visualIdea?: string
+        }
         try {
             parsed = JSON.parse(cleaned)
         } catch {
@@ -302,7 +337,7 @@ ${sourceUrlText}`
             })
         }
 
-        // Combine content with hashtags
+        // Combine main content with hashtags
         const hashtags = (parsed.hashtags || []).join(' ')
         const fullContent = hashtags
             ? `${parsed.content}\n\n${hashtags}`
@@ -310,8 +345,10 @@ ${sourceUrlText}`
 
         return NextResponse.json({
             content: fullContent,
+            contentPerPlatform: parsed.contentPerPlatform || undefined,
             hook: parsed.hook || '',
             hashtags: parsed.hashtags || [],
+            visualIdea: parsed.visualIdea || '',
             provider: providerName,
             model,
             articlesFetched: urls.length,
