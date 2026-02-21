@@ -92,6 +92,12 @@ const adminNav: NavItem[] = [
 export function Sidebar({ session }: { session: Session }) {
     const pathname = usePathname()
     const [collapsed, setCollapsed] = useState(false)
+
+    // Auto-collapse sidebar on Inbox page for more space
+    useEffect(() => {
+        const isInbox = pathname?.includes('/dashboard/inbox')
+        setCollapsed(!!isInbox)
+    }, [pathname])
     const [mobileOpen, setMobileOpen] = useState(false)
     const isAdmin = session?.user?.role === 'ADMIN' // Only system ADMIN sees Users/API Hub
     const isOwnerOrAbove = session?.user?.role === 'ADMIN' || session?.user?.role === 'OWNER'
