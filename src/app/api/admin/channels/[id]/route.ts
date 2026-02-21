@@ -106,6 +106,7 @@ export async function PUT(
         'webhookDiscord', 'webhookTelegram', 'webhookSlack',
         'webhookCustom', 'webhookEvents',
         'businessInfo',
+        'brandProfile',
     ]
 
     for (const field of allowedFields) {

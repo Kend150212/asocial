@@ -44,6 +44,8 @@ import {
     Phone,
     MapPin,
     Globe as Globe2,
+    Target,
+    Lightbulb,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -193,6 +195,12 @@ interface ChannelDetail {
     defaultAiModel: string | null
     defaultImageProvider: string | null
     defaultImageModel: string | null
+    brandProfile: {
+        targetAudience?: string
+        contentTypes?: string
+        brandValues?: string
+        communicationStyle?: string
+    } | null
     businessInfo: {
         phone?: string
         address?: string
@@ -300,6 +308,12 @@ export default function ChannelDetailPage({
     const [newCustomLabel, setNewCustomLabel] = useState('')
     const [newCustomUrl, setNewCustomUrl] = useState('')
 
+    // Brand Profile state
+    const [brandTargetAudience, setBrandTargetAudience] = useState('')
+    const [brandContentTypes, setBrandContentTypes] = useState('')
+    const [brandValues, setBrandValues] = useState('')
+    const [brandCommStyle, setBrandCommStyle] = useState('')
+
     // Platform state
     const [platforms, setPlatforms] = useState<ChannelPlatformEntry[]>([])
     const [addingPlatform, setAddingPlatform] = useState(false)
@@ -357,6 +371,12 @@ export default function ChannelDetailPage({
                 setBizWebsite(biz.website || '')
                 setBizSocials(biz.socials || {})
                 setBizCustomLinks(biz.custom || [])
+                // Brand Profile
+                const bp = data.brandProfile || {}
+                setBrandTargetAudience(bp.targetAudience || '')
+                setBrandContentTypes(bp.contentTypes || '')
+                setBrandValues(bp.brandValues || '')
+                setBrandCommStyle(bp.communicationStyle || '')
             } else {
                 toast.error(t('channels.notFound'))
                 router.push('/dashboard/channels')
@@ -522,6 +542,12 @@ export default function ChannelDetailPage({
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
                     webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
                     webhookCustom: webhookCustomUrl ? { url: webhookCustomUrl } : {},
+                    brandProfile: {
+                        targetAudience: brandTargetAudience || undefined,
+                        contentTypes: brandContentTypes || undefined,
+                        brandValues: brandValues || undefined,
+                        communicationStyle: brandCommStyle || undefined,
+                    },
                     businessInfo: {
                         phone: bizPhone || undefined,
                         address: bizAddress || undefined,
@@ -565,6 +591,12 @@ export default function ChannelDetailPage({
                     defaultImageProvider: imageProvider || null,
                     defaultImageModel: imageModel || null,
                     ...(isAdmin ? { requireOwnApiKey } : {}),
+                    brandProfile: {
+                        targetAudience: brandTargetAudience || undefined,
+                        contentTypes: brandContentTypes || undefined,
+                        brandValues: brandValues || undefined,
+                        communicationStyle: brandCommStyle || undefined,
+                    },
                     businessInfo: {
                         phone: bizPhone || undefined,
                         address: bizAddress || undefined,
@@ -584,7 +616,7 @@ export default function ChannelDetailPage({
             setAutoSaveStatus('idle')
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks])
+    }, [channel, id, displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, isAdmin, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks, brandTargetAudience, brandContentTypes, brandValues, brandCommStyle])
 
     useEffect(() => {
         // Skip auto-save on initial load
@@ -603,7 +635,7 @@ export default function ChannelDetailPage({
             if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks])
+    }, [displayName, description, language, isActive, notificationEmail, requireApproval, vibeTone, aiProvider, aiModel, requireOwnApiKey, bizPhone, bizAddress, bizWebsite, bizSocials, bizCustomLinks, brandTargetAudience, brandContentTypes, brandValues, brandCommStyle])
 
     // ─── AI Analysis ────────────────────────────────
     const handleAnalyze = async () => {
@@ -630,6 +662,10 @@ export default function ChannelDetailPage({
                     channelName: displayName,
                     description,
                     language,
+                    targetAudience: brandTargetAudience || undefined,
+                    contentTypes: brandContentTypes || undefined,
+                    brandValues: brandValues || undefined,
+                    communicationStyle: brandCommStyle || undefined,
                     provider: aiProvider || undefined,
                     model: aiModel || undefined,
                 }),
@@ -1343,6 +1379,84 @@ export default function ChannelDetailPage({
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── Brand Profile Card ────────────── */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm flex items-center gap-2">
+                                <Target className="h-4 w-4" />
+                                Brand Profile
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                Help AI understand your brand better — fill these in for more accurate content generation
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs flex items-center gap-1.5">
+                                    <Target className="h-3 w-3" /> Target Audience
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                    Describe who your ideal customers/followers are. Include age, gender, interests, problems they face.
+                                </p>
+                                <Textarea
+                                    placeholder={"Example: Millennials & Gen Z (ages 22-35), tech-savvy professionals interested in productivity and career growth. They struggle with work-life balance and seek practical tips. Active on LinkedIn and Instagram."}
+                                    value={brandTargetAudience}
+                                    onChange={(e) => setBrandTargetAudience(e.target.value)}
+                                    className="text-xs min-h-[70px]"
+                                    rows={3}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs flex items-center gap-1.5">
+                                    <FileText className="h-3 w-3" /> Content Types
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                    What kinds of content does your brand create? List all types.
+                                </p>
+                                <Textarea
+                                    placeholder={"Example: Educational carousels, product demos, customer success stories, industry news commentary, behind-the-scenes, Q&A sessions, motivational quotes, how-to tutorials"}
+                                    value={brandContentTypes}
+                                    onChange={(e) => setBrandContentTypes(e.target.value)}
+                                    className="text-xs min-h-[60px]"
+                                    rows={2}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs flex items-center gap-1.5">
+                                    <Lightbulb className="h-3 w-3" /> Core Brand Values
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                    What does your brand stand for? List 3-5 core values that guide your content.
+                                </p>
+                                <Textarea
+                                    placeholder={"Example: Innovation — We embrace new ideas and technology. Reliability — We deliver on our promises. Community — We build genuine connections. Sustainability — We care about long-term impact."}
+                                    value={brandValues}
+                                    onChange={(e) => setBrandValues(e.target.value)}
+                                    className="text-xs min-h-[60px]"
+                                    rows={2}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs flex items-center gap-1.5">
+                                    <Megaphone className="h-3 w-3" /> Current Communication Style
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                    How does your brand currently speak? Describe the tone and feel.
+                                </p>
+                                <Textarea
+                                    placeholder={"Example: Friendly and conversational, like talking to a knowledgeable friend. We use humor occasionally but stay professional. We prefer short paragraphs and ask questions to engage. We avoid corporate jargon."}
+                                    value={brandCommStyle}
+                                    onChange={(e) => setBrandCommStyle(e.target.value)}
+                                    className="text-xs min-h-[60px]"
+                                    rows={2}
+                                />
                             </div>
                         </CardContent>
                     </Card>

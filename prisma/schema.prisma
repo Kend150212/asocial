@@ -246,6 +246,7 @@ model Channel {
   requireOwnApiKey        Boolean  @default(true) @map("require_own_api_key")
   newsTopics              Json?    @map("news_topics") @default("[]") // e.g. ["AI", "startup", "SaaS"]
   businessInfo            Json?    @map("business_info") @default("{}") // { phone, address, website, socials: { facebook, instagram, ... , custom: [{label,url}] } }
+  brandProfile            Json?    @map("brand_profile") @default("{}") // { targetAudience, contentTypes, brandValues, communicationStyle }
 
   // Storage
   storageProvider    String?  @map("storage_provider") // gdrive, s3, wasabi, r2

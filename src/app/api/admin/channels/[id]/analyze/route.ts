@@ -21,7 +21,11 @@ export async function POST(
 
     const { id: channelId } = await params
     const body = await req.json()
-    const { channelName, description, language, provider: requestedProvider, model: requestedModel } = body
+    const {
+        channelName, description, language,
+        targetAudience, contentTypes, brandValues, communicationStyle,
+        provider: requestedProvider, model: requestedModel,
+    } = body
 
     if (!channelName || !description) {
         return NextResponse.json({ error: 'Channel name and description are required' }, { status: 400 })
@@ -84,6 +88,10 @@ export async function POST(
 - Brand Name: ${channelName}
 - Description: ${description}
 - Language: ${langLabel}
+${targetAudience ? `- Target Audience: ${targetAudience}` : '- Target Audience: (not provided, infer from brand description)'}
+${contentTypes ? `- Primary Content Types: ${contentTypes}` : '- Primary Content Types: (not provided, suggest based on brand)'}
+${brandValues ? `- Core Brand Values: ${brandValues}` : '- Core Brand Values: (not provided, infer from brand description)'}
+${communicationStyle ? `- Current Communication Style: ${communicationStyle}` : '- Current Communication Style: (not provided, suggest based on brand description)'}
 
 **Your Analysis Must Cover:**
 
