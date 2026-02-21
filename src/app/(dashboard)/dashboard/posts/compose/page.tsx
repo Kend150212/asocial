@@ -1385,8 +1385,18 @@ export default function ComposePage() {
                 const platforms = activePlatforms
                     .filter((p) => selectedPlatformIds.has(p.id))
                     .map((p) => p.platform)
-                const firstPlatform = [...new Set(platforms)].find(p => data.contentPerPlatform[p])
-                if (firstPlatform) setActiveContentTab(firstPlatform)
+                const uniquePlats = [...new Set(platforms)]
+                const firstPlatform = uniquePlats.find(p => data.contentPerPlatform[p])
+                    || Object.keys(data.contentPerPlatform)[0]
+                if (firstPlatform) {
+                    setActiveContentTab(firstPlatform)
+                    // If main content is empty or only hashtags, use first platform's content
+                    const mainContent = data.content || ''
+                    const isOnlyHashtags = mainContent.trim().split(/\s+/).every((w: string) => w.startsWith('#'))
+                    if (!mainContent.trim() || isOnlyHashtags) {
+                        setContent(data.contentPerPlatform[firstPlatform])
+                    }
+                }
                 toast.success(`✨ Content generated for ${Object.keys(data.contentPerPlatform).length} platform(s)!`)
             } else if (data.articlesFetched > 0) {
                 toast.success(`Content generated from ${data.articlesFetched} article(s)!`)

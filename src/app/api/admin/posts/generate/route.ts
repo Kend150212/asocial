@@ -434,12 +434,20 @@ ${sourceUrlText}`
         const hashtags = (parsed.hashtags || []).join(' ')
         let mainContent = parsed.content || ''
         if (!mainContent && parsed.contentPerPlatform) {
+            // Try matching from requested platforms first
             const firstPlatform = uniquePlatforms.find(p => parsed.contentPerPlatform?.[p])
-            if (firstPlatform) mainContent = parsed.contentPerPlatform[firstPlatform]
+            if (firstPlatform) {
+                mainContent = parsed.contentPerPlatform[firstPlatform]
+            } else {
+                // Fallback: use any available platform content
+                const anyKey = Object.keys(parsed.contentPerPlatform).find(k => parsed.contentPerPlatform![k])
+                if (anyKey) mainContent = parsed.contentPerPlatform[anyKey]
+            }
         }
-        const fullContent = hashtags
-            ? `${mainContent}\n\n${hashtags}`
-            : (mainContent || result)
+        // Only append hashtags if there's actual content to append to
+        const fullContent = mainContent
+            ? (hashtags ? `${mainContent}\n\n${hashtags}` : mainContent)
+            : (hashtags || result)
 
         return NextResponse.json({
             content: fullContent,
