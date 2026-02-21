@@ -42,10 +42,7 @@ import {
     Settings,
     ChevronDown,
     ChevronUp,
-    Eye,
-    EyeOff,
     Save,
-    KeyRound,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -273,65 +270,81 @@ export default function InboxPage() {
     const [showAiSettings, setShowAiSettings] = useState(false)
     const [aiProvider, setAiProvider] = useState('')
     const [aiModel, setAiModel] = useState('')
-    const [aiApiKey, setAiApiKey] = useState('')
-    const [showApiKey, setShowApiKey] = useState(false)
     const [savingAi, setSavingAi] = useState(false)
-    const [hasAiApiKey, setHasAiApiKey] = useState(false)
+    const [userApiKeys, setUserApiKeys] = useState<{ provider: string; name: string; defaultModel: string | null; isDefault: boolean }[]>([])
+    const [availableModels, setAvailableModels] = useState<{ id: string; name: string; type: string }[]>([])
+    const [loadingModels, setLoadingModels] = useState(false)
 
-    const AI_MODELS: Record<string, { label: string; value: string }[]> = {
-        openai: [
-            { label: 'GPT-4o', value: 'gpt-4o' },
-            { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-            { label: 'GPT-4.1', value: 'gpt-4.1' },
-            { label: 'GPT-4.1 Mini', value: 'gpt-4.1-mini' },
-            { label: 'GPT-4.1 Nano', value: 'gpt-4.1-nano' },
-            { label: 'o3 Mini', value: 'o3-mini' },
-        ],
-        gemini: [
-            { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
-            { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash-preview-05-20' },
-            { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro-preview-05-06' },
-            { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
-        ],
-    }
+    // Fetch user's configured API keys + current channel AI settings
+    useEffect(() => {
+        const fetchUserKeys = async () => {
+            try {
+                const res = await fetch('/api/user/api-keys')
+                if (res.ok) {
+                    const data = await res.json()
+                    setUserApiKeys(data.filter((k: any) => k.isActive !== false))
+                }
+            } catch { /* ignore */ }
+        }
+        fetchUserKeys()
+    }, [])
 
-    // Fetch AI settings from channel
+    // Fetch current channel AI settings
     useEffect(() => {
         if (!activeChannel?.id) return
-        const fetchAiSettings = async () => {
+        const fetchChannelAi = async () => {
             try {
                 const res = await fetch(`/api/admin/channels/${activeChannel.id}`)
                 if (res.ok) {
                     const data = await res.json()
                     setAiProvider(data.defaultAiProvider || '')
                     setAiModel(data.defaultAiModel || '')
-                    setHasAiApiKey(!!data.hasAiApiKey)
                 }
             } catch { /* ignore */ }
         }
-        fetchAiSettings()
+        fetchChannelAi()
     }, [activeChannel?.id])
+
+    // Fetch models when provider changes
+    useEffect(() => {
+        if (!aiProvider) { setAvailableModels([]); return }
+        const hasKey = userApiKeys.some(k => k.provider === aiProvider)
+        if (!hasKey) { setAvailableModels([]); return }
+
+        const fetchModels = async () => {
+            setLoadingModels(true)
+            try {
+                const res = await fetch('/api/user/api-keys/models', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: aiProvider }),
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    setAvailableModels(
+                        (data.models || []).filter((m: any) => m.type === 'text')
+                    )
+                }
+            } catch { /* ignore */ }
+            setLoadingModels(false)
+        }
+        fetchModels()
+    }, [aiProvider, userApiKeys])
 
     const saveAiSettings = useCallback(async () => {
         if (!activeChannel?.id) return
         setSavingAi(true)
         try {
-            const body: any = {
-                defaultAiProvider: aiProvider || null,
-                defaultAiModel: aiModel || null,
-            }
-            if (aiApiKey.trim()) {
-                body.aiApiKey = aiApiKey.trim()
-            }
             const res = await fetch(`/api/admin/channels/${activeChannel.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+                body: JSON.stringify({
+                    defaultAiProvider: aiProvider || null,
+                    defaultAiModel: aiModel || null,
+                }),
             })
             if (res.ok) {
                 toast.success('AI settings saved')
-                setAiApiKey('')
-                if (aiApiKey.trim()) setHasAiApiKey(true)
             } else {
                 toast.error('Failed to save AI settings')
             }
@@ -340,7 +353,7 @@ export default function InboxPage() {
         } finally {
             setSavingAi(false)
         }
-    }, [activeChannel?.id, aiProvider, aiModel, aiApiKey])
+    }, [activeChannel?.id, aiProvider, aiModel])
 
     // ─── Notification sound (Web Audio API — two-tone chime) ─
     const toggleSoundMute = useCallback(() => {
@@ -846,70 +859,63 @@ export default function InboxPage() {
                         </button>
                         {showAiSettings && (
                             <div className="space-y-2 mt-2 px-1">
-                                {/* Provider */}
+                                {/* Provider — from user's API keys */}
                                 <div>
                                     <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Provider</label>
-                                    <select
-                                        value={aiProvider}
-                                        onChange={e => {
-                                            setAiProvider(e.target.value)
-                                            setAiModel('') // reset model on provider change
-                                        }}
-                                        className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                    >
-                                        <option value="">Select provider...</option>
-                                        <option value="openai">OpenAI</option>
-                                        <option value="gemini">Google Gemini</option>
-                                    </select>
+                                    {userApiKeys.length === 0 ? (
+                                        <div className="mt-1 rounded-md bg-muted/50 border border-border p-2">
+                                            <p className="text-[10px] text-muted-foreground">No AI keys configured.</p>
+                                            <a href="/dashboard/api-keys" className="text-[10px] text-primary hover:underline">
+                                                → Set up API Keys
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={aiProvider}
+                                            onChange={e => {
+                                                setAiProvider(e.target.value)
+                                                setAiModel('')
+                                            }}
+                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                        >
+                                            <option value="">Select provider...</option>
+                                            {userApiKeys.map(k => (
+                                                <option key={k.provider} value={k.provider}>
+                                                    {k.name || k.provider}
+                                                    {k.isDefault ? ' ★' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
 
-                                {/* Model */}
+                                {/* Model — fetched from user's API key */}
                                 {aiProvider && (
                                     <div>
-                                        <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Model</label>
+                                        <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
+                                            Model
+                                            {loadingModels && <Loader2 className="inline h-2.5 w-2.5 animate-spin ml-1" />}
+                                        </label>
                                         <select
                                             value={aiModel}
                                             onChange={e => setAiModel(e.target.value)}
-                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                            disabled={loadingModels}
+                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                                         >
-                                            <option value="">Select model...</option>
-                                            {AI_MODELS[aiProvider]?.map(m => (
-                                                <option key={m.value} value={m.value}>{m.label}</option>
+                                            <option value="">{loadingModels ? 'Loading models...' : 'Select model...'}</option>
+                                            {availableModels.map(m => (
+                                                <option key={m.id} value={m.id}>{m.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                 )}
-
-                                {/* API Key */}
-                                <div>
-                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                                        <KeyRound className="h-2.5 w-2.5" />
-                                        API Key
-                                        {hasAiApiKey && <span className="text-green-500">✓ Set</span>}
-                                    </label>
-                                    <div className="relative mt-0.5">
-                                        <input
-                                            type={showApiKey ? 'text' : 'password'}
-                                            value={aiApiKey}
-                                            onChange={e => setAiApiKey(e.target.value)}
-                                            placeholder={hasAiApiKey ? '••••••••••••••' : 'sk-... or AIza...'}
-                                            className="w-full h-7 px-2 pr-7 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                        />
-                                        <button
-                                            onClick={() => setShowApiKey(!showApiKey)}
-                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                                        >
-                                            {showApiKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                        </button>
-                                    </div>
-                                </div>
 
                                 {/* Save */}
                                 <Button
                                     size="sm"
                                     className="w-full h-7 text-[10px]"
                                     onClick={saveAiSettings}
-                                    disabled={savingAi || (!aiProvider && !aiApiKey.trim())}
+                                    disabled={savingAi || !aiProvider}
                                 >
                                     {savingAi ? (
                                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
@@ -922,8 +928,8 @@ export default function InboxPage() {
                                 {/* Current config display */}
                                 {aiProvider && aiModel && (
                                     <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
-                                        <p className="text-[9px] text-muted-foreground break-words">Current: <span className="text-foreground font-medium">{aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}</span></p>
-                                        <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{AI_MODELS[aiProvider]?.find(m => m.value === aiModel)?.label || aiModel}</span></p>
+                                        <p className="text-[9px] text-muted-foreground break-words">Provider: <span className="text-foreground font-medium">{userApiKeys.find(k => k.provider === aiProvider)?.name || aiProvider}</span></p>
+                                        <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{availableModels.find(m => m.id === aiModel)?.name || aiModel}</span></p>
                                     </div>
                                 )}
 
