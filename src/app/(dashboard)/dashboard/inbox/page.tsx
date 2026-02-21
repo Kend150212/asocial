@@ -710,7 +710,7 @@ export default function InboxPage() {
     return (
         <div className="-mx-3 -my-4 sm:-mx-6 sm:-my-6 flex h-screen overflow-hidden">
             {/* ═══ LEFT SIDEBAR — Filters ═══ */}
-            <div className="w-[220px] border-r flex flex-col shrink-0 bg-card">
+            <div className="w-[250px] border-r flex flex-col shrink-0 bg-card">
                 {/* Channel indicator */}
                 <div className="p-3 border-b">
                     <div className="flex items-center gap-2 px-1">
@@ -792,7 +792,7 @@ export default function InboxPage() {
                                                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                                                 )}
                                             >
-                                                <span className="flex-1 text-left truncate">{account.accountName}</span>
+                                                <span className="flex-1 text-left text-wrap break-words">{account.accountName}</span>
                                                 {selectedPlatformIds.includes(account.id) && (
                                                     <Check className="h-3 w-3 text-primary shrink-0" />
                                                 )}
@@ -922,10 +922,43 @@ export default function InboxPage() {
                                 {/* Current config display */}
                                 {aiProvider && aiModel && (
                                     <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
-                                        <p className="text-[9px] text-muted-foreground">Current: <span className="text-foreground font-medium">{aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}</span></p>
-                                        <p className="text-[9px] text-muted-foreground">Model: <span className="text-foreground font-medium">{AI_MODELS[aiProvider]?.find(m => m.value === aiModel)?.label || aiModel}</span></p>
+                                        <p className="text-[9px] text-muted-foreground break-words">Current: <span className="text-foreground font-medium">{aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}</span></p>
+                                        <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{AI_MODELS[aiProvider]?.find(m => m.value === aiModel)?.label || aiModel}</span></p>
                                     </div>
                                 )}
+
+                                <Separator className="my-1" />
+
+                                {/* Notification Sound Toggle */}
+                                <div>
+                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Notification</label>
+                                    <button
+                                        onClick={toggleSoundMute}
+                                        className={cn(
+                                            'w-full mt-1 flex items-center gap-2 px-2.5 py-2 rounded-md border transition-colors cursor-pointer',
+                                            soundMuted
+                                                ? 'border-border bg-muted/30 text-muted-foreground'
+                                                : 'border-primary/30 bg-primary/5 text-foreground'
+                                        )}
+                                    >
+                                        {soundMuted ? (
+                                            <VolumeX className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                        ) : (
+                                            <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                                        )}
+                                        <span className="text-[11px] flex-1 text-left">
+                                            {soundMuted ? 'Sound Off' : 'Sound On'}
+                                        </span>
+                                        <span className={cn(
+                                            'text-[9px] px-1.5 py-0.5 rounded-full font-medium',
+                                            soundMuted
+                                                ? 'bg-muted text-muted-foreground'
+                                                : 'bg-primary/10 text-primary'
+                                        )}>
+                                            {soundMuted ? 'Muted' : 'Active'}
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -972,19 +1005,6 @@ export default function InboxPage() {
                             className="h-8 pl-8 text-xs"
                         />
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={toggleSoundMute}
-                        title={soundMuted ? 'Unmute notifications' : 'Mute notifications'}
-                    >
-                        {soundMuted ? (
-                            <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />
-                        ) : (
-                            <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
