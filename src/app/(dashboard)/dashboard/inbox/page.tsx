@@ -397,28 +397,32 @@ export default function InboxPage() {
 
     // ─── Send reply ───────────────────
     const handleSendReply = useCallback(async () => {
-        if (!selectedConversation || !replyText.trim()) return
+        if (!selectedConversation || (!replyText.trim() && !selectedImage)) return
 
         let contentToSend = replyText.trim()
+        const imageToSend = selectedImage
 
         // Only keep @[Name] tag for comment conversations — strip for DMs
         if (selectedConversation.type !== 'comment') {
             contentToSend = contentToSend.replace(/^@\[[^\]]+\]\s*/, '')
-            if (!contentToSend) return
+            if (!contentToSend && !imageToSend) return
         }
 
         // ── Optimistic: show message instantly ──
         const tempId = `temp-${Date.now()}`
+        const displayText = imageToSend
+            ? contentToSend ? `${contentToSend}\n📷 Image` : '📷 Image'
+            : contentToSend
         const optimisticMessage: InboxMessage = {
             id: tempId,
             externalId: null,
             direction: 'outbound',
             senderType: 'agent',
-            content: contentToSend,
+            content: displayText,
             contentOriginal: null,
             detectedLang: null,
-            mediaUrl: null,
-            mediaType: null,
+            mediaUrl: imageToSend ? URL.createObjectURL(imageToSend) : null,
+            mediaType: imageToSend ? 'image' : null,
             senderName: null,
             senderAvatar: null,
             confidence: null,
@@ -429,9 +433,11 @@ export default function InboxPage() {
         setMessages(prev => [...prev, optimisticMessage])
         setReplyText('')
         setReplyToName(null)
+        setSelectedImage(null)
+        setShowEmojiPicker(false)
 
         // Update conversation list instantly
-        const displayContent = contentToSend.replace(/@\[([^\]]+)\]/g, '@$1')
+        const displayContent = (contentToSend || '📷 Image').replace(/@\[([^\]]+)\]/g, '@$1')
         setConversations(prev =>
             prev.map(c =>
                 c.id === selectedConversation.id
@@ -443,11 +449,23 @@ export default function InboxPage() {
 
         // ── Background: send via API ──
         try {
-            const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: contentToSend }),
-            })
+            let res: Response
+            if (imageToSend) {
+                // Send with FormData for image upload
+                const formData = new FormData()
+                formData.append('content', contentToSend || '📷 Image')
+                formData.append('image', imageToSend)
+                res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
+                    method: 'POST',
+                    body: formData,
+                })
+            } else {
+                res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: contentToSend }),
+                })
+            }
             if (res.ok) {
                 const data = await res.json()
                 // Replace temp message with real one (for externalId etc.)
@@ -460,7 +478,7 @@ export default function InboxPage() {
         } catch {
             toast.error('Network error — message saved locally')
         }
-    }, [selectedConversation, replyText])
+    }, [selectedConversation, replyText, selectedImage])
 
     // ─── Update conversation ──────────
     const updateConversation = useCallback(async (convId: string, body: Record<string, any>) => {
@@ -1190,6 +1208,13 @@ export default function InboxPage() {
                                                             </span>
                                                         )}
                                                     </div>
+                                                )}
+                                                {msg.mediaUrl && msg.mediaType === 'image' && (
+                                                    <img
+                                                        src={msg.mediaUrl}
+                                                        alt="Attached image"
+                                                        className="max-w-[200px] rounded-lg mb-1.5"
+                                                    />
                                                 )}
                                                 <div className="whitespace-pre-wrap">{msg.content}</div>
                                                 <div className={cn(

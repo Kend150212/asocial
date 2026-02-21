@@ -90,11 +90,26 @@ export async function POST(
     }
 
     const { id } = await params
-    const body = await req.json()
-    const { content, senderType = 'agent' } = body
 
-    if (!content?.trim()) {
-        return NextResponse.json({ error: 'Content is required' }, { status: 400 })
+    // Parse body — supports JSON or FormData (for image uploads)
+    let content = ''
+    let senderType = 'agent'
+    let imageFile: File | null = null
+
+    const contentType = req.headers.get('content-type') || ''
+    if (contentType.includes('multipart/form-data')) {
+        const formData = await req.formData()
+        content = (formData.get('content') as string) || ''
+        senderType = (formData.get('senderType') as string) || 'agent'
+        imageFile = formData.get('image') as File | null
+    } else {
+        const body = await req.json()
+        content = body.content || ''
+        senderType = body.senderType || 'agent'
+    }
+
+    if (!content?.trim() && !imageFile) {
+        return NextResponse.json({ error: 'Content or image is required' }, { status: 400 })
     }
 
     // Verify access
@@ -149,24 +164,36 @@ export async function POST(
             })
 
             try {
+                // Upload image to Facebook if present
+                let fbAttachmentId: string | null = null
+                if (imageFile) {
+                    const imgBuffer = Buffer.from(await imageFile.arrayBuffer())
+                    const imgForm = new FormData()
+                    imgForm.append('message', JSON.stringify({
+                        attachment: { type: 'image', payload: { is_reusable: true } }
+                    }))
+                    imgForm.append('filedata', new Blob([imgBuffer], { type: imageFile.type }), imageFile.name)
+
+                    const uploadRes = await fetch(
+                        `https://graph.facebook.com/v19.0/me/message_attachments?access_token=${platformAccount.accessToken}`,
+                        { method: 'POST', body: imgForm }
+                    )
+                    const uploadData = await uploadRes.json()
+                    if (uploadData.attachment_id) {
+                        fbAttachmentId = uploadData.attachment_id
+                        console.log(`[FB Upload] ✅ Image uploaded: ${fbAttachmentId}`)
+                    } else {
+                        console.warn(`[FB Upload] ⚠️ Image upload failed:`, JSON.stringify(uploadData))
+                    }
+                }
+
                 if (conv?.type === 'comment') {
-                    // Reply to comment: find the latest inbound comment to reply to
-                    const lastInbound = await prisma.inboxMessage.findFirst({
-                        where: { conversationId: id, direction: 'inbound' },
-                        orderBy: { sentAt: 'desc' },
-                        select: { externalId: true },
-                    })
-
-                    // Also check social_comments for the external comment ID
+                    // Reply to comment (text only — FB API limitation for comment images)
                     const lastComment = await prisma.socialComment.findFirst({
-                        where: {
-                            channelId: conversation.channelId,
-                            platform: 'facebook',
-                        },
+                        where: { channelId: conversation.channelId, platform: 'facebook' },
                         orderBy: { commentedAt: 'desc' },
-                        select: { externalCommentId: true, externalPostId: true },
+                        select: { externalCommentId: true },
                     })
-
                     const commentId = lastComment?.externalCommentId
                     if (commentId) {
                         const fbRes = await fetch(
@@ -182,7 +209,6 @@ export async function POST(
                         )
                         const fbData = await fbRes.json()
                         if (fbData.id) {
-                            // Update the message with external ID
                             await prisma.inboxMessage.update({
                                 where: { id: message.id },
                                 data: { externalId: fbData.id },
@@ -194,27 +220,65 @@ export async function POST(
                     }
                 } else {
                     // Send DM via Send API
-                    const fbRes = await fetch(
-                        `https://graph.facebook.com/v19.0/me/messages?access_token=${platformAccount.accessToken}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                recipient: { id: conv?.externalUserId },
-                                message: { text: content.trim().replace(/^@\[[^\]]+\]\s*/, '').replace(/@\[([^\]]+)\]/g, '@$1') },
-                                messaging_type: 'RESPONSE',
-                            }),
+                    const cleanText = content.trim().replace(/^@\[[^\]]+\]\s*/, '').replace(/@\[([^\]]+)\]/g, '@$1')
+
+                    if (fbAttachmentId) {
+                        // Send image as attachment
+                        const fbRes = await fetch(
+                            `https://graph.facebook.com/v19.0/me/messages?access_token=${platformAccount.accessToken}`,
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    recipient: { id: conv?.externalUserId },
+                                    message: { attachment: { type: 'image', payload: { attachment_id: fbAttachmentId } } },
+                                    messaging_type: 'RESPONSE',
+                                }),
+                            }
+                        )
+                        const fbData = await fbRes.json()
+                        if (fbData.message_id) {
+                            console.log(`[FB Reply] ✅ Image DM sent: ${fbData.message_id}`)
                         }
-                    )
-                    const fbData = await fbRes.json()
-                    if (fbData.message_id) {
-                        await prisma.inboxMessage.update({
-                            where: { id: message.id },
-                            data: { externalId: fbData.message_id },
-                        })
-                        console.log(`[FB Reply] ✅ DM sent: ${fbData.message_id}`)
+                        // Also send text if present (not just the placeholder)
+                        if (cleanText && cleanText !== '📷 Image') {
+                            await fetch(
+                                `https://graph.facebook.com/v19.0/me/messages?access_token=${platformAccount.accessToken}`,
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        recipient: { id: conv?.externalUserId },
+                                        message: { text: cleanText },
+                                        messaging_type: 'RESPONSE',
+                                    }),
+                                }
+                            )
+                        }
                     } else {
-                        console.warn(`[FB Reply] ⚠️ DM send failed:`, JSON.stringify(fbData))
+                        // Text-only DM
+                        const fbRes = await fetch(
+                            `https://graph.facebook.com/v19.0/me/messages?access_token=${platformAccount.accessToken}`,
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    recipient: { id: conv?.externalUserId },
+                                    message: { text: cleanText },
+                                    messaging_type: 'RESPONSE',
+                                }),
+                            }
+                        )
+                        const fbData = await fbRes.json()
+                        if (fbData.message_id) {
+                            await prisma.inboxMessage.update({
+                                where: { id: message.id },
+                                data: { externalId: fbData.message_id },
+                            })
+                            console.log(`[FB Reply] ✅ DM sent: ${fbData.message_id}`)
+                        } else {
+                            console.warn(`[FB Reply] ⚠️ DM send failed:`, JSON.stringify(fbData))
+                        }
                     }
                 }
             } catch (err) {
