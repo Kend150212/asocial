@@ -144,18 +144,38 @@ export async function GET(req: NextRequest) {
         // ── Subscribe pages to webhook for real-time events ──
         for (const page of pages) {
             try {
-                const subRes = await fetch(
+                const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads'
+                const feedOnly = 'feed'
+
+                let subRes = await fetch(
                     `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            subscribed_fields: 'feed,messages,messaging_postbacks,message_deliveries,message_reads',
+                            subscribed_fields: allFields,
                             access_token: page.access_token,
                         }),
                     }
                 )
-                const subData = await subRes.json()
+                let subData = await subRes.json()
+
+                // Fallback to feed-only if pages_messaging not granted
+                if (!subData.success && JSON.stringify(subData).includes('pages_messaging')) {
+                    subRes = await fetch(
+                        `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subscribed_fields: feedOnly,
+                                access_token: page.access_token,
+                            }),
+                        }
+                    )
+                    subData = await subRes.json()
+                }
+
                 if (subData.success) {
                     console.log(`[Facebook OAuth] 🔔 Webhook subscribed: ${page.name}`)
                 } else {

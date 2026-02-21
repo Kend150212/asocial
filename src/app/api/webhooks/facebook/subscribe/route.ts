@@ -37,18 +37,40 @@ export async function POST(req: NextRequest) {
 
     for (const p of platforms) {
         try {
-            const res = await fetch(
+            // Try with all fields first, fallback to feed-only if pages_messaging not granted
+            const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads'
+            const feedOnly = 'feed'
+
+            let res = await fetch(
                 `https://graph.facebook.com/v19.0/${p.accountId}/subscribed_apps`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        subscribed_fields: 'feed,messages,messaging_postbacks,message_deliveries,message_reads',
+                        subscribed_fields: allFields,
                         access_token: p.accessToken,
                     }),
                 }
             )
-            const data = await res.json()
+            let data = await res.json()
+
+            // Fallback: if messages permission missing, subscribe feed only
+            if (!data.success && JSON.stringify(data).includes('pages_messaging')) {
+                console.log(`[FB Subscribe] ⚠️ No pages_messaging for ${p.accountName}, trying feed only...`)
+                res = await fetch(
+                    `https://graph.facebook.com/v19.0/${p.accountId}/subscribed_apps`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            subscribed_fields: feedOnly,
+                            access_token: p.accessToken,
+                        }),
+                    }
+                )
+                data = await res.json()
+            }
+
             if (data.success) {
                 results.push({ pageId: p.accountId, name: p.accountName, success: true })
                 console.log(`[FB Subscribe] ✅ ${p.accountName} (${p.accountId})`)
