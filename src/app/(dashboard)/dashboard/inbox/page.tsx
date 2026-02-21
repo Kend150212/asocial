@@ -234,6 +234,7 @@ export default function InboxPage() {
     const [messages, setMessages] = useState<InboxMessage[]>([])
     const [replyText, setReplyText] = useState('')
     const [replyToName, setReplyToName] = useState<string | null>(null)
+    const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set())
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [platformAccounts, setPlatformAccounts] = useState<PlatformAccount[]>([])
     const [counts, setCounts] = useState<StatusCounts>({ new: 0, open: 0, done: 0, archived: 0, mine: 0, all: 0 })
@@ -951,8 +952,14 @@ export default function InboxPage() {
                                                         <div className="flex items-center gap-3 mt-0.5 ml-3">
                                                             {msg.direction === 'inbound' && msg.externalId && selectedConversation && (
                                                                 <button
-                                                                    className="text-[10px] font-semibold text-muted-foreground hover:text-blue-500 transition-colors"
+                                                                    className={cn(
+                                                                        'text-[10px] font-semibold transition-colors',
+                                                                        likedCommentIds.has(msg.externalId)
+                                                                            ? 'text-blue-500'
+                                                                            : 'text-muted-foreground hover:text-blue-500'
+                                                                    )}
                                                                     onClick={async () => {
+                                                                        if (likedCommentIds.has(msg.externalId!)) return
                                                                         try {
                                                                             const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/like`, {
                                                                                 method: 'POST',
@@ -960,6 +967,7 @@ export default function InboxPage() {
                                                                                 body: JSON.stringify({ commentExternalId: msg.externalId }),
                                                                             })
                                                                             if (res.ok) {
+                                                                                setLikedCommentIds(prev => new Set(prev).add(msg.externalId!))
                                                                                 toast.success('👍 Liked!')
                                                                             } else {
                                                                                 const data = await res.json()
@@ -970,13 +978,19 @@ export default function InboxPage() {
                                                                         }
                                                                     }}
                                                                 >
-                                                                    👍 Like
+                                                                    {likedCommentIds.has(msg.externalId) ? '💙 Liked' : '👍 Like'}
                                                                 </button>
                                                             )}
                                                             {msg.direction === 'inbound' && (
                                                                 <button
                                                                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                                                                    onClick={() => {
+                                                                    onClick={async () => {
+                                                                        // Auto-transfer to Agent if in BOT mode
+                                                                        if (selectedConversation?.mode === 'BOT') {
+                                                                            await updateConversation(selectedConversation.id, { action: 'takeover' })
+                                                                            setSelectedConversation(prev => prev ? { ...prev, mode: 'AGENT' } : null)
+                                                                            setConversations(prev => prev.map(c => c.id === selectedConversation.id ? { ...c, mode: 'AGENT' as const } : c))
+                                                                        }
                                                                         setReplyToName(senderName)
                                                                         setReplyText(`@[${senderName}] `)
                                                                         // Focus the textarea
