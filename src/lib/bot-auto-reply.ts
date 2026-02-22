@@ -10,6 +10,13 @@ import { prisma } from '@/lib/prisma'
 import { callAI, getDefaultModel } from '@/lib/ai-caller'
 import { getChannelOwnerKey } from '@/lib/channel-owner-key'
 
+// ─── Dedup cache: prevent duplicate Messenger sends ─────────
+// Key: "recipientId" → timestamp of last bot send
+// When same page is in multiple channels, only the first channel's
+// bot actually sends to Messenger; others are saved to DB only.
+const recentBotReplies = new Map<string, number>()
+const DEDUP_TTL_MS = 30_000 // 30 seconds
+
 interface BotReplyResult {
     replied: boolean
     reason?: string
@@ -260,8 +267,8 @@ export async function botAutoReply(
             systemPrompt += `\n\n## FORBIDDEN TOPICS — DO NOT discuss these. If asked, say you need to forward to a human agent:\n${forbiddenTopics.join(', ')}`
         }
 
-        const langLabel = channel.language === 'vi' ? 'Vietnamese' : channel.language === 'en' ? 'English' : channel.language || 'the same language the customer is using'
-        systemPrompt += `\n\n## Rules:\n- Reply in ${langLabel}\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, arrays, code blocks, brackets, or any structured format\n- Do NOT use [ ] or { } in your response\n- Reply with PLAIN TEXT ONLY — no formatting wrappers\n- If you don't know the answer, say you'll connect them with a human agent`
+        const langLabel = channel.language === 'vi' ? 'Vietnamese' : channel.language === 'en' ? 'English' : channel.language || 'auto-detect'
+        systemPrompt += `\n\n## Rules:\n- Default language: ${langLabel}\n- IMPORTANT: If the customer writes in a different language, you MUST reply in THEIR language. Always match the customer's language.\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, arrays, code blocks, brackets, or any structured format\n- Do NOT use [ ] or { } in your response\n- Reply with PLAIN TEXT ONLY — no formatting wrappers\n- If you don't know the answer, say you'll connect them with a human agent`
 
         // ─── 10. Call AI ──────────────────────────────────────────
         const userPrompt = `Customer: ${conversation.externalUserName || 'Customer'}
@@ -389,13 +396,28 @@ async function sendAndSaveReply(
         const conversationType = conversation.type || 'message'
 
         if (conversationType === 'message') {
-            // Send DM via Messenger (same API for both FB and IG)
-            await sendFacebookMessage(
-                platformAccount.accessToken,
-                conversation.externalUserId,
-                text,
-                imageUrls
-            )
+            // Dedup: prevent sending duplicate Messenger messages when same page is in multiple channels
+            const dedupKey = conversation.externalUserId
+            const lastSent = recentBotReplies.get(dedupKey)
+            const now = Date.now()
+
+            if (lastSent && (now - lastSent) < DEDUP_TTL_MS) {
+                console.log(`[Bot] ⏭️ Skipping Messenger send (dedup) for ${dedupKey} - saving to DB only`)
+            } else {
+                recentBotReplies.set(dedupKey, now)
+                // Clean old entries periodically
+                if (recentBotReplies.size > 100) {
+                    for (const [key, ts] of recentBotReplies) {
+                        if (now - ts > DEDUP_TTL_MS) recentBotReplies.delete(key)
+                    }
+                }
+                await sendFacebookMessage(
+                    platformAccount.accessToken,
+                    conversation.externalUserId,
+                    text,
+                    imageUrls
+                )
+            }
         }
         // For comments, we could reply to the comment, but that requires the comment ID
         // which we'd need to track separately. Skipping for now.
