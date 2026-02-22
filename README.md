@@ -51,84 +51,58 @@ Self-hosted, open-source social media management platform with AI content genera
 
 ---
 
-## 🚀 Quick Start (Development)
-
-### 1. Clone & Install
+## 🚀 Quick Start (3 Steps)
 
 ```bash
-git clone https://github.com/your-org/asocial.git
+# 1. Clone
+git clone https://github.com/Kend150212/asocial.git
+cd asocial
+
+# 2. Install (auto-installs Node, PostgreSQL, Redis, PM2, FFmpeg)
+chmod +x install.sh && ./install.sh
+
+# 3. Open browser → Setup Wizard guides you through the rest
+#    http://YOUR_SERVER_IP:3000
+```
+
+The **Setup Wizard** handles everything:
+- ✅ Database connection (PostgreSQL + Redis)
+- ✅ Admin account creation
+- ✅ Security key generation (auto)
+- ✅ Platform OAuth guides (Facebook, YouTube, TikTok, etc.)
+- ✅ Crontab auto-install
+- ✅ PM2 restart
+
+**No manual `.env` editing required!**
+
+---
+
+## 💻 Development Setup
+
+For local development (without the installer):
+
+```bash
+git clone https://github.com/Kend150212/asocial.git
 cd asocial
 npm install
-```
 
-### 2. Start Database & Redis
-
-Using Docker (recommended):
-```bash
+# Start PostgreSQL + Redis via Docker
 npm run db:up
-# Starts PostgreSQL (port 5432) and Redis (port 6379)
-```
 
-Or install natively:
-```bash
-# macOS
-brew install postgresql@16 redis
-brew services start postgresql@16
-brew services start redis
-createdb asocial
-
-# Ubuntu
-sudo apt install postgresql redis-server
-sudo -u postgres createuser -s asocial
-sudo -u postgres createdb asocial -O asocial
-```
-
-### 3. Configure Environment
-
-```bash
+# Configure environment
 cp .env.example .env
-```
+# Edit .env with your local values
 
-Edit `.env` with your values:
-
-```env
-# Database
-DATABASE_URL="postgresql://asocial:asocial_dev_pass@localhost:5432/asocial?schema=public"
-
-# Auth — generate with: openssl rand -base64 32
-AUTH_SECRET="your-secret-here"
-NEXTAUTH_URL="http://localhost:3000"
-
-# Redis
-REDIS_URL="redis://localhost:6379"
-
-# Encryption key for API keys in DB — generate with: openssl rand -hex 32
-ENCRYPTION_KEY="your-64-char-hex-key-here"
-```
-
-### 4. Initialize Database
-
-```bash
-# Push schema to database
+# Initialize database
 npx prisma db push
-
-# Seed with default admin user + integrations
 npm run db:seed
+
+# Start dev server + workers
+npm run dev          # Terminal 1: Next.js
+npm run worker:dev   # Terminal 2: Background workers
 ```
 
-Default login: `admin@asocial.app` / `admin123`
-
-### 5. Run Development Server
-
-```bash
-# Terminal 1: Next.js app
-npm run dev
-
-# Terminal 2: Background workers (auto-post, webhooks, AI content, gdrive)
-npm run worker:dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
+Default dev login: `admin@asocial.app` / `admin123`
 
 ---
 

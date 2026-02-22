@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { isSetupComplete } from '@/lib/setup-check'
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
+
+    // ── Setup wizard redirect — if not configured yet ─────────────
+    const isSetupRoute = pathname.startsWith('/setup') || pathname.startsWith('/api/setup')
+    if (!isSetupRoute && !isSetupComplete()) {
+        return NextResponse.redirect(new URL('/setup', req.url))
+    }
+    // If setup is complete, prevent accessing /setup again
+    if (pathname.startsWith('/setup') && isSetupComplete()) {
+        return NextResponse.redirect(new URL('/', req.url))
+    }
 
     const hasSession =
         req.cookies.has('__Secure-authjs.session-token') ||
