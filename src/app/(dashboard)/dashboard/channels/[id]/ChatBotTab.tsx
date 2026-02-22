@@ -103,6 +103,10 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     // Knowledge base entries
     const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([])
 
+    // Tab navigation
+    const [botTab, setBotTab] = useState<'training' | 'behavior' | 'escalation' | 'hours' | 'scope'>('training')
+    const [trainingSubTab, setTrainingSubTab] = useState<'saved' | 'text' | 'url' | 'sheet' | 'images' | 'video' | 'qa'>('saved')
+
     // Per-page bot toggle
     const [pageAccounts, setPageAccounts] = useState<{ id: string; accountName: string; platform: string; botEnabled: boolean }[]>([])
 
@@ -454,10 +458,31 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                 </Card>
             )}
 
-            <Accordion type="multiple" defaultValue={['general', 'training']} className="space-y-2">
-                {/* ═══════════════════════════════════════ */}
-                {/* GENERAL SETTINGS                       */}
-                {/* ═══════════════════════════════════════ */}
+            {/* ─── Tab Navigation ───────────────────── */}
+            <div className="flex items-center gap-1 border-b pb-0 mb-4 overflow-x-auto">
+                {[
+                    { key: 'training' as const, icon: Brain, label: t('chatbot.training.title'), color: 'text-purple-500' },
+                    { key: 'behavior' as const, icon: Target, label: t('chatbot.behavior.title'), color: 'text-cyan-500' },
+                    { key: 'escalation' as const, icon: Shield, label: t('chatbot.escalation.title'), color: 'text-red-500' },
+                    { key: 'hours' as const, icon: Clock, label: t('chatbot.hours.title'), color: 'text-amber-500' },
+                    { key: 'scope' as const, icon: Target, label: t('chatbot.scope.title'), color: 'text-teal-500' },
+                ].map(tab => (
+                    <button
+                        key={tab.key}
+                        onClick={() => setBotTab(tab.key)}
+                        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap
+                            ${botTab === tab.key
+                                ? 'border-primary text-primary bg-primary/5'
+                                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                    >
+                        <tab.icon className={`h-3.5 w-3.5 ${botTab === tab.key ? tab.color : ''}`} />
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* ═══ GENERAL SETTINGS (always visible) ══════ */}
+            <Accordion type="multiple" defaultValue={['general']} className="space-y-2 mb-4">
                 <AccordionItem value="general" className="border rounded-lg px-4">
                     <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-2">
@@ -583,22 +608,46 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         </div>
                     </AccordionContent>
                 </AccordionItem>
+            </Accordion>
 
-                {/* ═══════════════════════════════════════ */}
-                {/* TRAINING (CORE)                        */}
-                {/* ═══════════════════════════════════════ */}
-                <AccordionItem value="training" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <Brain className="h-4 w-4 text-purple-500" />
-                            <span className="font-medium">{t('chatbot.training.title')}</span>
-                            <Badge variant="secondary" className="text-[9px]">{t('chatbot.training.core')}</Badge>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-6 pb-4">
+            {/* ═══ TAB CONTENT ════════════════════════ */}
+
+            {/* ─── TRAINING TAB ─────────────────────── */}
+            {botTab === 'training' && (
+                <div className="flex gap-4 min-h-[400px]">
+                    {/* Left Sidebar Menu */}
+                    <div className="w-44 shrink-0 space-y-1">
+                        {[
+                            { key: 'saved' as const, icon: Check, label: 'Saved Data', color: 'text-green-500', count: knowledgeEntries.length },
+                            { key: 'text' as const, icon: FileText, label: 'Text', color: 'text-blue-500' },
+                            { key: 'url' as const, icon: LinkIcon, label: 'URL', color: 'text-green-500' },
+                            { key: 'sheet' as const, icon: FileSpreadsheet, label: 'Google Sheet', color: 'text-emerald-500' },
+                            { key: 'images' as const, icon: ImageIcon, label: 'Images', color: 'text-orange-500' },
+                            { key: 'video' as const, icon: Video, label: 'Video', color: 'text-red-500' },
+                            { key: 'qa' as const, icon: HelpCircle, label: 'Q&A Pairs', color: 'text-indigo-500' },
+                        ].map(item => (
+                            <button
+                                key={item.key}
+                                onClick={() => setTrainingSubTab(item.key)}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-xs rounded-md transition-colors text-left
+                                    ${trainingSubTab === item.key
+                                        ? 'bg-primary/10 text-primary font-medium'
+                                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
+                            >
+                                <item.icon className={`h-3.5 w-3.5 ${trainingSubTab === item.key ? item.color : ''}`} />
+                                {item.label}
+                                {'count' in item && (item.count ?? 0) > 0 && (
+                                    <Badge variant="secondary" className="ml-auto text-[9px] h-4 px-1">{item.count}</Badge>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Right Content Panel */}
+                    <div className="flex-1 min-w-0 space-y-4">
 
                         {/* ── Saved Knowledge Entries ── */}
-                        {knowledgeEntries.length > 0 && (
+                        {trainingSubTab === 'saved' && (
                             <Card>
                                 <CardHeader className="py-3 px-4">
                                     <CardTitle className="text-sm flex items-center gap-2">
@@ -643,691 +692,670 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             </Card>
                         )}
 
-
                         {/* ── Text Training ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-blue-500" />
-                                    {t('chatbot.training.textTitle')}
-                                </CardTitle>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.textDesc')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-3">
-                                <Textarea
-                                    value={newTrainingText}
-                                    onChange={e => setNewTrainingText(e.target.value)}
-                                    placeholder={t('chatbot.training.textPlaceholder')}
-                                    rows={6}
-                                />
-                                {/* Training Image Attachments */}
-                                {newTrainingImages.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {newTrainingImages.map((url, i) => (
-                                            <div key={i} className="relative group">
-                                                <img src={url} alt="" className="h-12 w-12 rounded object-cover border" />
-                                                <button className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => setNewTrainingImages(prev => prev.filter((_, j) => j !== i))}>
-                                                    <X className="h-2.5 w-2.5" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="flex gap-2">
-                                    <div
-                                        ref={trainingDropRef}
-                                        className={`flex-1 border-2 border-dashed rounded-md p-2 text-center transition-colors
-                                            ${dragOver === 'training' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'}`}
-                                        {...makeDragHandlers('training', async (files) => {
-                                            const folderId = await ensureBotFolder()
-                                            const urls = await uploadFiles(files, folderId || undefined)
-                                            if (urls.length) setNewTrainingImages(prev => [...prev, ...urls])
-                                        })}
-                                    >
-                                        <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                                            <Upload className="h-3 w-3" /> {t('chatbot.training.dragImagesHint')}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        size="sm" variant="outline" className="shrink-0"
-                                        onClick={() => { setMediaBrowserTarget('training'); loadMediaItems('image') }}
-                                    >
-                                        <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
-                                    </Button>
-                                </div>
-                                <Button
-                                    size="sm" variant="outline"
-                                    onClick={async () => {
-                                        if (!newTrainingText.trim()) return
-                                        const content = newTrainingImages.length
-                                            ? `${newTrainingText.trim()}\n\n[Attached images: ${newTrainingImages.join(', ')}]`
-                                            : newTrainingText.trim()
-                                        await addKnowledgeEntry(
-                                            `Training text - ${new Date().toLocaleDateString()}`,
-                                            content, 'text'
-                                        )
-                                        setNewTrainingText('')
-                                        setNewTrainingImages([])
-                                    }}
-                                >
-                                    <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addTextTraining')}
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-                        {/* ── URL Training ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <LinkIcon className="h-4 w-4 text-green-500" />
-                                    {t('chatbot.training.urlTitle')}
-                                </CardTitle>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.urlDesc')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3">
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={newTrainingUrl}
-                                        onChange={e => setNewTrainingUrl(e.target.value)}
-                                        placeholder={t('chatbot.training.urlPlaceholder')}
-                                        className="text-sm"
+                        {trainingSubTab === 'text' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <FileText className="h-4 w-4 text-blue-500" />
+                                        {t('chatbot.training.textTitle')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.textDesc')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3 space-y-3">
+                                    <Textarea
+                                        value={newTrainingText}
+                                        onChange={e => setNewTrainingText(e.target.value)}
+                                        placeholder={t('chatbot.training.textPlaceholder')}
+                                        rows={6}
                                     />
+                                    {/* Training Image Attachments */}
+                                    {newTrainingImages.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {newTrainingImages.map((url, i) => (
+                                                <div key={i} className="relative group">
+                                                    <img src={url} alt="" className="h-12 w-12 rounded object-cover border" />
+                                                    <button className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={() => setNewTrainingImages(prev => prev.filter((_, j) => j !== i))}>
+                                                        <X className="h-2.5 w-2.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2">
+                                        <div
+                                            ref={trainingDropRef}
+                                            className={`flex-1 border-2 border-dashed rounded-md p-2 text-center transition-colors
+                                            ${dragOver === 'training' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20'}`}
+                                            {...makeDragHandlers('training', async (files) => {
+                                                const folderId = await ensureBotFolder()
+                                                const urls = await uploadFiles(files, folderId || undefined)
+                                                if (urls.length) setNewTrainingImages(prev => [...prev, ...urls])
+                                            })}
+                                        >
+                                            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                                <Upload className="h-3 w-3" /> {t('chatbot.training.dragImagesHint')}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size="sm" variant="outline" className="shrink-0"
+                                            onClick={() => { setMediaBrowserTarget('training'); loadMediaItems('image') }}
+                                        >
+                                            <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
+                                        </Button>
+                                    </div>
                                     <Button
                                         size="sm" variant="outline"
                                         onClick={async () => {
-                                            if (!newTrainingUrl.trim()) return
+                                            if (!newTrainingText.trim()) return
+                                            const content = newTrainingImages.length
+                                                ? `${newTrainingText.trim()}\n\n[Attached images: ${newTrainingImages.join(', ')}]`
+                                                : newTrainingText.trim()
                                             await addKnowledgeEntry(
-                                                `URL: ${new URL(newTrainingUrl.trim()).hostname}`,
-                                                `Source URL: ${newTrainingUrl.trim()}\n(Content will be crawled automatically)`,
-                                                'url',
-                                                newTrainingUrl.trim()
+                                                `Training text - ${new Date().toLocaleDateString()}`,
+                                                content, 'text'
                                             )
-                                            setNewTrainingUrl('')
+                                            setNewTrainingText('')
+                                            setNewTrainingImages([])
                                         }}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addUrl')}
+                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addTextTraining')}
                                     </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                        {/* ── Google Sheet Training ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
-                                    {t('chatbot.training.sheetTitle')}
-                                </CardTitle>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.sheetDesc')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3">
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder={t('chatbot.training.sheetPlaceholder')}
-                                        className="text-sm"
-                                        onKeyDown={async (e) => {
-                                            if (e.key === 'Enter') {
-                                                const url = (e.target as HTMLInputElement).value.trim()
-                                                if (!url) return
-                                                await addKnowledgeEntry(
-                                                    `Google Sheet: ${url.substring(0, 50)}...`,
-                                                    `Source: ${url}\n(Data will be fetched)`,
-                                                    'google_sheet',
-                                                    url
-                                                );
-                                                (e.target as HTMLInputElement).value = ''
-                                            }
-                                        }}
-                                    />
-                                    <Button size="sm" variant="outline" className="shrink-0">
-                                        <ExternalLink className="h-3 w-3 mr-1" /> {t('chatbot.training.addSheet')}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* ── Image Library ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <ImageIcon className="h-4 w-4 text-orange-500" />
-                                    {t('chatbot.training.imageLibTitle')}
-                                </CardTitle>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.imageLibDesc')}
-                                    <br />
-                                    {t('chatbot.training.imageLibExample')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-3">
-                                {/* Auto-create or connect to dedicated folder */}
-                                <div className="flex items-center gap-2">
-                                    <Button size="sm" variant="outline" className="text-xs gap-1"
-                                        onClick={async () => {
-                                            const fId = await ensureBotFolder()
-                                            if (fId) {
-                                                update('imageFolderId', fId)
-                                                toast.success(t('chatbot.training.folderReady'))
-                                                loadLibraryImages()
-                                            }
-                                        }}>
-                                        <FolderOpen className="h-3 w-3" /> {config.imageFolderId ? t('chatbot.training.refresh') : t('chatbot.training.createBotFolder')}
-                                    </Button>
-                                    {config.imageFolderId && (
-                                        <Badge variant="secondary" className="text-[9px] gap-1">
-                                            <Check className="h-2.5 w-2.5" /> {t('chatbot.training.folderConnected')}
-                                        </Badge>
-                                    )}
-                                </div>
-
-                                {/* Thumbnails grid */}
-                                {libraryImages.length > 0 && (
-                                    <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
-                                        {libraryImages.map(img => (
-                                            <div key={img.id} className="relative group" title={img.originalName || ''}>
-                                                <img src={img.thumbnailUrl || img.url} alt={img.originalName || ''}
-                                                    className="h-14 w-full rounded object-cover border" />
-                                                <p className="text-[8px] text-muted-foreground truncate mt-0.5">{img.originalName}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Drag-drop upload area */}
-                                <div
-                                    ref={libraryDropRef}
-                                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
-                                        ${dragOver === 'library' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
-                                    {...makeDragHandlers('library', async (files) => {
-                                        const fId = config.imageFolderId || await ensureBotFolder()
-                                        if (fId && !config.imageFolderId) update('imageFolderId', fId)
-                                        const urls = await uploadFiles(files, fId || undefined)
-                                        if (urls.length) { toast.success(t('chatbot.training.imagesAdded').replace('{count}', String(urls.length))); loadLibraryImages() }
-                                    })}
-                                    onClick={() => { setMediaBrowserTarget('library'); loadMediaItems('image') }}
-                                >
-                                    {uploading ? (
-                                        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                                            <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-1">
-                                            <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
-                                            <p className="text-xs text-muted-foreground">{t('chatbot.training.dragOrBrowse')}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* ── Video Consultation ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <Video className="h-4 w-4 text-red-500" />
-                                    {t('chatbot.training.videoTitle')}
-                                </CardTitle>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.videoDesc')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-2">
-                                {config.consultVideos.map((v, i) => (
-                                    <div key={i} className="flex items-start gap-2 p-2 bg-muted/50 rounded-md">
-                                        <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium">{v.title}</p>
-                                            <a href={v.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline truncate block">{v.url}</a>
-                                            {v.description && <p className="text-[10px] text-muted-foreground mt-0.5">{v.description}</p>}
-                                        </div>
+                        {/* ── URL Training ── */}
+                        {trainingSubTab === 'url' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <LinkIcon className="h-4 w-4 text-green-500" />
+                                        {t('chatbot.training.urlTitle')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.urlDesc')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={newTrainingUrl}
+                                            onChange={e => setNewTrainingUrl(e.target.value)}
+                                            placeholder={t('chatbot.training.urlPlaceholder')}
+                                            className="text-sm"
+                                        />
                                         <Button
-                                            size="sm" variant="ghost" className="shrink-0"
-                                            onClick={() => update('consultVideos', config.consultVideos.filter((_, j) => j !== i))}
+                                            size="sm" variant="outline"
+                                            onClick={async () => {
+                                                if (!newTrainingUrl.trim()) return
+                                                await addKnowledgeEntry(
+                                                    `URL: ${new URL(newTrainingUrl.trim()).hostname}`,
+                                                    `Source URL: ${newTrainingUrl.trim()}\n(Content will be crawled automatically)`,
+                                                    'url',
+                                                    newTrainingUrl.trim()
+                                                )
+                                                setNewTrainingUrl('')
+                                            }}
                                         >
-                                            <Trash2 className="h-3 w-3" />
+                                            <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addUrl')}
                                         </Button>
                                     </div>
-                                ))}
+                                </CardContent>
+                            </Card>
+                        )}
 
-                                {/* Video Upload + Browse Media */}
-                                <div className="flex gap-2">
-                                    <div
-                                        ref={videoDropRef}
-                                        className={`flex-1 border-2 border-dashed rounded-md p-3 text-center transition-colors cursor-pointer
-                                            ${dragOver === 'video' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20 hover:border-primary/50'}`}
-                                        {...makeDragHandlers('video', async (files) => {
-                                            const folderId = await ensureBotFolder()
-                                            const urls = await uploadFiles(files, folderId || undefined)
-                                            for (const url of urls) {
-                                                const fileName = Array.from(files).find(f => f.type.startsWith('video/'))?.name || 'Video'
-                                                update('consultVideos', [
-                                                    ...config.consultVideos,
-                                                    { title: fileName.replace(/\.[^.]+$/, ''), url, description: '' },
-                                                ])
-                                            }
-                                        })}
-                                        onClick={() => {
-                                            const input = document.createElement('input')
-                                            input.type = 'file'
-                                            input.accept = 'video/*'
-                                            input.multiple = true
-                                            input.onchange = async (e) => {
-                                                const files = (e.target as HTMLInputElement).files
-                                                if (!files?.length) return
-                                                const folderId = await ensureBotFolder()
-                                                const urls = await uploadFiles(files, folderId || undefined)
-                                                for (let idx = 0; idx < urls.length; idx++) {
-                                                    update('consultVideos', [
-                                                        ...config.consultVideos,
-                                                        { title: files[idx].name.replace(/\.[^.]+$/, ''), url: urls[idx], description: '' },
-                                                    ])
+                        {/* ── Google Sheet Training ── */}
+                        {trainingSubTab === 'sheet' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                                        {t('chatbot.training.sheetTitle')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.sheetDesc')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder={t('chatbot.training.sheetPlaceholder')}
+                                            className="text-sm"
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter') {
+                                                    const url = (e.target as HTMLInputElement).value.trim()
+                                                    if (!url) return
+                                                    await addKnowledgeEntry(
+                                                        `Google Sheet: ${url.substring(0, 50)}...`,
+                                                        `Source: ${url}\n(Data will be fetched)`,
+                                                        'google_sheet',
+                                                        url
+                                                    );
+                                                    (e.target as HTMLInputElement).value = ''
                                                 }
-                                            }
-                                            input.click()
-                                        }}
+                                            }}
+                                        />
+                                        <Button size="sm" variant="outline" className="shrink-0">
+                                            <ExternalLink className="h-3 w-3 mr-1" /> {t('chatbot.training.addSheet')}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* ── Image Library ── */}
+                        {trainingSubTab === 'images' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <ImageIcon className="h-4 w-4 text-orange-500" />
+                                        {t('chatbot.training.imageLibTitle')}
+                                    </CardTitle>
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.imageLibDesc')}
+                                        <br />
+                                        {t('chatbot.training.imageLibExample')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3 space-y-3">
+                                    {/* Auto-create or connect to dedicated folder */}
+                                    <div className="flex items-center gap-2">
+                                        <Button size="sm" variant="outline" className="text-xs gap-1"
+                                            onClick={async () => {
+                                                const fId = await ensureBotFolder()
+                                                if (fId) {
+                                                    update('imageFolderId', fId)
+                                                    toast.success(t('chatbot.training.folderReady'))
+                                                    loadLibraryImages()
+                                                }
+                                            }}>
+                                            <FolderOpen className="h-3 w-3" /> {config.imageFolderId ? t('chatbot.training.refresh') : t('chatbot.training.createBotFolder')}
+                                        </Button>
+                                        {config.imageFolderId && (
+                                            <Badge variant="secondary" className="text-[9px] gap-1">
+                                                <Check className="h-2.5 w-2.5" /> {t('chatbot.training.folderConnected')}
+                                            </Badge>
+                                        )}
+                                    </div>
+
+                                    {/* Thumbnails grid */}
+                                    {libraryImages.length > 0 && (
+                                        <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
+                                            {libraryImages.map(img => (
+                                                <div key={img.id} className="relative group" title={img.originalName || ''}>
+                                                    <img src={img.thumbnailUrl || img.url} alt={img.originalName || ''}
+                                                        className="h-14 w-full rounded object-cover border" />
+                                                    <p className="text-[8px] text-muted-foreground truncate mt-0.5">{img.originalName}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Drag-drop upload area */}
+                                    <div
+                                        ref={libraryDropRef}
+                                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+                                        ${dragOver === 'library' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+                                        {...makeDragHandlers('library', async (files) => {
+                                            const fId = config.imageFolderId || await ensureBotFolder()
+                                            if (fId && !config.imageFolderId) update('imageFolderId', fId)
+                                            const urls = await uploadFiles(files, fId || undefined)
+                                            if (urls.length) { toast.success(t('chatbot.training.imagesAdded').replace('{count}', String(urls.length))); loadLibraryImages() }
+                                        })}
+                                        onClick={() => { setMediaBrowserTarget('library'); loadMediaItems('image') }}
                                     >
                                         {uploading ? (
                                             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                                                 <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
                                             </div>
                                         ) : (
-                                            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                                                <Upload className="h-3 w-3" /> {t('chatbot.training.dragVideoHint')}
-                                            </p>
+                                            <div className="space-y-1">
+                                                <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
+                                                <p className="text-xs text-muted-foreground">{t('chatbot.training.dragOrBrowse')}</p>
+                                            </div>
                                         )}
                                     </div>
-                                    <Button
-                                        size="sm" variant="outline" className="shrink-0"
-                                        onClick={() => { setMediaBrowserTarget('video'); loadMediaItems('video') }}
-                                    >
-                                        <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
-                                    </Button>
-                                </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                                <Separator />
-
-                                {/* Manual URL entry */}
-                                <div className="space-y-2 border rounded-md p-3">
-                                    <p className="text-[10px] text-muted-foreground font-medium">{t('chatbot.training.videoManualUrl')}</p>
-                                    <Input
-                                        value={newVideoTitle}
-                                        onChange={e => setNewVideoTitle(e.target.value)}
-                                        placeholder={t('chatbot.training.videoTitleInput')}
-                                        className="text-sm"
-                                    />
-                                    <Input
-                                        value={newVideoUrl}
-                                        onChange={e => setNewVideoUrl(e.target.value)}
-                                        placeholder={t('chatbot.training.videoUrlInput')}
-                                        className="text-sm"
-                                    />
-                                    <Input
-                                        value={newVideoDesc}
-                                        onChange={e => setNewVideoDesc(e.target.value)}
-                                        placeholder={t('chatbot.training.videoDescInput')}
-                                        className="text-sm"
-                                    />
-                                    <Button
-                                        size="sm" variant="outline"
-                                        onClick={() => {
-                                            if (!newVideoTitle.trim() || !newVideoUrl.trim()) return
-                                            update('consultVideos', [
-                                                ...config.consultVideos,
-                                                { title: newVideoTitle.trim(), url: newVideoUrl.trim(), description: newVideoDesc.trim() },
-                                            ])
-                                            setNewVideoTitle('')
-                                            setNewVideoUrl('')
-                                            setNewVideoDesc('')
-                                        }}
-                                    >
-                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addVideo')}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* ── Q&A Training Pairs ── */}
-                        <Card>
-                            <CardHeader className="py-3 px-4">
-                                <div className="flex items-center justify-between">
+                        {/* ── Video Consultation ── */}
+                        {trainingSubTab === 'video' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
                                     <CardTitle className="text-sm flex items-center gap-2">
-                                        <HelpCircle className="h-4 w-4 text-indigo-500" />
-                                        {t('chatbot.training.qaTitle')}
+                                        <Video className="h-4 w-4 text-red-500" />
+                                        {t('chatbot.training.videoTitle')}
                                     </CardTitle>
-                                    <Button
-                                        size="sm" variant="outline"
-                                        disabled={generatingQa}
-                                        onClick={async () => {
-                                            setGeneratingQa(true)
-                                            try {
-                                                const res = await fetch(`/api/admin/channels/${channelId}/bot-config/generate-qa`, { method: 'POST' })
-                                                if (res.ok) {
-                                                    const data = await res.json()
-                                                    if (data.pairs?.length) {
-                                                        update('trainingPairs', [...config.trainingPairs, ...data.pairs])
-                                                        toast.success(t('chatbot.training.qaGenerated').replace('{count}', String(data.pairs.length)))
-                                                    } else {
-                                                        toast.info(t('chatbot.training.qaNoNew'))
-                                                    }
-                                                } else {
-                                                    const err = await res.json().catch(() => ({}))
-                                                    toast.error(err.error || 'Failed to generate Q&A')
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.videoDesc')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3 space-y-2">
+                                    {config.consultVideos.map((v, i) => (
+                                        <div key={i} className="flex items-start gap-2 p-2 bg-muted/50 rounded-md">
+                                            <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium">{v.title}</p>
+                                                <a href={v.url} target="_blank" rel="noopener" className="text-[10px] text-primary hover:underline truncate block">{v.url}</a>
+                                                {v.description && <p className="text-[10px] text-muted-foreground mt-0.5">{v.description}</p>}
+                                            </div>
+                                            <Button
+                                                size="sm" variant="ghost" className="shrink-0"
+                                                onClick={() => update('consultVideos', config.consultVideos.filter((_, j) => j !== i))}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+
+                                    {/* Video Upload + Browse Media */}
+                                    <div className="flex gap-2">
+                                        <div
+                                            ref={videoDropRef}
+                                            className={`flex-1 border-2 border-dashed rounded-md p-3 text-center transition-colors cursor-pointer
+                                            ${dragOver === 'video' ? 'border-primary bg-primary/5' : 'border-muted-foreground/20 hover:border-primary/50'}`}
+                                            {...makeDragHandlers('video', async (files) => {
+                                                const folderId = await ensureBotFolder()
+                                                const urls = await uploadFiles(files, folderId || undefined)
+                                                for (const url of urls) {
+                                                    const fileName = Array.from(files).find(f => f.type.startsWith('video/'))?.name || 'Video'
+                                                    update('consultVideos', [
+                                                        ...config.consultVideos,
+                                                        { title: fileName.replace(/\.[^.]+$/, ''), url, description: '' },
+                                                    ])
                                                 }
-                                            } catch {
-                                                toast.error('Network error')
-                                            }
-                                            setGeneratingQa(false)
-                                        }}
-                                    >
-                                        {generatingQa ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                                        {generatingQa ? t('chatbot.training.generatingQa') : t('chatbot.training.generateQa')}
-                                    </Button>
-                                </div>
-                                <CardDescription className="text-[11px]">
-                                    {t('chatbot.training.qaDesc')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="px-4 pb-3 space-y-2">
-                                {config.trainingPairs.map((pair, i) => (
-                                    <div key={i} className="flex items-start gap-2 p-2 bg-muted/50 rounded-md text-xs">
-                                        <div className="flex-1 min-w-0">
-                                            <p><span className="font-medium text-blue-600">Q:</span> {pair.q}</p>
-                                            <p><span className="font-medium text-green-600">A:</span> {pair.a}</p>
+                                            })}
+                                            onClick={() => {
+                                                const input = document.createElement('input')
+                                                input.type = 'file'
+                                                input.accept = 'video/*'
+                                                input.multiple = true
+                                                input.onchange = async (e) => {
+                                                    const files = (e.target as HTMLInputElement).files
+                                                    if (!files?.length) return
+                                                    const folderId = await ensureBotFolder()
+                                                    const urls = await uploadFiles(files, folderId || undefined)
+                                                    for (let idx = 0; idx < urls.length; idx++) {
+                                                        update('consultVideos', [
+                                                            ...config.consultVideos,
+                                                            { title: files[idx].name.replace(/\.[^.]+$/, ''), url: urls[idx], description: '' },
+                                                        ])
+                                                    }
+                                                }
+                                                input.click()
+                                            }}
+                                        >
+                                            {uploading ? (
+                                                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                                    <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
+                                                </div>
+                                            ) : (
+                                                <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+                                                    <Upload className="h-3 w-3" /> {t('chatbot.training.dragVideoHint')}
+                                                </p>
+                                            )}
                                         </div>
                                         <Button
-                                            size="sm" variant="ghost" className="shrink-0"
-                                            onClick={() => update('trainingPairs', config.trainingPairs.filter((_, j) => j !== i))}
+                                            size="sm" variant="outline" className="shrink-0"
+                                            onClick={() => { setMediaBrowserTarget('video'); loadMediaItems('video') }}
                                         >
-                                            <Trash2 className="h-3 w-3" />
+                                            <FolderOpen className="h-3 w-3 mr-1" /> {t('chatbot.mediaBrowser.browseMedia')}
                                         </Button>
                                     </div>
-                                ))}
-                                <div className="space-y-2 border rounded-md p-3">
-                                    <Input
-                                        value={newQaPair.q}
-                                        onChange={e => setNewQaPair({ ...newQaPair, q: e.target.value })}
-                                        placeholder={t('chatbot.training.questionPlaceholder')}
-                                        className="text-sm"
-                                    />
-                                    <Textarea
-                                        value={newQaPair.a}
-                                        onChange={e => setNewQaPair({ ...newQaPair, a: e.target.value })}
-                                        placeholder={t('chatbot.training.answerPlaceholder')}
-                                        rows={2}
-                                        className="text-sm"
-                                    />
-                                    <Button
-                                        size="sm" variant="outline"
-                                        onClick={() => {
-                                            if (!newQaPair.q.trim() || !newQaPair.a.trim()) return
-                                            update('trainingPairs', [
-                                                ...config.trainingPairs,
-                                                { q: newQaPair.q.trim(), a: newQaPair.a.trim() },
-                                            ])
-                                            setNewQaPair({ q: '', a: '' })
-                                        }}
-                                    >
-                                        <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addQaPair')}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
 
-                    </AccordionContent>
-                </AccordionItem>
+                                    <Separator />
 
-                {/* ═══════════════════════════════════════ */}
-                {/* BEHAVIOR                               */}
-                {/* ═══════════════════════════════════════ */}
-                <AccordionItem value="behavior" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <Target className="h-4 w-4 text-cyan-500" />
-                            <span className="font-medium">{t('chatbot.behavior.title')}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4 pb-4">
-                        <div>
-                            <Label className="text-xs">{t('chatbot.behavior.confidence')}: {(config.confidenceThreshold * 100).toFixed(0)}%</Label>
-                            <p className="text-[10px] text-muted-foreground mb-2">
-                                {t('chatbot.behavior.confidenceDesc')}
-                            </p>
-                            <Slider
-                                value={[config.confidenceThreshold]}
-                                min={0} max={1} step={0.05}
-                                onValueChange={([v]) => update('confidenceThreshold', v)}
-                            />
-                        </div>
-
-                        <div>
-                            <Label className="text-xs">{t('chatbot.behavior.maxReplies')}</Label>
-                            <Input
-                                type="number" min={1} max={100}
-                                value={config.maxBotReplies}
-                                onChange={e => update('maxBotReplies', parseInt(e.target.value) || 10)}
-                                className="mt-1 w-24"
-                            />
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                                {t('chatbot.behavior.maxRepliesDesc').replace('{count}', String(config.maxBotReplies))}
-                            </p>
-                        </div>
-
-                        <Separator />
-
-                        <div className="grid grid-cols-2 gap-3">
-                            {[
-                                { key: 'autoTagEnabled' as const, label: t('chatbot.behavior.autoTag'), desc: t('chatbot.behavior.autoTagDesc') },
-                                { key: 'sentimentEnabled' as const, label: t('chatbot.behavior.sentiment'), desc: t('chatbot.behavior.sentimentDesc') },
-                                { key: 'spamFilterEnabled' as const, label: t('chatbot.behavior.spamFilter'), desc: t('chatbot.behavior.spamFilterDesc') },
-                                { key: 'autoTranslate' as const, label: t('chatbot.behavior.autoTranslate'), desc: t('chatbot.behavior.autoTranslateDesc') },
-                                { key: 'smartAssignEnabled' as const, label: t('chatbot.behavior.smartAssign'), desc: t('chatbot.behavior.smartAssignDesc') },
-                            ].map(item => (
-                                <div key={item.key} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
-                                    <div>
-                                        <p className="text-xs font-medium">{item.label}</p>
-                                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                                    {/* Manual URL entry */}
+                                    <div className="space-y-2 border rounded-md p-3">
+                                        <p className="text-[10px] text-muted-foreground font-medium">{t('chatbot.training.videoManualUrl')}</p>
+                                        <Input
+                                            value={newVideoTitle}
+                                            onChange={e => setNewVideoTitle(e.target.value)}
+                                            placeholder={t('chatbot.training.videoTitleInput')}
+                                            className="text-sm"
+                                        />
+                                        <Input
+                                            value={newVideoUrl}
+                                            onChange={e => setNewVideoUrl(e.target.value)}
+                                            placeholder={t('chatbot.training.videoUrlInput')}
+                                            className="text-sm"
+                                        />
+                                        <Input
+                                            value={newVideoDesc}
+                                            onChange={e => setNewVideoDesc(e.target.value)}
+                                            placeholder={t('chatbot.training.videoDescInput')}
+                                            className="text-sm"
+                                        />
+                                        <Button
+                                            size="sm" variant="outline"
+                                            onClick={() => {
+                                                if (!newVideoTitle.trim() || !newVideoUrl.trim()) return
+                                                update('consultVideos', [
+                                                    ...config.consultVideos,
+                                                    { title: newVideoTitle.trim(), url: newVideoUrl.trim(), description: newVideoDesc.trim() },
+                                                ])
+                                                setNewVideoTitle('')
+                                                setNewVideoUrl('')
+                                                setNewVideoDesc('')
+                                            }}
+                                        >
+                                            <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addVideo')}
+                                        </Button>
                                     </div>
-                                    <Switch
-                                        checked={config[item.key]}
-                                        onCheckedChange={v => update(item.key, v)}
-                                    />
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* ── Q&A Training Pairs ── */}
+                        {trainingSubTab === 'qa' && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <HelpCircle className="h-4 w-4 text-indigo-500" />
+                                            {t('chatbot.training.qaTitle')}
+                                        </CardTitle>
+                                        <Button
+                                            size="sm" variant="outline"
+                                            disabled={generatingQa}
+                                            onClick={async () => {
+                                                setGeneratingQa(true)
+                                                try {
+                                                    const res = await fetch(`/api/admin/channels/${channelId}/bot-config/generate-qa`, { method: 'POST' })
+                                                    if (res.ok) {
+                                                        const data = await res.json()
+                                                        if (data.pairs?.length) {
+                                                            update('trainingPairs', [...config.trainingPairs, ...data.pairs])
+                                                            toast.success(t('chatbot.training.qaGenerated').replace('{count}', String(data.pairs.length)))
+                                                        } else {
+                                                            toast.info(t('chatbot.training.qaNoNew'))
+                                                        }
+                                                    } else {
+                                                        const err = await res.json().catch(() => ({}))
+                                                        toast.error(err.error || 'Failed to generate Q&A')
+                                                    }
+                                                } catch {
+                                                    toast.error('Network error')
+                                                }
+                                                setGeneratingQa(false)
+                                            }}
+                                        >
+                                            {generatingQa ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                            {generatingQa ? t('chatbot.training.generatingQa') : t('chatbot.training.generateQa')}
+                                        </Button>
+                                    </div>
+                                    <CardDescription className="text-[11px]">
+                                        {t('chatbot.training.qaDesc')}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3 space-y-2">
+                                    {config.trainingPairs.map((pair, i) => (
+                                        <div key={i} className="flex items-start gap-2 p-2 bg-muted/50 rounded-md text-xs">
+                                            <div className="flex-1 min-w-0">
+                                                <p><span className="font-medium text-blue-600">Q:</span> {pair.q}</p>
+                                                <p><span className="font-medium text-green-600">A:</span> {pair.a}</p>
+                                            </div>
+                                            <Button
+                                                size="sm" variant="ghost" className="shrink-0"
+                                                onClick={() => update('trainingPairs', config.trainingPairs.filter((_, j) => j !== i))}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <div className="space-y-2 border rounded-md p-3">
+                                        <Input
+                                            value={newQaPair.q}
+                                            onChange={e => setNewQaPair({ ...newQaPair, q: e.target.value })}
+                                            placeholder={t('chatbot.training.questionPlaceholder')}
+                                            className="text-sm"
+                                        />
+                                        <Textarea
+                                            value={newQaPair.a}
+                                            onChange={e => setNewQaPair({ ...newQaPair, a: e.target.value })}
+                                            placeholder={t('chatbot.training.answerPlaceholder')}
+                                            rows={2}
+                                            className="text-sm"
+                                        />
+                                        <Button
+                                            size="sm" variant="outline"
+                                            onClick={() => {
+                                                if (!newQaPair.q.trim() || !newQaPair.a.trim()) return
+                                                update('trainingPairs', [
+                                                    ...config.trainingPairs,
+                                                    { q: newQaPair.q.trim(), a: newQaPair.a.trim() },
+                                                ])
+                                                setNewQaPair({ q: '', a: '' })
+                                            }}
+                                        >
+                                            <Plus className="h-3 w-3 mr-1" /> {t('chatbot.training.addQaPair')}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                    </div>{/* end right panel */}
+                </div>{/* end 2-column */}
+            )}
+
+            {/* ─── BEHAVIOR TAB ─────────────────────── */}
+            {botTab === 'behavior' && (
+                <div className="space-y-4">
+                    <div>
+                        <Label className="text-xs">{t('chatbot.behavior.confidence')}: {(config.confidenceThreshold * 100).toFixed(0)}%</Label>
+                        <p className="text-[10px] text-muted-foreground mb-2">
+                            {t('chatbot.behavior.confidenceDesc')}
+                        </p>
+                        <Slider
+                            value={[config.confidenceThreshold]}
+                            min={0} max={1} step={0.05}
+                            onValueChange={([v]) => update('confidenceThreshold', v)}
+                        />
+                    </div>
+
+                    <div>
+                        <Label className="text-xs">{t('chatbot.behavior.maxReplies')}</Label>
+                        <Input
+                            type="number" min={1} max={100}
+                            value={config.maxBotReplies}
+                            onChange={e => update('maxBotReplies', parseInt(e.target.value) || 10)}
+                            className="mt-1 w-24"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            {t('chatbot.behavior.maxRepliesDesc').replace('{count}', String(config.maxBotReplies))}
+                        </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-2 gap-3">
+                        {[
+                            { key: 'autoTagEnabled' as const, label: t('chatbot.behavior.autoTag'), desc: t('chatbot.behavior.autoTagDesc') },
+                            { key: 'sentimentEnabled' as const, label: t('chatbot.behavior.sentiment'), desc: t('chatbot.behavior.sentimentDesc') },
+                            { key: 'spamFilterEnabled' as const, label: t('chatbot.behavior.spamFilter'), desc: t('chatbot.behavior.spamFilterDesc') },
+                            { key: 'autoTranslate' as const, label: t('chatbot.behavior.autoTranslate'), desc: t('chatbot.behavior.autoTranslateDesc') },
+                            { key: 'smartAssignEnabled' as const, label: t('chatbot.behavior.smartAssign'), desc: t('chatbot.behavior.smartAssignDesc') },
+                        ].map(item => (
+                            <div key={item.key} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                                <div>
+                                    <p className="text-xs font-medium">{item.label}</p>
+                                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                                 </div>
+                                <Switch
+                                    checked={config[item.key]}
+                                    onCheckedChange={v => update(item.key, v)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── ESCALATION TAB ─────────────────── */}
+            {botTab === 'escalation' && (
+                <div className="space-y-4">
+                    <div>
+                        <Label className="text-xs">{t('chatbot.escalation.keywordsLabel')}</Label>
+                        <p className="text-[10px] text-muted-foreground mb-2">
+                            {t('chatbot.escalation.keywordsDesc')}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                            {config.autoEscalateKeywords.map((kw, i) => (
+                                <Badge key={i} variant="destructive" className="text-[10px] gap-1">
+                                    {kw}
+                                    <button onClick={() => update('autoEscalateKeywords', config.autoEscalateKeywords.filter((_, j) => j !== i))}>×</button>
+                                </Badge>
                             ))}
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-
-                {/* ═══════════════════════════════════════ */}
-                {/* ESCALATION                             */}
-                {/* ═══════════════════════════════════════ */}
-                <AccordionItem value="escalation" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-red-500" />
-                            <span className="font-medium">{t('chatbot.escalation.title')}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4 pb-4">
-                        <div>
-                            <Label className="text-xs">{t('chatbot.escalation.keywordsLabel')}</Label>
-                            <p className="text-[10px] text-muted-foreground mb-2">
-                                {t('chatbot.escalation.keywordsDesc')}
-                            </p>
-                            <div className="flex flex-wrap gap-1 mb-2">
-                                {config.autoEscalateKeywords.map((kw, i) => (
-                                    <Badge key={i} variant="destructive" className="text-[10px] gap-1">
-                                        {kw}
-                                        <button onClick={() => update('autoEscalateKeywords', config.autoEscalateKeywords.filter((_, j) => j !== i))}>×</button>
-                                    </Badge>
-                                ))}
-                            </div>
-                            <div className="flex gap-2">
-                                <Input
-                                    value={newEscalateKeyword}
-                                    onChange={e => setNewEscalateKeyword(e.target.value)}
-                                    placeholder={t('chatbot.escalation.keywordsPlaceholder')}
-                                    className="text-sm"
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && newEscalateKeyword.trim()) {
-                                            update('autoEscalateKeywords', [...config.autoEscalateKeywords, newEscalateKeyword.trim()])
-                                            setNewEscalateKeyword('')
-                                        }
-                                    }}
-                                />
-                                <Button size="sm" variant="outline" onClick={() => {
-                                    if (newEscalateKeyword.trim()) {
+                        <div className="flex gap-2">
+                            <Input
+                                value={newEscalateKeyword}
+                                onChange={e => setNewEscalateKeyword(e.target.value)}
+                                placeholder={t('chatbot.escalation.keywordsPlaceholder')}
+                                className="text-sm"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && newEscalateKeyword.trim()) {
                                         update('autoEscalateKeywords', [...config.autoEscalateKeywords, newEscalateKeyword.trim()])
                                         setNewEscalateKeyword('')
                                     }
-                                }}>
-                                    <Plus className="h-3 w-3" />
-                                </Button>
-                            </div>
+                                }}
+                            />
+                            <Button size="sm" variant="outline" onClick={() => {
+                                if (newEscalateKeyword.trim()) {
+                                    update('autoEscalateKeywords', [...config.autoEscalateKeywords, newEscalateKeyword.trim()])
+                                    setNewEscalateKeyword('')
+                                }
+                            }}>
+                                <Plus className="h-3 w-3" />
+                            </Button>
                         </div>
+                    </div>
 
-                        <Separator />
+                    <Separator />
 
-                        <div>
-                            <Label className="text-xs">{t('chatbot.escalation.forbiddenLabel')}</Label>
-                            <p className="text-[10px] text-muted-foreground mb-2">
-                                {t('chatbot.escalation.forbiddenDesc')}
-                            </p>
-                            <div className="flex flex-wrap gap-1 mb-2">
-                                {config.forbiddenTopics.map((topic, i) => (
-                                    <Badge key={i} variant="outline" className="text-[10px] gap-1 border-red-300">
-                                        {topic}
-                                        <button onClick={() => update('forbiddenTopics', config.forbiddenTopics.filter((_, j) => j !== i))}>×</button>
-                                    </Badge>
-                                ))}
-                            </div>
-                            <div className="flex gap-2">
-                                <Input
-                                    value={newForbiddenTopic}
-                                    onChange={e => setNewForbiddenTopic(e.target.value)}
-                                    placeholder={t('chatbot.escalation.forbiddenPlaceholder')}
-                                    className="text-sm"
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter' && newForbiddenTopic.trim()) {
-                                            update('forbiddenTopics', [...config.forbiddenTopics, newForbiddenTopic.trim()])
-                                            setNewForbiddenTopic('')
-                                        }
-                                    }}
-                                />
-                                <Button size="sm" variant="outline" onClick={() => {
-                                    if (newForbiddenTopic.trim()) {
+                    <div>
+                        <Label className="text-xs">{t('chatbot.escalation.forbiddenLabel')}</Label>
+                        <p className="text-[10px] text-muted-foreground mb-2">
+                            {t('chatbot.escalation.forbiddenDesc')}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                            {config.forbiddenTopics.map((topic, i) => (
+                                <Badge key={i} variant="outline" className="text-[10px] gap-1 border-red-300">
+                                    {topic}
+                                    <button onClick={() => update('forbiddenTopics', config.forbiddenTopics.filter((_, j) => j !== i))}>×</button>
+                                </Badge>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <Input
+                                value={newForbiddenTopic}
+                                onChange={e => setNewForbiddenTopic(e.target.value)}
+                                placeholder={t('chatbot.escalation.forbiddenPlaceholder')}
+                                className="text-sm"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && newForbiddenTopic.trim()) {
                                         update('forbiddenTopics', [...config.forbiddenTopics, newForbiddenTopic.trim()])
                                         setNewForbiddenTopic('')
                                     }
-                                }}>
-                                    <Plus className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-
-                {/* ═══════════════════════════════════════ */}
-                {/* WORKING HOURS                          */}
-                {/* ═══════════════════════════════════════ */}
-                <AccordionItem value="hours" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-amber-500" />
-                            <span className="font-medium">{t('chatbot.hours.title')}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4 pb-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-medium">{t('chatbot.hours.enableLabel')}</p>
-                                <p className="text-[10px] text-muted-foreground">{t('chatbot.hours.enableDesc')}</p>
-                            </div>
-                            <Switch
-                                checked={config.workingHoursOnly}
-                                onCheckedChange={v => update('workingHoursOnly', v)}
+                                }}
                             />
+                            <Button size="sm" variant="outline" onClick={() => {
+                                if (newForbiddenTopic.trim()) {
+                                    update('forbiddenTopics', [...config.forbiddenTopics, newForbiddenTopic.trim()])
+                                    setNewForbiddenTopic('')
+                                }
+                            }}>
+                                <Plus className="h-3 w-3" />
+                            </Button>
                         </div>
+                    </div>
+                </div>
+            )}
 
-                        {config.workingHoursOnly && (
-                            <>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label className="text-xs">{t('chatbot.hours.startTime')}</Label>
-                                        <Input
-                                            type="time"
-                                            value={config.workingHoursStart || '08:00'}
-                                            onChange={e => update('workingHoursStart', e.target.value)}
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="text-xs">{t('chatbot.hours.endTime')}</Label>
-                                        <Input
-                                            type="time"
-                                            value={config.workingHoursEnd || '22:00'}
-                                            onChange={e => update('workingHoursEnd', e.target.value)}
-                                            className="mt-1"
-                                        />
-                                    </div>
-                                </div>
+            {/* ─── WORKING HOURS TAB ─────────────── */}
+            {botTab === 'hours' && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-medium">{t('chatbot.hours.enableLabel')}</p>
+                            <p className="text-[10px] text-muted-foreground">{t('chatbot.hours.enableDesc')}</p>
+                        </div>
+                        <Switch
+                            checked={config.workingHoursOnly}
+                            onCheckedChange={v => update('workingHoursOnly', v)}
+                        />
+                    </div>
+
+                    {config.workingHoursOnly && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-xs">{t('chatbot.hours.offHoursMessage')}</Label>
-                                    <Textarea
-                                        value={config.offHoursMessage || ''}
-                                        onChange={e => update('offHoursMessage', e.target.value)}
-                                        placeholder={t('chatbot.hours.offHoursPlaceholder')}
-                                        rows={2}
+                                    <Label className="text-xs">{t('chatbot.hours.startTime')}</Label>
+                                    <Input
+                                        type="time"
+                                        value={config.workingHoursStart || '08:00'}
+                                        onChange={e => update('workingHoursStart', e.target.value)}
                                         className="mt-1"
                                     />
                                 </div>
-                            </>
-                        )}
-                    </AccordionContent>
-                </AccordionItem>
+                                <div>
+                                    <Label className="text-xs">{t('chatbot.hours.endTime')}</Label>
+                                    <Input
+                                        type="time"
+                                        value={config.workingHoursEnd || '22:00'}
+                                        onChange={e => update('workingHoursEnd', e.target.value)}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <Label className="text-xs">{t('chatbot.hours.offHoursMessage')}</Label>
+                                <Textarea
+                                    value={config.offHoursMessage || ''}
+                                    onChange={e => update('offHoursMessage', e.target.value)}
+                                    placeholder={t('chatbot.hours.offHoursPlaceholder')}
+                                    rows={2}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
-                {/* ═══════════════════════════════════════ */}
-                {/* SCOPE                                  */}
-                {/* ═══════════════════════════════════════ */}
-                <AccordionItem value="scope" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <Target className="h-4 w-4 text-teal-500" />
-                            <span className="font-medium">{t('chatbot.scope.title')}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4 pb-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
-                                <div>
-                                    <p className="text-xs font-medium">{t('chatbot.scope.messages')}</p>
-                                    <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.messagesDesc')}</p>
-                                </div>
-                                <Switch
-                                    checked={config.applyToMessages}
-                                    onCheckedChange={v => update('applyToMessages', v)}
-                                />
+            {/* ─── SCOPE TAB ────────────────────── */}
+            {botTab === 'scope' && (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                            <div>
+                                <p className="text-xs font-medium">{t('chatbot.scope.messages')}</p>
+                                <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.messagesDesc')}</p>
                             </div>
-                            <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
-                                <div>
-                                    <p className="text-xs font-medium">{t('chatbot.scope.comments')}</p>
-                                    <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.commentsDesc')}</p>
-                                </div>
-                                <Switch
-                                    checked={config.applyToComments}
-                                    onCheckedChange={v => update('applyToComments', v)}
-                                />
-                            </div>
+                            <Switch
+                                checked={config.applyToMessages}
+                                onCheckedChange={v => update('applyToMessages', v)}
+                            />
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+                        <div className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                            <div>
+                                <p className="text-xs font-medium">{t('chatbot.scope.comments')}</p>
+                                <p className="text-[10px] text-muted-foreground">{t('chatbot.scope.commentsDesc')}</p>
+                            </div>
+                            <Switch
+                                checked={config.applyToComments}
+                                onCheckedChange={v => update('applyToComments', v)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Bottom Save ─────────────────────── */}
             <div className="flex justify-end pt-2">
