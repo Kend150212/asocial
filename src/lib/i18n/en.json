@@ -2,6 +2,7 @@
     "workspace": {
         "label": "Workspace",
         "allChannels": "All Channels",
+        "selectChannel": "Select Channel",
         "loading": "Loading...",
         "tooltip": "Switch workspace",
         "noChannels": "No channels yet",

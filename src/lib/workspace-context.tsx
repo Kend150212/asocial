@@ -46,7 +46,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
                     const saved = localStorage.getItem(STORAGE_KEY)
                     if (saved) {
                         const found = data.find((c) => c.id === saved)
-                        if (found) setActiveChannelState(found)
+                        if (found) {
+                            setActiveChannelState(found)
+                        } else if (data.length > 0) {
+                            // Saved channel no longer exists — default to first
+                            setActiveChannelState(data[0])
+                            localStorage.setItem(STORAGE_KEY, data[0].id)
+                        }
+                    } else if (data.length > 0) {
+                        // No saved channel — default to first
+                        setActiveChannelState(data[0])
+                        localStorage.setItem(STORAGE_KEY, data[0].id)
                     }
                 }
             } catch { /* silently ignore */ } finally {

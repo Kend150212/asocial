@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import NextImage from 'next/image'
 import { signOut } from 'next-auth/react'
 import type { Session } from 'next-auth'
@@ -91,6 +91,7 @@ const adminNav: NavItem[] = [
 
 export function Sidebar({ session }: { session: Session }) {
     const pathname = usePathname()
+    const router = useRouter()
     const [collapsed, setCollapsed] = useState(false)
 
     // Auto-collapse sidebar on Inbox page for more space
@@ -104,6 +105,15 @@ export function Sidebar({ session }: { session: Session }) {
     const t = useTranslation()
     const { activeChannel, channels, setActiveChannel, loadingChannels } = useWorkspace()
     const branding = useBranding()
+
+    // Handle workspace channel switch — navigate to channel page
+    const handleChannelSwitch = (ch: typeof channels[0]) => {
+        setActiveChannel(ch)
+        // Navigate to channel settings page if we're on a channel page or dashboard
+        if (pathname?.startsWith('/dashboard/channels/') || pathname === '/dashboard/channels' || pathname === '/dashboard') {
+            router.push(`/dashboard/channels/${ch.id}`)
+        }
+    }
 
     // Close mobile expanded sidebar on route change
     useEffect(() => {
@@ -149,25 +159,16 @@ export function Sidebar({ session }: { session: Session }) {
                         <button className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-accent/50 hover:bg-accent transition-colors cursor-pointer">
                             <Layers className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="flex-1 text-left truncate text-xs">
-                                {loadingChannels ? t('workspace.loading') : (activeChannel?.displayName || t('workspace.allChannels'))}
+                                {loadingChannels ? t('workspace.loading') : (activeChannel?.displayName || t('workspace.selectChannel'))}
                             </span>
                             <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
-                        <DropdownMenuItem
-                            onClick={() => setActiveChannel(null)}
-                            className="flex items-center gap-2 cursor-pointer"
-                        >
-                            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="flex-1">{t('workspace.allChannels')}</span>
-                            {!activeChannel && <Check className="h-3.5 w-3.5 text-primary" />}
-                        </DropdownMenuItem>
-                        {channels.length > 0 && <DropdownMenuSeparator />}
                         {channels.map((ch) => (
                             <DropdownMenuItem
                                 key={ch.id}
-                                onClick={() => setActiveChannel(ch)}
+                                onClick={() => handleChannelSwitch(ch)}
                                 className="flex items-center gap-2 cursor-pointer"
                             >
                                 <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />

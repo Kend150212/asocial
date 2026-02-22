@@ -2,6 +2,7 @@
     "workspace": {
         "label": "Workspace",
         "allChannels": "Tất cả kênh",
+        "selectChannel": "Chọn kênh",
         "loading": "Đang tải...",
         "tooltip": "Đổi workspace",
         "noChannels": "Chưa có kênh nào",
