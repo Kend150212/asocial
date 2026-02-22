@@ -14,7 +14,7 @@ export interface BrandingSettings {
 }
 
 export const DEFAULT_BRANDING: BrandingSettings = {
-    appName: 'ASocial',
+    appName: 'NeeFlow',
     tagline: 'Social Media Management',
     logoUrl: '/logo.png',
     faviconUrl: '/favicon.ico',

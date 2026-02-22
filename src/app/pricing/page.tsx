@@ -231,7 +231,7 @@ export default function PricingPage() {
                                 {/* CTA */}
                                 {isContact ? (
                                     <Button variant="outline" asChild>
-                                        <a href="mailto:support@asocial.app">
+                                        <a href="mailto:hello@neeflow.com">
                                             {locale === 'vi' ? 'Liên hệ' : 'Contact Sales'}
                                         </a>
                                     </Button>

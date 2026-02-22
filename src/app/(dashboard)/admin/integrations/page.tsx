@@ -1241,7 +1241,7 @@ function IntegrationCard({
                             <Input
                                 value={smtpConfig.from}
                                 onChange={(e) => onSmtpChange('from', e.target.value)}
-                                placeholder="noreply@asocial.app"
+                                placeholder="noreply@neeflow.com"
                                 className="h-8 text-xs"
                                 type="email"
                             />

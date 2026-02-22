@@ -7,7 +7,7 @@ const db = prisma as any
 
 const DEFAULT_SETTINGS = {
     id: 'default',
-    appName: 'ASocial',
+    appName: 'NeeFlow',
     tagline: 'Social Media Management',
     logoUrl: '/logo.png',
     faviconUrl: '/favicon.ico',
@@ -67,7 +67,7 @@ export async function PUT(req: NextRequest) {
             },
             create: {
                 id: 'default',
-                appName: appName ?? 'ASocial',
+                appName: appName ?? 'NeeFlow',
                 tagline: tagline ?? 'Social Media Management',
                 logoUrl: logoUrl ?? '/logo.png',
                 faviconUrl: faviconUrl ?? '/favicon.ico',

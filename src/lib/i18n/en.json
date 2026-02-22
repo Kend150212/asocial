@@ -10,7 +10,7 @@
     },
     "onboarding": {
         "title": "Get Started",
-        "subtitle": "Complete these steps to unlock the full power of ASocial",
+        "subtitle": "Complete these steps to unlock the full power of NeeFlow",
         "setup": "Set up",
         "steps": {
             "ai": "Configure AI integration",
@@ -78,7 +78,7 @@
         "signInDescription": "Enter your credentials to access your account",
         "email": "Email",
         "password": "Password",
-        "emailPlaceholder": "admin@asocial.app",
+        "emailPlaceholder": "admin@neeflow.com",
         "passwordPlaceholder": "Enter your password",
         "forgotPassword": "Forgot password?",
         "invalidCredentials": "Invalid email or password",
@@ -96,7 +96,7 @@
     },
     "register": {
         "title": "Create Account",
-        "subtitle": "Join ASocial and start managing your social media",
+        "subtitle": "Join NeeFlow and start managing your social media",
         "verifyTitle": "Verify Your Email",
         "firstName": "First Name",
         "lastName": "Last Name",
@@ -161,7 +161,7 @@
         "gdriveConnected": "Connected",
         "gdriveOpenFolder": "Open in Google Drive",
         "gdriveFolderName": "Parent Folder Name",
-        "gdriveFolderPlaceholder": "e.g. ASocial Media",
+        "gdriveFolderPlaceholder": "e.g. NeeFlow Media",
         "gdriveCreateFolder": "Create",
         "testEmailLabel": "Send test email to",
         "testEmailPlaceholder": "your@email.com",
@@ -316,7 +316,7 @@
     },
     "setupPassword": {
         "title": "Set Up Your Password",
-        "description": "Create a password to activate your ASocial account",
+        "description": "Create a password to activate your NeeFlow account",
         "newPassword": "New Password",
         "confirmPassword": "Confirm Password",
         "passwordPlaceholder": "Enter at least 6 characters",

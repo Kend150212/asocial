@@ -20,7 +20,7 @@ interface Settings {
 
 export default function AdminBrandingPage() {
     const [settings, setSettings] = useState<Settings>({
-        appName: 'ASocial',
+        appName: 'NeeFlow',
         tagline: 'Social Media Management',
         logoUrl: '/logo.png',
         faviconUrl: '/favicon.ico',

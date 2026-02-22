@@ -169,8 +169,8 @@ export default function SetupWizardPage() {
     // Step 1 fields
     const [dbHost, setDbHost] = useState('localhost')
     const [dbPort, setDbPort] = useState('5432')
-    const [dbName, setDbName] = useState('asocial')
-    const [dbUser, setDbUser] = useState('asocial')
+    const [dbName, setDbName] = useState('neeflow')
+    const [dbUser, setDbUser] = useState('neeflow')
     const [dbPassword, setDbPassword] = useState('')
     const [redisUrl, setRedisUrl] = useState('redis://localhost:6379')
     const [domain, setDomain] = useState('')
@@ -333,8 +333,8 @@ export default function SetupWizardPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <InputField label="Host" value={dbHost} onChange={setDbHost} placeholder="localhost" />
                                 <InputField label="Port" value={dbPort} onChange={setDbPort} placeholder="5432" />
-                                <InputField label="Database" value={dbName} onChange={setDbName} placeholder="asocial" />
-                                <InputField label="Username" value={dbUser} onChange={setDbUser} placeholder="asocial" />
+                                <InputField label="Database" value={dbName} onChange={setDbName} placeholder="neeflow" />
+                                <InputField label="Username" value={dbUser} onChange={setDbUser} placeholder="neeflow" />
                             </div>
                             <InputField label="Password" value={dbPassword} onChange={setDbPassword} type="password" placeholder="Enter database password" />
                             {dbTestResult?.database?.error && (

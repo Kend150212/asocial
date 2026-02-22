@@ -10,7 +10,7 @@
     },
     "onboarding": {
         "title": "Bắt đầu",
-        "subtitle": "Hoàn thành các bước sau để trải nghiệm đầy đủ tính năng của ASocial",
+        "subtitle": "Hoàn thành các bước sau để trải nghiệm đầy đủ tính năng của NeeFlow",
         "setup": "Cài đặt",
         "steps": {
             "ai": "Cấu hình AI",
@@ -78,7 +78,7 @@
         "signInDescription": "Nhập thông tin đăng nhập để truy cập tài khoản",
         "email": "Email",
         "password": "Mật khẩu",
-        "emailPlaceholder": "admin@asocial.app",
+        "emailPlaceholder": "admin@neeflow.com",
         "passwordPlaceholder": "Nhập mật khẩu",
         "forgotPassword": "Quên mật khẩu?",
         "invalidCredentials": "Email hoặc mật khẩu không đúng",
@@ -96,7 +96,7 @@
     },
     "register": {
         "title": "Tạo tài khoản",
-        "subtitle": "Tham gia ASocial và bắt đầu quản lý mạng xã hội",
+        "subtitle": "Tham gia NeeFlow và bắt đầu quản lý mạng xã hội",
         "verifyTitle": "Xác nhận Email",
         "firstName": "Tên",
         "lastName": "Họ",
@@ -161,7 +161,7 @@
         "gdriveConnected": "Đã kết nối",
         "gdriveOpenFolder": "Mở trên Google Drive",
         "gdriveFolderName": "Tên Folder Mẹ",
-        "gdriveFolderPlaceholder": "VD: ASocial Media",
+        "gdriveFolderPlaceholder": "VD: NeeFlow Media",
         "gdriveCreateFolder": "Tạo",
         "testEmailLabel": "Gửi email test đến",
         "testEmailPlaceholder": "your@email.com",
@@ -316,7 +316,7 @@
     },
     "setupPassword": {
         "title": "Tạo mật khẩu",
-        "description": "Tạo mật khẩu để kích hoạt tài khoản ASocial",
+        "description": "Tạo mật khẩu để kích hoạt tài khoản NeeFlow",
         "newPassword": "Mật khẩu mới",
         "confirmPassword": "Xác nhận mật khẩu",
         "passwordPlaceholder": "Nhập ít nhất 6 ký tự",
