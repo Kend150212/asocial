@@ -38,6 +38,9 @@ export async function GET(req: NextRequest) {
         where.channelId = { in: memberships.map(m => m.channelId) }
     }
 
+    // Only show conversations from active/enabled platform accounts
+    where.platformAccount = { isActive: true }
+
     if (status && status !== 'all') {
         where.status = status
     }
