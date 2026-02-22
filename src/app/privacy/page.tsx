@@ -191,27 +191,41 @@ export default function PrivacyPolicyPage() {
     const lastUpdated = 'February 22, 2025'
 
     return (
-        <div className="min-h-screen bg-white" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-                .prose-content h4 { font-size: 0.95rem; font-weight: 600; color: #1e293b; margin: 1.25rem 0 0.5rem; }
-                .prose-content p { color: #475569; line-height: 1.75; margin-bottom: 0.9rem; }
-                .prose-content ul { color: #475569; padding-left: 1.25rem; margin-bottom: 0.9rem; }
+                .prose-content h4 { font-size: 0.95rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+                .prose-content p { line-height: 1.75; margin-bottom: 0.9rem; }
+                .prose-content ul { padding-left: 1.25rem; margin-bottom: 0.9rem; }
                 .prose-content li { margin-bottom: 0.4rem; line-height: 1.7; }
                 .prose-content a { color: #4f46e5; text-decoration: underline; text-underline-offset: 2px; }
-                .prose-content strong { color: #1e293b; }
                 .toc-link { transition: all 0.2s; border-left: 2px solid transparent; }
                 .toc-link:hover { border-left-color: #4f46e5; color: #4f46e5; padding-left: 0.5rem; }
+
+                /* Light mode prose */
+                .prose-content h4 { color: #1e293b; }
+                .prose-content p { color: #475569; }
+                .prose-content ul { color: #475569; }
+                .prose-content strong { color: #1e293b; }
+
+                /* Dark mode prose */
+                .dark .prose-content h4 { color: #e2e8f0; }
+                .dark .prose-content p { color: #94a3b8; }
+                .dark .prose-content ul { color: #94a3b8; }
+                .dark .prose-content strong { color: #e2e8f0; }
+                .dark .prose-content a { color: #818cf8; }
+                .dark .toc-link:hover { border-left-color: #818cf8; color: #818cf8; }
             `}</style>
 
             {/* Header */}
-            <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100 shadow-sm">
+            <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm border-b border-gray-100 dark:border-white/5 shadow-sm">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <Link href="/" className="flex items-center">
-                        <Image src="/logo.png" alt="NeeFlow" width={120} height={32} className="object-contain" />
+                    <Link href="/" className="flex items-center gap-2">
+                        <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
+                        <span className="font-bold text-gray-900 dark:text-white text-lg">NeeFlow</span>
                     </Link>
                     <nav className="flex items-center gap-6 text-sm">
-                        <Link href="/terms" className="text-gray-500 hover:text-gray-900 transition-colors">Terms of Service</Link>
+                        <Link href="/terms" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">Terms of Service</Link>
                         <Link href="/login" className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">Sign In</Link>
                     </nav>
                 </div>
@@ -223,20 +237,20 @@ export default function PrivacyPolicyPage() {
                     {/* Sidebar TOC */}
                     <aside className="hidden lg:block">
                         <div className="sticky top-24">
-                            <div className="bg-gray-50 rounded-2xl border border-gray-100 p-6">
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Table of Contents</p>
+                            <div className="bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-6">
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">Table of Contents</p>
                                 <nav className="space-y-1">
                                     {sections.map((s) => (
-                                        <a key={s.id} href={`#${s.id}`} className="toc-link block text-sm text-gray-500 py-1.5 px-2 rounded-lg hover:bg-white">
+                                        <a key={s.id} href={`#${s.id}`} className="toc-link block text-sm text-gray-500 dark:text-gray-400 py-1.5 px-2 rounded-lg hover:bg-white dark:hover:bg-white/5">
                                             {s.title}
                                         </a>
                                     ))}
                                 </nav>
                             </div>
-                            <div className="mt-6 bg-indigo-50 rounded-2xl border border-indigo-100 p-5">
-                                <p className="text-sm font-semibold text-indigo-800 mb-1">Privacy Questions?</p>
-                                <p className="text-xs text-indigo-600 mb-3">We're here to help with any data concerns.</p>
-                                <a href="mailto:privacy@neeflow.com" className="text-xs font-medium text-indigo-700 underline">privacy@neeflow.com</a>
+                            <div className="mt-6 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 p-5">
+                                <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-1">Privacy Questions?</p>
+                                <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-3">We&apos;re here to help with any data concerns.</p>
+                                <a href="mailto:privacy@neeflow.com" className="text-xs font-medium text-indigo-700 dark:text-indigo-400 underline">privacy@neeflow.com</a>
                             </div>
                         </div>
                     </aside>
@@ -244,19 +258,19 @@ export default function PrivacyPolicyPage() {
                     {/* Main Content */}
                     <main>
                         {/* Hero */}
-                        <div className="mb-10 pb-8 border-b border-gray-100">
-                            <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-indigo-100 mb-4">
+                        <div className="mb-10 pb-8 border-b border-gray-100 dark:border-white/10">
+                            <div className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-800/60 mb-4">
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                                 Your Privacy Matters
                             </div>
-                            <h1 className="text-4xl font-bold text-gray-900 mb-3">Privacy Policy</h1>
-                            <p className="text-gray-500 text-lg leading-relaxed max-w-2xl">
+                            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Privacy Policy</h1>
+                            <p className="text-gray-500 dark:text-gray-400 text-lg leading-relaxed max-w-2xl">
                                 We believe in transparency. This policy explains exactly what data we collect, why we collect it, and how we protect it across the NeeFlow platform.
                             </p>
-                            <div className="mt-5 flex flex-wrap gap-4 text-sm text-gray-400">
-                                <span><strong className="text-gray-600">Last Updated:</strong> {lastUpdated}</span>
-                                <span><strong className="text-gray-600">Effective Date:</strong> {lastUpdated}</span>
-                                <span><strong className="text-gray-600">Version:</strong> 1.0</span>
+                            <div className="mt-5 flex flex-wrap gap-4 text-sm text-gray-400 dark:text-gray-500">
+                                <span><strong className="text-gray-600 dark:text-gray-300">Last Updated:</strong> {lastUpdated}</span>
+                                <span><strong className="text-gray-600 dark:text-gray-300">Effective Date:</strong> {lastUpdated}</span>
+                                <span><strong className="text-gray-600 dark:text-gray-300">Version:</strong> 1.0</span>
                             </div>
                         </div>
 
@@ -267,10 +281,10 @@ export default function PrivacyPolicyPage() {
                                 { icon: '🛡️', title: 'AES-256 Encryption', desc: 'All sensitive credentials are encrypted at rest and in transit.' },
                                 { icon: '✅', title: 'You stay in control', desc: 'Access, export, or delete your data anytime from your account settings.' },
                             ].map((c, i) => (
-                                <div key={i} className="bg-gray-50 rounded-2xl border border-gray-100 p-5">
+                                <div key={i} className="bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10 p-5">
                                     <div className="text-2xl mb-2">{c.icon}</div>
-                                    <div className="font-semibold text-gray-800 text-sm mb-1">{c.title}</div>
-                                    <div className="text-xs text-gray-500 leading-relaxed">{c.desc}</div>
+                                    <div className="font-semibold text-gray-800 dark:text-gray-200 text-sm mb-1">{c.title}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{c.desc}</div>
                                 </div>
                             ))}
                         </div>
@@ -279,7 +293,7 @@ export default function PrivacyPolicyPage() {
                         <div className="space-y-10">
                             {sections.map((section) => (
                                 <section key={section.id} id={section.id} className="scroll-mt-24">
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4 pb-3 border-b border-gray-100">
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 pb-3 border-b border-gray-100 dark:border-white/10">
                                         {section.title}
                                     </h2>
                                     <div
@@ -291,12 +305,12 @@ export default function PrivacyPolicyPage() {
                         </div>
 
                         {/* Footer nav */}
-                        <div className="mt-14 pt-8 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <p className="text-sm text-gray-400">© {new Date().getFullYear()} NeeFlow. All rights reserved.</p>
+                        <div className="mt-14 pt-8 border-t border-gray-100 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p className="text-sm text-gray-400 dark:text-gray-500">© {new Date().getFullYear()} NeeFlow. All rights reserved.</p>
                             <div className="flex gap-6 text-sm">
-                                <Link href="/terms" className="text-gray-500 hover:text-indigo-600 transition-colors">Terms of Service</Link>
-                                <Link href="/privacy" className="text-indigo-600 font-medium">Privacy Policy</Link>
-                                <Link href="/" className="text-gray-500 hover:text-indigo-600 transition-colors">Home</Link>
+                                <Link href="/terms" className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Terms of Service</Link>
+                                <Link href="/privacy" className="text-indigo-600 dark:text-indigo-400 font-medium">Privacy Policy</Link>
+                                <Link href="/" className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Home</Link>
                             </div>
                         </div>
                     </main>

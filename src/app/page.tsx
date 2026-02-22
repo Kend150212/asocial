@@ -284,8 +284,9 @@ export default function LandingPage() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrollY > 40 ? 'glass-nav border-b border-gray-200/60 dark:border-white/5 shadow-sm' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <Image src="/logo.png" alt="NeeFlow" width={120} height={32} className="object-contain dark:brightness-0 dark:invert" />
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
+            <span className="font-extrabold text-gray-900 dark:text-white text-lg tracking-tight">NeeFlow</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -718,7 +719,10 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-5 gap-10 mb-14">
             {/* Brand */}
             <div className="md:col-span-2">
-              <Image src="/logo.png" alt="NeeFlow" width={120} height={32} className="object-contain brightness-0 invert mb-4" />
+              <div className="flex items-center gap-2.5 mb-4">
+                <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
+                <span className="text-lg font-extrabold text-white">NeeFlow</span>
+              </div>
               <p className="text-gray-500 text-sm leading-relaxed max-w-xs mb-5">
                 AI-powered social media management for modern agencies and brands. Post smarter, grow faster.
               </p>
