@@ -484,9 +484,21 @@ Language: ${botConfig.language || 'vi'}
 Keep it short (1-2 sentences), warm, and professional. Reply with ONLY the greeting text.`
                     greetingText = await callAI(
                         ownerKey.provider!, ownerKey.apiKey!, ownerKey.model || getDefaultModel(ownerKey.provider || 'openai', {}),
-                        'You are a greeting message generator.', prompt
+                        'You are a greeting message generator. Reply with ONLY the greeting text, no JSON, no quotes, no formatting.', prompt
                     )
                     greetingText = greetingText.trim()
+                    // Strip JSON wrapper if AI returns {"greeting": "..."} or similar
+                    if (greetingText.startsWith('{') && greetingText.endsWith('}')) {
+                        try {
+                            const parsed = JSON.parse(greetingText)
+                            greetingText = parsed.greeting || parsed.message || parsed.text || Object.values(parsed)[0] as string || greetingText
+                        } catch { /* not valid JSON, use as-is */ }
+                    }
+                    // Strip surrounding quotes
+                    if ((greetingText.startsWith('"') && greetingText.endsWith('"')) ||
+                        (greetingText.startsWith("'") && greetingText.endsWith("'"))) {
+                        greetingText = greetingText.slice(1, -1)
+                    }
                 }
             } catch (err) {
                 console.error('[Bot Greeting] AI greeting failed, using fallback:', err)
