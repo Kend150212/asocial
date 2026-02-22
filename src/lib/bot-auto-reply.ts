@@ -72,6 +72,18 @@ export async function botAutoReply(
         // (in upsertConversation). Here we trust conversation.mode — agents
         // can manually transfer any conversation to BOT mode.
 
+        // ─── 2b. Send read receipt + typing indicator ─────────────
+        if (conversation.platformAccountId) {
+            const pa = await prisma.channelPlatform.findUnique({
+                where: { id: conversation.platformAccountId },
+                select: { accessToken: true },
+            })
+            if (pa?.accessToken) {
+                await sendSenderAction(pa.accessToken, conversation.externalUserId, 'mark_seen').catch(() => { })
+                await sendSenderAction(pa.accessToken, conversation.externalUserId, 'typing_on').catch(() => { })
+            }
+        }
+
         // ─── 3. Working Hours Check ───────────────────────────────
         if (botConfig?.workingHoursOnly && botConfig.workingHoursStart && botConfig.workingHoursEnd) {
             const now = new Date()
@@ -258,15 +270,18 @@ export async function botAutoReply(
         }
 
         const langLabel = channel.language === 'vi' ? 'Vietnamese' : channel.language === 'en' ? 'English' : channel.language || 'auto-detect'
-        systemPrompt += `\n\n## Rules:\n- Default language: ${langLabel}\n- IMPORTANT: If the customer writes in a different language, you MUST reply in THEIR language. Always match the customer's language.\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, arrays, code blocks, brackets, or any structured format\n- Do NOT use [ ] or { } in your response\n- Reply with PLAIN TEXT ONLY — no formatting wrappers\n- If you don't know the answer, say you'll connect them with a human agent`
+        systemPrompt += `\n\n## Communication Style:\n- You are a REAL person on the team, not a bot. Chat naturally like a helpful colleague would over Messenger.\n- Keep messages SHORT (1-3 sentences max). Nobody likes walls of text in chat.\n- Use casual, warm language. It's okay to use emoji sparingly 😊\n- NEVER repeat yourself or say the same thing in two different ways.\n- NEVER generate multiple greeting options or alternatives.\n- ONE clear, direct response per message.`
+        systemPrompt += `\n\n## Intelligence:\n- Analyze the customer's intent, sentiment, and urgency from their messages.\n- If they seem frustrated, be empathetic first before offering solutions.\n- If they ask for pricing/services, give specific information from the knowledge base.\n- If something is outside your knowledge, be honest and offer to connect them with the team.\n- Anticipate follow-up questions and proactively address them.\n- Remember context from earlier in the conversation and reference it naturally.`
+        systemPrompt += `\n\n## Language:\n- Default: ${langLabel}\n- CRITICAL: Always reply in the SAME language the customer is writing in. If they switch languages, you switch too.`
+        systemPrompt += `\n\n## Strict Rules:\n- NEVER say you are an AI, bot, or automated system\n- NEVER prefix with "Bot:" or any label\n- NEVER wrap reply in JSON, arrays, code blocks, or brackets\n- NEVER use [ ] or { } characters\n- PLAIN TEXT ONLY\n- If you don't know something, say "Let me check with the team and get back to you" or connect them with a human`
 
         // ─── 10. Call AI ──────────────────────────────────────────
-        const userPrompt = `Customer: ${conversation.externalUserName || 'Customer'}
+        const userPrompt = `Customer name: ${conversation.externalUserName || 'Customer'}
 
-Conversation history:
+Recent conversation:
 ${messageHistory}
 
-Generate a reply (plain text only, no JSON, no brackets):`
+Reply naturally in 1-3 sentences (plain text, no JSON, no brackets):`
 
         const rawReply = await callAI(provider, apiKey, model, systemPrompt, userPrompt)
         let cleanReply = rawReply.trim()
@@ -437,9 +452,11 @@ async function sendFacebookMessage(
     text: string,
     imageUrls?: string[]
 ) {
+    const apiUrl = `https://graph.facebook.com/v19.0/me/messages?access_token=${accessToken}`
+
     // Send text message
     if (text) {
-        await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${accessToken}`, {
+        await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -452,7 +469,7 @@ async function sendFacebookMessage(
     // Send images
     if (imageUrls?.length) {
         for (const url of imageUrls) {
-            await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${accessToken}`, {
+            await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -467,6 +484,24 @@ async function sendFacebookMessage(
             })
         }
     }
+}
+
+/**
+ * Send sender action (typing indicator, read receipt)
+ */
+async function sendSenderAction(
+    accessToken: string,
+    recipientId: string,
+    action: 'typing_on' | 'typing_off' | 'mark_seen'
+) {
+    await fetch(`https://graph.facebook.com/v19.0/me/messages?access_token=${accessToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            recipient: { id: recipientId },
+            sender_action: action,
+        }),
+    })
 }
 
 /**

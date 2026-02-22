@@ -67,10 +67,24 @@ export async function PATCH(
         data.status = 'new'
     }
 
-    // When resolving or archiving, also reset mode to BOT so bot auto takes over
+    // When resolving or archiving, reset mode based on per-page bot setting
     if (body.status === 'done' || body.status === 'archived') {
-        data.mode = 'BOT'
         data.assignedTo = null
+        // Check if bot is enabled for this page before resetting to BOT
+        const conv = await prisma.conversation.findUnique({
+            where: { id },
+            select: { platformAccountId: true },
+        })
+        if (conv?.platformAccountId) {
+            const pa = await prisma.channelPlatform.findUnique({
+                where: { id: conv.platformAccountId },
+                select: { config: true },
+            })
+            const pageConfig = (pa?.config as any) || {}
+            data.mode = pageConfig.botEnabled === true ? 'BOT' : 'AGENT'
+        } else {
+            data.mode = 'AGENT'
+        }
     }
 
     const updated = await prisma.conversation.update({
