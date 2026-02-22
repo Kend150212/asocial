@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
     if (search) {
         where.OR = [
             { externalUserName: { contains: search, mode: 'insensitive' } },
+            { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
         ]
     }
 

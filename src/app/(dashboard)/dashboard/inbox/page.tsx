@@ -1519,6 +1519,34 @@ export default function InboxPage() {
                                                                     {likedCommentIds.has(msg.externalId) ? '💙 Liked' : '👍 Like'}
                                                                 </button>
                                                             )}
+                                                            {msg.direction === 'inbound' && msg.externalId && selectedConversation?.type === 'comment' && (
+                                                                <button
+                                                                    className="text-[10px] font-semibold text-muted-foreground hover:text-purple-500 transition-colors"
+                                                                    onClick={async () => {
+                                                                        const privateMsg = prompt('Send a private DM to this commenter:')
+                                                                        if (!privateMsg?.trim()) return
+                                                                        try {
+                                                                            const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}/private-reply`, {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({ commentExternalId: msg.externalId, message: privateMsg.trim() }),
+                                                                            })
+                                                                            if (res.ok) {
+                                                                                toast.success('📩 Private reply sent!')
+                                                                                // Refresh messages to show the private reply
+                                                                                fetchMessages(selectedConversation.id)
+                                                                            } else {
+                                                                                const data = await res.json()
+                                                                                toast.error(data.error || 'Failed to send private reply')
+                                                                            }
+                                                                        } catch {
+                                                                            toast.error('Failed to send private reply')
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    📩 Private Reply
+                                                                </button>
+                                                            )}
                                                             {msg.direction === 'inbound' && (
                                                                 <button
                                                                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"

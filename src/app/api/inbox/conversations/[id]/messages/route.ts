@@ -137,6 +137,8 @@ export async function POST(
             direction: 'outbound',
             senderType,
             content: content.trim(),
+            senderName: session.user.name || null,
+            senderAvatar: session.user.image || null,
         },
     })
 
@@ -188,21 +190,32 @@ export async function POST(
                 }
 
                 if (conv?.type === 'comment') {
-                    // Reply to comment (text only — FB API limitation for comment images)
+                    // Reply to comment — target the specific post's latest comment
+                    const postExternalId = conv.externalUserId?.replace('post_', '') || ''
                     const lastComment = await prisma.socialComment.findFirst({
-                        where: { channelId: conversation.channelId, platform: 'facebook' },
+                        where: {
+                            platformAccountId: conversation.platformAccountId,
+                            externalPostId: postExternalId,
+                            platform: 'facebook',
+                        },
                         orderBy: { commentedAt: 'desc' },
-                        select: { externalCommentId: true },
+                        select: { externalCommentId: true, authorName: true },
                     })
                     const commentId = lastComment?.externalCommentId
                     if (commentId) {
+                        // Strip @[Name] syntax and prepend @mention of commenter
+                        let replyText = content.trim().replace(/@\[([^\]]+)\]/g, '@$1')
+                        // Auto-prepend @mention if not already present
+                        if (lastComment.authorName && !replyText.startsWith(`@${lastComment.authorName}`)) {
+                            replyText = `@${lastComment.authorName} ${replyText}`
+                        }
                         const fbRes = await fetch(
                             `https://graph.facebook.com/v19.0/${commentId}/comments`,
                             {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    message: content.trim().replace(/@\[([^\]]+)\]/g, '@$1'),
+                                    message: replyText,
                                     access_token: platformAccount.accessToken,
                                 }),
                             }
@@ -222,6 +235,22 @@ export async function POST(
                     // Send DM via Send API
                     const cleanText = content.trim().replace(/^@\[[^\]]+\]\s*/, '').replace(/@\[([^\]]+)\]/g, '@$1')
 
+                    // Check 24h messaging window — find last inbound message in this conversation
+                    const lastInbound = await prisma.inboxMessage.findFirst({
+                        where: { conversationId: id, direction: 'inbound' },
+                        orderBy: { sentAt: 'desc' },
+                        select: { sentAt: true },
+                    })
+                    const hoursSinceLastInbound = lastInbound
+                        ? (Date.now() - new Date(lastInbound.sentAt).getTime()) / (1000 * 60 * 60)
+                        : Infinity
+                    // Facebook allows RESPONSE within 24h, after that need MESSAGE_TAG
+                    const messagingType = hoursSinceLastInbound <= 24 ? 'RESPONSE' : 'MESSAGE_TAG'
+                    const messageTag = messagingType === 'MESSAGE_TAG' ? 'HUMAN_AGENT' : undefined
+                    if (messagingType === 'MESSAGE_TAG') {
+                        console.log(`[FB Reply] ⚠️ Outside 24h window (${Math.round(hoursSinceLastInbound)}h), using HUMAN_AGENT tag`)
+                    }
+
                     if (fbAttachmentId) {
                         // Send image as attachment
                         const fbRes = await fetch(
@@ -232,7 +261,8 @@ export async function POST(
                                 body: JSON.stringify({
                                     recipient: { id: conv?.externalUserId },
                                     message: { attachment: { type: 'image', payload: { attachment_id: fbAttachmentId } } },
-                                    messaging_type: 'RESPONSE',
+                                    messaging_type: messagingType,
+                                    ...(messageTag && { tag: messageTag }),
                                 }),
                             }
                         )
@@ -250,7 +280,8 @@ export async function POST(
                                     body: JSON.stringify({
                                         recipient: { id: conv?.externalUserId },
                                         message: { text: cleanText },
-                                        messaging_type: 'RESPONSE',
+                                        messaging_type: messagingType,
+                                        ...(messageTag && { tag: messageTag }),
                                     }),
                                 }
                             )
@@ -265,7 +296,8 @@ export async function POST(
                                 body: JSON.stringify({
                                     recipient: { id: conv?.externalUserId },
                                     message: { text: cleanText },
-                                    messaging_type: 'RESPONSE',
+                                    messaging_type: messagingType,
+                                    ...(messageTag && { tag: messageTag }),
                                 }),
                             }
                         )
