@@ -63,6 +63,14 @@ export async function PATCH(
     // Handle "transfer to bot"
     if (body.action === 'transferToBot') {
         data.mode = 'BOT'
+        data.assignedTo = null
+        data.status = 'new'
+    }
+
+    // When resolving or archiving, also reset mode to BOT so bot auto takes over
+    if (body.status === 'done' || body.status === 'archived') {
+        data.mode = 'BOT'
+        data.assignedTo = null
     }
 
     const updated = await prisma.conversation.update({

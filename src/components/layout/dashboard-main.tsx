@@ -22,7 +22,7 @@ export function DashboardMain({ children }: { children: ReactNode }) {
             {/* Page content — fade slightly while switching */}
             <div
                 className={cn(
-                    'relative px-3 py-4 sm:p-6 max-w-full h-full overflow-hidden transition-opacity duration-200',
+                    'relative px-3 py-4 sm:p-6 max-w-full h-full overflow-y-auto transition-opacity duration-200',
                     isSwitching ? 'opacity-50 pointer-events-none' : 'opacity-100'
                 )}
             >
