@@ -77,7 +77,7 @@ export async function botAutoReply(
                 select: { config: true },
             })
             const pageConfig = (platformAccount?.config as any) || {}
-            if (pageConfig.botEnabled === false) {
+            if (pageConfig.botEnabled !== true) {
                 return { replied: false, reason: 'Bot disabled for this page in this channel' }
             }
         }
@@ -509,7 +509,7 @@ export async function sendBotGreeting(
                 select: { config: true },
             })
             const pageConfig = (platformAccount?.config as any) || {}
-            if (pageConfig.botEnabled === false) return
+            if (pageConfig.botEnabled !== true) return
         }
 
         const greetingMode = (botConfig as any).greetingMode || 'template'

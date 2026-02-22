@@ -578,8 +578,8 @@ async function upsertConversation(opts: {
             select: { config: true },
         })
         const pageConfig = (platformAccount?.config as any) || {}
-        if (pageConfig.botEnabled === false) {
-            convMode = 'AGENT' // Page has bot explicitly disabled
+        if (pageConfig.botEnabled !== true) {
+            convMode = 'AGENT' // Page bot toggle is not ON
         } else {
             // Also check channel-level BotConfig
             const botConfig = await prisma.botConfig.findUnique({
