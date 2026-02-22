@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { botAutoReply, sendBotGreeting } from '@/lib/bot-auto-reply'
+import { notifyChannelAdmins } from '@/lib/notify'
 
 // ─── Webhook verify token ──────────────
 const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'asocial_webhook_2024'
@@ -401,6 +402,22 @@ async function upsertConversation(opts: {
             sentAt: new Date(),
         },
     })
+
+    // ─── Notify channel admins of inbound messages/comments ────
+    if (opts.direction === 'inbound') {
+        const isComment = opts.type === 'comment'
+        const senderLabel = opts.senderName || opts.externalUserName || 'Someone'
+        const preview = opts.content?.substring(0, 80) || (isComment ? 'New comment' : 'New message')
+        notifyChannelAdmins({
+            channelId: opts.channelId,
+            type: isComment ? 'new_comment' : 'new_message',
+            title: isComment
+                ? `🗨️ ${senderLabel} commented`
+                : `💬 ${senderLabel}`,
+            message: preview,
+            link: `/dashboard/inbox?conversation=${conversation.id}`,
+        }).catch(() => { }) // fire-and-forget
+    }
 
     // ─── Bot Auto-Reply (fire-and-forget) ─────────────────────
     if (opts.direction === 'inbound' && conversation.mode === 'BOT') {

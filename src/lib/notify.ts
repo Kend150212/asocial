@@ -34,6 +34,8 @@ export type NotificationType =
     | 'approval_approved'
     | 'approval_rejected'
     | 'member_invited'
+    | 'new_message'
+    | 'new_comment'
     | 'info'
 
 // ─── createNotification ───────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ const typeIcon: Record<string, string> = {
     approval_approved: '✅',
     approval_rejected: '❌',
     member_invited: '👋',
+    new_message: '💬',
+    new_comment: '🗨️',
     info: 'ℹ️',
 }
 

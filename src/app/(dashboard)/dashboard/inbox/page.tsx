@@ -400,17 +400,20 @@ export default function InboxPage() {
     }, [])
 
     // ─── Browser notification ─────────
-    const showBrowserNotification = useCallback((title: string, body: string) => {
+    const showBrowserNotification = useCallback((title: string, body: string, conversationId?: string) => {
         if (typeof window === 'undefined') return
         if (Notification.permission === 'granted') {
             const n = new Notification(title, {
                 body,
                 icon: '/icon-192.png',
-                tag: 'inbox-notification',
+                tag: `inbox-${Date.now()}`, // unique tag so each notification shows
             })
             n.onclick = () => {
                 window.focus()
                 n.close()
+                if (conversationId) {
+                    window.location.href = `/dashboard/inbox?conversation=${conversationId}`
+                }
             }
             setTimeout(() => n.close(), 8000)
         }
@@ -443,8 +446,7 @@ export default function InboxPage() {
 
                 // 2. Detect new inbound messages by comparing total unread
                 const totalUnread = freshConversations.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0)
-                if (prevUnreadRef.current > 0 && totalUnread > prevUnreadRef.current) {
-                    const newCount = totalUnread - prevUnreadRef.current
+                if (totalUnread > prevUnreadRef.current) {
                     playNotificationSound()
                     // Show in-app toast
                     const newest = freshConversations[0]
@@ -454,8 +456,9 @@ export default function InboxPage() {
                     // Browser notification (if tab is in background)
                     if (document.hidden) {
                         showBrowserNotification(
-                            `📬 ${newCount} new message${newCount > 1 ? 's' : ''}`,
-                            `${senderName}: ${preview}`
+                            `📬 New message`,
+                            `${senderName}: ${preview}`,
+                            newest?.id
                         )
                     }
                 }
