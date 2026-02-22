@@ -335,6 +335,32 @@ Generate a reply (plain text only, no JSON, no brackets):`
         // ─── 12. Send reply via platform ──────────────────────────
         await sendAndSaveReply(conversation, textReply, platform, imageUrls)
 
+        // ─── 13. Detect AI-decided escalation ─────────────────────
+        // If the AI reply contains phrases indicating it's transferring
+        // to a human agent, switch conversation mode to AGENT
+        const escalationPatterns = [
+            /connect(ing)?\s+(you\s+)?(with|to)\s+(a\s+)?(human|agent|team|staff|representative)/i,
+            /transfer(ring)?\s+(you\s+)?(to|over)\s+(a\s+)?(human|agent|team|staff|representative)/i,
+            /forward(ing)?\s+(you\s+)?to\s+(a\s+)?(human|agent|team|staff|representative)/i,
+            /human\s+agent\s+(will|can|is\s+going\s+to)\s+(help|assist|take\s+over)/i,
+            /let\s+me\s+(get|find|connect|transfer)/i,
+            /kết\s*nối\s*(bạn\s*)?(với|đến)\s*(nhân\s*viên|agent|người)/i,
+            /chuyển\s*(bạn\s*)?(cho|đến|qua)\s*(nhân\s*viên|agent|người|tư\s*vấn)/i,
+            /nhân\s*viên\s*(sẽ|sẽ\s+sớm|đang)\s*(hỗ\s*trợ|liên\s*hệ|phục\s*vụ)/i,
+        ]
+
+        const lowerReply = textReply.toLowerCase()
+        const isEscalation = escalationPatterns.some(p => p.test(textReply))
+
+        if (isEscalation) {
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: { mode: 'AGENT', status: 'new' },
+            })
+            console.log(`[Bot Auto-Reply] 🔄 AI escalated → switched to AGENT mode`)
+            return { replied: true, reason: 'Escalated to agent' }
+        }
+
         return { replied: true }
     } catch (err) {
         console.error('[Bot Auto-Reply] ❌ Error:', err)
