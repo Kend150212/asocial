@@ -132,6 +132,24 @@ export async function GET(req: NextRequest) {
                         config: { source: 'oauth' },
                     },
                 })
+
+                // Also update ALL other channel records for the same page
+                // so reconnecting from any channel fixes all copies
+                const updated = await prisma.channelPlatform.updateMany({
+                    where: {
+                        platform: 'facebook',
+                        accountId: page.id,
+                        channelId: { not: state.channelId },
+                    },
+                    data: {
+                        accessToken: page.access_token,
+                        isActive: true,
+                    },
+                })
+                if (updated.count > 0) {
+                    console.log(`[Facebook OAuth] 🔄 Also updated token for ${updated.count} other channel(s) with page ${page.name}`)
+                }
+
                 imported++
                 console.log(`[Facebook OAuth] ✅ Imported: ${page.name} (${page.id})`)
             } catch (upsertErr) {

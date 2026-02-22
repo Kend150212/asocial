@@ -88,8 +88,13 @@ async function handleFeedChange(pageId: string, value: any) {
     }
 
     // Find the platform account (ChannelPlatform) for this page
+    // Prefer active records with access tokens to avoid stale entries
     const platformAccount = await prisma.channelPlatform.findFirst({
+        where: { platform: 'facebook', accountId: pageId, isActive: true, accessToken: { not: null } },
+        orderBy: { updatedAt: 'desc' },
+    }) || await prisma.channelPlatform.findFirst({
         where: { platform: 'facebook', accountId: pageId },
+        orderBy: { updatedAt: 'desc' },
     })
 
     if (!platformAccount) {
