@@ -236,7 +236,7 @@ async function handleFeedChange(pageId: string, value: any) {
 }
 
 // ═══════════════════════════════════════
-// HANDLE MESSAGING (DMs)
+// HANDLE MESSAGING (DMs + Echoes)
 // ═══════════════════════════════════════
 async function handleMessaging(pageId: string, event: any) {
     // Only handle text messages (skip delivery, read receipts, etc.)
@@ -245,6 +245,12 @@ async function handleMessaging(pageId: string, event: any) {
     const senderId = event.sender?.id
     const recipientId = event.recipient?.id
     if (!senderId || !recipientId) return
+
+    // ─── Echo message handling ────────────────────────
+    const isEcho = event.message?.is_echo === true
+    if (isEcho) {
+        console.log(`[FB Webhook] 🔄 Echo received: "${(event.message?.text || '').substring(0, 50)}" app_id=${event.message?.app_id || 'none'}`)
+    }
 
     // Determine direction: if sender is the page, it's outbound
     const isOutbound = senderId === pageId
@@ -290,13 +296,13 @@ async function handleMessaging(pageId: string, event: any) {
         externalUserAvatar: !isOutbound ? `https://graph.facebook.com/${externalUserId}/picture?type=small` : undefined,
         content,
         direction: isOutbound ? 'outbound' : 'inbound',
-        senderType: isOutbound ? 'agent' : 'customer',
+        senderType: isOutbound ? (isEcho ? 'agent' : 'agent') : 'customer',
         mediaUrl,
         mediaType,
         externalId: event.message?.mid,
     })
 
-    console.log(`[FB Webhook] 💬 Message ${isOutbound ? 'sent' : 'received'}: "${content.substring(0, 50)}" from ${senderName}`)
+    console.log(`[FB Webhook] 💬 ${isEcho ? 'Echo' : 'Message'} ${isOutbound ? 'sent' : 'received'}: "${content.substring(0, 50)}" ${isEcho ? '(outbound echo)' : `from ${senderName}`}`)
 }
 
 // ═══════════════════════════════════════
