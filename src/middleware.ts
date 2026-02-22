@@ -1,17 +1,32 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { isSetupComplete } from '@/lib/setup-check'
+
+/**
+ * Edge-compatible setup check.
+ * Middleware runs in Edge Runtime — no fs/path/process.cwd().
+ * Instead, check if DATABASE_URL env var exists (set by wizard or .env).
+ * If no DATABASE_URL → app needs setup → redirect to /setup.
+ */
+function isSetupComplete(): boolean {
+    const dbUrl = process.env.DATABASE_URL
+    if (!dbUrl) return false
+    // Skip if it's the placeholder from install.sh
+    if (dbUrl.includes('temporary') || dbUrl === '') return false
+    return true
+}
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
 
     // ── Setup wizard redirect — if not configured yet ─────────────
     const isSetupRoute = pathname.startsWith('/setup') || pathname.startsWith('/api/setup')
-    if (!isSetupRoute && !isSetupComplete()) {
+    const setupComplete = isSetupComplete()
+
+    if (!isSetupRoute && !setupComplete) {
         return NextResponse.redirect(new URL('/setup', req.url))
     }
     // If setup is complete, prevent accessing /setup again
-    if (pathname.startsWith('/setup') && isSetupComplete()) {
+    if (pathname.startsWith('/setup') && setupComplete) {
         return NextResponse.redirect(new URL('/', req.url))
     }
 
@@ -59,3 +74,4 @@ export async function middleware(req: NextRequest) {
 export const config = {
     matcher: ['/((?!_next/static|_next/image|favicon.ico|public|api).*)'],
 }
+
