@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     for (const p of platforms) {
         try {
-            const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads'
+            const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads,message_echoes'
             const feedOnly = 'feed'
 
             // Try full subscription first

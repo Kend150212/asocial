@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     for (const p of platforms) {
         try {
             // Try with all fields first, fallback to feed-only if pages_messaging not granted
-            const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads'
+            const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads,message_echoes'
             const feedOnly = 'feed'
 
             let res = await fetch(

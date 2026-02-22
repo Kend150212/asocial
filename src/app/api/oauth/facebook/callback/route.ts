@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
         // ── Subscribe pages to webhook for real-time events ──
         for (const page of pages) {
             try {
-                const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads'
+                const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads,message_echoes'
                 const feedOnly = 'feed'
 
                 let subRes = await fetch(
