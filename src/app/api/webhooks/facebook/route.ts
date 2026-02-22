@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const body = await req.json()
 
-    console.log('[FB Webhook] Received:', JSON.stringify(body).substring(0, 500))
+    console.log('[Webhook] Received:', JSON.stringify(body).substring(0, 500))
 
     // Facebook sends events grouped by object type
     if (body.object === 'page') {
@@ -64,8 +64,228 @@ export async function POST(req: NextRequest) {
         }
     }
 
+    // Instagram events — DMs and comments
+    if (body.object === 'instagram') {
+        for (const entry of body.entry || []) {
+            const igAccountId = entry.id // Instagram Business Account ID
+
+            // ── IG Comments ──
+            if (entry.changes) {
+                for (const change of entry.changes) {
+                    if (change.field === 'comments') {
+                        try {
+                            await handleInstagramComment(igAccountId, change.value)
+                        } catch (err) {
+                            console.error(`[IG Webhook] ❌ Error processing comment for IG ${igAccountId}:`, err)
+                        }
+                    }
+                }
+            }
+
+            // ── IG DMs ──
+            if (entry.messaging) {
+                for (const msgEvent of entry.messaging) {
+                    try {
+                        await handleInstagramMessaging(igAccountId, msgEvent)
+                    } catch (err) {
+                        console.error(`[IG Webhook] ❌ Error processing message for IG ${igAccountId}:`, err)
+                    }
+                }
+            }
+        }
+    }
+
     // Always return 200 to acknowledge
     return NextResponse.json({ status: 'ok' })
+}
+
+// ═══════════════════════════════════════
+// HANDLE INSTAGRAM COMMENTS
+// ═══════════════════════════════════════
+async function handleInstagramComment(igAccountId: string, value: any) {
+    // value structure: { id, text, from: { id, username }, media: { id }, ... }
+    const verb = value.verb || 'add'
+    if (verb === 'remove') {
+        if (value.id) {
+            await prisma.socialComment.updateMany({
+                where: { externalCommentId: value.id },
+                data: { status: 'hidden' },
+            })
+            console.log(`[IG Webhook] Comment removed: ${value.id}`)
+        }
+        return
+    }
+
+    // Find IG platform account
+    const platformAccount = await prisma.channelPlatform.findFirst({
+        where: { platform: 'instagram', accountId: igAccountId, isActive: true, accessToken: { not: null } },
+    }) || await prisma.channelPlatform.findFirst({
+        where: { platform: 'instagram', accountId: igAccountId },
+    })
+
+    if (!platformAccount) {
+        console.warn(`[IG Webhook] ❌ No platform account for IG ${igAccountId}`)
+        return
+    }
+
+    const commentId = value.id || ''
+    const parentCommentId = value.parent_id || null
+    const authorName = value.from?.username || value.from?.id || 'Unknown'
+    const authorId = value.from?.id || ''
+    const content = value.text || ''
+    const mediaId = value.media?.id || ''
+    const commentedAt = value.timestamp ? new Date(value.timestamp * 1000) : new Date()
+
+    // Skip own comments
+    if (authorId === igAccountId) {
+        console.log(`[IG Webhook] Skipping own comment by IG account ${igAccountId}`)
+        return
+    }
+
+    // Fetch post/media metadata if available
+    let postMetadata: any = null
+    if (mediaId && platformAccount.accessToken) {
+        try {
+            const mediaRes = await fetch(
+                `https://graph.facebook.com/v19.0/${mediaId}?fields=caption,permalink,media_url,media_type,thumbnail_url&access_token=${platformAccount.accessToken}`
+            )
+            if (mediaRes.ok) {
+                const mediaData = await mediaRes.json()
+                const images: string[] = []
+                if (mediaData.media_url) images.push(mediaData.media_url)
+                if (mediaData.thumbnail_url && !mediaData.media_url) images.push(mediaData.thumbnail_url)
+
+                postMetadata = {
+                    externalPostId: mediaId,
+                    postContent: mediaData.caption || '',
+                    postImages: images.slice(0, 5),
+                    postPermalink: mediaData.permalink || `https://instagram.com/p/${mediaId}`,
+                }
+                console.log(`[IG Webhook] 📄 Media fetched: "${(mediaData.caption || '').substring(0, 50)}" with ${images.length} images`)
+            }
+        } catch (err) {
+            console.warn(`[IG Webhook] ⚠️ Failed to fetch media ${mediaId}:`, err)
+            postMetadata = {
+                externalPostId: mediaId,
+                postContent: '',
+                postImages: [],
+                postPermalink: `https://instagram.com`,
+            }
+        }
+    }
+
+    // Upsert the comment
+    await prisma.socialComment.upsert({
+        where: { externalCommentId: commentId },
+        update: { content, authorName },
+        create: {
+            channelId: platformAccount.channelId,
+            platformAccountId: platformAccount.id,
+            platform: 'instagram',
+            externalPostId: mediaId,
+            externalCommentId: commentId,
+            parentCommentId,
+            authorName,
+            authorAvatar: null, // IG doesn't provide profile pic in webhook
+            content,
+            status: 'new',
+            commentedAt,
+        },
+    })
+
+    console.log(`[IG Webhook] 💬 Comment saved: "${content.substring(0, 50)}" by @${authorName}`)
+
+    // Create/update conversation grouped by media post
+    const postLabel = postMetadata?.postContent
+        ? postMetadata.postContent.substring(0, 60) + (postMetadata.postContent.length > 60 ? '...' : '')
+        : `IG Post ${mediaId}`
+
+    await upsertConversation({
+        channelId: platformAccount.channelId,
+        platformAccountId: platformAccount.id,
+        platform: 'instagram',
+        externalUserId: `post_${mediaId}`,
+        externalUserName: postLabel,
+        externalUserAvatar: null,
+        content,
+        direction: 'inbound',
+        senderType: 'customer',
+        senderName: `@${authorName}`,
+        senderAvatar: null,
+        type: 'comment',
+        metadata: postMetadata,
+        externalId: commentId,
+    })
+}
+
+// ═══════════════════════════════════════
+// HANDLE INSTAGRAM DMs
+// ═══════════════════════════════════════
+async function handleInstagramMessaging(igAccountId: string, event: any) {
+    // Only handle messages with text or attachments
+    if (!event.message?.text && !event.message?.attachments) return
+
+    const senderId = event.sender?.id
+    const recipientId = event.recipient?.id
+    if (!senderId || !recipientId) return
+
+    // Echo handling
+    const isEcho = event.message?.is_echo === true
+    if (isEcho) {
+        console.log(`[IG Webhook] 🔄 Echo: "${(event.message?.text || '').substring(0, 50)}"`)
+    }
+
+    const isOutbound = senderId === igAccountId
+    const externalUserId = isOutbound ? recipientId : senderId
+
+    // Find the IG platform account
+    const platformAccount = await prisma.channelPlatform.findFirst({
+        where: { platform: 'instagram', accountId: igAccountId },
+    })
+
+    if (!platformAccount) {
+        console.warn(`[IG Webhook] No platform account for IG ${igAccountId}`)
+        return
+    }
+
+    const content = event.message?.text || '[Attachment]'
+    const mediaUrl = event.message?.attachments?.[0]?.payload?.url || null
+    const mediaType = event.message?.attachments?.[0]?.type || null
+
+    // Get user profile
+    let senderName = externalUserId
+    let senderAvatar: string | null = null
+    if (platformAccount.accessToken) {
+        try {
+            const res = await fetch(
+                `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,username,profile_pic&access_token=${platformAccount.accessToken}`
+            )
+            if (res.ok) {
+                const data = await res.json()
+                senderName = data.username || data.name || senderName
+                senderAvatar = data.profile_pic || null
+            }
+        } catch {
+            // Use IGSID as fallback
+        }
+    }
+
+    await upsertConversation({
+        channelId: platformAccount.channelId,
+        platformAccountId: platformAccount.id,
+        platform: 'instagram',
+        externalUserId,
+        externalUserName: senderName !== externalUserId ? senderName : undefined,
+        externalUserAvatar: senderAvatar,
+        content,
+        direction: isOutbound ? 'outbound' : 'inbound',
+        senderType: isOutbound ? 'agent' : 'customer',
+        mediaUrl,
+        mediaType,
+        externalId: event.message?.mid,
+    })
+
+    console.log(`[IG Webhook] 💬 ${isEcho ? 'Echo' : 'Message'} ${isOutbound ? 'sent' : 'received'}: "${content.substring(0, 50)}" ${isEcho ? '(outbound echo)' : `from ${senderName}`}`)
 }
 
 // ═══════════════════════════════════════

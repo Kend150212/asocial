@@ -43,8 +43,8 @@ export async function POST(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (conversation.platform !== 'facebook') {
-        return NextResponse.json({ error: 'Like only supported for Facebook' }, { status: 400 })
+    if (conversation.platform !== 'facebook' && conversation.platform !== 'instagram') {
+        return NextResponse.json({ error: 'Like only supported for Facebook and Instagram' }, { status: 400 })
     }
 
     const platformAccount = await prisma.channelPlatform.findUnique({

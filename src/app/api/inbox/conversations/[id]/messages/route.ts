@@ -153,8 +153,8 @@ export async function POST(
         },
     })
 
-    // ── Send reply via Facebook API ──
-    if (conversation.platform === 'facebook') {
+    // ── Send reply via Facebook/Instagram API ──
+    if (conversation.platform === 'facebook' || conversation.platform === 'instagram') {
         const platformAccount = await prisma.channelPlatform.findUnique({
             where: { id: conversation.platformAccountId },
         })

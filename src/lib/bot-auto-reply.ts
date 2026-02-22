@@ -321,11 +321,11 @@ async function sendAndSaveReply(
         })
         : null
 
-    if (platform === 'facebook' && platformAccount?.accessToken) {
+    if ((platform === 'facebook' || platform === 'instagram') && platformAccount?.accessToken) {
         const conversationType = conversation.type || 'message'
 
         if (conversationType === 'message') {
-            // Send DM via Messenger
+            // Send DM via Messenger (same API for both FB and IG)
             await sendFacebookMessage(
                 platformAccount.accessToken,
                 conversation.externalUserId,
