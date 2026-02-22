@@ -193,7 +193,7 @@ const statusFilterItems = [
     { key: 'new', label: 'Unassigned', icon: Mail },
     { key: 'open', label: 'Assigned', icon: UserPlus },
     { key: 'mine', label: 'Mine', icon: UserCircle },
-    { key: 'done', label: 'Done', icon: CheckCircle2 },
+    { key: 'done', label: 'Resolved', icon: CheckCircle2 },
     { key: 'archived', label: 'Archived', icon: Archive },
     { key: 'all', label: 'All', icon: Inbox },
 ]
@@ -218,10 +218,22 @@ function timeAgo(date: string) {
     const now = new Date()
     const d = new Date(date)
     const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
-    if (diff < 60) return 'now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-    return `${Math.floor(diff / 86400)}d`
+    // Today: show time like "9:19 PM"
+    if (diff < 86400 && now.getDate() === d.getDate()) {
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    }
+    // Yesterday
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth()) {
+        return 'Yesterday'
+    }
+    // Within 7 days: show day name
+    if (diff < 604800) {
+        return d.toLocaleDateString('en-US', { weekday: 'short' })
+    }
+    // Older: show date
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // ═══════════════════════════════════════
@@ -1236,7 +1248,7 @@ export default function InboxPage() {
                                     onClick={() => updateConversation(selectedConversation.id, { status: 'done' })}
                                 >
                                     <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Done
+                                    Resolve
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
