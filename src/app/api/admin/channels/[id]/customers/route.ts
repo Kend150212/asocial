@@ -87,7 +87,7 @@ export async function POST(
         data: { inviteToken: token, inviteExpiresAt: expiresAt },
     })
 
-    const appUrl = process.env.NEXTAUTH_URL || 'https://asocial.kendymarketing.com'
+    const appUrl = process.env.NEXTAUTH_URL || 'https://neeflow.com'
 
     try {
         await sendChannelInviteEmail({

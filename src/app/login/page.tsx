@@ -125,7 +125,7 @@ function LoginForm() {
 
                 {/* Footer */}
                 <div className="relative text-xs text-white/40">
-                    © 2026 Kendy Marketing LLC, Virginia USA
+                    © {new Date().getFullYear()} NeeFlow — Richmond, VA
                 </div>
             </div>
 
@@ -250,7 +250,7 @@ function LoginForm() {
 
                 {/* Mobile footer */}
                 <div className="mt-auto pt-8 text-center text-xs text-muted-foreground lg:hidden">
-                    © 2026 Kendy Marketing LLC, Virginia USA
+                    © {new Date().getFullYear()} NeeFlow — Richmond, VA
                 </div>
             </div>
         </div>

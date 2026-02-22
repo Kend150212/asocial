@@ -276,7 +276,7 @@ export function PricingSection() {
                                         {/* CTA Button */}
                                         {isContact ? (
                                             <Button variant="outline" asChild className="w-full h-11 font-semibold">
-                                                <a href="mailto:support@kendymarketing.com">Contact Sales</a>
+                                                <a href="mailto:hello@neeflow.com">Contact Sales</a>
                                             </Button>
                                         ) : isFree ? (
                                             <Button variant="outline" asChild className="w-full h-11 font-semibold group">
