@@ -203,7 +203,7 @@ async function handleFeedChange(pageId: string, value: any) {
             externalCommentId,
             parentCommentId,
             authorName,
-            authorAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small` : null,
+            authorAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small&access_token=${platformAccount.accessToken}` : null,
             content,
             status: 'new',
             commentedAt,
@@ -228,7 +228,7 @@ async function handleFeedChange(pageId: string, value: any) {
         direction: 'inbound',
         senderType: 'customer',
         senderName: authorName,
-        senderAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small` : null,
+        senderAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small&access_token=${platformAccount.accessToken}` : null,
         type: 'comment',
         metadata: postMetadata,
         externalId: externalCommentId,
@@ -270,10 +270,11 @@ async function handleMessaging(pageId: string, event: any) {
     const mediaUrl = event.message?.attachments?.[0]?.payload?.url || null
     const mediaType = event.message?.attachments?.[0]?.type || null
 
-    // Get external user name via Graph API
+    // Get external user name + avatar via Graph API
     // For inbound: sender is the customer
     // For outbound echo: recipient is the customer (externalUserId)
     let senderName = externalUserId
+    let senderAvatar: string | null = null
     if (platformAccount.accessToken) {
         try {
             const res = await fetch(
@@ -282,9 +283,14 @@ async function handleMessaging(pageId: string, event: any) {
             if (res.ok) {
                 const data = await res.json()
                 senderName = data.name || senderName
+                senderAvatar = data.profile_pic || null
             }
         } catch {
             // Silently fail — use ID as name
+        }
+        // Fallback: use Graph API picture URL with access token
+        if (!senderAvatar) {
+            senderAvatar = `https://graph.facebook.com/${externalUserId}/picture?type=small&access_token=${platformAccount.accessToken}`
         }
     }
 
@@ -295,7 +301,7 @@ async function handleMessaging(pageId: string, event: any) {
         platform: 'facebook',
         externalUserId,
         externalUserName: senderName !== externalUserId ? senderName : undefined,
-        externalUserAvatar: `https://graph.facebook.com/${externalUserId}/picture?type=small`,
+        externalUserAvatar: senderAvatar,
         content,
         direction: isOutbound ? 'outbound' : 'inbound',
         senderType: isOutbound ? (isEcho ? 'agent' : 'agent') : 'customer',
@@ -396,7 +402,7 @@ async function upsertConversation(opts: {
         if (opts.externalUserName && (!conversation.externalUserName || /^\d{10,}$/.test(conversation.externalUserName))) {
             updateData.externalUserName = opts.externalUserName
         }
-        if (opts.externalUserAvatar && (!conversation.externalUserAvatar || conversation.externalUserAvatar === '')) {
+        if (opts.externalUserAvatar) {
             updateData.externalUserAvatar = opts.externalUserAvatar
         }
         // Update metadata if we have post info and conversation doesn't have it yet
