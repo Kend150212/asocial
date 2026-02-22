@@ -194,20 +194,20 @@ const platformConfig: Record<string, { color: string; label: string }> = {
 
 // ─── Status filters config ───────────
 const statusFilterItems = [
-    { key: 'new', label: 'Unassigned', icon: Mail },
-    { key: 'open', label: 'Assigned', icon: UserPlus },
-    { key: 'mine', label: 'Mine', icon: UserCircle },
-    { key: 'done', label: 'Resolved', icon: CheckCircle2 },
-    { key: 'archived', label: 'Archived', icon: Archive },
-    { key: 'all', label: 'All', icon: Inbox },
+    { key: 'new', labelKey: 'unassigned', icon: Mail },
+    { key: 'open', labelKey: 'assigned', icon: UserPlus },
+    { key: 'mine', labelKey: 'mine', icon: UserCircle },
+    { key: 'done', labelKey: 'resolved', icon: CheckCircle2 },
+    { key: 'archived', labelKey: 'archived', icon: Archive },
+    { key: 'all', labelKey: 'all', icon: Inbox },
 ]
 
 // ─── Tabs ─────────────────────────────
 const inboxTabs = [
-    { key: 'all', label: 'All' },
-    { key: 'messages', label: 'Messages' },
-    { key: 'comments', label: 'Comments' },
-    { key: 'reviews', label: 'Reviews' },
+    { key: 'all', labelKey: 'all' },
+    { key: 'messages', labelKey: 'messages' },
+    { key: 'comments', labelKey: 'comments' },
+    { key: 'reviews', labelKey: 'reviews' },
 ]
 
 // ─── Sentiment icon ───────────────────
@@ -218,7 +218,7 @@ function SentimentIcon({ sentiment }: { sentiment: string | null }) {
 }
 
 // ─── Time formatter ───────────────────
-function timeAgo(date: string) {
+function timeAgo(date: string, t: (key: string) => string) {
     const now = new Date()
     const d = new Date(date)
     const diff = Math.floor((now.getTime() - d.getTime()) / 1000)
@@ -230,7 +230,7 @@ function timeAgo(date: string) {
     const yesterday = new Date(now)
     yesterday.setDate(yesterday.getDate() - 1)
     if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth()) {
-        return 'Yesterday'
+        return t('inbox.yesterday')
     }
     // Within 7 days: show day name
     if (diff < 604800) {
@@ -361,12 +361,12 @@ export default function InboxPage() {
                 }),
             })
             if (res.ok) {
-                toast.success('AI settings saved')
+                toast.success(t('inbox.toast.aiSettingsSaved'))
             } else {
-                toast.error('Failed to save AI settings')
+                toast.error(t('inbox.toast.aiSettingsFailed'))
             }
         } catch {
-            toast.error('Network error')
+            toast.error(t('inbox.toast.networkError'))
         } finally {
             setSavingAi(false)
         }
@@ -467,12 +467,12 @@ export default function InboxPage() {
                     playNotificationSound()
                     // Show in-app toast
                     const newest = freshConversations[0]
-                    const senderName = newest?.externalUserName || 'Someone'
-                    const preview = newest?.lastMessage?.substring(0, 60) || 'New message'
+                    const senderName = newest?.externalUserName || t('inbox.unknown')
+                    const preview = newest?.lastMessage?.substring(0, 60) || t('inbox.toast.newMessage')
                     toast(`📬 ${senderName}`, {
                         description: preview,
                         action: {
-                            label: 'View',
+                            label: t('inbox.actions.view'),
                             onClick: () => {
                                 // Auto-select the conversation
                                 const conv = freshConversations.find((c: any) => c.id === newest?.id)
@@ -485,7 +485,7 @@ export default function InboxPage() {
                     // Browser notification (if tab is in background)
                     if (document.hidden) {
                         showBrowserNotification(
-                            `📬 New message`,
+                            t('inbox.toast.newMessage'),
                             `${senderName}: ${preview}`,
                             newest?.id
                         )
@@ -660,10 +660,10 @@ export default function InboxPage() {
                     prev.map(m => m.id === tempId ? { ...optimisticMessage, ...data.message } : m)
                 )
             } else {
-                toast.error('Failed to send — message saved locally')
+                toast.error(t('inbox.toast.sendFailed'))
             }
         } catch {
-            toast.error('Network error — message saved locally')
+            toast.error(t('inbox.toast.sendNetworkError'))
         }
     }, [selectedConversation, replyText, selectedImage])
 
@@ -687,14 +687,14 @@ export default function InboxPage() {
                 if (selectedConversation?.id === convId) {
                     setSelectedConversation(prev => prev ? { ...prev, ...updated } : null)
                 }
-                toast.success('Updated')
+                toast.success(t('inbox.toast.updated'))
                 // Refresh counts
                 fetchConversations()
             } else {
-                toast.error('Update failed')
+                toast.error(t('inbox.toast.updateFailed'))
             }
         } catch (e) {
-            toast.error('Update failed')
+            toast.error(t('inbox.toast.updateFailed'))
         } finally {
             setUpdatingConv(false)
         }
@@ -766,7 +766,7 @@ export default function InboxPage() {
                         <button
                             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                             className="shrink-0 cursor-pointer hover:text-primary transition-colors"
-                            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            title={sidebarCollapsed ? t('inbox.sidebar.expandSidebar') : t('inbox.sidebar.collapseSidebar')}
                         >
                             {sidebarCollapsed ? (
                                 <PanelLeft className="h-4 w-4 text-muted-foreground hover:text-primary" />
@@ -774,11 +774,11 @@ export default function InboxPage() {
                                 <PanelLeftClose className="h-4 w-4 text-muted-foreground hover:text-primary" />
                             )}
                         </button>
-                        {!sidebarCollapsed && <span className="text-sm font-semibold whitespace-nowrap">Social Inbox</span>}
+                        {!sidebarCollapsed && <span className="text-sm font-semibold whitespace-nowrap">{t('inbox.title')}</span>}
                     </div>
                     {!sidebarCollapsed && (
                         <p className="text-[10px] text-muted-foreground px-1 mt-1 whitespace-nowrap">
-                            {activeChannel?.displayName || 'All Channels'}
+                            {activeChannel?.displayName || t('inbox.allChannels')}
                         </p>
                     )}
                 </div>
@@ -788,7 +788,7 @@ export default function InboxPage() {
                     <div className="p-2">
                         {!sidebarCollapsed && (
                             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                Status
+                                {t('inbox.sidebar.status')}
                             </p>
                         )}
                         <nav className="space-y-0.5 mt-1">
@@ -796,7 +796,7 @@ export default function InboxPage() {
                                 <button
                                     key={f.key}
                                     onClick={() => setStatusFilter(f.key)}
-                                    title={sidebarCollapsed ? f.label : undefined}
+                                    title={sidebarCollapsed ? t(`inbox.filters.${f.labelKey}`) : undefined}
                                     className={cn(
                                         'w-full flex items-center rounded-md transition-colors cursor-pointer',
                                         sidebarCollapsed ? 'justify-center p-1.5' : 'gap-2.5 px-2.5 py-1.5 text-xs',
@@ -806,7 +806,7 @@ export default function InboxPage() {
                                     )}
                                 >
                                     <f.icon className="h-3.5 w-3.5 shrink-0" />
-                                    {!sidebarCollapsed && <span className="flex-1 text-left whitespace-nowrap">{f.label}</span>}
+                                    {!sidebarCollapsed && <span className="flex-1 text-left whitespace-nowrap">{t(`inbox.filters.${f.labelKey}`)}</span>}
                                     {!sidebarCollapsed && (counts[f.key as keyof StatusCounts] ?? 0) > 0 && (
                                         <Badge variant="secondary" className="h-4 min-w-[16px] px-1 text-[9px]">
                                             {counts[f.key as keyof StatusCounts]}
@@ -827,20 +827,20 @@ export default function InboxPage() {
                             <div className="p-2">
                                 <div className="flex items-center justify-between px-2 py-1">
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Platforms
+                                        {t('inbox.sidebar.platforms')}
                                     </p>
                                     {selectedPlatformIds.length > 0 && (
                                         <button
                                             onClick={() => setSelectedPlatformIds([])}
                                             className="text-[9px] text-primary hover:underline cursor-pointer"
                                         >
-                                            Clear
+                                            {t('inbox.sidebar.clear')}
                                         </button>
                                     )}
                                 </div>
                                 {Object.keys(platformTree).length === 0 ? (
                                     <p className="px-2.5 py-2 text-[11px] text-muted-foreground/60 italic">
-                                        No platforms connected
+                                        {t('inbox.sidebar.noPlatforms')}
                                     </p>
                                 ) : (
                                     <div className="space-y-1 mt-1">
@@ -878,20 +878,20 @@ export default function InboxPage() {
                             {/* AI Quick Stats */}
                             <div className="p-2">
                                 <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                    AI Stats
+                                    {t('inbox.sidebar.aiStats')}
                                 </p>
                                 <div className="space-y-1 mt-1 px-2.5">
                                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                         <Bot className="h-3.5 w-3.5 text-green-500" />
-                                        <span>{botActive} bot active</span>
+                                        <span>{t('inbox.sidebar.botActive').replace('{count}', String(botActive))}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                         <Frown className="h-3.5 w-3.5 text-red-500" />
-                                        <span>{angryCount} negative</span>
+                                        <span>{t('inbox.sidebar.negative').replace('{count}', String(angryCount))}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                         <Clock className="h-3.5 w-3.5 text-amber-500" />
-                                        <span>{waitingCount} waiting</span>
+                                        <span>{t('inbox.sidebar.waiting').replace('{count}', String(waitingCount))}</span>
                                     </div>
                                 </div>
                             </div>
@@ -905,7 +905,7 @@ export default function InboxPage() {
                                     className="w-full flex items-center justify-between px-2 py-1 cursor-pointer"
                                 >
                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        AI Settings
+                                        {t('inbox.sidebar.aiSettings')}
                                     </p>
                                     {showAiSettings ? (
                                         <ChevronUp className="h-3 w-3 text-muted-foreground" />
@@ -917,12 +917,12 @@ export default function InboxPage() {
                                     <div className="space-y-2 mt-2 px-1">
                                         {/* Provider — from user's API keys */}
                                         <div>
-                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Provider</label>
+                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">{t('inbox.sidebar.provider')}</label>
                                             {userApiKeys.length === 0 ? (
                                                 <div className="mt-1 rounded-md bg-muted/50 border border-border p-2">
-                                                    <p className="text-[10px] text-muted-foreground">No AI keys configured.</p>
+                                                    <p className="text-[10px] text-muted-foreground">{t('inbox.sidebar.noAiKeys')}</p>
                                                     <a href="/dashboard/api-keys" className="text-[10px] text-primary hover:underline">
-                                                        → Set up API Keys
+                                                        {t('inbox.sidebar.setupApiKeys')}
                                                     </a>
                                                 </div>
                                             ) : (
@@ -934,7 +934,7 @@ export default function InboxPage() {
                                                     }}
                                                     className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                                 >
-                                                    <option value="">Select provider...</option>
+                                                    <option value="">{t('inbox.sidebar.selectProvider')}</option>
                                                     {userApiKeys.map(k => (
                                                         <option key={k.provider} value={k.provider}>
                                                             {k.name || k.provider}
@@ -949,7 +949,7 @@ export default function InboxPage() {
                                         {aiProvider && (
                                             <div>
                                                 <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
-                                                    Model
+                                                    {t('inbox.sidebar.model')}
                                                     {loadingModels && <Loader2 className="inline h-2.5 w-2.5 animate-spin ml-1" />}
                                                 </label>
                                                 <select
@@ -958,7 +958,7 @@ export default function InboxPage() {
                                                     disabled={loadingModels}
                                                     className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                                                 >
-                                                    <option value="">{loadingModels ? 'Loading models...' : 'Select model...'}</option>
+                                                    <option value="">{loadingModels ? t('inbox.sidebar.loadingModels') : t('inbox.sidebar.selectModel')}</option>
                                                     {availableModels.map(m => (
                                                         <option key={m.id} value={m.id}>{m.name}</option>
                                                     ))}
@@ -978,14 +978,14 @@ export default function InboxPage() {
                                             ) : (
                                                 <Save className="h-3 w-3 mr-1" />
                                             )}
-                                            Save AI Settings
+                                            {t('inbox.sidebar.saveAiSettings')}
                                         </Button>
 
                                         {/* Current config display */}
                                         {aiProvider && aiModel && (
                                             <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
-                                                <p className="text-[9px] text-muted-foreground break-words">Provider: <span className="text-foreground font-medium">{userApiKeys.find(k => k.provider === aiProvider)?.name || aiProvider}</span></p>
-                                                <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{availableModels.find(m => m.id === aiModel)?.name || aiModel}</span></p>
+                                                <p className="text-[9px] text-muted-foreground break-words">{t('inbox.sidebar.provider')}: <span className="text-foreground font-medium">{userApiKeys.find(k => k.provider === aiProvider)?.name || aiProvider}</span></p>
+                                                <p className="text-[9px] text-muted-foreground break-words">{t('inbox.sidebar.model')}: <span className="text-foreground font-medium">{availableModels.find(m => m.id === aiModel)?.name || aiModel}</span></p>
                                             </div>
                                         )}
 
@@ -993,7 +993,7 @@ export default function InboxPage() {
 
                                         {/* Notification Sound Toggle */}
                                         <div>
-                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Notification</label>
+                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">{t('inbox.sidebar.notification')}</label>
                                             <button
                                                 onClick={toggleSoundMute}
                                                 className={cn(
@@ -1009,7 +1009,7 @@ export default function InboxPage() {
                                                     <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
                                                 )}
                                                 <span className="text-[11px] flex-1 text-left">
-                                                    {soundMuted ? 'Sound Off' : 'Sound On'}
+                                                    {soundMuted ? t('inbox.sidebar.soundOff') : t('inbox.sidebar.soundOn')}
                                                 </span>
                                                 <span className={cn(
                                                     'text-[9px] px-1.5 py-0.5 rounded-full font-medium',
@@ -1017,7 +1017,7 @@ export default function InboxPage() {
                                                         ? 'bg-muted text-muted-foreground'
                                                         : 'bg-primary/10 text-primary'
                                                 )}>
-                                                    {soundMuted ? 'Muted' : 'Active'}
+                                                    {soundMuted ? t('inbox.sidebar.muted') : t('inbox.sidebar.active')}
                                                 </span>
                                             </button>
                                         </div>
@@ -1050,7 +1050,7 @@ export default function InboxPage() {
                                         : 'text-muted-foreground hover:text-foreground'
                                 )}
                             >
-                                {tab.label}
+                                {t(`inbox.tabs.${tab.labelKey}`)}
                                 {activeTab === tab.key && (
                                     <div className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
                                 )}
@@ -1066,7 +1066,7 @@ export default function InboxPage() {
                         <Input
                             value={searchQuery}
                             onChange={e => handleSearchChange(e.target.value)}
-                            placeholder="Search conversations..."
+                            placeholder={t('inbox.search')}
                             className="h-8 pl-8 text-xs"
                         />
                     </div>
@@ -1086,14 +1086,14 @@ export default function InboxPage() {
                     {loading ? (
                         <div className="p-8 text-center">
                             <Loader2 className="h-6 w-6 text-muted-foreground/50 mx-auto mb-2 animate-spin" />
-                            <p className="text-xs text-muted-foreground">Loading...</p>
+                            <p className="text-xs text-muted-foreground">{t('inbox.loading')}</p>
                         </div>
                     ) : filteredConversations.length === 0 ? (
                         <div className="p-8 text-center">
                             <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground font-medium">No conversations yet</p>
+                            <p className="text-xs text-muted-foreground font-medium">{t('inbox.noConversations')}</p>
                             <p className="text-[10px] text-muted-foreground/60 mt-1">
-                                Conversations will appear here when customers message you via connected platforms
+                                {t('inbox.noConversationsDesc')}
                             </p>
                         </div>
                     ) : (
@@ -1133,7 +1133,7 @@ export default function InboxPage() {
                                     <div className="flex-1 min-w-0 overflow-hidden">
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-xs font-semibold truncate">
-                                                {conv.externalUserName || 'Unknown'}
+                                                {conv.externalUserName || t('inbox.unknown')}
                                             </span>
                                             <span className={cn(
                                                 "text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0 whitespace-nowrap",
@@ -1141,21 +1141,21 @@ export default function InboxPage() {
                                                 (conv.type || 'message') === 'comment' && 'bg-orange-500/15 text-orange-500',
                                                 (conv.type || 'message') === 'review' && 'bg-purple-500/15 text-purple-500',
                                             )}>
-                                                {(conv.type || 'message') === 'message' ? 'Message' : (conv.type || 'message') === 'comment' ? 'Comment' : 'Review'}
+                                                {(conv.type || 'message') === 'message' ? t('inbox.typeMessage') : (conv.type || 'message') === 'comment' ? t('inbox.typeComment') : t('inbox.typeReview')}
                                             </span>
                                             <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap ml-auto">
-                                                {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
+                                                {conv.lastMessageAt ? timeAgo(conv.lastMessageAt, t) : ''}
                                             </span>
                                         </div>
                                         {/* Page name */}
                                         {conv.platformAccount?.accountName && (
                                             <div className="text-[9px] text-muted-foreground/60 truncate mt-0.5">
-                                                via {conv.platformAccount.accountName}
+                                                {t('inbox.via')} {conv.platformAccount.accountName}
                                             </div>
                                         )}
                                         <div className="flex items-center gap-1 mt-0.5">
                                             <p className="text-[11px] text-muted-foreground truncate flex-1">
-                                                {(conv.lastMessage || 'No messages').replace(/@\[([^\]]+)\]/g, '@$1')}
+                                                {(conv.lastMessage || t('inbox.noMessages')).replace(/@\[([^\]]+)\]/g, '@$1')}
                                             </p>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {conv.mode === 'BOT' && <Bot className="h-3 w-3 text-green-500" />}
@@ -1165,7 +1165,7 @@ export default function InboxPage() {
                                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
                                                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
                                                         </span>
-                                                        <span className="text-[8px] font-bold uppercase tracking-wide">Agent</span>
+                                                        <span className="text-[8px] font-bold uppercase tracking-wide">{t('inbox.agentBadge')}</span>
                                                     </span>
                                                 )}
                                                 {conv.mode === 'AGENT' && (conv.status === 'done' || conv.status === 'archived') && (
@@ -1233,13 +1233,13 @@ export default function InboxPage() {
                                     {selectedConversation.mode === 'BOT' && (
                                         <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-green-300 text-green-600 bg-green-50 dark:bg-green-500/10">
                                             <Bot className="h-2.5 w-2.5 mr-0.5" />
-                                            Bot Active
+                                            {t('inbox.header.botActive')}
                                         </Badge>
                                     )}
                                     {selectedConversation.mode === 'AGENT' && (
                                         <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400">
                                             <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-                                            Needs Agent
+                                            {t('inbox.header.needsAgent')}
                                         </Badge>
                                     )}
                                     {selectedConversation.sentiment && (
@@ -1247,7 +1247,7 @@ export default function InboxPage() {
                                     )}
                                     {selectedConversation.intent && (
                                         <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">
-                                            {selectedConversation.intent === 'buy' ? '🛒 Buy intent' : selectedConversation.intent === 'complaint' ? '⚠️ Complaint' : selectedConversation.intent}
+                                            {selectedConversation.intent === 'buy' ? t('inbox.header.buyIntent') : selectedConversation.intent === 'complaint' ? t('inbox.header.complaint') : selectedConversation.intent}
                                         </Badge>
                                     )}
                                 </div>
@@ -1264,7 +1264,7 @@ export default function InboxPage() {
                                         onClick={() => updateConversation(selectedConversation.id, { action: 'takeover' })}
                                     >
                                         <UserCircle className="h-3.5 w-3.5" />
-                                        Take Over
+                                        {t('inbox.actions.takeOver')}
                                     </Button>
                                 ) : (
                                     <Button
@@ -1275,7 +1275,7 @@ export default function InboxPage() {
                                         onClick={() => updateConversation(selectedConversation.id, { action: 'transferToBot' })}
                                     >
                                         <Bot className="h-3.5 w-3.5" />
-                                        Transfer to Bot
+                                        {t('inbox.actions.transferToBot')}
                                     </Button>
                                 )}
                                 <Button
@@ -1286,7 +1286,7 @@ export default function InboxPage() {
                                     onClick={() => updateConversation(selectedConversation.id, { status: 'done' })}
                                 >
                                     <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Resolve
+                                    {t('inbox.actions.resolve')}
                                 </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -1300,32 +1300,32 @@ export default function InboxPage() {
                                             onClick={() => updateConversation(selectedConversation.id, { status: 'archived' })}
                                         >
                                             <Archive className="h-3.5 w-3.5 mr-2" />
-                                            Archive
+                                            {t('inbox.actions.archive')}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem className="text-xs cursor-pointer">
                                             <Sparkles className="h-3.5 w-3.5 mr-2" />
-                                            AI Summary
+                                            {t('inbox.actions.aiSummary')}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="text-xs cursor-pointer text-red-500 focus:text-red-500"
                                             onClick={async () => {
-                                                if (!window.confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return
+                                                if (!window.confirm(t('inbox.actions.deleteConfirm'))) return
                                                 try {
                                                     const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}`, { method: 'DELETE' })
                                                     if (res.ok) {
                                                         setConversations(prev => prev.filter(c => c.id !== selectedConversation.id))
                                                         setSelectedConversation(null)
-                                                        toast.success('Conversation deleted')
+                                                        toast.success(t('inbox.toast.conversationDeleted'))
                                                     } else {
-                                                        toast.error('Failed to delete')
+                                                        toast.error(t('inbox.toast.deleteFailed'))
                                                     }
                                                 } catch {
-                                                    toast.error('Failed to delete')
+                                                    toast.error(t('inbox.toast.deleteFailed'))
                                                 }
                                             }}
                                         >
                                             <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                            Delete
+                                            {t('inbox.actions.delete')}
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1337,7 +1337,7 @@ export default function InboxPage() {
                             <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2">
                                 <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                                 <p className="text-xs text-amber-700 dark:text-amber-300 flex-1">
-                                    <span className="font-semibold">Bot has escalated this conversation.</span> A human agent needs to take over and respond.
+                                    <span className="font-semibold">{t('inbox.escalation.botEscalated')}</span> {t('inbox.escalation.needsHumanAgent')}
                                 </p>
                                 <Button
                                     variant="outline"
@@ -1348,7 +1348,7 @@ export default function InboxPage() {
                                         replyInput?.focus()
                                     }}
                                 >
-                                    Reply Now
+                                    {t('inbox.escalation.replyNow')}
                                 </Button>
                             </div>
                         )}
@@ -1359,14 +1359,14 @@ export default function InboxPage() {
                                 <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
                                     <div className="p-3">
                                         <div className="flex items-center gap-1.5 mb-1.5">
-                                            <span className="text-[10px] font-medium text-blue-400/80">📄 Original Post</span>
+                                            <span className="text-[10px] font-medium text-blue-400/80">{t('inbox.postPreview.originalPost')}</span>
                                             <a
                                                 href={(selectedConversation.metadata as any).postPermalink || '#'}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-[10px] text-muted-foreground hover:text-blue-400 transition-colors"
                                             >
-                                                • Click to view on Facebook
+                                                {t('inbox.postPreview.viewOnFacebook')}
                                             </a>
                                         </div>
                                         {(selectedConversation.metadata as any).postContent && (
@@ -1382,7 +1382,7 @@ export default function InboxPage() {
                                                         onClick={() => setPostExpanded(!postExpanded)}
                                                         className="text-[10px] text-blue-400 hover:text-blue-300 font-medium mt-1 cursor-pointer"
                                                     >
-                                                        {postExpanded ? 'See less' : 'See more'}
+                                                        {postExpanded ? t('inbox.postPreview.seeLess') : t('inbox.postPreview.seeMore')}
                                                     </button>
                                                 )}
                                             </div>
@@ -1434,7 +1434,7 @@ export default function InboxPage() {
                                 </div>
                             ) : messages.length === 0 ? (
                                 <div className="flex items-center justify-center h-32">
-                                    <p className="text-xs text-muted-foreground">No messages yet</p>
+                                    <p className="text-xs text-muted-foreground">{t('inbox.chat.noMessagesYet')}</p>
                                 </div>
                             ) : selectedConversation?.type === 'comment' ? (
                                 /* ═══ Facebook-style threaded comment thread ═══ */
@@ -1447,7 +1447,7 @@ export default function InboxPage() {
                                         // Resolve sender info with fallback for old messages
                                         const senderName = msg.senderName
                                             || (msg.direction === 'inbound' ? selectedConversation.externalUserName : null)
-                                            || 'User'
+                                            || t('inbox.chat.user')
                                         const senderAvatar = msg.senderAvatar
                                             || (msg.direction === 'inbound' ? selectedConversation.externalUserAvatar : null)
                                             || null
@@ -1542,13 +1542,13 @@ export default function InboxPage() {
                                                                             })
                                                                             if (res.ok) {
                                                                                 setLikedCommentIds(prev => new Set(prev).add(msg.externalId!))
-                                                                                toast.success('👍 Liked!')
+                                                                                toast.success(t('inbox.toast.liked'))
                                                                             } else {
                                                                                 const data = await res.json()
-                                                                                toast.error(data.error || 'Failed to like')
+                                                                                toast.error(data.error || t('inbox.toast.likeFailed'))
                                                                             }
                                                                         } catch {
-                                                                            toast.error('Failed to like')
+                                                                            toast.error(t('inbox.toast.likeFailed'))
                                                                         }
                                                                     }}
                                                                 >
@@ -1568,15 +1568,15 @@ export default function InboxPage() {
                                                                                 body: JSON.stringify({ commentExternalId: msg.externalId, message: privateMsg.trim() }),
                                                                             })
                                                                             if (res.ok) {
-                                                                                toast.success('📩 Private reply sent!')
+                                                                                toast.success(t('inbox.toast.privateReplySent'))
                                                                                 // Refresh messages to show the private reply
                                                                                 fetchMessages(selectedConversation.id)
                                                                             } else {
                                                                                 const data = await res.json()
-                                                                                toast.error(data.error || 'Failed to send private reply')
+                                                                                toast.error(data.error || t('inbox.toast.privateReplyFailed'))
                                                                             }
                                                                         } catch {
-                                                                            toast.error('Failed to send private reply')
+                                                                            toast.error(t('inbox.toast.privateReplyFailed'))
                                                                         }
                                                                     }}
                                                                 >
@@ -1609,7 +1609,7 @@ export default function InboxPage() {
                                                                 </button>
                                                             )}
                                                             <span className="text-[10px] text-muted-foreground/60">
-                                                                {timeAgo(msg.sentAt)}
+                                                                {timeAgo(msg.sentAt, t)}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1697,7 +1697,7 @@ export default function InboxPage() {
                                 <div className="flex items-center gap-2 mb-2 px-1">
                                     <Reply className="h-3 w-3 text-muted-foreground rotate-180" />
                                     <span className="text-[11px] text-muted-foreground">
-                                        Replying to <strong className="text-foreground">{replyToName}</strong>
+                                        {t('inbox.chat.replyingTo')} <strong className="text-foreground">{replyToName}</strong>
                                     </span>
                                     <button
                                         onClick={() => setReplyToName(null)}
@@ -1734,13 +1734,13 @@ export default function InboxPage() {
                                         if (file && file.type.startsWith('image/')) {
                                             setSelectedImage(file)
                                         } else if (file) {
-                                            toast.error('Only images are supported for Facebook')
+                                            toast.error(t('inbox.toast.onlyImages'))
                                         }
                                     }}
                                 >
                                     {dragOver && (
                                         <div className="absolute inset-0 z-10 rounded-xl border-2 border-dashed border-primary bg-primary/5 flex items-center justify-center pointer-events-none">
-                                            <span className="text-xs font-medium text-primary">📷 Drop image here</span>
+                                            <span className="text-xs font-medium text-primary">{t('inbox.chat.dropImageHere')}</span>
                                         </div>
                                     )}
                                     <textarea
@@ -1753,7 +1753,7 @@ export default function InboxPage() {
                                                 handleSendReply()
                                             }
                                         }}
-                                        placeholder={selectedConversation.mode === 'BOT' ? 'Take over to reply...' : 'Type your reply... (Enter to send)'}
+                                        placeholder={selectedConversation.mode === 'BOT' ? t('inbox.chat.takeOverToReply') : t('inbox.chat.typeReply')}
                                         disabled={selectedConversation.mode === 'BOT'}
                                         rows={2}
                                         className="w-full resize-none rounded-xl border bg-background px-3.5 py-2.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1770,7 +1770,7 @@ export default function InboxPage() {
                                                 variant="ghost"
                                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                                                 disabled={selectedConversation.mode === 'BOT'}
-                                                title="Emoji"
+                                                title={t('inbox.chat.emoji')}
                                                 onClick={() => setShowEmojiPicker(p => !p)}
                                             >
                                                 <Smile className="h-4 w-4" />
@@ -1801,7 +1801,7 @@ export default function InboxPage() {
                                                 'inline-flex items-center justify-center h-7 w-7 rounded-md cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors',
                                                 selectedConversation.mode === 'BOT' && 'opacity-50 pointer-events-none'
                                             )}
-                                            title="Upload Image (drag & drop supported)"
+                                            title={t('inbox.chat.uploadImage')}
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>
                                             <input
@@ -1825,7 +1825,7 @@ export default function InboxPage() {
                                             variant="ghost"
                                             className="h-7 px-2 gap-1 text-muted-foreground hover:text-amber-500 text-[11px]"
                                             disabled={selectedConversation.mode === 'BOT' || aiSuggesting}
-                                            title="AI Suggest Reply"
+                                            title={t('inbox.chat.aiSuggestReply')}
                                             onClick={async () => {
                                                 setAiSuggesting(true)
                                                 try {
@@ -1835,13 +1835,13 @@ export default function InboxPage() {
                                                     if (res.ok) {
                                                         const data = await res.json()
                                                         setReplyText(data.suggestion)
-                                                        toast.success('✨ AI suggestion ready')
+                                                        toast.success(t('inbox.toast.aiSuggestionReady'))
                                                     } else {
                                                         const data = await res.json()
-                                                        toast.error(data.error || 'AI suggest failed')
+                                                        toast.error(data.error || t('inbox.toast.aiSuggestFailed'))
                                                     }
                                                 } catch {
-                                                    toast.error('AI suggest failed')
+                                                    toast.error(t('inbox.toast.aiSuggestFailed'))
                                                 } finally {
                                                     setAiSuggesting(false)
                                                 }
@@ -1865,7 +1865,7 @@ export default function InboxPage() {
                                                 className="h-7 px-2 gap-1 text-[11px] text-muted-foreground hover:text-blue-500"
                                                 disabled={updatingConv}
                                                 onClick={() => updateConversation(selectedConversation.id, { action: 'takeover' })}
-                                                title="Take over from Bot"
+                                                title={t('inbox.chat.takeOverFromBot')}
                                             >
                                                 <UserCircle className="h-3.5 w-3.5" />
                                                 Agent
@@ -1877,7 +1877,7 @@ export default function InboxPage() {
                                                 className="h-7 px-2 gap-1 text-[11px] text-muted-foreground hover:text-green-500"
                                                 disabled={updatingConv}
                                                 onClick={() => updateConversation(selectedConversation.id, { action: 'transfer_bot' })}
-                                                title="Transfer to Bot"
+                                                title={t('inbox.chat.transferToBotTitle')}
                                             >
                                                 <Bot className="h-3.5 w-3.5" />
                                                 Bot
@@ -1892,7 +1892,7 @@ export default function InboxPage() {
                                         onClick={handleSendReply}
                                     >
                                         <Send className="h-3.5 w-3.5" />
-                                        Send
+                                        {t('inbox.chat.send')}
                                     </Button>
                                 </div>
                             </div>
@@ -1903,8 +1903,8 @@ export default function InboxPage() {
                     <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
                             <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                            <h3 className="text-sm font-medium text-foreground mb-1">Select a conversation</h3>
-                            <p className="text-xs text-muted-foreground">Choose a conversation from the list to view details</p>
+                            <h3 className="text-sm font-medium text-foreground mb-1">{t('inbox.emptyState.selectConversation')}</h3>
+                            <p className="text-xs text-muted-foreground">{t('inbox.emptyState.selectConversationDesc')}</p>
                         </div>
                     </div>
                 )}

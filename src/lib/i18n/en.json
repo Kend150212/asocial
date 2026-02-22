@@ -997,5 +997,129 @@
             "videoEmpty": "No videos found in Media Library. Upload some first!",
             "videoSelected": "Video selected!"
         }
+    },
+    "inbox": {
+        "title": "Social Inbox",
+        "allChannels": "All Channels",
+        "sidebar": {
+            "expandSidebar": "Expand sidebar",
+            "collapseSidebar": "Collapse sidebar",
+            "status": "Status",
+            "platforms": "Platforms",
+            "clear": "Clear",
+            "noPlatforms": "No platforms connected",
+            "aiStats": "AI Stats",
+            "botActive": "{count} bot active",
+            "negative": "{count} negative",
+            "waiting": "{count} waiting",
+            "needsAgent": "{count} needs agent",
+            "aiSettings": "AI Settings",
+            "provider": "Provider",
+            "model": "Model",
+            "noAiKeys": "No AI keys configured.",
+            "setupApiKeys": "→ Set up API Keys",
+            "selectProvider": "Select provider...",
+            "loadingModels": "Loading models...",
+            "selectModel": "Select model...",
+            "saveAiSettings": "Save AI Settings",
+            "notification": "Notification",
+            "soundOn": "Sound On",
+            "soundOff": "Sound Off",
+            "active": "Active",
+            "muted": "Muted"
+        },
+        "filters": {
+            "unassigned": "Unassigned",
+            "assigned": "Assigned",
+            "mine": "Mine",
+            "resolved": "Resolved",
+            "archived": "Archived",
+            "all": "All"
+        },
+        "tabs": {
+            "all": "All",
+            "messages": "Messages",
+            "comments": "Comments",
+            "reviews": "Reviews"
+        },
+        "search": "Search conversations...",
+        "loading": "Loading...",
+        "noConversations": "No conversations yet",
+        "noConversationsDesc": "Conversations will appear here when customers message you via connected platforms",
+        "unknown": "Unknown",
+        "noMessages": "No messages",
+        "yesterday": "Yesterday",
+        "via": "via",
+        "typeMessage": "Message",
+        "typeComment": "Comment",
+        "typeReview": "Review",
+        "agentBadge": "Agent",
+        "header": {
+            "botActive": "Bot Active",
+            "needsAgent": "Needs Agent",
+            "buyIntent": "🛒 Buy intent",
+            "complaint": "⚠️ Complaint"
+        },
+        "actions": {
+            "takeOver": "Take Over",
+            "transferToBot": "Transfer to Bot",
+            "resolve": "Resolve",
+            "archive": "Archive",
+            "aiSummary": "AI Summary",
+            "delete": "Delete",
+            "deleteConfirm": "Are you sure you want to delete this conversation? This cannot be undone.",
+            "view": "View"
+        },
+        "escalation": {
+            "botEscalated": "Bot has escalated this conversation.",
+            "needsHumanAgent": "A human agent needs to take over and respond.",
+            "replyNow": "Reply Now"
+        },
+        "postPreview": {
+            "originalPost": "📄 Original Post",
+            "viewOnFacebook": "• Click to view on Facebook",
+            "seeMore": "See more",
+            "seeLess": "See less"
+        },
+        "chat": {
+            "noMessagesYet": "No messages yet",
+            "user": "User",
+            "aiBotLabel": "AI Bot",
+            "replyingTo": "Replying to",
+            "dropImageHere": "📷 Drop image here",
+            "takeOverToReply": "Take over to reply...",
+            "typeReply": "Type your reply... (Enter to send)",
+            "emoji": "Emoji",
+            "uploadImage": "Upload Image (drag & drop supported)",
+            "aiSuggestReply": "AI Suggest Reply",
+            "takeOverFromBot": "Take over from Bot",
+            "transferToBotTitle": "Transfer to Bot",
+            "send": "Send",
+            "likeComment": "Like",
+            "privateReply": "Private Reply"
+        },
+        "emptyState": {
+            "selectConversation": "Select a conversation",
+            "selectConversationDesc": "Choose a conversation from the list to view details"
+        },
+        "toast": {
+            "aiSettingsSaved": "AI settings saved",
+            "aiSettingsFailed": "Failed to save AI settings",
+            "networkError": "Network error",
+            "updated": "Updated",
+            "updateFailed": "Update failed",
+            "conversationDeleted": "Conversation deleted",
+            "deleteFailed": "Failed to delete",
+            "sendFailed": "Failed to send — message saved locally",
+            "sendNetworkError": "Network error — message saved locally",
+            "liked": "👍 Liked!",
+            "likeFailed": "Failed to like",
+            "privateReplySent": "📩 Private reply sent!",
+            "privateReplyFailed": "Failed to send private reply",
+            "onlyImages": "Only images are supported for Facebook",
+            "aiSuggestionReady": "✨ AI suggestion ready",
+            "aiSuggestFailed": "AI suggest failed",
+            "newMessage": "📬 New message"
+        }
     }
 }

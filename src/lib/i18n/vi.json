@@ -997,5 +997,129 @@
             "videoEmpty": "Không tìm thấy video. Hãy upload video trước!",
             "videoSelected": "Đã chọn video!"
         }
+    },
+    "inbox": {
+        "title": "Hộp thư xã hội",
+        "allChannels": "Tất cả kênh",
+        "sidebar": {
+            "expandSidebar": "Mở rộng thanh bên",
+            "collapseSidebar": "Thu gọn thanh bên",
+            "status": "Trạng thái",
+            "platforms": "Nền tảng",
+            "clear": "Xóa bộ lọc",
+            "noPlatforms": "Chưa kết nối nền tảng nào",
+            "aiStats": "Thống kê AI",
+            "botActive": "{count} bot đang hoạt động",
+            "negative": "{count} tiêu cực",
+            "waiting": "{count} đang chờ",
+            "needsAgent": "{count} cần agent",
+            "aiSettings": "Cài đặt AI",
+            "provider": "Nhà cung cấp",
+            "model": "Model",
+            "noAiKeys": "Chưa cấu hình AI key.",
+            "setupApiKeys": "→ Cài đặt API Keys",
+            "selectProvider": "Chọn nhà cung cấp...",
+            "loadingModels": "Đang tải models...",
+            "selectModel": "Chọn model...",
+            "saveAiSettings": "Lưu cài đặt AI",
+            "notification": "Thông báo",
+            "soundOn": "Bật âm thanh",
+            "soundOff": "Tắt âm thanh",
+            "active": "Đang bật",
+            "muted": "Đã tắt"
+        },
+        "filters": {
+            "unassigned": "Chưa phân công",
+            "assigned": "Đã phân công",
+            "mine": "Của tôi",
+            "resolved": "Đã xử lý",
+            "archived": "Lưu trữ",
+            "all": "Tất cả"
+        },
+        "tabs": {
+            "all": "Tất cả",
+            "messages": "Tin nhắn",
+            "comments": "Bình luận",
+            "reviews": "Đánh giá"
+        },
+        "search": "Tìm cuộc trò chuyện...",
+        "loading": "Đang tải...",
+        "noConversations": "Chưa có cuộc trò chuyện",
+        "noConversationsDesc": "Cuộc trò chuyện sẽ xuất hiện khi khách hàng nhắn tin qua các nền tảng đã kết nối",
+        "unknown": "Không rõ",
+        "noMessages": "Chưa có tin nhắn",
+        "yesterday": "Hôm qua",
+        "via": "qua",
+        "typeMessage": "Tin nhắn",
+        "typeComment": "Bình luận",
+        "typeReview": "Đánh giá",
+        "agentBadge": "Agent",
+        "header": {
+            "botActive": "Bot đang hoạt động",
+            "needsAgent": "Cần Agent",
+            "buyIntent": "🛒 Ý định mua",
+            "complaint": "⚠️ Khiếu nại"
+        },
+        "actions": {
+            "takeOver": "Tiếp nhận",
+            "transferToBot": "Chuyển cho Bot",
+            "resolve": "Hoàn tất",
+            "archive": "Lưu trữ",
+            "aiSummary": "Tóm tắt AI",
+            "delete": "Xóa",
+            "deleteConfirm": "Bạn có chắc muốn xóa cuộc trò chuyện này? Không thể hoàn tác.",
+            "view": "Xem"
+        },
+        "escalation": {
+            "botEscalated": "Bot đã chuyển tiếp cuộc trò chuyện này.",
+            "needsHumanAgent": "Cần nhân viên tiếp nhận và phản hồi.",
+            "replyNow": "Phản hồi ngay"
+        },
+        "postPreview": {
+            "originalPost": "📄 Bài viết gốc",
+            "viewOnFacebook": "• Nhấn để xem trên Facebook",
+            "seeMore": "Xem thêm",
+            "seeLess": "Thu gọn"
+        },
+        "chat": {
+            "noMessagesYet": "Chưa có tin nhắn",
+            "user": "Người dùng",
+            "aiBotLabel": "AI Bot",
+            "replyingTo": "Đang trả lời",
+            "dropImageHere": "📷 Thả ảnh vào đây",
+            "takeOverToReply": "Tiếp nhận để trả lời...",
+            "typeReply": "Nhập phản hồi... (Enter để gửi)",
+            "emoji": "Biểu tượng cảm xúc",
+            "uploadImage": "Tải ảnh lên (hỗ trợ kéo thả)",
+            "aiSuggestReply": "AI Gợi ý phản hồi",
+            "takeOverFromBot": "Tiếp nhận từ Bot",
+            "transferToBotTitle": "Chuyển cho Bot",
+            "send": "Gửi",
+            "likeComment": "Thích",
+            "privateReply": "Nhắn riêng"
+        },
+        "emptyState": {
+            "selectConversation": "Chọn cuộc trò chuyện",
+            "selectConversationDesc": "Chọn một cuộc trò chuyện từ danh sách để xem chi tiết"
+        },
+        "toast": {
+            "aiSettingsSaved": "Đã lưu cài đặt AI",
+            "aiSettingsFailed": "Lưu cài đặt AI thất bại",
+            "networkError": "Lỗi mạng",
+            "updated": "Đã cập nhật",
+            "updateFailed": "Cập nhật thất bại",
+            "conversationDeleted": "Đã xóa cuộc trò chuyện",
+            "deleteFailed": "Xóa thất bại",
+            "sendFailed": "Gửi thất bại — tin nhắn đã lưu tạm",
+            "sendNetworkError": "Lỗi mạng — tin nhắn đã lưu tạm",
+            "liked": "👍 Đã thích!",
+            "likeFailed": "Thích thất bại",
+            "privateReplySent": "📩 Đã gửi tin nhắn riêng!",
+            "privateReplyFailed": "Gửi tin nhắn riêng thất bại",
+            "onlyImages": "Facebook chỉ hỗ trợ hình ảnh",
+            "aiSuggestionReady": "✨ AI đã gợi ý xong",
+            "aiSuggestFailed": "Gợi ý AI thất bại",
+            "newMessage": "📬 Tin nhắn mới"
+        }
     }
 }
