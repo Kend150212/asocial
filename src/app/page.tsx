@@ -285,6 +285,9 @@ export default function LandingPage() {
                 {item}
               </a>
             ))}
+            <Link href="/privacy" className="text-sm text-gray-600 hover:text-indigo-600 font-medium transition-colors">
+              Privacy
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors hidden sm:block">
