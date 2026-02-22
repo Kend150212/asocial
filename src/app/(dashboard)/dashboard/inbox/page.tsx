@@ -46,6 +46,7 @@ import {
     Trash2,
     PanelLeftClose,
     PanelLeft,
+    AlertTriangle,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -748,6 +749,7 @@ export default function InboxPage() {
 
     // ─── AI stats ─────────────────────
     const botActive = conversations.filter(c => c.mode === 'BOT').length
+    const needsAgent = conversations.filter(c => c.mode === 'AGENT' && c.status !== 'done' && c.status !== 'archived').length
     const angryCount = conversations.filter(c => c.sentiment === 'negative').length
     const waitingCount = conversations.filter(c => c.status === 'new').length
 
@@ -1104,7 +1106,9 @@ export default function InboxPage() {
                                         'w-full flex gap-3 p-3 text-left transition-colors cursor-pointer',
                                         selectedConversation?.id === conv.id
                                             ? 'bg-primary/5 border-l-2 border-l-primary'
-                                            : 'hover:bg-accent/50 border-l-2 border-l-transparent'
+                                            : conv.mode === 'AGENT' && conv.status !== 'done' && conv.status !== 'archived'
+                                                ? 'hover:bg-amber-500/10 border-l-2 border-l-amber-500 bg-amber-500/5'
+                                                : 'hover:bg-accent/50 border-l-2 border-l-transparent'
                                     )}
                                 >
                                     {/* Avatar */}
@@ -1155,7 +1159,18 @@ export default function InboxPage() {
                                             </p>
                                             <div className="flex items-center gap-1 shrink-0">
                                                 {conv.mode === 'BOT' && <Bot className="h-3 w-3 text-green-500" />}
-                                                {conv.mode === 'AGENT' && <UserCircle className="h-3 w-3 text-blue-500" />}
+                                                {conv.mode === 'AGENT' && conv.status !== 'done' && conv.status !== 'archived' && (
+                                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                                        <span className="relative flex h-1.5 w-1.5">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
+                                                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                                        </span>
+                                                        <span className="text-[8px] font-bold uppercase tracking-wide">Agent</span>
+                                                    </span>
+                                                )}
+                                                {conv.mode === 'AGENT' && (conv.status === 'done' || conv.status === 'archived') && (
+                                                    <UserCircle className="h-3 w-3 text-blue-500" />
+                                                )}
                                                 {conv.unreadCount > 0 && (
                                                     <Badge className="h-4 min-w-[16px] px-1 text-[9px] bg-primary">
                                                         {conv.unreadCount}
@@ -1222,9 +1237,9 @@ export default function InboxPage() {
                                         </Badge>
                                     )}
                                     {selectedConversation.mode === 'AGENT' && (
-                                        <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-500/10">
-                                            <UserCircle className="h-2.5 w-2.5 mr-0.5" />
-                                            Agent
+                                        <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400">
+                                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                            Needs Agent
                                         </Badge>
                                     )}
                                     {selectedConversation.sentiment && (
@@ -1316,6 +1331,27 @@ export default function InboxPage() {
                                 </DropdownMenu>
                             </div>
                         </div>
+
+                        {/* Agent escalation alert banner */}
+                        {selectedConversation?.mode === 'AGENT' && selectedConversation.status !== 'done' && selectedConversation.status !== 'archived' && (
+                            <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2">
+                                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                                <p className="text-xs text-amber-700 dark:text-amber-300 flex-1">
+                                    <span className="font-semibold">Bot has escalated this conversation.</span> A human agent needs to take over and respond.
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-[10px] px-2 border-amber-400/50 text-amber-600 hover:bg-amber-500/20 shrink-0"
+                                    onClick={() => {
+                                        const replyInput = document.querySelector<HTMLInputElement>('[data-reply-input]')
+                                        replyInput?.focus()
+                                    }}
+                                >
+                                    Reply Now
+                                </Button>
+                            </div>
+                        )}
 
                         {/* Post preview for comment conversations */}
                         {selectedConversation?.type === 'comment' && selectedConversation.metadata && (
@@ -1708,6 +1744,7 @@ export default function InboxPage() {
                                         </div>
                                     )}
                                     <textarea
+                                        data-reply-input
                                         value={replyText}
                                         onChange={e => setReplyText(e.target.value)}
                                         onKeyDown={e => {
