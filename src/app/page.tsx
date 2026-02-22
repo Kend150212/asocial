@@ -713,8 +713,8 @@ export default function LandingPage() {
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
             <div>© {new Date().getFullYear()} NeeFlow — All rights reserved</div>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-gray-300 transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-gray-300 transition-colors">Terms of Service</a>
+              <a href="/privacy" className="hover:text-gray-300 transition-colors">Privacy Policy</a>
+              <a href="/terms" className="hover:text-gray-300 transition-colors">Terms of Service</a>
             </div>
           </div>
         </div>
