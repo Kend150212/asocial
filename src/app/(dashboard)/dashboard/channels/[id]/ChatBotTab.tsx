@@ -282,17 +282,14 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     // ─── Add training via Knowledge Base API ──────────────
     const addKnowledgeEntry = async (title: string, content: string, sourceType: string, sourceUrl?: string) => {
         try {
-            const res = await fetch(`/api/admin/channels/${channelId}`, {
-                method: 'PUT',
+            const res = await fetch(`/api/admin/channels/${channelId}/knowledge`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    knowledgeBase: [{
-                        action: 'add',
-                        title,
-                        content,
-                        sourceType,
-                        sourceUrl: sourceUrl || null,
-                    }],
+                    title,
+                    content,
+                    sourceType,
+                    sourceUrl: sourceUrl || null,
                 }),
             })
             if (res.ok) {
