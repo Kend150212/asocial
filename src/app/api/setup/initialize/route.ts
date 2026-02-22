@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
             // Use db push instead of migrate deploy — more forgiving,
             // doesn't fail on failed migration history (P3009)
             const migrateResult = await execAsync(
-                `DATABASE_URL="${databaseUrl}" npx prisma db push --skip-generate`,
+                `DATABASE_URL="${databaseUrl}" npx prisma db push --accept-data-loss`,
                 { cwd: projectDir, timeout: 60000 }
             )
             steps.push({ step: 'Database migration', status: 'success' })
