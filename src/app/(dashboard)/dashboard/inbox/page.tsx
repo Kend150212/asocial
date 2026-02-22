@@ -44,6 +44,8 @@ import {
     ChevronUp,
     Save,
     Trash2,
+    PanelLeftClose,
+    PanelLeft,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -247,6 +249,7 @@ export default function InboxPage() {
     // ─── State ────────────────────────
     const [statusFilter, setStatusFilter] = useState('all')
     const [activeTab, setActiveTab] = useState('messages')
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>([])
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
@@ -751,39 +754,58 @@ export default function InboxPage() {
     return (
         <div className="absolute inset-0 flex overflow-hidden">
             {/* ═══ LEFT SIDEBAR — Filters ═══ */}
-            <div className="w-[250px] border-r flex flex-col shrink-0 bg-card">
+            <div className={cn(
+                'border-r flex flex-col shrink-0 bg-card transition-all duration-200 overflow-hidden',
+                sidebarCollapsed ? 'w-[50px]' : 'w-[250px]'
+            )}>
                 {/* Channel indicator */}
                 <div className="p-3 border-b">
                     <div className="flex items-center gap-2 px-1">
-                        <Inbox className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-semibold">Social Inbox</span>
+                        <button
+                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            className="shrink-0 cursor-pointer hover:text-primary transition-colors"
+                            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            {sidebarCollapsed ? (
+                                <PanelLeft className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                            ) : (
+                                <PanelLeftClose className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                            )}
+                        </button>
+                        {!sidebarCollapsed && <span className="text-sm font-semibold whitespace-nowrap">Social Inbox</span>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground px-1 mt-1">
-                        {activeChannel?.displayName || 'All Channels'}
-                    </p>
+                    {!sidebarCollapsed && (
+                        <p className="text-[10px] text-muted-foreground px-1 mt-1 whitespace-nowrap">
+                            {activeChannel?.displayName || 'All Channels'}
+                        </p>
+                    )}
                 </div>
 
                 <ScrollArea className="flex-1">
                     {/* Status filters */}
                     <div className="p-2">
-                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Status
-                        </p>
+                        {!sidebarCollapsed && (
+                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Status
+                            </p>
+                        )}
                         <nav className="space-y-0.5 mt-1">
                             {statusFilterItems.map(f => (
                                 <button
                                     key={f.key}
                                     onClick={() => setStatusFilter(f.key)}
+                                    title={sidebarCollapsed ? f.label : undefined}
                                     className={cn(
-                                        'w-full flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-md transition-colors cursor-pointer',
+                                        'w-full flex items-center rounded-md transition-colors cursor-pointer',
+                                        sidebarCollapsed ? 'justify-center p-1.5' : 'gap-2.5 px-2.5 py-1.5 text-xs',
                                         statusFilter === f.key
                                             ? 'bg-primary/10 text-primary font-medium'
                                             : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                                     )}
                                 >
                                     <f.icon className="h-3.5 w-3.5 shrink-0" />
-                                    <span className="flex-1 text-left">{f.label}</span>
-                                    {(counts[f.key as keyof StatusCounts] ?? 0) > 0 && (
+                                    {!sidebarCollapsed && <span className="flex-1 text-left whitespace-nowrap">{f.label}</span>}
+                                    {!sidebarCollapsed && (counts[f.key as keyof StatusCounts] ?? 0) > 0 && (
                                         <Badge variant="secondary" className="h-4 min-w-[16px] px-1 text-[9px]">
                                             {counts[f.key as keyof StatusCounts]}
                                         </Badge>
@@ -793,211 +815,218 @@ export default function InboxPage() {
                         </nav>
                     </div>
 
-                    <Separator className="mx-2" />
+                    {!sidebarCollapsed && <Separator className="mx-2" />}
 
-                    {/* Platform / Account tree */}
-                    <div className="p-2">
-                        <div className="flex items-center justify-between px-2 py-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                Platforms
-                            </p>
-                            {selectedPlatformIds.length > 0 && (
-                                <button
-                                    onClick={() => setSelectedPlatformIds([])}
-                                    className="text-[9px] text-primary hover:underline cursor-pointer"
-                                >
-                                    Clear
-                                </button>
-                            )}
-                        </div>
-                        {Object.keys(platformTree).length === 0 ? (
-                            <p className="px-2.5 py-2 text-[11px] text-muted-foreground/60 italic">
-                                No platforms connected
-                            </p>
-                        ) : (
-                            <div className="space-y-1 mt-1">
-                                {Object.entries(platformTree).map(([platform, accounts]) => (
-                                    <div key={platform}>
-                                        <div className="w-full flex items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground">
-                                            <PlatformIcon platform={platform} size={16} />
-                                            <span className="font-medium">{platformConfig[platform]?.label || platform}</span>
-                                        </div>
-                                        {accounts.map(account => (
-                                            <button
-                                                key={account.id}
-                                                onClick={() => togglePlatformFilter(account.id)}
-                                                className={cn(
-                                                    'w-full flex items-center gap-2 pl-7 pr-2 py-1 text-[11px] rounded-md transition-colors cursor-pointer',
-                                                    selectedPlatformIds.includes(account.id)
-                                                        ? 'bg-primary/10 text-primary font-medium'
-                                                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                                                )}
-                                            >
-                                                <span className="flex-1 text-left text-wrap break-words">{account.accountName}</span>
-                                                {selectedPlatformIds.includes(account.id) && (
-                                                    <Check className="h-3 w-3 text-primary shrink-0" />
-                                                )}
-                                            </button>
+                    {!sidebarCollapsed && (
+                        <>
+                            <Separator className="mx-2" />
+
+                            {/* Platform / Account tree */}
+                            <div className="p-2">
+                                <div className="flex items-center justify-between px-2 py-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Platforms
+                                    </p>
+                                    {selectedPlatformIds.length > 0 && (
+                                        <button
+                                            onClick={() => setSelectedPlatformIds([])}
+                                            className="text-[9px] text-primary hover:underline cursor-pointer"
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                </div>
+                                {Object.keys(platformTree).length === 0 ? (
+                                    <p className="px-2.5 py-2 text-[11px] text-muted-foreground/60 italic">
+                                        No platforms connected
+                                    </p>
+                                ) : (
+                                    <div className="space-y-1 mt-1">
+                                        {Object.entries(platformTree).map(([platform, accounts]) => (
+                                            <div key={platform}>
+                                                <div className="w-full flex items-center gap-2 px-2.5 py-1 text-xs text-muted-foreground">
+                                                    <PlatformIcon platform={platform} size={16} />
+                                                    <span className="font-medium">{platformConfig[platform]?.label || platform}</span>
+                                                </div>
+                                                {accounts.map(account => (
+                                                    <button
+                                                        key={account.id}
+                                                        onClick={() => togglePlatformFilter(account.id)}
+                                                        className={cn(
+                                                            'w-full flex items-center gap-2 pl-7 pr-2 py-1 text-[11px] rounded-md transition-colors cursor-pointer',
+                                                            selectedPlatformIds.includes(account.id)
+                                                                ? 'bg-primary/10 text-primary font-medium'
+                                                                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                                        )}
+                                                    >
+                                                        <span className="flex-1 text-left text-wrap break-words">{account.accountName}</span>
+                                                        {selectedPlatformIds.includes(account.id) && (
+                                                            <Check className="h-3 w-3 text-primary shrink-0" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         ))}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <Separator className="mx-2" />
-
-                    {/* AI Quick Stats */}
-                    <div className="p-2">
-                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            AI Stats
-                        </p>
-                        <div className="space-y-1 mt-1 px-2.5">
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <Bot className="h-3.5 w-3.5 text-green-500" />
-                                <span>{botActive} bot active</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <Frown className="h-3.5 w-3.5 text-red-500" />
-                                <span>{angryCount} negative</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5 text-amber-500" />
-                                <span>{waitingCount} waiting</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator className="mx-2" />
-
-                    {/* AI Settings */}
-                    <div className="p-2">
-                        <button
-                            onClick={() => setShowAiSettings(!showAiSettings)}
-                            className="w-full flex items-center justify-between px-2 py-1 cursor-pointer"
-                        >
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                AI Settings
-                            </p>
-                            {showAiSettings ? (
-                                <ChevronUp className="h-3 w-3 text-muted-foreground" />
-                            ) : (
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            )}
-                        </button>
-                        {showAiSettings && (
-                            <div className="space-y-2 mt-2 px-1">
-                                {/* Provider — from user's API keys */}
-                                <div>
-                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Provider</label>
-                                    {userApiKeys.length === 0 ? (
-                                        <div className="mt-1 rounded-md bg-muted/50 border border-border p-2">
-                                            <p className="text-[10px] text-muted-foreground">No AI keys configured.</p>
-                                            <a href="/dashboard/api-keys" className="text-[10px] text-primary hover:underline">
-                                                → Set up API Keys
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        <select
-                                            value={aiProvider}
-                                            onChange={e => {
-                                                setAiProvider(e.target.value)
-                                                setAiModel('')
-                                            }}
-                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                        >
-                                            <option value="">Select provider...</option>
-                                            {userApiKeys.map(k => (
-                                                <option key={k.provider} value={k.provider}>
-                                                    {k.name || k.provider}
-                                                    {k.isDefault ? ' ★' : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                </div>
-
-                                {/* Model — fetched from user's API key */}
-                                {aiProvider && (
-                                    <div>
-                                        <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
-                                            Model
-                                            {loadingModels && <Loader2 className="inline h-2.5 w-2.5 animate-spin ml-1" />}
-                                        </label>
-                                        <select
-                                            value={aiModel}
-                                            onChange={e => setAiModel(e.target.value)}
-                                            disabled={loadingModels}
-                                            className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                                        >
-                                            <option value="">{loadingModels ? 'Loading models...' : 'Select model...'}</option>
-                                            {availableModels.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
                                 )}
+                            </div>
 
-                                {/* Save */}
-                                <Button
-                                    size="sm"
-                                    className="w-full h-7 text-[10px]"
-                                    onClick={saveAiSettings}
-                                    disabled={savingAi || !aiProvider}
+                            <Separator className="mx-2" />
+
+                            {/* AI Quick Stats */}
+                            <div className="p-2">
+                                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    AI Stats
+                                </p>
+                                <div className="space-y-1 mt-1 px-2.5">
+                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                        <Bot className="h-3.5 w-3.5 text-green-500" />
+                                        <span>{botActive} bot active</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                        <Frown className="h-3.5 w-3.5 text-red-500" />
+                                        <span>{angryCount} negative</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                        <Clock className="h-3.5 w-3.5 text-amber-500" />
+                                        <span>{waitingCount} waiting</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Separator className="mx-2" />
+
+                            {/* AI Settings */}
+                            <div className="p-2">
+                                <button
+                                    onClick={() => setShowAiSettings(!showAiSettings)}
+                                    className="w-full flex items-center justify-between px-2 py-1 cursor-pointer"
                                 >
-                                    {savingAi ? (
-                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        AI Settings
+                                    </p>
+                                    {showAiSettings ? (
+                                        <ChevronUp className="h-3 w-3 text-muted-foreground" />
                                     ) : (
-                                        <Save className="h-3 w-3 mr-1" />
+                                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
                                     )}
-                                    Save AI Settings
-                                </Button>
+                                </button>
+                                {showAiSettings && (
+                                    <div className="space-y-2 mt-2 px-1">
+                                        {/* Provider — from user's API keys */}
+                                        <div>
+                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Provider</label>
+                                            {userApiKeys.length === 0 ? (
+                                                <div className="mt-1 rounded-md bg-muted/50 border border-border p-2">
+                                                    <p className="text-[10px] text-muted-foreground">No AI keys configured.</p>
+                                                    <a href="/dashboard/api-keys" className="text-[10px] text-primary hover:underline">
+                                                        → Set up API Keys
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    value={aiProvider}
+                                                    onChange={e => {
+                                                        setAiProvider(e.target.value)
+                                                        setAiModel('')
+                                                    }}
+                                                    className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                >
+                                                    <option value="">Select provider...</option>
+                                                    {userApiKeys.map(k => (
+                                                        <option key={k.provider} value={k.provider}>
+                                                            {k.name || k.provider}
+                                                            {k.isDefault ? ' ★' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
 
-                                {/* Current config display */}
-                                {aiProvider && aiModel && (
-                                    <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
-                                        <p className="text-[9px] text-muted-foreground break-words">Provider: <span className="text-foreground font-medium">{userApiKeys.find(k => k.provider === aiProvider)?.name || aiProvider}</span></p>
-                                        <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{availableModels.find(m => m.id === aiModel)?.name || aiModel}</span></p>
+                                        {/* Model — fetched from user's API key */}
+                                        {aiProvider && (
+                                            <div>
+                                                <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
+                                                    Model
+                                                    {loadingModels && <Loader2 className="inline h-2.5 w-2.5 animate-spin ml-1" />}
+                                                </label>
+                                                <select
+                                                    value={aiModel}
+                                                    onChange={e => setAiModel(e.target.value)}
+                                                    disabled={loadingModels}
+                                                    className="w-full mt-0.5 h-7 px-2 text-[11px] rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                                                >
+                                                    <option value="">{loadingModels ? 'Loading models...' : 'Select model...'}</option>
+                                                    {availableModels.map(m => (
+                                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Save */}
+                                        <Button
+                                            size="sm"
+                                            className="w-full h-7 text-[10px]"
+                                            onClick={saveAiSettings}
+                                            disabled={savingAi || !aiProvider}
+                                        >
+                                            {savingAi ? (
+                                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                            ) : (
+                                                <Save className="h-3 w-3 mr-1" />
+                                            )}
+                                            Save AI Settings
+                                        </Button>
+
+                                        {/* Current config display */}
+                                        {aiProvider && aiModel && (
+                                            <div className="rounded-md bg-primary/5 border border-primary/10 p-2">
+                                                <p className="text-[9px] text-muted-foreground break-words">Provider: <span className="text-foreground font-medium">{userApiKeys.find(k => k.provider === aiProvider)?.name || aiProvider}</span></p>
+                                                <p className="text-[9px] text-muted-foreground break-words">Model: <span className="text-foreground font-medium">{availableModels.find(m => m.id === aiModel)?.name || aiModel}</span></p>
+                                            </div>
+                                        )}
+
+                                        <Separator className="my-1" />
+
+                                        {/* Notification Sound Toggle */}
+                                        <div>
+                                            <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Notification</label>
+                                            <button
+                                                onClick={toggleSoundMute}
+                                                className={cn(
+                                                    'w-full mt-1 flex items-center gap-2 px-2.5 py-2 rounded-md border transition-colors cursor-pointer',
+                                                    soundMuted
+                                                        ? 'border-border bg-muted/30 text-muted-foreground'
+                                                        : 'border-primary/30 bg-primary/5 text-foreground'
+                                                )}
+                                            >
+                                                {soundMuted ? (
+                                                    <VolumeX className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                ) : (
+                                                    <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                )}
+                                                <span className="text-[11px] flex-1 text-left">
+                                                    {soundMuted ? 'Sound Off' : 'Sound On'}
+                                                </span>
+                                                <span className={cn(
+                                                    'text-[9px] px-1.5 py-0.5 rounded-full font-medium',
+                                                    soundMuted
+                                                        ? 'bg-muted text-muted-foreground'
+                                                        : 'bg-primary/10 text-primary'
+                                                )}>
+                                                    {soundMuted ? 'Muted' : 'Active'}
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
-
-                                <Separator className="my-1" />
-
-                                {/* Notification Sound Toggle */}
-                                <div>
-                                    <label className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Notification</label>
-                                    <button
-                                        onClick={toggleSoundMute}
-                                        className={cn(
-                                            'w-full mt-1 flex items-center gap-2 px-2.5 py-2 rounded-md border transition-colors cursor-pointer',
-                                            soundMuted
-                                                ? 'border-border bg-muted/30 text-muted-foreground'
-                                                : 'border-primary/30 bg-primary/5 text-foreground'
-                                        )}
-                                    >
-                                        {soundMuted ? (
-                                            <VolumeX className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                        ) : (
-                                            <Volume2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                                        )}
-                                        <span className="text-[11px] flex-1 text-left">
-                                            {soundMuted ? 'Sound Off' : 'Sound On'}
-                                        </span>
-                                        <span className={cn(
-                                            'text-[9px] px-1.5 py-0.5 rounded-full font-medium',
-                                            soundMuted
-                                                ? 'bg-muted text-muted-foreground'
-                                                : 'bg-primary/10 text-primary'
-                                        )}>
-                                            {soundMuted ? 'Muted' : 'Active'}
-                                        </span>
-                                    </button>
-                                </div>
                             </div>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </ScrollArea>
             </div>
+
 
             {/* ═══ CENTER — Conversation List ═══ */}
             <div className="w-[320px] border-r flex flex-col shrink-0 bg-background">
