@@ -653,19 +653,21 @@ async function upsertConversation(opts: {
         }).catch(() => { }) // fire-and-forget
     }
 
-    // ─── Bot Auto-Reply (fire-and-forget) ─────────────────────
+    // ─── Bot Auto-Reply (awaited to ensure completion) ──────
     if (opts.direction === 'inbound' && conversation.mode === 'BOT') {
-        if (isNewConversation) {
-            // New conversation: send greeting first, then auto-reply
-            sendBotGreeting(conversation.id, opts.platform)
-                .then(() => botAutoReply(conversation.id, opts.content, opts.platform))
-                .then(r => console.log(`[Bot Auto-Reply] Result:`, r))
-                .catch(e => console.error(`[Bot Auto-Reply] ❌`, e))
-        } else {
-            // Existing conversation: just auto-reply
-            botAutoReply(conversation.id, opts.content, opts.platform)
-                .then(r => console.log(`[Bot Auto-Reply] Result:`, r))
-                .catch(e => console.error(`[Bot Auto-Reply] ❌`, e))
+        try {
+            if (isNewConversation) {
+                // New conversation: send greeting first, then auto-reply
+                await sendBotGreeting(conversation.id, opts.platform)
+                const r = await botAutoReply(conversation.id, opts.content, opts.platform)
+                console.log(`[Bot Auto-Reply] Result:`, r)
+            } else {
+                // Existing conversation: just auto-reply
+                const r = await botAutoReply(conversation.id, opts.content, opts.platform)
+                console.log(`[Bot Auto-Reply] Result:`, r)
+            }
+        } catch (e) {
+            console.error(`[Bot Auto-Reply] ❌`, e)
         }
     }
 }
