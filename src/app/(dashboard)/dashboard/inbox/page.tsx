@@ -1097,27 +1097,20 @@ export default function InboxPage() {
                                     </div>
 
                                     {/* Content */}
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 overflow-hidden">
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-xs font-semibold truncate flex-1">
+                                            <span className="text-xs font-semibold truncate">
                                                 {conv.externalUserName || 'Unknown'}
                                             </span>
-                                            {(conv.type || 'message') === 'message' && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500 font-bold uppercase tracking-wide shrink-0">
-                                                    Message
-                                                </span>
-                                            )}
-                                            {(conv.type || 'message') === 'comment' && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-500 font-bold uppercase tracking-wide shrink-0">
-                                                    Comment
-                                                </span>
-                                            )}
-                                            {(conv.type || 'message') === 'review' && (
-                                                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500 font-bold uppercase tracking-wide shrink-0">
-                                                    Review
-                                                </span>
-                                            )}
-                                            <span className="text-[10px] text-muted-foreground shrink-0">
+                                            <span className={cn(
+                                                "text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0 whitespace-nowrap",
+                                                (conv.type || 'message') === 'message' && 'bg-blue-500/15 text-blue-500',
+                                                (conv.type || 'message') === 'comment' && 'bg-orange-500/15 text-orange-500',
+                                                (conv.type || 'message') === 'review' && 'bg-purple-500/15 text-purple-500',
+                                            )}>
+                                                {(conv.type || 'message') === 'message' ? 'Message' : (conv.type || 'message') === 'comment' ? 'Comment' : 'Review'}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap ml-auto">
                                                 {conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}
                                             </span>
                                         </div>
