@@ -143,7 +143,6 @@ export async function GET(req: NextRequest) {
                     },
                     data: {
                         accessToken: page.access_token,
-                        isActive: true,
                     },
                 })
                 if (updated.count > 0) {

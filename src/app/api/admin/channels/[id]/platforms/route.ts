@@ -112,6 +112,31 @@ export async function DELETE(
         return NextResponse.json({ error: 'Platform ID is required' }, { status: 400 })
     }
 
+    // Fetch the record first so we can unsubscribe from webhooks
+    const platform = await prisma.channelPlatform.findUnique({
+        where: { id: platformId },
+        select: { accountId: true, accessToken: true, platform: true, accountName: true },
+    })
+
+    // Unsubscribe from Facebook/Instagram webhooks before deleting
+    if (platform?.accessToken && (platform.platform === 'facebook' || platform.platform === 'instagram')) {
+        try {
+            const unsubRes = await fetch(
+                `https://graph.facebook.com/v19.0/${platform.accountId}/subscribed_apps?access_token=${platform.accessToken}`,
+                { method: 'DELETE' }
+            )
+            const unsubData = await unsubRes.json()
+            if (unsubData.success) {
+                console.log(`[Platform Disconnect] 🔕 Webhook unsubscribed: ${platform.accountName} (${platform.accountId})`)
+            } else {
+                console.warn(`[Platform Disconnect] ⚠️ Webhook unsubscribe failed for ${platform.accountName}:`, JSON.stringify(unsubData))
+            }
+        } catch (err) {
+            console.error(`[Platform Disconnect] ❌ Webhook unsubscribe error for ${platform.accountName}:`, err)
+            // Continue with delete even if unsubscribe fails
+        }
+    }
+
     await prisma.channelPlatform.delete({ where: { id: platformId } })
 
     return NextResponse.json({ success: true })
