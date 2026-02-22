@@ -247,7 +247,7 @@ export async function botAutoReply(
         }
 
         const langLabel = channel.language === 'vi' ? 'Vietnamese' : channel.language === 'en' ? 'English' : channel.language || 'the same language the customer is using'
-        systemPrompt += `\n\n## Rules:\n- Reply in ${langLabel}\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, code blocks, or any structured format — reply with PLAIN TEXT ONLY\n- If you don't know the answer, say you'll connect them with a human agent`
+        systemPrompt += `\n\n## Rules:\n- Reply in ${langLabel}\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, arrays, code blocks, brackets, or any structured format\n- Do NOT use [ ] or { } in your response\n- Reply with PLAIN TEXT ONLY — no formatting wrappers\n- If you don't know the answer, say you'll connect them with a human agent`
 
         // ─── 10. Call AI ──────────────────────────────────────────
         const userPrompt = `Customer: ${conversation.externalUserName || 'Customer'}
@@ -255,13 +255,13 @@ export async function botAutoReply(
 Conversation history:
 ${messageHistory}
 
-Generate a reply:`
+Generate a reply (plain text only, no JSON, no brackets):`
 
         const rawReply = await callAI(provider, apiKey, model, systemPrompt, userPrompt)
         let cleanReply = rawReply.trim()
 
         // AI sometimes wraps reply in JSON — extract text if so
-        if (cleanReply.startsWith('{') || cleanReply.startsWith('```')) {
+        if (cleanReply.startsWith('{') || cleanReply.startsWith('[') || cleanReply.startsWith('```')) {
             try {
                 // Strip markdown code fences if present
                 let jsonStr = cleanReply
@@ -273,16 +273,31 @@ Generate a reply:`
                 // Fix unquoted string keys
                 jsonStr = jsonStr.replace(/(?<=\{|,)\s*(\w+)\s*:/g, '"$1":')
                 const parsed = JSON.parse(jsonStr)
-                // Try common keys: reply, response, message, text, content, answer
-                cleanReply = parsed.reply || parsed.response || parsed.message
-                    || parsed.text || parsed.content || parsed.answer
-                    || cleanReply // fallback to original if no known key
+                // Handle JSON array: ["reply text"] or ["text1", "text2"]
+                if (Array.isArray(parsed)) {
+                    const textItems = parsed.filter((item: any) => typeof item === 'string')
+                    if (textItems.length > 0) {
+                        cleanReply = textItems.join('\n')
+                    }
+                } else {
+                    // Try common keys: reply, response, message, text, content, answer
+                    cleanReply = parsed.reply || parsed.response || parsed.message
+                        || parsed.text || parsed.content || parsed.answer
+                        || cleanReply // fallback to original if no known key
+                }
             } catch {
                 // JSON.parse failed — try regex extraction as last resort
                 const valueMatch = cleanReply.match(/(?:reply|response|message|text|content|answer)["*]*\s*:\s*"([^"]+)"/i)
                     || cleanReply.match(/(?:reply|response|message|text|content|answer)["*]*\s*:\s*"([\s\S]+?)"\s*\}?$/i)
                 if (valueMatch?.[1]) {
                     cleanReply = valueMatch[1]
+                }
+                // Also try extracting from array-like pattern: ["text"]
+                if (!valueMatch) {
+                    const arrayMatch = cleanReply.match(/^\[\s*"([\s\S]+?)"\s*\]$/)
+                    if (arrayMatch?.[1]) {
+                        cleanReply = arrayMatch[1]
+                    }
                 }
             }
         }
