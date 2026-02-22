@@ -201,7 +201,7 @@ export function Sidebar({ session }: { session: Session }) {
             <Separator />
 
             {/* Navigation */}
-            <ScrollArea className="flex-1 py-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain py-4">
                 <nav className="space-y-1 px-3">
                     {mainNav.map((item) => (
                         <Link
@@ -254,7 +254,7 @@ export function Sidebar({ session }: { session: Session }) {
                         </div>
                     </>
                 )}
-            </ScrollArea>
+            </div>
 
             <Separator />
 
