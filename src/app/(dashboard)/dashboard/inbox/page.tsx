@@ -486,7 +486,7 @@ export default function InboxPage() {
             } catch {
                 // Silently ignore polling errors
             }
-        }, 10000) // Every 10 seconds
+        }, 3000) // Every 3 seconds
 
         // Initial unread count
         prevUnreadRef.current = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)

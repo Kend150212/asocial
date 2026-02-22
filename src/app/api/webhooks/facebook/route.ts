@@ -332,6 +332,27 @@ async function upsertConversation(opts: {
 
     if (!conversation) {
         isNewConversation = true
+
+        // Determine conversation mode: BOT only if both channel bot AND page bot are enabled
+        let convMode: 'BOT' | 'HUMAN' = 'BOT'
+        const platformAccount = await prisma.channelPlatform.findUnique({
+            where: { id: opts.platformAccountId },
+            select: { config: true },
+        })
+        const pageConfig = (platformAccount?.config as any) || {}
+        if (pageConfig.botEnabled === false) {
+            convMode = 'HUMAN' // Page has bot explicitly disabled
+        } else {
+            // Also check channel-level BotConfig
+            const botConfig = await prisma.botConfig.findUnique({
+                where: { channelId: opts.channelId },
+                select: { isEnabled: true },
+            })
+            if (botConfig && !botConfig.isEnabled) {
+                convMode = 'HUMAN' // Channel bot is disabled
+            }
+        }
+
         conversation = await prisma.conversation.create({
             data: {
                 channelId: opts.channelId,
@@ -341,7 +362,7 @@ async function upsertConversation(opts: {
                 externalUserName: opts.externalUserName || opts.externalUserId,
                 externalUserAvatar: opts.externalUserAvatar || null,
                 status: 'new',
-                mode: 'BOT',
+                mode: convMode,
                 type: opts.type || 'message',
                 metadata: opts.metadata || null,
                 unreadCount: 1,
@@ -349,7 +370,7 @@ async function upsertConversation(opts: {
                 tags: [],
             },
         })
-        console.log(`[FB Webhook] 🆕 New conversation: ${opts.externalUserName || opts.externalUserId}`)
+        console.log(`[FB Webhook] 🆕 New conversation: ${opts.externalUserName || opts.externalUserId} (mode: ${convMode})`)
     } else {
         // Update existing conversation
         const updateData: any = {

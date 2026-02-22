@@ -96,6 +96,9 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     const [dragOver, setDragOver] = useState<string | null>(null)
     const [generatingQa, setGeneratingQa] = useState(false)
 
+    // Per-page bot toggle
+    const [pageAccounts, setPageAccounts] = useState<{ id: string; accountName: string; platform: string; botEnabled: boolean }[]>([])
+
     // ─── Upload helper ────────────────────────────────────
     const uploadFiles = async (files: FileList | File[], targetFolderId?: string): Promise<string[]> => {
         const urls: string[] = []
@@ -229,6 +232,21 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                     })
                 }
             } catch { /* ignore */ }
+
+            // Fetch connected pages for per-page bot toggles
+            try {
+                const pagesRes = await fetch(`/api/admin/channels/${channelId}/platforms`)
+                if (pagesRes.ok) {
+                    const pagesData = await pagesRes.json()
+                    setPageAccounts((pagesData || []).map((p: any) => ({
+                        id: p.id,
+                        accountName: p.accountName,
+                        platform: p.platform,
+                        botEnabled: (p.config as any)?.botEnabled !== false,
+                    })))
+                }
+            } catch { /* ignore */ }
+
             setLoading(false)
         }
         fetchConfig()
@@ -330,6 +348,54 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         <p className="text-sm text-yellow-700 dark:text-yellow-400">
                             ⚠️ {t('chatbot.botDisabled')}
                         </p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Per-page bot toggles */}
+            {config.isEnabled && pageAccounts.length > 0 && (
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                            <Target className="h-4 w-4 text-blue-500" />
+                            {t('chatbot.perPageBotTitle') || 'Bot per Page'}
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                            {t('chatbot.perPageBotDesc') || 'Enable or disable the bot for each connected page'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        {pageAccounts.map(page => (
+                            <div key={page.id} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/40">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xs">
+                                        {page.platform === 'facebook' ? '📘' : page.platform === 'instagram' ? '📸' : '🔗'}
+                                    </span>
+                                    <span className="text-sm truncate">{page.accountName}</span>
+                                </div>
+                                <Switch
+                                    checked={page.botEnabled}
+                                    onCheckedChange={async (v) => {
+                                        setPageAccounts(prev => prev.map(p =>
+                                            p.id === page.id ? { ...p, botEnabled: v } : p
+                                        ))
+                                        try {
+                                            await fetch(`/api/admin/channels/${channelId}/platforms/${page.id}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ botEnabled: v }),
+                                            })
+                                            toast.success(v ? `Bot enabled for ${page.accountName}` : `Bot disabled for ${page.accountName}`)
+                                        } catch {
+                                            toast.error('Failed to update')
+                                            setPageAccounts(prev => prev.map(p =>
+                                                p.id === page.id ? { ...p, botEnabled: !v } : p
+                                            ))
+                                        }
+                                    }}
+                                />
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             )}
