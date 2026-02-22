@@ -31,9 +31,9 @@ export async function middleware(req: NextRequest) {
         req.cookies.has('authjs.session-token') ||
         req.cookies.has('next-auth.session-token')
 
-    // ── Redirect logged-in users away from public pages ───────────────
-    const isPublicPage = pathname === '/' || pathname === '/login'
-    if (isPublicPage && hasSession) {
+    // ── Redirect logged-in users away from /login only (not landing page) ─
+    const isAuthPage = pathname === '/login'
+    if (isAuthPage && hasSession) {
         return NextResponse.redirect(new URL('/choose', req.url))
     }
 
