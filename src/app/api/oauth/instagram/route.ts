@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     // instagram_content_publish = post to IG (Facebook Login scope)
     // pages_show_list = list Facebook pages (needed to find linked IG accounts)
     // pages_read_engagement = read page content
-    authUrl.searchParams.set('scope', 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement')
+    authUrl.searchParams.set('scope', 'instagram_basic,instagram_content_publish,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement')
     authUrl.searchParams.set('auth_type', 'rerequest')
     authUrl.searchParams.set('state', state)
 
