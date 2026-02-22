@@ -61,7 +61,7 @@ export async function PATCH(
     }
 
     // Handle "transfer to bot"
-    if (body.action === 'transferToBot') {
+    if (body.action === 'transferToBot' || body.action === 'transfer_bot') {
         data.mode = 'BOT'
         data.assignedTo = null
         data.status = 'new'

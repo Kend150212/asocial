@@ -68,19 +68,9 @@ export async function botAutoReply(
             return { replied: false, reason: 'Bot disabled' }
         }
 
-        // ─── 2b. Check per-page bot enabled ───────────────────────
-        // The same page can be in multiple channels — only reply if
-        // this channel's per-page toggle is ON for this platform account
-        if (conversation.platformAccountId) {
-            const platformAccount = await prisma.channelPlatform.findUnique({
-                where: { id: conversation.platformAccountId },
-                select: { config: true },
-            })
-            const pageConfig = (platformAccount?.config as any) || {}
-            if (pageConfig.botEnabled !== true) {
-                return { replied: false, reason: 'Bot disabled for this page in this channel' }
-            }
-        }
+        // Per-page toggle is checked only when creating NEW conversations
+        // (in upsertConversation). Here we trust conversation.mode — agents
+        // can manually transfer any conversation to BOT mode.
 
         // ─── 3. Working Hours Check ───────────────────────────────
         if (botConfig?.workingHoursOnly && botConfig.workingHoursStart && botConfig.workingHoursEnd) {
@@ -502,15 +492,9 @@ export async function sendBotGreeting(
 
         if (!botConfig?.isEnabled) return
 
-        // Check per-page bot enabled for this channel
-        if (conversation.platformAccountId) {
-            const platformAccount = await prisma.channelPlatform.findUnique({
-                where: { id: conversation.platformAccountId },
-                select: { config: true },
-            })
-            const pageConfig = (platformAccount?.config as any) || {}
-            if (pageConfig.botEnabled !== true) return
-        }
+        // Per-page toggle only controls default mode for NEW conversations.
+        // Greeting is only sent for NEW conversations, so per-page check is
+        // already handled by upsertConversation setting mode=AGENT.
 
         const greetingMode = (botConfig as any).greetingMode || 'template'
         const greetingImages = (botConfig.greetingImages as string[]) || []
