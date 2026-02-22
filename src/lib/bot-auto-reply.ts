@@ -247,7 +247,7 @@ export async function botAutoReply(
         }
 
         const langLabel = channel.language === 'vi' ? 'Vietnamese' : channel.language === 'en' ? 'English' : channel.language || 'the same language the customer is using'
-        systemPrompt += `\n\n## Rules:\n- Reply in ${langLabel}\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- If you don't know the answer, say you'll connect them with a human agent`
+        systemPrompt += `\n\n## Rules:\n- Reply in ${langLabel}\n- Be concise, friendly, and professional\n- Do NOT say you are an AI unless directly asked\n- Do NOT prefix your reply with "Bot:" or any label\n- NEVER wrap your reply in JSON, code blocks, or any structured format — reply with PLAIN TEXT ONLY\n- If you don't know the answer, say you'll connect them with a human agent`
 
         // ─── 10. Call AI ──────────────────────────────────────────
         const userPrompt = `Customer: ${conversation.externalUserName || 'Customer'}
@@ -268,13 +268,22 @@ Generate a reply:`
                     .replace(/^```(?:json)?\s*/i, '')
                     .replace(/\s*```$/i, '')
                     .trim()
+                // Fix malformed JSON: replace *key* or **key** with "key"
+                jsonStr = jsonStr.replace(/\*{1,2}(\w+)\*{1,2}\s*:/g, '"$1":')
+                // Fix unquoted string keys
+                jsonStr = jsonStr.replace(/(?<=\{|,)\s*(\w+)\s*:/g, '"$1":')
                 const parsed = JSON.parse(jsonStr)
                 // Try common keys: reply, response, message, text, content, answer
                 cleanReply = parsed.reply || parsed.response || parsed.message
                     || parsed.text || parsed.content || parsed.answer
                     || cleanReply // fallback to original if no known key
             } catch {
-                // Not valid JSON — use as-is
+                // JSON.parse failed — try regex extraction as last resort
+                const valueMatch = cleanReply.match(/(?:reply|response|message|text|content|answer)["*]*\s*:\s*"([^"]+)"/i)
+                    || cleanReply.match(/(?:reply|response|message|text|content|answer)["*]*\s*:\s*"([\s\S]+?)"\s*\}?$/i)
+                if (valueMatch?.[1]) {
+                    cleanReply = valueMatch[1]
+                }
             }
         }
         cleanReply = cleanReply.trim()
