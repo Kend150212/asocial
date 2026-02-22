@@ -513,11 +513,20 @@ Keep it short (1-2 sentences), warm, and professional. Reply with ONLY the greet
                         'You are a greeting message generator. Reply with ONLY the greeting text, no JSON, no quotes, no formatting.', prompt
                     )
                     greetingText = greetingText.trim()
-                    // Strip JSON wrapper if AI returns {"greeting": "..."} or similar
-                    if (greetingText.startsWith('{') && greetingText.endsWith('}')) {
+                    // Strip markdown code fences
+                    greetingText = greetingText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+                    // Strip JSON wrapper: {"greeting": "..."}, ["text1", "text2"], etc.
+                    if ((greetingText.startsWith('{') && greetingText.endsWith('}')) ||
+                        (greetingText.startsWith('[') && greetingText.endsWith(']'))) {
                         try {
                             const parsed = JSON.parse(greetingText)
-                            greetingText = parsed.greeting || parsed.message || parsed.text || Object.values(parsed)[0] as string || greetingText
+                            if (Array.isArray(parsed)) {
+                                // Take first string from array
+                                const first = parsed.find((item: any) => typeof item === 'string')
+                                if (first) greetingText = first
+                            } else if (typeof parsed === 'object') {
+                                greetingText = parsed.greeting || parsed.message || parsed.text || parsed.content || Object.values(parsed)[0] as string || greetingText
+                            }
                         } catch { /* not valid JSON, use as-is */ }
                     }
                     // Strip surrounding quotes
