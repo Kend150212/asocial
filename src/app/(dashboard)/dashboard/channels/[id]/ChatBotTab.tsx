@@ -57,6 +57,7 @@ interface BotConfigData {
     workingHoursOnly: boolean
     workingHoursStart: string | null
     workingHoursEnd: string | null
+    workingDays: Record<string, { enabled: boolean; start: string; end: string }>
     offHoursMessage: string | null
     trainingPairs: { q: string; a: string; images?: string[] }[]
     exampleConvos: string[]
@@ -234,6 +235,15 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         workingHoursOnly: data.workingHoursOnly ?? false,
                         workingHoursStart: data.workingHoursStart || null,
                         workingHoursEnd: data.workingHoursEnd || null,
+                        workingDays: data.workingDays || {
+                            mon: { enabled: true, start: '08:00', end: '22:00' },
+                            tue: { enabled: true, start: '08:00', end: '22:00' },
+                            wed: { enabled: true, start: '08:00', end: '22:00' },
+                            thu: { enabled: true, start: '08:00', end: '22:00' },
+                            fri: { enabled: true, start: '08:00', end: '22:00' },
+                            sat: { enabled: false, start: '08:00', end: '22:00' },
+                            sun: { enabled: false, start: '08:00', end: '22:00' },
+                        },
                         offHoursMessage: data.offHoursMessage || null,
                         trainingPairs: data.trainingPairs || [],
                         exampleConvos: data.exampleConvos || [],
@@ -1285,24 +1295,57 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
 
                     {config.workingHoursOnly && (
                         <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-xs">{t('chatbot.hours.startTime')}</Label>
-                                    <Input
-                                        type="time"
-                                        value={config.workingHoursStart || '08:00'}
-                                        onChange={e => update('workingHoursStart', e.target.value)}
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="text-xs">{t('chatbot.hours.endTime')}</Label>
-                                    <Input
-                                        type="time"
-                                        value={config.workingHoursEnd || '22:00'}
-                                        onChange={e => update('workingHoursEnd', e.target.value)}
-                                        className="mt-1"
-                                    />
+                            <div className="space-y-2">
+                                <Label className="text-xs font-medium">Weekly Schedule</Label>
+                                <div className="space-y-1">
+                                    {[
+                                        { key: 'mon', label: 'Monday' },
+                                        { key: 'tue', label: 'Tuesday' },
+                                        { key: 'wed', label: 'Wednesday' },
+                                        { key: 'thu', label: 'Thursday' },
+                                        { key: 'fri', label: 'Friday' },
+                                        { key: 'sat', label: 'Saturday' },
+                                        { key: 'sun', label: 'Sunday' },
+                                    ].map(day => {
+                                        const dayConfig = config.workingDays[day.key] || { enabled: true, start: '08:00', end: '22:00' }
+                                        return (
+                                            <div key={day.key} className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${dayConfig.enabled ? 'bg-muted/40' : 'bg-muted/10 opacity-60'}`}>
+                                                <Switch
+                                                    checked={dayConfig.enabled}
+                                                    onCheckedChange={v => {
+                                                        const updated = { ...config.workingDays, [day.key]: { ...dayConfig, enabled: v } }
+                                                        update('workingDays', updated)
+                                                    }}
+                                                />
+                                                <span className={`text-xs w-20 ${dayConfig.enabled ? 'font-medium' : 'text-muted-foreground'}`}>{day.label}</span>
+                                                {dayConfig.enabled ? (
+                                                    <div className="flex items-center gap-2 ml-auto">
+                                                        <Input
+                                                            type="time"
+                                                            value={dayConfig.start}
+                                                            onChange={e => {
+                                                                const updated = { ...config.workingDays, [day.key]: { ...dayConfig, start: e.target.value } }
+                                                                update('workingDays', updated)
+                                                            }}
+                                                            className="h-7 w-28 text-xs"
+                                                        />
+                                                        <span className="text-[10px] text-muted-foreground">to</span>
+                                                        <Input
+                                                            type="time"
+                                                            value={dayConfig.end}
+                                                            onChange={e => {
+                                                                const updated = { ...config.workingDays, [day.key]: { ...dayConfig, end: e.target.value } }
+                                                                update('workingDays', updated)
+                                                            }}
+                                                            className="h-7 w-28 text-xs"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground ml-auto italic">Bot off</span>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                             <div>
