@@ -137,8 +137,7 @@ export function Sidebar({ session }: { session: Session }) {
             {/* Header */}
             <div className="flex h-16 items-center justify-between px-4">
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <NextImage src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-lg" unoptimized />
-                    <span className="text-lg font-bold tracking-tight">{branding.appName}</span>
+                    <NextImage src={branding.logoUrl} alt={branding.appName} width={120} height={32} className="object-contain" unoptimized />
                 </Link>
                 {onClose ? (
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>

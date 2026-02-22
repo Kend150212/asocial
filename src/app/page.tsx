@@ -276,9 +276,8 @@ export default function LandingPage() {
       {/* ── NAVBAR ──────────────────────────────────────────────────── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrollY > 60 ? 'glass border-b border-gray-100 shadow-sm' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="NeeFlow Logo" width={32} height={32} className="rounded-lg" />
-            <span className="text-xl font-800 text-gray-900 font-extrabold tracking-tight">NeeFlow</span>
+          <div className="flex items-center">
+            <Image src="/logo.png" alt="NeeFlow" width={130} height={36} className="object-contain" />
           </div>
           <div className="hidden md:flex items-center gap-8">
             {['Features', 'How It Works', 'Pricing'].map((item) => (
@@ -644,9 +643,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-10 mb-12">
             {/* Brand */}
             <div className="col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg" />
-                <span className="text-lg font-extrabold text-white">NeeFlow</span>
+              <div className="flex items-center mb-4">
+                <Image src="/logo.png" alt="NeeFlow" width={130} height={36} className="object-contain brightness-0 invert" />
               </div>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
                 The AI-powered social media management platform for modern agencies and brands.
