@@ -31,6 +31,10 @@ interface MediaItem {
     id: string; url: string; thumbnailUrl?: string | null
     originalName?: string | null; type: string
 }
+interface KnowledgeEntry {
+    id: string; title: string; sourceType: string; sourceUrl?: string | null
+    content: string; createdAt: string
+}
 interface BotConfigData {
     isEnabled: boolean
     botName: string
@@ -95,6 +99,9 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     const videoDropRef = useRef<HTMLDivElement>(null)
     const [dragOver, setDragOver] = useState<string | null>(null)
     const [generatingQa, setGeneratingQa] = useState(false)
+
+    // Knowledge base entries
+    const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([])
 
     // Per-page bot toggle
     const [pageAccounts, setPageAccounts] = useState<{ id: string; accountName: string; platform: string; botEnabled: boolean }[]>([])
@@ -247,6 +254,15 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                 }
             } catch { /* ignore */ }
 
+            // Fetch knowledge base entries
+            try {
+                const kbRes = await fetch(`/api/admin/channels/${channelId}/knowledge`)
+                if (kbRes.ok) {
+                    const kbData = await kbRes.json()
+                    setKnowledgeEntries(kbData || [])
+                }
+            } catch { /* ignore */ }
+
             setLoading(false)
         }
         fetchConfig()
@@ -280,6 +296,16 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     }
 
     // ─── Add training via Knowledge Base API ──────────────
+    const refreshKnowledgeEntries = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/admin/channels/${channelId}/knowledge`)
+            if (res.ok) {
+                const data = await res.json()
+                setKnowledgeEntries(data || [])
+            }
+        } catch { /* ignore */ }
+    }, [channelId])
+
     const addKnowledgeEntry = async (title: string, content: string, sourceType: string, sourceUrl?: string) => {
         try {
             const res = await fetch(`/api/admin/channels/${channelId}/knowledge`, {
@@ -294,8 +320,25 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
             })
             if (res.ok) {
                 toast.success(`Training data added: ${title}`)
+                refreshKnowledgeEntries()
             } else {
                 toast.error('Failed to add training data')
+            }
+        } catch {
+            toast.error('Network error')
+        }
+    }
+
+    const deleteKnowledgeEntry = async (entryId: string) => {
+        try {
+            const res = await fetch(`/api/admin/channels/${channelId}/knowledge?entryId=${entryId}`, {
+                method: 'DELETE',
+            })
+            if (res.ok) {
+                setKnowledgeEntries(prev => prev.filter(e => e.id !== entryId))
+                toast.success('Training entry deleted')
+            } else {
+                toast.error('Failed to delete')
             }
         } catch {
             toast.error('Network error')
@@ -553,6 +596,53 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-6 pb-4">
+
+                        {/* ── Saved Knowledge Entries ── */}
+                        {knowledgeEntries.length > 0 && (
+                            <Card>
+                                <CardHeader className="py-3 px-4">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <Check className="h-4 w-4 text-green-500" />
+                                        Saved Training Data
+                                        <Badge variant="secondary" className="text-[9px]">{knowledgeEntries.length}</Badge>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-3">
+                                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                                        {knowledgeEntries.map(entry => (
+                                            <div key={entry.id} className="flex items-start gap-2 p-2 bg-muted/50 rounded-md group">
+                                                <div className="flex-shrink-0 mt-0.5">
+                                                    {entry.sourceType === 'url' ? (
+                                                        <LinkIcon className="h-3.5 w-3.5 text-green-500" />
+                                                    ) : entry.sourceType === 'google_sheet' ? (
+                                                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />
+                                                    ) : (
+                                                        <FileText className="h-3.5 w-3.5 text-blue-500" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium truncate">{entry.title}</p>
+                                                    <p className="text-[10px] text-muted-foreground line-clamp-2">
+                                                        {entry.content.substring(0, 150)}{entry.content.length > 150 ? '...' : ''}
+                                                    </p>
+                                                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                                        {new Date(entry.createdAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    size="sm" variant="ghost"
+                                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                                    onClick={() => deleteKnowledgeEntry(entry.id)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
 
                         {/* ── Text Training ── */}
                         <Card>
