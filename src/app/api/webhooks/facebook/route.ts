@@ -229,10 +229,11 @@ async function handleInstagramMessaging(igAccountId: string, event: any) {
     const recipientId = event.recipient?.id
     if (!senderId || !recipientId) return
 
-    // Echo handling
+    // Echo handling — skip echo messages (already saved by send flow)
     const isEcho = event.message?.is_echo === true
     if (isEcho) {
-        console.log(`[IG Webhook] 🔄 Echo: "${(event.message?.text || '').substring(0, 50)}"`)
+        console.log(`[IG Webhook] 🔄 Echo skipped: "${(event.message?.text || '').substring(0, 50)}"`)
+        return
     }
 
     const isOutbound = senderId === igAccountId
@@ -466,10 +467,11 @@ async function handleMessaging(pageId: string, event: any) {
     const recipientId = event.recipient?.id
     if (!senderId || !recipientId) return
 
-    // ─── Echo message handling ────────────────────────
+    // ─── Echo message handling — skip (already saved by send flow) ───
     const isEcho = event.message?.is_echo === true
     if (isEcho) {
-        console.log(`[FB Webhook] 🔄 Echo received: "${(event.message?.text || '').substring(0, 50)}" app_id=${event.message?.app_id || 'none'}`)
+        console.log(`[FB Webhook] 🔄 Echo skipped: "${(event.message?.text || '').substring(0, 50)}" app_id=${event.message?.app_id || 'none'}`)
+        return
     }
 
     // Determine direction: if sender is the page, it's outbound
