@@ -334,14 +334,14 @@ async function upsertConversation(opts: {
         isNewConversation = true
 
         // Determine conversation mode: BOT only if both channel bot AND page bot are enabled
-        let convMode: 'BOT' | 'HUMAN' = 'BOT'
+        let convMode: 'BOT' | 'AGENT' = 'BOT'
         const platformAccount = await prisma.channelPlatform.findUnique({
             where: { id: opts.platformAccountId },
             select: { config: true },
         })
         const pageConfig = (platformAccount?.config as any) || {}
         if (pageConfig.botEnabled === false) {
-            convMode = 'HUMAN' // Page has bot explicitly disabled
+            convMode = 'AGENT' // Page has bot explicitly disabled
         } else {
             // Also check channel-level BotConfig
             const botConfig = await prisma.botConfig.findUnique({
@@ -349,7 +349,7 @@ async function upsertConversation(opts: {
                 select: { isEnabled: true },
             })
             if (botConfig && !botConfig.isEnabled) {
-                convMode = 'HUMAN' // Channel bot is disabled
+                convMode = 'AGENT' // Channel bot is disabled
             }
         }
 
