@@ -1153,7 +1153,7 @@ export default function InboxPage() {
             </div>
 
             {/* ═══ RIGHT — Detail Panel ═══ */}
-            <div className="flex-1 flex flex-col min-w-0 bg-background">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-background">
                 {selectedConversation ? (
                     <>
                         {/* Header */}
@@ -1335,7 +1335,7 @@ export default function InboxPage() {
                         )}
 
                         {/* Chat history */}
-                        <ScrollArea className="flex-1 p-4">
+                        <ScrollArea className="flex-1 min-h-0 p-4">
                             {loadingMessages ? (
                                 <div className="flex items-center justify-center h-32">
                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
