@@ -34,7 +34,7 @@ export async function PATCH(
 
     const updated = await prisma.channelPlatform.update({
         where: { id: platformId },
-        data: { config: updatedConfig },
+        data: { config: updatedConfig as any },
     })
 
     return NextResponse.json(updated)
