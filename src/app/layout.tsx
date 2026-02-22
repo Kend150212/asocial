@@ -24,6 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
     other: {
       'facebook-domain-verification': '067n6haeldnqrdj5tizunolln4pzoe',
     },
+    // Standard link rels — Google OAuth verification bot reads these
+    alternates: {
+      types: {
+        'text/html': 'https://neeflow.com',
+      },
+    },
   }
 }
 
@@ -34,6 +40,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        {/* Standard link rels — Google OAuth & search bots read these to find privacy/terms */}
+        <link rel="privacy-policy" href="https://neeflow.com/privacy" />
+        <link rel="terms-of-service" href="https://neeflow.com/terms" />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>
           {children}
