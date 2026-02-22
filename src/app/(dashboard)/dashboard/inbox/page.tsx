@@ -1358,7 +1358,7 @@ export default function InboxPage() {
                                 </div>
                             ) : selectedConversation?.type === 'comment' ? (
                                 /* ═══ Facebook-style threaded comment thread ═══ */
-                                <div className="max-w-2xl mx-auto space-y-0.5">
+                                <div className="space-y-0.5">
                                     {messages.map((msg, idx) => {
                                         const isReply = msg.direction === 'outbound'
                                         const prevMsg = idx > 0 ? messages[idx - 1] : null
@@ -1513,7 +1513,7 @@ export default function InboxPage() {
                                 </div>
                             ) : (
                                 /* ═══ Normal DM-style chat ═══ */
-                                <div className="max-w-2xl mx-auto space-y-4">
+                                <div className="space-y-3">
                                     {messages.map(msg => (
                                         <div
                                             key={msg.id}
