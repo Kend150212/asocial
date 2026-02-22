@@ -12,10 +12,10 @@ async function main() {
     const adminPassword = await bcrypt.hash('admin123', 12)
 
     const admin = await prisma.user.upsert({
-        where: { email: 'admin@asocial.app' },
+        where: { email: 'admin@neeflow.com' },
         update: {},
         create: {
-            email: 'admin@asocial.app',
+            email: 'admin@neeflow.com',
             name: 'Ken Dao',
             passwordHash: adminPassword,
             role: UserRole.ADMIN,
@@ -192,7 +192,7 @@ async function main() {
     console.log('✅ API integrations seeded:', integrations.length)
     console.log('')
     console.log('🎉 Database seeded successfully!')
-    console.log('   Login: admin@asocial.app / admin123')
+    console.log('   Login: admin@neeflow.com / admin123')
 }
 
 main()

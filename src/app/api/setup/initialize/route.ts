@@ -131,6 +131,32 @@ export async function POST(req: NextRequest) {
             steps.push({ step: 'Database seed', status: 'error', error: msg })
         }
 
+        // ── Step 3b: Seed Billing Plans ───────────────────────────────
+        try {
+            const planResult = await execAsync(
+                `DATABASE_URL="${databaseUrl}" npx tsx prisma/seed-plans.ts`,
+                { cwd: projectDir, timeout: 60000 }
+            )
+            steps.push({ step: 'Seed billing plans', status: 'success' })
+            console.log('[Setup] Plans seed output:', planResult.stdout)
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Plan seed failed'
+            steps.push({ step: 'Seed billing plans', status: 'error', error: msg })
+        }
+
+        // ── Step 3c: Seed Stripe Integration ──────────────────────────
+        try {
+            const stripeResult = await execAsync(
+                `DATABASE_URL="${databaseUrl}" npx tsx prisma/seed-stripe.ts`,
+                { cwd: projectDir, timeout: 60000 }
+            )
+            steps.push({ step: 'Seed Stripe integration', status: 'success' })
+            console.log('[Setup] Stripe seed output:', stripeResult.stdout)
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Stripe seed failed'
+            steps.push({ step: 'Seed Stripe integration', status: 'error', error: msg })
+        }
+
         // ── Step 4: Create Admin User ─────────────────────────────────
         try {
             const { Client } = await import('pg')
