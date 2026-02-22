@@ -885,6 +885,8 @@
         "enableBot": "Enable Bot",
         "save": "Save Bot Settings",
         "botDisabled": "Bot is disabled. Enable it to auto-reply to customer messages.",
+        "perPageBotTitle": "Bot per Page",
+        "perPageBotDesc": "Enable or disable the bot for each connected page",
         "general": {
             "title": "General",
             "botName": "Bot Name",
