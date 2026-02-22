@@ -246,7 +246,7 @@ export default function InboxPage() {
 
     // ─── State ────────────────────────
     const [statusFilter, setStatusFilter] = useState('all')
-    const [activeTab, setActiveTab] = useState('all')
+    const [activeTab, setActiveTab] = useState('messages')
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>([])
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
