@@ -61,6 +61,20 @@ export async function botAutoReply(
             return { replied: false, reason: 'Bot disabled' }
         }
 
+        // ─── 2b. Check per-page bot enabled ───────────────────────
+        // The same page can be in multiple channels — only reply if
+        // this channel's per-page toggle is ON for this platform account
+        if (conversation.platformAccountId) {
+            const platformAccount = await prisma.channelPlatform.findUnique({
+                where: { id: conversation.platformAccountId },
+                select: { config: true },
+            })
+            const pageConfig = (platformAccount?.config as any) || {}
+            if (pageConfig.botEnabled === false) {
+                return { replied: false, reason: 'Bot disabled for this page in this channel' }
+            }
+        }
+
         // ─── 3. Working Hours Check ───────────────────────────────
         if (botConfig?.workingHoursOnly && botConfig.workingHoursStart && botConfig.workingHoursEnd) {
             const now = new Date()
@@ -439,6 +453,16 @@ export async function sendBotGreeting(
         })
 
         if (!botConfig?.isEnabled) return
+
+        // Check per-page bot enabled for this channel
+        if (conversation.platformAccountId) {
+            const platformAccount = await prisma.channelPlatform.findUnique({
+                where: { id: conversation.platformAccountId },
+                select: { config: true },
+            })
+            const pageConfig = (platformAccount?.config as any) || {}
+            if (pageConfig.botEnabled === false) return
+        }
 
         const greetingMode = (botConfig as any).greetingMode || 'template'
         const greetingImages = (botConfig.greetingImages as string[]) || []
