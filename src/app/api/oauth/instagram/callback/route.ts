@@ -65,13 +65,13 @@ export async function GET(req: NextRequest) {
         const userAccessToken = tokens.access_token
 
         // Step 2: Get ALL Facebook pages with pagination (each page may have an IG account)
-        let pages: Array<{ id: string; name: string; instagram_business_account?: { id: string } }> = []
-        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account&limit=100&access_token=${userAccessToken}`
+        let pages: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }> = []
+        let pagesUrl: string | null = `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&limit=100&access_token=${userAccessToken}`
 
         while (pagesUrl) {
             const pagesRes: Response = await fetch(pagesUrl)
             const pagesData: {
-                data?: Array<{ id: string; name: string; instagram_business_account?: { id: string } }>;
+                data?: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }>;
                 paging?: { next?: string };
                 error?: { message: string }
             } = await pagesRes.json()
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
             try {
                 // Get Instagram account details
                 const igRes = await fetch(
-                    `https://graph.facebook.com/v19.0/${igAccount.id}?fields=id,username,name,profile_picture_url,followers_count&access_token=${userAccessToken}`
+                    `https://graph.facebook.com/v19.0/${igAccount.id}?fields=id,username,name,profile_picture_url,followers_count&access_token=${page.access_token}`
                 )
                 const igData: { id?: string; username?: string; name?: string; profile_picture_url?: string; followers_count?: number; error?: { message: string } } = await igRes.json()
 
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
                     },
                     update: {
                         accountName,
-                        accessToken: userAccessToken,
+                        accessToken: page.access_token,
                         connectedBy: state.userId,
                         isActive: true,
                         config: { source: 'oauth', pageId: page.id, pageName: page.name },
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
                         platform: 'instagram',
                         accountId: igData.id || igAccount.id,
                         accountName,
-                        accessToken: userAccessToken,
+                        accessToken: page.access_token,
                         connectedBy: state.userId,
                         isActive: true,
                         config: { source: 'oauth', pageId: page.id, pageName: page.name },
@@ -147,6 +147,51 @@ export async function GET(req: NextRequest) {
         }
 
         console.log(`[Instagram OAuth] Imported ${imported}/${pages.length} Instagram accounts. Errors: ${errors.length}`)
+
+        // ── Subscribe backing Facebook pages to webhooks ──
+        for (const page of pages) {
+            if (!page.instagram_business_account) continue
+            try {
+                const allFields = 'feed,messages,messaging_postbacks,message_deliveries,message_reads,message_echoes'
+                const feedOnly = 'feed'
+
+                let subRes = await fetch(
+                    `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            subscribed_fields: allFields,
+                            access_token: page.access_token,
+                        }),
+                    }
+                )
+                let subData = await subRes.json()
+
+                if (!subData.success && JSON.stringify(subData).includes('pages_messaging')) {
+                    subRes = await fetch(
+                        `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subscribed_fields: feedOnly,
+                                access_token: page.access_token,
+                            }),
+                        }
+                    )
+                    subData = await subRes.json()
+                }
+
+                if (subData.success) {
+                    console.log(`[Instagram OAuth] 🔔 Webhook subscribed for backing page: ${page.name}`)
+                } else {
+                    console.warn(`[Instagram OAuth] ⚠️ Webhook subscription failed for ${page.name}:`, JSON.stringify(subData))
+                }
+            } catch (subErr) {
+                console.error(`[Instagram OAuth] ❌ Webhook subscription error for ${page.name}:`, subErr)
+            }
+        }
 
         if (imported === 0) {
             console.log('[Instagram OAuth] No Instagram Business accounts found on any page')
