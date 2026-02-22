@@ -724,7 +724,7 @@ export default function InboxPage() {
     const waitingCount = conversations.filter(c => c.status === 'new').length
 
     return (
-        <div className="-mx-3 -my-4 sm:-mx-6 sm:-my-6 flex h-screen overflow-hidden">
+        <div className="-mx-3 -my-4 sm:-mx-6 sm:-my-6 flex h-[100dvh] overflow-hidden">
             {/* ═══ LEFT SIDEBAR — Filters ═══ */}
             <div className="w-[250px] border-r flex flex-col shrink-0 bg-card">
                 {/* Channel indicator */}

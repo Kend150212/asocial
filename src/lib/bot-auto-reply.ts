@@ -257,8 +257,27 @@ ${messageHistory}
 
 Generate a reply:`
 
-        const reply = await callAI(provider, apiKey, model, systemPrompt, userPrompt)
-        const cleanReply = reply.trim()
+        const rawReply = await callAI(provider, apiKey, model, systemPrompt, userPrompt)
+        let cleanReply = rawReply.trim()
+
+        // AI sometimes wraps reply in JSON — extract text if so
+        if (cleanReply.startsWith('{') || cleanReply.startsWith('```')) {
+            try {
+                // Strip markdown code fences if present
+                let jsonStr = cleanReply
+                    .replace(/^```(?:json)?\s*/i, '')
+                    .replace(/\s*```$/i, '')
+                    .trim()
+                const parsed = JSON.parse(jsonStr)
+                // Try common keys: reply, response, message, text, content, answer
+                cleanReply = parsed.reply || parsed.response || parsed.message
+                    || parsed.text || parsed.content || parsed.answer
+                    || cleanReply // fallback to original if no known key
+            } catch {
+                // Not valid JSON — use as-is
+            }
+        }
+        cleanReply = cleanReply.trim()
 
         if (!cleanReply) {
             return { replied: false, reason: 'Empty AI response' }
