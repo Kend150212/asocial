@@ -103,14 +103,16 @@ export async function POST(req: NextRequest) {
         if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
         writeFileSync(join(dataDir, '.env.backup'), envContent, 'utf-8')
 
-        // ── Step 2: Run Prisma Migrate ────────────────────────────────
+        // ── Step 2: Run Prisma DB Push ─────────────────────────────────
         try {
+            // Use db push instead of migrate deploy — more forgiving,
+            // doesn't fail on failed migration history (P3009)
             const migrateResult = await execAsync(
-                `DATABASE_URL="${databaseUrl}" npx prisma migrate deploy`,
+                `DATABASE_URL="${databaseUrl}" npx prisma db push --skip-generate`,
                 { cwd: projectDir, timeout: 60000 }
             )
             steps.push({ step: 'Database migration', status: 'success' })
-            console.log('[Setup] Migrate output:', migrateResult.stdout)
+            console.log('[Setup] DB push output:', migrateResult.stdout)
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Migration failed'
             steps.push({ step: 'Database migration', status: 'error', error: msg })
