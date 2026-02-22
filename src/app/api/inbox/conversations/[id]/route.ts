@@ -146,3 +146,43 @@ export async function GET(
         },
     })
 }
+
+/**
+ * DELETE /api/inbox/conversations/[id]
+ * Delete a conversation and all its messages
+ */
+export async function DELETE(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth()
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+
+    const conversation = await prisma.conversation.findUnique({
+        where: { id },
+        select: { channelId: true },
+    })
+
+    if (!conversation) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Verify access
+    const membership = await prisma.channelMember.findFirst({
+        where: { channelId: conversation.channelId, userId: session.user.id },
+    })
+
+    if (!membership && session.user.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Delete messages first, then conversation
+    await prisma.inboxMessage.deleteMany({ where: { conversationId: id } })
+    await prisma.conversation.delete({ where: { id } })
+
+    return NextResponse.json({ success: true })
+}

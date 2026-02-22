@@ -43,6 +43,7 @@ import {
     ChevronDown,
     ChevronUp,
     Save,
+    Trash2,
 } from 'lucide-react'
 import {
     DropdownMenu,
@@ -1267,6 +1268,27 @@ export default function InboxPage() {
                                         <DropdownMenuItem className="text-xs cursor-pointer">
                                             <Sparkles className="h-3.5 w-3.5 mr-2" />
                                             AI Summary
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer text-red-500 focus:text-red-500"
+                                            onClick={async () => {
+                                                if (!window.confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return
+                                                try {
+                                                    const res = await fetch(`/api/inbox/conversations/${selectedConversation.id}`, { method: 'DELETE' })
+                                                    if (res.ok) {
+                                                        setConversations(prev => prev.filter(c => c.id !== selectedConversation.id))
+                                                        setSelectedConversation(null)
+                                                        toast.success('Conversation deleted')
+                                                    } else {
+                                                        toast.error('Failed to delete')
+                                                    }
+                                                } catch {
+                                                    toast.error('Failed to delete')
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                            Delete
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>

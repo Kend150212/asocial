@@ -329,12 +329,14 @@ async function upsertConversation(opts: {
     metadata?: any
 }) {
     // Find or create conversation
+    // Include type in lookup so DMs and comments create separate conversations
     let isNewConversation = false
     let conversation = await prisma.conversation.findFirst({
         where: {
             channelId: opts.channelId,
             platform: opts.platform,
             externalUserId: opts.externalUserId,
+            type: opts.type || 'message',
         },
     })
 
