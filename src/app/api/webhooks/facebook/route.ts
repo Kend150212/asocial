@@ -103,7 +103,6 @@ export async function POST(req: NextRequest) {
 // HANDLE INSTAGRAM COMMENTS
 // ═══════════════════════════════════════
 async function handleInstagramComment(igAccountId: string, value: any) {
-    // value structure: { id, text, from: { id, username }, media: { id }, ... }
     const verb = value.verb || 'add'
     if (verb === 'remove') {
         if (value.id) {
@@ -116,14 +115,18 @@ async function handleInstagramComment(igAccountId: string, value: any) {
         return
     }
 
-    // Find IG platform account
-    const platformAccount = await prisma.channelPlatform.findFirst({
+    // Find ALL IG platform accounts for this IG account (may span multiple channels)
+    const platformAccounts = await prisma.channelPlatform.findMany({
         where: { platform: 'instagram', accountId: igAccountId, isActive: true, accessToken: { not: null } },
-    }) || await prisma.channelPlatform.findFirst({
-        where: { platform: 'instagram', accountId: igAccountId },
     })
+    if (platformAccounts.length === 0) {
+        const fallback = await prisma.channelPlatform.findMany({
+            where: { platform: 'instagram', accountId: igAccountId },
+        })
+        if (fallback.length > 0) platformAccounts.push(...fallback)
+    }
 
-    if (!platformAccount) {
+    if (platformAccounts.length === 0) {
         console.warn(`[IG Webhook] ❌ No platform account for IG ${igAccountId}`)
         return
     }
@@ -136,100 +139,91 @@ async function handleInstagramComment(igAccountId: string, value: any) {
     const mediaId = value.media?.id || ''
     const commentedAt = value.timestamp ? new Date(value.timestamp * 1000) : new Date()
 
-    // Skip own comments
     if (authorId === igAccountId) {
         console.log(`[IG Webhook] Skipping own comment by IG account ${igAccountId}`)
         return
     }
 
-    // Fetch post/media metadata if available
+    // Fetch post/media metadata once using first account's token
+    const tokenAccount = platformAccounts.find(a => a.accessToken) || platformAccounts[0]
     let postMetadata: any = null
-    if (mediaId && platformAccount.accessToken) {
+    if (mediaId && tokenAccount.accessToken) {
         try {
             const mediaRes = await fetch(
-                `https://graph.facebook.com/v19.0/${mediaId}?fields=caption,permalink,media_url,media_type,thumbnail_url&access_token=${platformAccount.accessToken}`
+                `https://graph.facebook.com/v19.0/${mediaId}?fields=caption,permalink,media_url,media_type,thumbnail_url&access_token=${tokenAccount.accessToken}`
             )
             if (mediaRes.ok) {
                 const mediaData = await mediaRes.json()
                 const images: string[] = []
                 if (mediaData.media_url) images.push(mediaData.media_url)
                 if (mediaData.thumbnail_url && !mediaData.media_url) images.push(mediaData.thumbnail_url)
-
                 postMetadata = {
                     externalPostId: mediaId,
                     postContent: mediaData.caption || '',
                     postImages: images.slice(0, 5),
                     postPermalink: mediaData.permalink || `https://instagram.com/p/${mediaId}`,
                 }
-                console.log(`[IG Webhook] 📄 Media fetched: "${(mediaData.caption || '').substring(0, 50)}" with ${images.length} images`)
             }
         } catch (err) {
             console.warn(`[IG Webhook] ⚠️ Failed to fetch media ${mediaId}:`, err)
-            postMetadata = {
-                externalPostId: mediaId,
-                postContent: '',
-                postImages: [],
-                postPermalink: `https://instagram.com`,
-            }
+            postMetadata = { externalPostId: mediaId, postContent: '', postImages: [], postPermalink: `https://instagram.com` }
         }
     }
 
-    // Upsert the comment
-    await prisma.socialComment.upsert({
-        where: { externalCommentId: commentId },
-        update: { content, authorName },
-        create: {
-            channelId: platformAccount.channelId,
-            platformAccountId: platformAccount.id,
-            platform: 'instagram',
-            externalPostId: mediaId,
-            externalCommentId: commentId,
-            parentCommentId,
-            authorName,
-            authorAvatar: null, // IG doesn't provide profile pic in webhook
-            content,
-            status: 'new',
-            commentedAt,
-        },
-    })
-
-    console.log(`[IG Webhook] 💬 Comment saved: "${content.substring(0, 50)}" by @${authorName}`)
-
-    // Create/update conversation grouped by media post
     const postLabel = postMetadata?.postContent
         ? postMetadata.postContent.substring(0, 60) + (postMetadata.postContent.length > 60 ? '...' : '')
         : `IG Post ${mediaId}`
 
-    await upsertConversation({
-        channelId: platformAccount.channelId,
-        platformAccountId: platformAccount.id,
-        platform: 'instagram',
-        externalUserId: `post_${mediaId}`,
-        externalUserName: postLabel,
-        externalUserAvatar: null,
-        content,
-        direction: 'inbound',
-        senderType: 'customer',
-        senderName: `@${authorName}`,
-        senderAvatar: null,
-        type: 'comment',
-        metadata: postMetadata,
-        externalId: commentId,
-    })
+    // Process for ALL matching channels
+    for (const platformAccount of platformAccounts) {
+        await prisma.socialComment.upsert({
+            where: { externalCommentId: `${commentId}_${platformAccount.channelId}` },
+            update: { content, authorName },
+            create: {
+                channelId: platformAccount.channelId,
+                platformAccountId: platformAccount.id,
+                platform: 'instagram',
+                externalPostId: mediaId,
+                externalCommentId: platformAccounts.length > 1 ? `${commentId}_${platformAccount.channelId}` : commentId,
+                parentCommentId,
+                authorName,
+                authorAvatar: null,
+                content,
+                status: 'new',
+                commentedAt,
+            },
+        })
+
+        await upsertConversation({
+            channelId: platformAccount.channelId,
+            platformAccountId: platformAccount.id,
+            platform: 'instagram',
+            externalUserId: `post_${mediaId}`,
+            externalUserName: postLabel,
+            externalUserAvatar: null,
+            content,
+            direction: 'inbound',
+            senderType: 'customer',
+            senderName: `@${authorName}`,
+            senderAvatar: null,
+            type: 'comment',
+            metadata: postMetadata,
+            externalId: platformAccounts.length > 1 ? `${commentId}_${platformAccount.channelId}` : commentId,
+        })
+        console.log(`[IG Webhook] 💬 Comment routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
+    }
 }
 
 // ═══════════════════════════════════════
 // HANDLE INSTAGRAM DMs
 // ═══════════════════════════════════════
 async function handleInstagramMessaging(igAccountId: string, event: any) {
-    // Only handle messages with text or attachments
     if (!event.message?.text && !event.message?.attachments) return
 
     const senderId = event.sender?.id
     const recipientId = event.recipient?.id
     if (!senderId || !recipientId) return
 
-    // Echo handling — skip echo messages (already saved by send flow)
     const isEcho = event.message?.is_echo === true
     if (isEcho) {
         console.log(`[IG Webhook] 🔄 Echo skipped: "${(event.message?.text || '').substring(0, 50)}"`)
@@ -239,12 +233,12 @@ async function handleInstagramMessaging(igAccountId: string, event: any) {
     const isOutbound = senderId === igAccountId
     const externalUserId = isOutbound ? recipientId : senderId
 
-    // Find the IG platform account
-    const platformAccount = await prisma.channelPlatform.findFirst({
-        where: { platform: 'instagram', accountId: igAccountId },
+    // Find ALL IG platform accounts for this IG account
+    const platformAccounts = await prisma.channelPlatform.findMany({
+        where: { platform: 'instagram', accountId: igAccountId, isActive: true },
     })
 
-    if (!platformAccount) {
+    if (platformAccounts.length === 0) {
         console.warn(`[IG Webhook] No platform account for IG ${igAccountId}`)
         return
     }
@@ -253,55 +247,59 @@ async function handleInstagramMessaging(igAccountId: string, event: any) {
     const mediaUrl = event.message?.attachments?.[0]?.payload?.url || null
     const mediaType = event.message?.attachments?.[0]?.type || null
 
-    // Get user profile
+    // Get user profile once using first account's token
+    const tokenAccount = platformAccounts.find(a => a.accessToken) || platformAccounts[0]
     let senderName = externalUserId
     let senderAvatar: string | null = null
-    if (platformAccount.accessToken) {
+    if (tokenAccount.accessToken) {
         try {
             const res = await fetch(
-                `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,username,profile_pic&access_token=${platformAccount.accessToken}`
+                `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,username,profile_pic&access_token=${tokenAccount.accessToken}`
             )
             if (res.ok) {
                 const data = await res.json()
                 senderName = data.username || data.name || senderName
                 senderAvatar = data.profile_pic || null
             }
-        } catch {
-            // Use IGSID as fallback
-        }
+        } catch { /* fallback */ }
     }
 
-    await upsertConversation({
-        channelId: platformAccount.channelId,
-        platformAccountId: platformAccount.id,
-        platform: 'instagram',
-        externalUserId,
-        externalUserName: senderName !== externalUserId ? senderName : undefined,
-        externalUserAvatar: senderAvatar,
-        content,
-        direction: isOutbound ? 'outbound' : 'inbound',
-        senderType: isOutbound ? 'agent' : 'customer',
-        mediaUrl,
-        mediaType,
-        externalId: event.message?.mid,
-    })
-
-    console.log(`[IG Webhook] 💬 ${isEcho ? 'Echo' : 'Message'} ${isOutbound ? 'sent' : 'received'}: "${content.substring(0, 50)}" ${isEcho ? '(outbound echo)' : `from ${senderName}`}`)
+    // Process for ALL matching channels
+    for (const platformAccount of platformAccounts) {
+        await upsertConversation({
+            channelId: platformAccount.channelId,
+            platformAccountId: platformAccount.id,
+            platform: 'instagram',
+            externalUserId,
+            externalUserName: senderName !== externalUserId ? senderName : undefined,
+            externalUserAvatar: senderAvatar,
+            content,
+            direction: isOutbound ? 'outbound' : 'inbound',
+            senderType: isOutbound ? 'agent' : 'customer',
+            mediaUrl,
+            mediaType,
+            externalId: platformAccounts.length > 1 ? `${event.message?.mid}_${platformAccount.channelId}` : event.message?.mid,
+        })
+        console.log(`[IG Webhook] 💬 Message routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
+    }
 }
 
 // ═══════════════════════════════════════
 // HANDLE FEED CHANGES (Comments)
 // ═══════════════════════════════════════
 async function handleFeedChange(pageId: string, value: any) {
-    // value.item can be: comment, reaction, post, share, etc.
     if (value.item !== 'comment') return
 
-    const verb = value.verb // add, edit, remove
+    const verb = value.verb
     if (verb === 'remove') {
-        // Comment deleted — mark as hidden
         if (value.comment_id) {
             await prisma.socialComment.updateMany({
                 where: { externalCommentId: value.comment_id },
+                data: { status: 'hidden' },
+            })
+            // Also hide channel-specific variants
+            await prisma.socialComment.updateMany({
+                where: { externalCommentId: { startsWith: `${value.comment_id}_` } },
                 data: { status: 'hidden' },
             })
             console.log(`[FB Webhook] Comment removed: ${value.comment_id}`)
@@ -309,27 +307,29 @@ async function handleFeedChange(pageId: string, value: any) {
         return
     }
 
-    // Find the platform account (ChannelPlatform) for this page
-    // Prefer active records with access tokens to avoid stale entries
-    const platformAccount = await prisma.channelPlatform.findFirst({
+    // Find ALL platform accounts for this page (may span multiple channels)
+    const platformAccounts = await prisma.channelPlatform.findMany({
         where: { platform: 'facebook', accountId: pageId, isActive: true, accessToken: { not: null } },
-    }) || await prisma.channelPlatform.findFirst({
-        where: { platform: 'facebook', accountId: pageId },
     })
+    if (platformAccounts.length === 0) {
+        const fallback = await prisma.channelPlatform.findMany({
+            where: { platform: 'facebook', accountId: pageId },
+        })
+        if (fallback.length > 0) platformAccounts.push(...fallback)
+    }
 
-    if (!platformAccount) {
-        // Log all Facebook platform accounts for debugging
+    if (platformAccounts.length === 0) {
         const allFbAccounts = await prisma.channelPlatform.findMany({
             where: { platform: 'facebook' },
             select: { accountId: true, accountName: true, isActive: true },
         })
-        console.warn(`[FB Webhook] ❌ No platform account for page ${pageId}. Available FB accounts:`,
+        console.warn(`[FB Webhook] ❌ No platform account for page ${pageId}. Available:`,
             allFbAccounts.map(a => `${a.accountName}(${a.accountId}, active=${a.isActive})`).join(', ')
         )
         return
     }
 
-    console.log(`[FB Webhook] ✅ Matched page ${pageId} → ${platformAccount.accountName} (${platformAccount.id})`)
+    console.log(`[FB Webhook] ✅ Matched page ${pageId} → ${platformAccounts.length} channel(s): ${platformAccounts.map(a => a.accountName).join(', ')}`)
 
     const externalPostId = value.post_id || ''
     const externalCommentId = value.comment_id || ''
@@ -339,151 +339,129 @@ async function handleFeedChange(pageId: string, value: any) {
     const content = value.message || ''
     const commentedAt = value.created_time ? new Date(value.created_time * 1000) : new Date()
 
-    // Skip if this is page's own comment
     if (authorId === pageId) {
         console.log(`[FB Webhook] Skipping own comment by page ${pageId}`)
         return
     }
 
-    // Try to find matching post via PostPlatformStatus
     let postId: string | null = null
     if (externalPostId) {
         const platformStatus = await prisma.postPlatformStatus.findFirst({
-            where: {
-                externalId: externalPostId,
-            },
+            where: { externalId: externalPostId },
             select: { postId: true },
         })
         postId = platformStatus?.postId || null
     }
 
-    // ── Fetch post details from Graph API ──
+    // Fetch post details once using first account's token
+    const tokenAccount = platformAccounts.find(a => a.accessToken) || platformAccounts[0]
     let postMetadata: any = null
-    if (externalPostId && platformAccount.accessToken) {
+    if (externalPostId && tokenAccount.accessToken) {
         try {
             const postRes = await fetch(
-                `https://graph.facebook.com/v19.0/${externalPostId}?fields=message,permalink_url,full_picture,attachments{media,media_type,url,subattachments}&access_token=${platformAccount.accessToken}`
+                `https://graph.facebook.com/v19.0/${externalPostId}?fields=message,permalink_url,full_picture,attachments{media,media_type,url,subattachments}&access_token=${tokenAccount.accessToken}`
             )
             if (postRes.ok) {
                 const postData = await postRes.json()
                 const images: string[] = []
-
-                // Prefer attachment images (more accurate for multi-image posts)
                 if (postData.attachments?.data) {
                     for (const att of postData.attachments.data) {
-                        // Carousel / multi-photo posts
                         if (att.subattachments?.data) {
                             for (const sub of att.subattachments.data) {
-                                if (sub.media?.image?.src) {
-                                    images.push(sub.media.image.src)
-                                }
+                                if (sub.media?.image?.src) images.push(sub.media.image.src)
                             }
                         } else if (att.media?.image?.src) {
                             images.push(att.media.image.src)
                         }
                     }
                 }
-
-                // Fallback to full_picture only if no attachment images found
-                if (images.length === 0 && postData.full_picture) {
-                    images.push(postData.full_picture)
-                }
-
+                if (images.length === 0 && postData.full_picture) images.push(postData.full_picture)
                 postMetadata = {
                     externalPostId,
                     postContent: postData.message || '',
-                    postImages: images.slice(0, 5), // max 5 images
+                    postImages: images.slice(0, 5),
                     postPermalink: postData.permalink_url || `https://facebook.com/${externalPostId}`,
                 }
-                console.log(`[FB Webhook] 📄 Post fetched: "${(postData.message || '').substring(0, 50)}" with ${images.length} images`)
             }
         } catch (err) {
             console.warn(`[FB Webhook] ⚠️ Failed to fetch post ${externalPostId}:`, err)
-            postMetadata = {
-                externalPostId,
-                postContent: '',
-                postImages: [],
-                postPermalink: `https://facebook.com/${externalPostId}`,
-            }
+            postMetadata = { externalPostId, postContent: '', postImages: [], postPermalink: `https://facebook.com/${externalPostId}` }
         }
     }
 
-    // Upsert the comment
-    await prisma.socialComment.upsert({
-        where: { externalCommentId },
-        update: {
-            content,
-            authorName,
-        },
-        create: {
-            channelId: platformAccount.channelId,
-            platformAccountId: platformAccount.id,
-            postId: postId,
-            platform: 'facebook',
-            externalPostId,
-            externalCommentId,
-            parentCommentId,
-            authorName,
-            authorAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small&access_token=${platformAccount.accessToken}` : null,
-            content,
-            status: 'new',
-            commentedAt,
-        },
-    })
-
-    console.log(`[FB Webhook] 💬 Comment saved: "${content.substring(0, 50)}" by ${authorName}`)
-
-    // Create/update a conversation grouped by POST (not user) so all comments on same post are together
     const postLabel = postMetadata?.postContent
         ? postMetadata.postContent.substring(0, 60) + (postMetadata.postContent.length > 60 ? '...' : '')
         : `Post ${externalPostId}`
+    const authorAvatar = value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small&access_token=${tokenAccount.accessToken}` : null
 
-    await upsertConversation({
-        channelId: platformAccount.channelId,
-        platformAccountId: platformAccount.id,
-        platform: 'facebook',
-        externalUserId: `post_${externalPostId}`, // Group by post, not user
-        externalUserName: postLabel,
-        externalUserAvatar: null,
-        content,
-        direction: 'inbound',
-        senderType: 'customer',
-        senderName: authorName,
-        senderAvatar: value.from?.id ? `https://graph.facebook.com/${value.from.id}/picture?type=small&access_token=${platformAccount.accessToken}` : null,
-        type: 'comment',
-        metadata: postMetadata,
-        externalId: externalCommentId,
-    })
+    // Process for ALL matching channels
+    for (const platformAccount of platformAccounts) {
+        const commentIdForChannel = platformAccounts.length > 1 ? `${externalCommentId}_${platformAccount.channelId}` : externalCommentId
+
+        await prisma.socialComment.upsert({
+            where: { externalCommentId: commentIdForChannel },
+            update: { content, authorName },
+            create: {
+                channelId: platformAccount.channelId,
+                platformAccountId: platformAccount.id,
+                postId,
+                platform: 'facebook',
+                externalPostId,
+                externalCommentId: commentIdForChannel,
+                parentCommentId,
+                authorName,
+                authorAvatar,
+                content,
+                status: 'new',
+                commentedAt,
+            },
+        })
+
+        await upsertConversation({
+            channelId: platformAccount.channelId,
+            platformAccountId: platformAccount.id,
+            platform: 'facebook',
+            externalUserId: `post_${externalPostId}`,
+            externalUserName: postLabel,
+            externalUserAvatar: null,
+            content,
+            direction: 'inbound',
+            senderType: 'customer',
+            senderName: authorName,
+            senderAvatar: authorAvatar,
+            type: 'comment',
+            metadata: postMetadata,
+            externalId: commentIdForChannel,
+        })
+        console.log(`[FB Webhook] 💬 Comment routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
+    }
 }
 
 // ═══════════════════════════════════════
 // HANDLE MESSAGING (DMs + Echoes)
 // ═══════════════════════════════════════
 async function handleMessaging(pageId: string, event: any) {
-    // Only handle text messages (skip delivery, read receipts, etc.)
     if (!event.message?.text && !event.message?.attachments) return
 
     const senderId = event.sender?.id
     const recipientId = event.recipient?.id
     if (!senderId || !recipientId) return
 
-    // ─── Echo message handling — skip (already saved by send flow) ───
     const isEcho = event.message?.is_echo === true
     if (isEcho) {
         console.log(`[FB Webhook] 🔄 Echo skipped: "${(event.message?.text || '').substring(0, 50)}" app_id=${event.message?.app_id || 'none'}`)
         return
     }
 
-    // Determine direction: if sender is the page, it's outbound
     const isOutbound = senderId === pageId
     const externalUserId = isOutbound ? recipientId : senderId
 
-    // Find the platform account
-    const platformAccount = await prisma.channelPlatform.findFirst({
-        where: { platform: 'facebook', accountId: pageId },
+    // Find ALL platform accounts for this page (may span multiple channels)
+    const platformAccounts = await prisma.channelPlatform.findMany({
+        where: { platform: 'facebook', accountId: pageId, isActive: true },
     })
 
-    if (!platformAccount) {
+    if (platformAccounts.length === 0) {
         console.warn(`[FB Webhook] No platform account for page ${pageId}`)
         return
     }
@@ -492,47 +470,44 @@ async function handleMessaging(pageId: string, event: any) {
     const mediaUrl = event.message?.attachments?.[0]?.payload?.url || null
     const mediaType = event.message?.attachments?.[0]?.type || null
 
-    // Get external user name + avatar via Graph API
-    // For inbound: sender is the customer
-    // For outbound echo: recipient is the customer (externalUserId)
+    // Get user profile once using first account's token
+    const tokenAccount = platformAccounts.find(a => a.accessToken) || platformAccounts[0]
     let senderName = externalUserId
     let senderAvatar: string | null = null
-    if (platformAccount.accessToken) {
+    if (tokenAccount.accessToken) {
         try {
             const res = await fetch(
-                `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,profile_pic&access_token=${platformAccount.accessToken}`
+                `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,profile_pic&access_token=${tokenAccount.accessToken}`
             )
             if (res.ok) {
                 const data = await res.json()
                 senderName = data.name || senderName
                 senderAvatar = data.profile_pic || null
             }
-        } catch {
-            // Silently fail — use ID as name
-        }
-        // Fallback: use Graph API picture URL with access token
+        } catch { /* fallback */ }
         if (!senderAvatar) {
-            senderAvatar = `https://graph.facebook.com/${externalUserId}/picture?type=small&access_token=${platformAccount.accessToken}`
+            senderAvatar = `https://graph.facebook.com/${externalUserId}/picture?type=small&access_token=${tokenAccount.accessToken}`
         }
     }
 
-    // Upsert conversation and add message
-    await upsertConversation({
-        channelId: platformAccount.channelId,
-        platformAccountId: platformAccount.id,
-        platform: 'facebook',
-        externalUserId,
-        externalUserName: senderName !== externalUserId ? senderName : undefined,
-        externalUserAvatar: senderAvatar,
-        content,
-        direction: isOutbound ? 'outbound' : 'inbound',
-        senderType: isOutbound ? (isEcho ? 'agent' : 'agent') : 'customer',
-        mediaUrl,
-        mediaType,
-        externalId: event.message?.mid,
-    })
-
-    console.log(`[FB Webhook] 💬 ${isEcho ? 'Echo' : 'Message'} ${isOutbound ? 'sent' : 'received'}: "${content.substring(0, 50)}" ${isEcho ? '(outbound echo)' : `from ${senderName}`}`)
+    // Process for ALL matching channels
+    for (const platformAccount of platformAccounts) {
+        await upsertConversation({
+            channelId: platformAccount.channelId,
+            platformAccountId: platformAccount.id,
+            platform: 'facebook',
+            externalUserId,
+            externalUserName: senderName !== externalUserId ? senderName : undefined,
+            externalUserAvatar: senderAvatar,
+            content,
+            direction: isOutbound ? 'outbound' : 'inbound',
+            senderType: isOutbound ? 'agent' : 'customer',
+            mediaUrl,
+            mediaType,
+            externalId: platformAccounts.length > 1 ? `${event.message?.mid}_${platformAccount.channelId}` : event.message?.mid,
+        })
+        console.log(`[FB Webhook] 💬 Message routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
+    }
 }
 
 // ═══════════════════════════════════════
