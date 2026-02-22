@@ -727,9 +727,11 @@ model SiteSettings {
   faviconUrl    String   @default("/favicon.ico") @map("favicon_url")
   primaryColor  String   @default("#7c3aed") @map("primary_color")
   supportEmail  String   @default("") @map("support_email")
-  copyrightText String   @default("") @map("copyright_text")
-  footerLinks   Json     @default("[]") @map("footer_links")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  copyrightText  String   @default("") @map("copyright_text")
+  footerLinks    Json     @default("[]") @map("footer_links")
+  termsContent   String   @default("") @map("terms_content") @db.Text
+  privacyContent String   @default("") @map("privacy_content") @db.Text
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("site_settings")
 }

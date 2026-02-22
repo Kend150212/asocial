@@ -25,10 +25,6 @@ export async function middleware(req: NextRequest) {
     if (!isSetupRoute && !setupComplete) {
         return NextResponse.redirect(new URL('/setup', req.url))
     }
-    // If setup is complete, prevent accessing /setup again
-    if (pathname.startsWith('/setup') && setupComplete) {
-        return NextResponse.redirect(new URL('/', req.url))
-    }
 
     const hasSession =
         req.cookies.has('__Secure-authjs.session-token') ||

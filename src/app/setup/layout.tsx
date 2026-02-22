@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-    title: 'ASocial Setup Wizard',
+    title: 'NeeFlow Setup Wizard',
     description: 'Configure your ASocial instance',
 }
 

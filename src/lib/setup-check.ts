@@ -21,38 +21,11 @@ export interface SetupLockData {
 
 /**
  * Check if setup has been completed.
- * 1. If lock file exists → setup is done.
- * 2. If no lock file but .env has DATABASE_URL → existing deploy,
- *    auto-create lock file and treat as done.
- * 3. Otherwise → needs setup wizard.
+ * Only checks for the lock file — if it exists, setup is done.
+ * To re-run setup, delete data/setup-lock.json on the server.
  */
 export function isSetupComplete(): boolean {
-    // Fast path: lock file exists
-    if (existsSync(LOCK_FILE)) return true
-
-    // Fallback: detect existing .env with DATABASE_URL
-    // This handles upgrades from pre-wizard versions
-    if (existsSync(ENV_FILE)) {
-        try {
-            const envContent = readFileSync(ENV_FILE, 'utf-8')
-            const hasDbUrl = envContent.split('\n').some(line => {
-                const trimmed = line.trim()
-                return !trimmed.startsWith('#') && trimmed.startsWith('DATABASE_URL=')
-            })
-            if (hasDbUrl) {
-                // Auto-create lock file so this check is fast next time
-                markSetupComplete({
-                    domain: process.env.NEXTAUTH_URL || 'auto-detected',
-                    adminEmail: 'pre-existing',
-                })
-                return true
-            }
-        } catch {
-            // If we can't read .env, fall through to false
-        }
-    }
-
-    return false
+    return existsSync(LOCK_FILE)
 }
 
 /**

@@ -69,7 +69,9 @@
         "plans": "Quản lý gói",
         "profile": "Hồ sơ của tôi",
         "developerApi": "API Nhà phát triển",
-        "branding": "Thương hiệu"
+        "branding": "Thương hiệu",
+        "legal": "Trang pháp lý",
+        "guide": "Hướng dẫn cài đặt"
     },
     "auth": {
         "signIn": "Đăng nhập",

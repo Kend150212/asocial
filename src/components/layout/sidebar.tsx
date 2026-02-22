@@ -51,6 +51,8 @@ import {
     Code2,
     Plus,
     Paintbrush,
+    FileText,
+    BookOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -87,6 +89,8 @@ const adminNav: NavItem[] = [
     { titleKey: 'nav.billing', href: '/admin/billing', icon: CreditCard, roles: ['ADMIN'] },
     { titleKey: 'nav.activity', href: '/admin/activity', icon: Activity, roles: ['ADMIN'] },
     { titleKey: 'nav.branding', href: '/admin/branding', icon: Paintbrush, roles: ['ADMIN'] },
+    { titleKey: 'nav.legal', href: '/admin/legal', icon: FileText, roles: ['ADMIN'] },
+    { titleKey: 'nav.guide', href: '/admin/guide', icon: BookOpen, roles: ['ADMIN'] },
 ]
 
 export function Sidebar({ session }: { session: Session }) {

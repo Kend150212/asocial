@@ -69,7 +69,9 @@
         "plans": "Plans",
         "profile": "My Profile",
         "developerApi": "Developer API",
-        "branding": "Branding"
+        "branding": "Branding",
+        "legal": "Legal Pages",
+        "guide": "Setup Guide"
     },
     "auth": {
         "signIn": "Sign In",

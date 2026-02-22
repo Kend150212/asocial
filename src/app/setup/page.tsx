@@ -289,7 +289,7 @@ export default function SetupWizardPage() {
             {/* Header */}
             <div className="text-center mb-10">
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    ASocial Setup Wizard
+                    NeeFlow Setup Wizard
                 </h1>
                 <p className="text-slate-400 mt-2">Configure your instance in a few easy steps</p>
             </div>
