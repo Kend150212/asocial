@@ -410,7 +410,6 @@ async function sendAndSaveReply(
                 console.log(`[Bot] ⏭️ Skipping Messenger send (dedup) for ${dedupKey} - saving to DB only`)
             } else {
                 recentBotReplies.set(dedupKey, now)
-                // Clean old entries periodically
                 if (recentBotReplies.size > 100) {
                     for (const [key, ts] of recentBotReplies) {
                         if (now - ts > DEDUP_TTL_MS) recentBotReplies.delete(key)
@@ -424,8 +423,64 @@ async function sendAndSaveReply(
                 )
             }
         }
-        // For comments, we could reply to the comment, but that requires the comment ID
-        // which we'd need to track separately. Skipping for now.
+    }
+
+    // YouTube comment reply
+    if (platform === 'youtube' && platformAccount?.accessToken && conversation.type === 'comment') {
+        try {
+            // Find the most recent inbound comment to reply to
+            const lastComment = await prisma.inboxMessage.findFirst({
+                where: {
+                    conversationId: conversation.id,
+                    direction: 'inbound',
+                },
+                orderBy: { sentAt: 'desc' },
+                select: { externalId: true },
+            })
+
+            if (lastComment?.externalId) {
+                await replyToYouTubeComment(
+                    platformAccount.accessToken,
+                    lastComment.externalId,
+                    text
+                )
+            }
+        } catch (err) {
+            console.error('[Bot] YouTube comment reply failed:', err)
+        }
+    }
+
+    // TikTok comment reply
+    if (platform === 'tiktok' && platformAccount?.accessToken && conversation.type === 'comment') {
+        try {
+            const lastComment = await prisma.inboxMessage.findFirst({
+                where: {
+                    conversationId: conversation.id,
+                    direction: 'inbound',
+                },
+                orderBy: { sentAt: 'desc' },
+                select: { externalId: true },
+            })
+
+            if (lastComment?.externalId) {
+                // Extract video ID from conversation metadata
+                const metadata = conversation.metadata as any
+                const videoId = metadata?.videoId
+                // Strip the 'tt_' prefix we added during polling
+                const commentId = lastComment.externalId.replace(/^tt_/, '')
+
+                if (videoId && commentId) {
+                    await replyToTikTokComment(
+                        platformAccount.accessToken,
+                        videoId,
+                        commentId,
+                        text
+                    )
+                }
+            }
+        } catch (err) {
+            console.error('[Bot] TikTok comment reply failed:', err)
+        }
     }
 
     // Save outbound message to DB
@@ -502,6 +557,72 @@ async function sendSenderAction(
             sender_action: action,
         }),
     })
+}
+
+/**
+ * Reply to a YouTube comment via YouTube Data API v3
+ */
+async function replyToYouTubeComment(
+    accessToken: string,
+    parentCommentId: string,
+    text: string
+) {
+    const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/comments?part=snippet`,
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                snippet: {
+                    parentId: parentCommentId,
+                    textOriginal: text,
+                },
+            }),
+        }
+    )
+
+    if (!res.ok) {
+        const errText = await res.text()
+        console.error('[YT] Comment reply failed:', errText)
+    } else {
+        console.log(`[YT] ✅ Replied to comment ${parentCommentId}`)
+    }
+}
+
+/**
+ * Reply to a TikTok comment via TikTok API v2
+ */
+async function replyToTikTokComment(
+    accessToken: string,
+    videoId: string,
+    commentId: string,
+    text: string
+) {
+    const res = await fetch(
+        'https://open.tiktokapis.com/v2/video/comment/reply/create/',
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                video_id: videoId,
+                comment_id: commentId,
+                text,
+            }),
+        }
+    )
+
+    if (!res.ok) {
+        const errText = await res.text()
+        console.error('[TT] Comment reply failed:', errText)
+    } else {
+        console.log(`[TT] ✅ Replied to comment ${commentId}`)
+    }
 }
 
 /**
