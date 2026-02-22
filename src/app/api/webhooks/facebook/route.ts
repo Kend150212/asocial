@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { botAutoReply, sendBotGreeting } from '@/lib/bot-auto-reply'
 import { notifyChannelAdmins } from '@/lib/notify'
 
+// Queue of background bot tasks to execute after returning 200
+type BotTask = () => Promise<void>
+const pendingBotTasks: BotTask[] = []
+
 // ─── Webhook verify token ──────────────
 const VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN || 'asocial_webhook_2024'
 
@@ -33,6 +37,9 @@ export async function POST(req: NextRequest) {
 
     console.log('[Webhook] Received:', JSON.stringify(body).substring(0, 500))
 
+    // Collect bot tasks to run AFTER returning 200 to Facebook
+    const botTasks: BotTask[] = []
+
     // Facebook sends events grouped by object type
     if (body.object === 'page') {
         for (const entry of body.entry || []) {
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
                 for (const change of entry.changes) {
                     if (change.field === 'feed') {
                         try {
-                            await handleFeedChange(pageId, change.value)
+                            await handleFeedChange(pageId, change.value, botTasks)
                         } catch (err) {
                             console.error(`[FB Webhook] ❌ Error processing feed change for page ${pageId}:`, err)
                         }
@@ -55,7 +62,7 @@ export async function POST(req: NextRequest) {
             if (entry.messaging) {
                 for (const msgEvent of entry.messaging) {
                     try {
-                        await handleMessaging(pageId, msgEvent)
+                        await handleMessaging(pageId, msgEvent, botTasks)
                     } catch (err) {
                         console.error(`[FB Webhook] ❌ Error processing message for page ${pageId}:`, err)
                     }
@@ -74,7 +81,7 @@ export async function POST(req: NextRequest) {
                 for (const change of entry.changes) {
                     if (change.field === 'comments') {
                         try {
-                            await handleInstagramComment(igAccountId, change.value)
+                            await handleInstagramComment(igAccountId, change.value, botTasks)
                         } catch (err) {
                             console.error(`[IG Webhook] ❌ Error processing comment for IG ${igAccountId}:`, err)
                         }
@@ -86,7 +93,7 @@ export async function POST(req: NextRequest) {
             if (entry.messaging) {
                 for (const msgEvent of entry.messaging) {
                     try {
-                        await handleInstagramMessaging(igAccountId, msgEvent)
+                        await handleInstagramMessaging(igAccountId, msgEvent, botTasks)
                     } catch (err) {
                         console.error(`[IG Webhook] ❌ Error processing message for IG ${igAccountId}:`, err)
                     }
@@ -95,14 +102,27 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    // Always return 200 to acknowledge
+    // ─── Run bot tasks in background AFTER returning 200 ────
+    if (botTasks.length > 0) {
+        setImmediate(async () => {
+            for (const task of botTasks) {
+                try {
+                    await task()
+                } catch (e) {
+                    console.error('[Bot Background Task] ❌', e)
+                }
+            }
+        })
+    }
+
+    // Return 200 immediately to Facebook (prevents timeout)
     return NextResponse.json({ status: 'ok' })
 }
 
 // ═══════════════════════════════════════
 // HANDLE INSTAGRAM COMMENTS
 // ═══════════════════════════════════════
-async function handleInstagramComment(igAccountId: string, value: any) {
+async function handleInstagramComment(igAccountId: string, value: any, botTasks: BotTask[]) {
     const verb = value.verb || 'add'
     if (verb === 'remove') {
         if (value.id) {
@@ -209,6 +229,7 @@ async function handleInstagramComment(igAccountId: string, value: any) {
             type: 'comment',
             metadata: postMetadata,
             externalId: platformAccounts.length > 1 ? `${commentId}_${platformAccount.channelId}` : commentId,
+            botTasks,
         })
         console.log(`[IG Webhook] 💬 Comment routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
     }
@@ -217,7 +238,7 @@ async function handleInstagramComment(igAccountId: string, value: any) {
 // ═══════════════════════════════════════
 // HANDLE INSTAGRAM DMs
 // ═══════════════════════════════════════
-async function handleInstagramMessaging(igAccountId: string, event: any) {
+async function handleInstagramMessaging(igAccountId: string, event: any, botTasks: BotTask[]) {
     if (!event.message?.text && !event.message?.attachments) return
 
     const senderId = event.sender?.id
@@ -279,6 +300,7 @@ async function handleInstagramMessaging(igAccountId: string, event: any) {
             mediaUrl,
             mediaType,
             externalId: platformAccounts.length > 1 ? `${event.message?.mid}_${platformAccount.channelId}` : event.message?.mid,
+            botTasks,
         })
         console.log(`[IG Webhook] 💬 Message routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
     }
@@ -287,7 +309,7 @@ async function handleInstagramMessaging(igAccountId: string, event: any) {
 // ═══════════════════════════════════════
 // HANDLE FEED CHANGES (Comments)
 // ═══════════════════════════════════════
-async function handleFeedChange(pageId: string, value: any) {
+async function handleFeedChange(pageId: string, value: any, botTasks: BotTask[]) {
     if (value.item !== 'comment') return
 
     const verb = value.verb
@@ -432,6 +454,7 @@ async function handleFeedChange(pageId: string, value: any) {
             type: 'comment',
             metadata: postMetadata,
             externalId: commentIdForChannel,
+            botTasks,
         })
         console.log(`[FB Webhook] 💬 Comment routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
     }
@@ -440,7 +463,7 @@ async function handleFeedChange(pageId: string, value: any) {
 // ═══════════════════════════════════════
 // HANDLE MESSAGING (DMs + Echoes)
 // ═══════════════════════════════════════
-async function handleMessaging(pageId: string, event: any) {
+async function handleMessaging(pageId: string, event: any, botTasks: BotTask[]) {
     if (!event.message?.text && !event.message?.attachments) return
 
     const senderId = event.sender?.id
@@ -505,6 +528,7 @@ async function handleMessaging(pageId: string, event: any) {
             mediaUrl,
             mediaType,
             externalId: platformAccounts.length > 1 ? `${event.message?.mid}_${platformAccount.channelId}` : event.message?.mid,
+            botTasks,
         })
         console.log(`[FB Webhook] 💬 Message routed to channel ${platformAccount.channelId} (${platformAccount.accountName})`)
     }
@@ -530,6 +554,7 @@ async function upsertConversation(opts: {
     externalId?: string | null
     type?: string
     metadata?: any
+    botTasks?: BotTask[]
 }) {
     // Find or create conversation
     // Include type in lookup so DMs and comments create separate conversations
@@ -653,21 +678,21 @@ async function upsertConversation(opts: {
         }).catch(() => { }) // fire-and-forget
     }
 
-    // ─── Bot Auto-Reply (awaited to ensure completion) ──────
-    if (opts.direction === 'inbound' && conversation.mode === 'BOT') {
-        try {
+    // ─── Queue Bot Auto-Reply for background execution ──────
+    if (opts.direction === 'inbound' && conversation.mode === 'BOT' && opts.botTasks) {
+        const convId = conversation.id
+        const platform = opts.platform
+        const content = opts.content
+
+        opts.botTasks.push(async () => {
             if (isNewConversation) {
-                // New conversation: send greeting first, then auto-reply
-                await sendBotGreeting(conversation.id, opts.platform)
-                const r = await botAutoReply(conversation.id, opts.content, opts.platform)
+                await sendBotGreeting(convId, platform)
+                const r = await botAutoReply(convId, content, platform)
                 console.log(`[Bot Auto-Reply] Result:`, r)
             } else {
-                // Existing conversation: just auto-reply
-                const r = await botAutoReply(conversation.id, opts.content, opts.platform)
+                const r = await botAutoReply(convId, content, platform)
                 console.log(`[Bot Auto-Reply] Result:`, r)
             }
-        } catch (e) {
-            console.error(`[Bot Auto-Reply] ❌`, e)
-        }
+        })
     }
 }
