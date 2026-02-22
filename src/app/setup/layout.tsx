@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
     title: 'NeeFlow Setup Wizard',
-    description: 'Configure your ASocial instance',
+    description: 'Configure your NeeFlow instance',
 }
 
 export default function SetupLayout({

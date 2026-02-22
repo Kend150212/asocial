@@ -86,7 +86,7 @@ const PLATFORMS = [
             'Google Cloud Console → Create project → Enable YouTube Data API v3',
             'Credentials → Create OAuth Client ID → Web Application',
             'Authorized redirect URI → paste callback URL',
-            'Copy Client ID + Client Secret → ASocial API Hub',
+            'Copy Client ID + Client Secret → NeeFlow API Hub',
         ],
     },
     {
@@ -101,7 +101,7 @@ const PLATFORMS = [
             'TikTok Developer Portal → Create App',
             'Add Login Kit + Content Posting API',
             'Redirect URI → paste callback URL',
-            'Copy Client Key + Client Secret → ASocial API Hub',
+            'Copy Client Key + Client Secret → NeeFlow API Hub',
         ],
     },
     {
@@ -546,7 +546,7 @@ export default function SetupWizardPage() {
                     <div className="space-y-6">
                         <div>
                             <h2 className="text-2xl font-semibold flex items-center gap-2">
-                                🚀 Launch ASocial
+                                🚀 Launch NeeFlow
                             </h2>
                             <p className="text-slate-400 text-sm mt-1">
                                 Click the button below to finalize your setup. This will:
@@ -590,7 +590,7 @@ export default function SetupWizardPage() {
                                 disabled={loading}
                                 className="w-full py-4 rounded-xl font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
                             >
-                                {loading ? <><Spinner /> Setting up...</> : '🚀 Launch ASocial'}
+                                {loading ? <><Spinner /> Setting up...</> : '🚀 Launch NeeFlow'}
                             </button>
                         )}
 
