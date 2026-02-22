@@ -452,7 +452,19 @@ export default function InboxPage() {
                     const newest = freshConversations[0]
                     const senderName = newest?.externalUserName || 'Someone'
                     const preview = newest?.lastMessage?.substring(0, 60) || 'New message'
-                    toast(`📬 ${senderName}`, { description: preview })
+                    toast(`📬 ${senderName}`, {
+                        description: preview,
+                        action: {
+                            label: 'View',
+                            onClick: () => {
+                                // Auto-select the conversation
+                                const conv = freshConversations.find((c: any) => c.id === newest?.id)
+                                if (conv) {
+                                    setSelectedConversation(conv)
+                                }
+                            },
+                        },
+                    })
                     // Browser notification (if tab is in background)
                     if (document.hidden) {
                         showBrowserNotification(
