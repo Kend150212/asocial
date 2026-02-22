@@ -24,12 +24,6 @@ export async function generateMetadata(): Promise<Metadata> {
     other: {
       'facebook-domain-verification': '067n6haeldnqrdj5tizunolln4pzoe',
     },
-    // Standard link rels — Google OAuth verification bot reads these
-    alternates: {
-      types: {
-        'text/html': 'https://neeflow.com',
-      },
-    },
   }
 }
 
