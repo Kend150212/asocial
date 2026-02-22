@@ -2,7 +2,7 @@
 set -e
 
 # ═══════════════════════════════════════════════════════
-# ASocial — One-Command Installer
+# NeeFlow — One-Command Installer
 # ═══════════════════════════════════════════════════════
 
 BOLD='\033[1m'
@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 echo ""
 echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════${NC}"
-echo -e "${BLUE}${BOLD}   🚀 ASocial Installer                       ${NC}"
+echo -e "${BLUE}${BOLD}   🚀 NeeFlow Installer                       ${NC}"
 echo -e "${BLUE}${BOLD}═══════════════════════════════════════════════${NC}"
 echo ""
 
@@ -109,7 +109,7 @@ echo -e "  ${GREEN}✓${NC} Dependencies installed"
 
 # Build (requires at least a minimal .env to not crash)
 if [ ! -f .env ]; then
-    echo 'DATABASE_URL="postgresql://asocial:asocial@localhost:5432/asocial?schema=public"' > .env
+    echo 'DATABASE_URL="postgresql://neeflow:neeflow@localhost:5432/neeflow?schema=public"' > .env
     echo 'AUTH_SECRET="temporary-build-secret"' >> .env
     echo 'NEXTAUTH_URL="http://localhost:3000"' >> .env
     echo 'REDIS_URL="redis://localhost:6379"' >> .env
@@ -121,15 +121,18 @@ echo -e "  ${GREEN}✓${NC} Build complete"
 
 # ── Start with PM2 ────────────────────────────────────
 echo ""
-echo -e "${BOLD}Starting ASocial...${NC}"
+echo -e "${BOLD}Starting NeeFlow...${NC}"
 
-# Update ecosystem.config.js with current directory
+# Stop any existing processes (ignore errors on fresh install)
+pm2 delete all 2>/dev/null || true
+
+# Generate ecosystem.config.js with current directory
 CURRENT_DIR=$(pwd)
 cat > ecosystem.config.js << EOF
 module.exports = {
     apps: [
         {
-            name: 'asocial-web',
+            name: 'neeflow-web',
             script: 'npm',
             args: 'start',
             cwd: '${CURRENT_DIR}',
@@ -141,7 +144,7 @@ module.exports = {
             max_restarts: 10,
         },
         {
-            name: 'asocial-worker',
+            name: 'neeflow-worker',
             script: 'npx',
             args: 'tsx src/server.ts',
             cwd: '${CURRENT_DIR}',
