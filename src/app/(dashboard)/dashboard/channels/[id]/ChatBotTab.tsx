@@ -104,7 +104,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
     const [knowledgeEntries, setKnowledgeEntries] = useState<KnowledgeEntry[]>([])
 
     // Tab navigation
-    const [botTab, setBotTab] = useState<'training' | 'behavior' | 'escalation' | 'hours' | 'scope'>('training')
+    const [botTab, setBotTab] = useState<'general' | 'training' | 'behavior' | 'escalation' | 'hours' | 'scope'>('general')
     const [trainingSubTab, setTrainingSubTab] = useState<'saved' | 'text' | 'url' | 'sheet' | 'images' | 'video' | 'qa'>('saved')
 
     // Per-page bot toggle
@@ -461,6 +461,7 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
             {/* ─── Tab Navigation ───────────────────── */}
             <div className="flex items-center gap-1 border-b pb-0 mb-4 overflow-x-auto">
                 {[
+                    { key: 'general' as const, icon: MessageSquare, label: t('chatbot.general.title'), color: 'text-blue-500' },
                     { key: 'training' as const, icon: Brain, label: t('chatbot.training.title'), color: 'text-purple-500' },
                     { key: 'behavior' as const, icon: Target, label: t('chatbot.behavior.title'), color: 'text-cyan-500' },
                     { key: 'escalation' as const, icon: Shield, label: t('chatbot.escalation.title'), color: 'text-red-500' },
@@ -481,136 +482,126 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                 ))}
             </div>
 
-            {/* ═══ GENERAL SETTINGS (always visible) ══════ */}
-            <Accordion type="multiple" defaultValue={['general']} className="space-y-2 mb-4">
-                <AccordionItem value="general" className="border rounded-lg px-4">
-                    <AccordionTrigger className="hover:no-underline">
-                        <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">{t('chatbot.general.title')}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4 pb-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-xs">{t('chatbot.general.botName')}</Label>
-                                <Input
-                                    value={config.botName}
-                                    onChange={e => update('botName', e.target.value)}
-                                    placeholder="AI Assistant"
-                                    className="mt-1"
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-xs">{t('chatbot.general.language')}</Label>
-                                <select
-                                    value={config.language}
-                                    onChange={e => update('language', e.target.value)}
-                                    className="w-full mt-1 h-9 px-3 text-sm rounded-md border border-input bg-background"
-                                >
-                                    <option value="vi">Tiếng Việt</option>
-                                    <option value="en">English</option>
-                                    <option value="fr">Français</option>
-                                    <option value="ja">日本語</option>
-                                    <option value="ko">한국어</option>
-                                    <option value="zh">中文</option>
-                                </select>
-                            </div>
-                        </div>
-                        {/* Greeting Mode Toggle */}
+            {/* ─── GENERAL TAB ───────────────────────── */}
+            {botTab === 'general' && (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="text-xs">{t('chatbot.general.greetingMode')}</Label>
-                            <div className="flex gap-2 mt-1">
-                                <Button size="sm" variant={config.greetingMode === 'template' ? 'default' : 'outline'}
-                                    onClick={() => update('greetingMode', 'template')} className="text-xs gap-1">
-                                    <MessageSquare className="h-3 w-3" /> {t('chatbot.general.modeTemplate')}
-                                </Button>
-                                <Button size="sm" variant={config.greetingMode === 'auto' ? 'default' : 'outline'}
-                                    onClick={() => update('greetingMode', 'auto')} className="text-xs gap-1">
-                                    <Sparkles className="h-3 w-3" /> {t('chatbot.general.modeAuto')}
-                                </Button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                                {config.greetingMode === 'template'
-                                    ? t('chatbot.general.modeTemplateDesc')
-                                    : t('chatbot.general.modeAutoDesc')}
-                            </p>
-                        </div>
-
-                        {config.greetingMode === 'template' && (
-                            <div>
-                                <Label className="text-xs">{t('chatbot.general.greetingMessage')}</Label>
-                                <Textarea
-                                    value={config.greeting}
-                                    onChange={e => update('greeting', e.target.value)}
-                                    placeholder={t('chatbot.general.greetingPlaceholder')}
-                                    rows={3} className="mt-1"
-                                />
-                            </div>
-                        )}
-
-                        {/* Greeting Images — Drag & Drop + Media Browse */}
-                        <div>
-                            <Label className="text-xs flex items-center gap-1">
-                                <ImageIcon className="h-3 w-3" /> {t('chatbot.general.greetingImages')}
-                            </Label>
-                            {config.greetingImages.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {config.greetingImages.map((url, i) => (
-                                        <div key={i} className="relative group">
-                                            <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover border" />
-                                            <button
-                                                className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => update('greetingImages', config.greetingImages.filter((_, j) => j !== i))}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div
-                                ref={greetingDropRef}
-                                className={`mt-2 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
-                                    ${dragOver === 'greeting' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
-                                {...makeDragHandlers('greeting', async (files) => {
-                                    const folderId = await ensureBotFolder()
-                                    const urls = await uploadFiles(files, folderId || undefined)
-                                    if (urls.length) update('greetingImages', [...config.greetingImages, ...urls])
-                                })}
-                                onClick={() => { setMediaBrowserTarget('greeting'); loadMediaItems('image') }}
-                            >
-                                {uploading ? (
-                                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                                        <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
-                                        <p className="text-xs text-muted-foreground">{t('chatbot.mediaBrowser.dragDropHint')}</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label className="text-xs">{t('chatbot.general.personality')}</Label>
-                            <Textarea
-                                value={config.personality}
-                                onChange={e => update('personality', e.target.value)}
-                                placeholder={t('chatbot.general.personalityPlaceholder')}
-                                rows={4}
+                            <Label className="text-xs">{t('chatbot.general.botName')}</Label>
+                            <Input
+                                value={config.botName}
+                                onChange={e => update('botName', e.target.value)}
+                                placeholder="AI Assistant"
                                 className="mt-1"
                             />
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                                {t('chatbot.general.personalityHint')}
-                            </p>
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+                        <div>
+                            <Label className="text-xs">{t('chatbot.general.language')}</Label>
+                            <select
+                                value={config.language}
+                                onChange={e => update('language', e.target.value)}
+                                className="w-full mt-1 h-9 px-3 text-sm rounded-md border border-input bg-background"
+                            >
+                                <option value="vi">Tiếng Việt</option>
+                                <option value="en">English</option>
+                                <option value="fr">Français</option>
+                                <option value="ja">日本語</option>
+                                <option value="ko">한국어</option>
+                                <option value="zh">中文</option>
+                            </select>
+                        </div>
+                    </div>
+                    {/* Greeting Mode Toggle */}
+                    <div>
+                        <Label className="text-xs">{t('chatbot.general.greetingMode')}</Label>
+                        <div className="flex gap-2 mt-1">
+                            <Button size="sm" variant={config.greetingMode === 'template' ? 'default' : 'outline'}
+                                onClick={() => update('greetingMode', 'template')} className="text-xs gap-1">
+                                <MessageSquare className="h-3 w-3" /> {t('chatbot.general.modeTemplate')}
+                            </Button>
+                            <Button size="sm" variant={config.greetingMode === 'auto' ? 'default' : 'outline'}
+                                onClick={() => update('greetingMode', 'auto')} className="text-xs gap-1">
+                                <Sparkles className="h-3 w-3" /> {t('chatbot.general.modeAuto')}
+                            </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            {config.greetingMode === 'template'
+                                ? t('chatbot.general.modeTemplateDesc')
+                                : t('chatbot.general.modeAutoDesc')}
+                        </p>
+                    </div>
 
-            {/* ═══ TAB CONTENT ════════════════════════ */}
+                    {config.greetingMode === 'template' && (
+                        <div>
+                            <Label className="text-xs">{t('chatbot.general.greetingMessage')}</Label>
+                            <Textarea
+                                value={config.greeting}
+                                onChange={e => update('greeting', e.target.value)}
+                                placeholder={t('chatbot.general.greetingPlaceholder')}
+                                rows={3} className="mt-1"
+                            />
+                        </div>
+                    )}
+
+                    {/* Greeting Images — Drag & Drop + Media Browse */}
+                    <div>
+                        <Label className="text-xs flex items-center gap-1">
+                            <ImageIcon className="h-3 w-3" /> {t('chatbot.general.greetingImages')}
+                        </Label>
+                        {config.greetingImages.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {config.greetingImages.map((url, i) => (
+                                    <div key={i} className="relative group">
+                                        <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover border" />
+                                        <button
+                                            className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => update('greetingImages', config.greetingImages.filter((_, j) => j !== i))}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div
+                            ref={greetingDropRef}
+                            className={`mt-2 border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer
+                                ${dragOver === 'greeting' ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}`}
+                            {...makeDragHandlers('greeting', async (files) => {
+                                const folderId = await ensureBotFolder()
+                                const urls = await uploadFiles(files, folderId || undefined)
+                                if (urls.length) update('greetingImages', [...config.greetingImages, ...urls])
+                            })}
+                            onClick={() => { setMediaBrowserTarget('greeting'); loadMediaItems('image') }}
+                        >
+                            {uploading ? (
+                                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> {t('chatbot.mediaBrowser.uploading')}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">{t('chatbot.mediaBrowser.dragDropHint')}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label className="text-xs">{t('chatbot.general.personality')}</Label>
+                        <Textarea
+                            value={config.personality}
+                            onChange={e => update('personality', e.target.value)}
+                            placeholder={t('chatbot.general.personalityPlaceholder')}
+                            rows={4}
+                            className="mt-1"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            {t('chatbot.general.personalityHint')}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* ─── TRAINING TAB ─────────────────────── */}
             {botTab === 'training' && (
