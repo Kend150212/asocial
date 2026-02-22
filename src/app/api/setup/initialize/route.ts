@@ -144,14 +144,15 @@ export async function POST(req: NextRequest) {
             const id = randomBytes(12).toString('hex')
 
             // Check if admin already exists
+            // Table is "users" (@@map), columns use snake_case (@map)
             const existing = await client.query(
-                'SELECT id FROM "User" WHERE email = $1',
+                'SELECT id FROM users WHERE email = $1',
                 [adminEmail]
             )
 
             if (existing.rows.length === 0) {
                 await client.query(
-                    `INSERT INTO "User" (id, name, email, password, role, "emailVerified", "createdAt", "updatedAt")
+                    `INSERT INTO users (id, name, email, password_hash, role, email_verified, created_at, updated_at)
                      VALUES ($1, $2, $3, $4, 'ADMIN', NOW(), NOW(), NOW())`,
                     [id, adminName, adminEmail, hashedPassword]
                 )
