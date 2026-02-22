@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
         // ── Step 6: Restart PM2 ───────────────────────────────────────
         try {
             // Update PM2 env with new .env values
-            await execAsync('pm2 restart all --update-env', { cwd: projectDir, timeout: 30000 })
+            await execAsync('pm2 restart all', { cwd: projectDir, timeout: 30000 })
             steps.push({ step: 'Restart PM2', status: 'success' })
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'PM2 restart failed'
