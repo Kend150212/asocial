@@ -1140,8 +1140,8 @@ export default function ChatBotTab({ channelId }: ChatBotTabProps) {
                             </Card>
                         )}
 
-                    </div>{/* end right panel */}
-                </div>{/* end 2-column */}
+                    </div>
+                </div>
             )}
 
             {/* ─── BEHAVIOR TAB ─────────────────────── */}
