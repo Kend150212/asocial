@@ -769,7 +769,7 @@ model Conversation {
 
   channel         Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
   agent           User?           @relation(fields: [assignedTo], references: [id])
-  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id])
+  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
   messages        InboxMessage[]
 
   @@unique([channelId, platform, externalUserId])
@@ -822,7 +822,7 @@ model SocialComment {
   createdAt         DateTime  @default(now()) @map("created_at")
 
   channel         Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id])
+  platformAccount ChannelPlatform @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
   post            Post?           @relation(fields: [postId], references: [id])
 
   @@index([channelId, status])

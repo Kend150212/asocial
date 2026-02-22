@@ -118,8 +118,12 @@ export async function DELETE(
         select: { accountId: true, accessToken: true, platform: true, accountName: true },
     })
 
-    // Unsubscribe from Facebook/Instagram webhooks before deleting
-    if (platform?.accessToken && (platform.platform === 'facebook' || platform.platform === 'instagram')) {
+    if (!platform) {
+        return NextResponse.json({ error: 'Platform not found' }, { status: 404 })
+    }
+
+    // 1. Unsubscribe from Facebook/Instagram webhooks
+    if (platform.accessToken && (platform.platform === 'facebook' || platform.platform === 'instagram')) {
         try {
             const unsubRes = await fetch(
                 `https://graph.facebook.com/v19.0/${platform.accountId}/subscribed_apps?access_token=${platform.accessToken}`,
@@ -133,11 +137,37 @@ export async function DELETE(
             }
         } catch (err) {
             console.error(`[Platform Disconnect] ❌ Webhook unsubscribe error for ${platform.accountName}:`, err)
-            // Continue with delete even if unsubscribe fails
         }
     }
 
+    // 2. Cascade-delete inbox data: messages → conversations → comments
+    //    (Prisma schema doesn't have onDelete:Cascade for platformAccount relations)
+    const conversations = await prisma.conversation.findMany({
+        where: { platformAccountId: platformId },
+        select: { id: true },
+    })
+    const conversationIds = conversations.map(c => c.id)
+
+    if (conversationIds.length > 0) {
+        // Delete messages first (child records)
+        await prisma.inboxMessage.deleteMany({
+            where: { conversationId: { in: conversationIds } },
+        })
+        // Delete conversations
+        await prisma.conversation.deleteMany({
+            where: { id: { in: conversationIds } },
+        })
+        console.log(`[Platform Disconnect] 🗑️ Deleted ${conversationIds.length} conversations and their messages`)
+    }
+
+    // Delete social comments linked to this platform
+    await prisma.socialComment.deleteMany({
+        where: { platformAccountId: platformId },
+    })
+
+    // 3. Delete the platform record itself
     await prisma.channelPlatform.delete({ where: { id: platformId } })
 
+    console.log(`[Platform Disconnect] ✅ Fully disconnected: ${platform.accountName} (${platform.platform})`)
     return NextResponse.json({ success: true })
 }
