@@ -270,9 +270,11 @@ async function handleMessaging(pageId: string, event: any) {
     const mediaUrl = event.message?.attachments?.[0]?.payload?.url || null
     const mediaType = event.message?.attachments?.[0]?.type || null
 
-    // Get sender name via Graph API (if inbound)
+    // Get external user name via Graph API
+    // For inbound: sender is the customer
+    // For outbound echo: recipient is the customer (externalUserId)
     let senderName = externalUserId
-    if (!isOutbound && platformAccount.accessToken) {
+    if (platformAccount.accessToken) {
         try {
             const res = await fetch(
                 `https://graph.facebook.com/v19.0/${externalUserId}?fields=name,profile_pic&access_token=${platformAccount.accessToken}`
@@ -292,8 +294,8 @@ async function handleMessaging(pageId: string, event: any) {
         platformAccountId: platformAccount.id,
         platform: 'facebook',
         externalUserId,
-        externalUserName: isOutbound ? undefined : senderName,
-        externalUserAvatar: !isOutbound ? `https://graph.facebook.com/${externalUserId}/picture?type=small` : undefined,
+        externalUserName: senderName !== externalUserId ? senderName : undefined,
+        externalUserAvatar: `https://graph.facebook.com/${externalUserId}/picture?type=small`,
         content,
         direction: isOutbound ? 'outbound' : 'inbound',
         senderType: isOutbound ? (isEcho ? 'agent' : 'agent') : 'customer',
@@ -389,10 +391,10 @@ async function upsertConversation(opts: {
                 updateData.status = 'new'
             }
         }
-        if (opts.externalUserName && !conversation.externalUserName) {
+        if (opts.externalUserName && (!conversation.externalUserName || /^\d{10,}$/.test(conversation.externalUserName))) {
             updateData.externalUserName = opts.externalUserName
         }
-        if (opts.externalUserAvatar && !conversation.externalUserAvatar) {
+        if (opts.externalUserAvatar && (!conversation.externalUserAvatar || conversation.externalUserAvatar === '')) {
             updateData.externalUserAvatar = opts.externalUserAvatar
         }
         // Update metadata if we have post info and conversation doesn't have it yet
