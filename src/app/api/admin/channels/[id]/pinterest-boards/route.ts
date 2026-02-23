@@ -5,7 +5,16 @@ import { decrypt } from '@/lib/encryption'
 import { getBrandingServer } from '@/lib/use-branding-server'
 import { getPinterestApiBase } from '@/lib/pinterest'
 
+// ─── Check if Sandbox mode is enabled ────────────────────────────────────────
+async function isPinterestSandbox(): Promise<boolean> {
+    const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'pinterest' } })
+    const config = (integration?.config || {}) as Record<string, string>
+    return config.pinterestSandbox === 'true'
+}
+
 // ─── Token refresh helper ─────────────────────────────────────────────────────
+// NOTE: This always returns a PRODUCTION token (Pinterest OAuth is always production).
+// Do NOT use this refresh in Sandbox mode — sandbox tokens cannot be refreshed via OAuth.
 async function refreshPinterestToken(platformId: string, refreshToken: string): Promise<string | null> {
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'pinterest' } })
     const config = (integration?.config || {}) as Record<string, string>
@@ -79,12 +88,26 @@ export async function GET(
         return NextResponse.json({ error: 'Pinterest not connected or token missing' }, { status: 404 })
     }
 
-    // Check if token is close to expiry — refresh proactively
+    const sandbox = await isPinterestSandbox()
     let accessToken = platform.accessToken
-    if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000) {
-        if (platform.refreshToken) {
-            const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
-            if (refreshed) accessToken = refreshed
+
+    // Sandbox tokens expire in ~1 hour and CANNOT be refreshed via OAuth.
+    // If token is expired in sandbox mode → immediately ask user to reconnect (generate new sandbox token).
+    if (sandbox) {
+        if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now()) {
+            console.log('[Pinterest Boards] Sandbox token expired — manual reconnect required')
+            return NextResponse.json({
+                error: 'Pinterest Sandbox token expired. Please generate a new Sandbox token in Developer portal.',
+                needsReconnect: true,
+            }, { status: 401 })
+        }
+    } else {
+        // Production mode: proactively refresh if near expiry
+        if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000) {
+            if (platform.refreshToken) {
+                const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
+                if (refreshed) accessToken = refreshed
+            }
         }
     }
 
@@ -94,27 +117,38 @@ export async function GET(
             headers: { Authorization: `Bearer ${accessToken}` },
         })
 
-        // If 401, try to refresh token once
-        if (res.status === 401 && platform.refreshToken) {
-            console.log('[Pinterest Boards] Access token expired, attempting refresh...')
-            const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
-            if (!refreshed) {
+        // If 401 in sandbox mode → token invalid/expired, must reconnect manually
+        if (res.status === 401) {
+            if (sandbox) {
+                console.log('[Pinterest Boards] Sandbox token rejected — needs new sandbox token')
                 return NextResponse.json({
-                    error: 'Pinterest session expired. Please reconnect your Pinterest account.',
+                    error: 'Pinterest Sandbox token expired. Please generate a new Sandbox token.',
                     needsReconnect: true,
                 }, { status: 401 })
             }
-            accessToken = refreshed
+            // Production: try to refresh token once
+            if (platform.refreshToken) {
+                console.log('[Pinterest Boards] Access token expired, attempting refresh...')
+                const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
+                if (!refreshed) {
+                    return NextResponse.json({
+                        error: 'Pinterest session expired. Please reconnect your Pinterest account.',
+                        needsReconnect: true,
+                    }, { status: 401 })
+                }
+                accessToken = refreshed
 
-            // Retry with new token
-            const retryRes = await fetch(`${pinterestBase}/v5/boards?page_size=50`, {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            })
-            if (!retryRes.ok) {
-                return NextResponse.json({ error: 'Pinterest authentication failed after refresh. Please reconnect.', needsReconnect: true }, { status: 401 })
+                // Retry with new token
+                const retryRes = await fetch(`${pinterestBase}/v5/boards?page_size=50`, {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                })
+                if (!retryRes.ok) {
+                    return NextResponse.json({ error: 'Pinterest authentication failed after refresh. Please reconnect.', needsReconnect: true }, { status: 401 })
+                }
+                const retryData = await retryRes.json()
+                return NextResponse.json({ boards: (retryData.items || []).map((b: { id: string; name: string; description?: string; privacy?: string }) => ({ id: b.id, name: b.name, description: b.description || '', privacy: b.privacy || 'PUBLIC' })) })
             }
-            const retryData = await retryRes.json()
-            return NextResponse.json({ boards: (retryData.items || []).map((b: { id: string; name: string; description?: string; privacy?: string }) => ({ id: b.id, name: b.name, description: b.description || '', privacy: b.privacy || 'PUBLIC' })) })
+            return NextResponse.json({ error: 'Pinterest session expired. Please reconnect.', needsReconnect: true }, { status: 401 })
         }
 
         if (!res.ok) {
@@ -188,13 +222,24 @@ export async function POST(
         return NextResponse.json({ error: 'Pinterest not connected' }, { status: 404 })
     }
 
+    const sandbox = await isPinterestSandbox()
     let accessToken = platform.accessToken
 
-    // Proactive token refresh if near expiry
-    if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000) {
-        if (platform.refreshToken) {
-            const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
-            if (refreshed) accessToken = refreshed
+    // Sandbox: token expired → needsReconnect immediately (no refresh possible)
+    if (sandbox) {
+        if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now()) {
+            return NextResponse.json({
+                error: 'Pinterest Sandbox token expired. Please generate a new Sandbox token.',
+                needsReconnect: true,
+            }, { status: 401 })
+        }
+    } else {
+        // Production: proactive token refresh if near expiry
+        if (platform.tokenExpiresAt && platform.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000) {
+            if (platform.refreshToken) {
+                const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
+                if (refreshed) accessToken = refreshed
+            }
         }
     }
 
@@ -209,38 +254,39 @@ export async function POST(
             body: JSON.stringify({ name: name.trim(), description, privacy }),
         })
 
-        // If 401, try refresh once
-        if (res.status === 401 && platform.refreshToken) {
-            const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
-            if (!refreshed) {
-                return NextResponse.json({ error: 'Pinterest session expired. Please reconnect.', needsReconnect: true }, { status: 401 })
-            }
-            accessToken = refreshed
-            const retry = await fetch(`${pinterestBase}/v5/boards`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-                body: JSON.stringify({ name: name.trim(), description, privacy }),
-            })
-            const retryData = await retry.json()
-            // If auth still fails after refresh → sandbox token incompatibility → must reconnect
-            if (!retry.ok) {
-                if (retry.status === 401 || retryData?.code === 2) {
-                    console.error('[Pinterest Boards] Auth failed even after token refresh — sandbox token incompatibility, reconnect required')
-                    return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
-                }
-                return NextResponse.json({ error: retryData.message || 'Failed to create board' }, { status: 502 })
-            }
-            return NextResponse.json({ board: { id: retryData.id, name: retryData.name, description: retryData.description || '', privacy: retryData.privacy || 'PUBLIC' } })
-        }
-        // 401 but no refresh token OR other auth error on first try
+        // If 401 in sandbox → no refresh, must reconnect
         if (res.status === 401) {
-            return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
+            if (sandbox) {
+                console.log('[Pinterest Boards] Sandbox token rejected on create — needs new sandbox token')
+                return NextResponse.json({ error: 'Pinterest Sandbox token expired. Please generate a new token.', needsReconnect: true }, { status: 401 })
+            }
+            // Production: try refresh once
+            if (platform.refreshToken) {
+                const refreshed = await refreshPinterestToken(platform.id, platform.refreshToken)
+                if (!refreshed) {
+                    return NextResponse.json({ error: 'Pinterest session expired. Please reconnect.', needsReconnect: true }, { status: 401 })
+                }
+                accessToken = refreshed
+                const retry = await fetch(`${pinterestBase}/v5/boards`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                    body: JSON.stringify({ name: name.trim(), description, privacy }),
+                })
+                const retryData = await retry.json()
+                if (!retry.ok) {
+                    if (retry.status === 401 || retryData?.code === 2) {
+                        return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
+                    }
+                    return NextResponse.json({ error: retryData.message || 'Failed to create board' }, { status: 502 })
+                }
+                return NextResponse.json({ board: { id: retryData.id, name: retryData.name, description: retryData.description || '', privacy: retryData.privacy || 'PUBLIC' } })
+            }
+            return NextResponse.json({ error: 'Pinterest session expired. Please reconnect.', needsReconnect: true }, { status: 401 })
         }
 
         const data = await res.json()
         if (!res.ok) {
             console.error('[Pinterest Boards] Create failed:', JSON.stringify(data))
-            // Pinterest auth error code 2 = Authentication failed → needsReconnect
             if (data?.code === 2 || res.status === 401) {
                 return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
             }
