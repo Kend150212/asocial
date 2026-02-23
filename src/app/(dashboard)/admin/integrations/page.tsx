@@ -476,6 +476,7 @@ export default function IntegrationsPage() {
                     oauthConfigMap[i.id] = {
                         clientId: config.tiktokClientKey || '',
                         clientSecret: '',
+                        sandbox: config.tiktokSandbox === 'true' ? 'true' : '',
                     }
                 }
                 if (i.provider === 'facebook') {
@@ -596,7 +597,10 @@ export default function IntegrationsPage() {
             if (integration.provider === 'tiktok') {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
-                    body.config = { tiktokClientKey: oauth.clientId }
+                    body.config = {
+                        tiktokClientKey: oauth.clientId,
+                        tiktokSandbox: oauth.sandbox === 'true' ? 'true' : 'false',
+                    }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -1445,6 +1449,28 @@ function IntegrationCard({
                                         🏖️ Sandbox Mode (Trial apps — uses api-sandbox.pinterest.com)
                                     </span>
                                 </label>
+                            </div>
+                        )}
+
+                        {/* TikTok Sandbox toggle */}
+                        {integration.provider === 'tiktok' && (
+                            <div className="pt-2 border-t border-dashed">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={oauthConfig.sandbox === 'true'}
+                                        onChange={(e) => onOauthChange('sandbox', e.target.checked ? 'true' : '')}
+                                        className="h-3.5 w-3.5 rounded border-white/20 accent-amber-500"
+                                    />
+                                    <span className="text-[11px] text-amber-400">
+                                        🏖️ Sandbox Mode — enable while recording demo videos, disable for production
+                                    </span>
+                                </label>
+                                {oauthConfig.sandbox === 'true' && (
+                                    <p className="mt-1 ml-5 text-[10px] text-amber-300/70">
+                                        ⚠️ Sandbox uses sandbox.tiktokapis.com — posts only visible in TikTok Sandbox environment. Remember to save after toggling.
+                                    </p>
+                                )}
                             </div>
                         )}
 
