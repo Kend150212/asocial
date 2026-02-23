@@ -1851,6 +1851,7 @@ export default function ChannelDetailPage({
                                                 { key: 'x', label: 'X', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
                                                 { key: 'linkedin', label: 'LinkedIn', border: 'border-blue-600/30', hover: 'hover:bg-blue-600/10' },
                                                 { key: 'pinterest', label: 'Pinterest', border: 'border-red-600/30', hover: 'hover:bg-red-600/10' },
+                                                { key: 'threads', label: 'Threads', border: 'border-neutral-600/30', hover: 'hover:bg-neutral-600/10' },
                                             ].map(({ key, label, border, hover }) => (
                                                 <Button
                                                     key={key}
