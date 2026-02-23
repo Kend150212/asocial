@@ -51,17 +51,30 @@ Self-hosted, open-source social media management platform with AI content genera
 
 ---
 
-## 🚀 Quick Start (3 Steps)
+## 🚀 Quick Start (5 Steps)
 
 ```bash
 # 1. Clone
 git clone https://github.com/Kend150212/asocial.git
-cd asocial
+cd neeflow.com
 
 # 2. Install (auto-installs Node, PostgreSQL, Redis, PM2, FFmpeg)
 chmod +x install.sh && ./install.sh
 
-# 3. Open browser → Setup Wizard guides you through the rest
+# 3. Start the web app & background worker
+cd ~/neeflow.com
+pm2 start npm --name "neeflow-web" -- start
+pm2 start npm --name "neeflow-worker" -- run worker
+pm2 save
+pm2 startup
+
+# 4. Seed the database
+npx tsx prisma/seed.ts          # Admin user, settings, integrations
+npx tsx prisma/seed-plans.ts    # Subscription plans (Free/Pro/Business/Enterprise)
+npx tsx prisma/seed-inbox.ts    # Inbox email templates
+# npx tsx prisma/seed-stripe.ts # Only if Stripe is configured
+
+# 5. Open browser → Setup Wizard guides you through the rest
 #    http://YOUR_SERVER_IP:3000
 ```
 
