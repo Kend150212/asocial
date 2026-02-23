@@ -3,6 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 import { getBrandingServer } from '@/lib/use-branding-server'
 
+// Safe branding getter — ensures appName/tagline always have a string value
+async function getBrand() {
+    const b = await getBrandingServer()
+    return {
+        ...b,
+        appName: b.appName || 'NeeFlow',
+        tagline: b.tagline || 'Social Media Management',
+    }
+}
+
 // ─── Get SMTP transporter from ApiIntegration ───────
 async function getTransporter() {
     const smtp = await prisma.apiIntegration.findFirst({
@@ -54,7 +64,7 @@ export async function sendEmail({
         return { success: false, reason: 'SMTP not configured' }
     }
     const { transporter, from } = smtp
-    const brand = await getBrandingServer()
+    const brand = await getBrand()
     await transporter.sendMail({
         from: `"${brand.appName}" <${from}>`,
         to,
@@ -87,7 +97,7 @@ export async function sendInvitationEmail({
 
         const { transporter, from } = smtp
         const setupUrl = `${appUrl}/setup-password?token=${inviteToken}`
-        const brand = await getBrandingServer()
+        const brand = await getBrand()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Manager' : 'Customer'
         const roleBg = role === 'ADMIN' ? '#dc2626' : role === 'MANAGER' ? '#7c3aed' : '#0891b2'
@@ -225,7 +235,7 @@ export async function sendChannelInviteEmail({
         }
 
         const { transporter, from } = smtp
-        const brand = await getBrandingServer()
+        const brand = await getBrand()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
 
         // ─── Role-specific content ───────────────────────
@@ -408,7 +418,7 @@ export async function sendChannelAddedNotificationEmail({
         }
 
         const { transporter, from } = smtp
-        const brand = await getBrandingServer()
+        const brand = await getBrand()
         const logoUrl = brand.logoUrl?.startsWith('http') ? brand.logoUrl : `${appUrl}${brand.logoUrl || '/logo.png'}`
         const loginUrl = `${appUrl}/login`
         const roleLabel = role === 'ADMIN' ? 'Administrator' : role === 'OWNER' ? 'Owner' : role === 'MANAGER' ? 'Manager' : role === 'STAFF' ? 'Staff' : 'Client'

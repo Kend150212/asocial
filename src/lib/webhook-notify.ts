@@ -9,7 +9,7 @@ let _cachedAppName: string | null = null
 async function getAppName(): Promise<string> {
     if (_cachedAppName) return _cachedAppName
     const brand = await getBrandingServer()
-    _cachedAppName = brand.appName
+    _cachedAppName = brand.appName || 'NeeFlow'
     return _cachedAppName
 }
 

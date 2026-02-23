@@ -5,7 +5,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const brand = await getBrandingServer()
     return {
         title: `Create Account`,
-        description: `Get started with ${brand.appName} — ${brand.tagline}`,
+        description: `Get started with ${brand.appName || 'NeeFlow'} — ${brand.tagline || 'Social Media Management'}`,
     }
 }
 
