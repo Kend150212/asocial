@@ -1068,10 +1068,25 @@ async function publishToThreads(
     const containerId = containerData.id
     if (!containerId) throw new Error('Threads: no container ID returned')
 
-    // Step 2 (for video): wait for container to be ready
-    if (videoMedia) {
-        console.log('[Threads] Waiting 10s for video container to process...')
-        await new Promise(r => setTimeout(r, 10000))
+    // Step 2: Poll container status until FINISHED (required for both image and video)
+    const maxAttempts = 20
+    const pollIntervalMs = 3000
+    let containerStatus = ''
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, pollIntervalMs))
+        const statusRes = await fetch(
+            `${base}/${containerId}?fields=status,error_message&access_token=${accessToken}`
+        )
+        const statusData = await statusRes.json()
+        containerStatus = statusData.status || ''
+        console.log(`[Threads] Container ${containerId} status (attempt ${i + 1}): ${containerStatus}`)
+        if (containerStatus === 'FINISHED') break
+        if (containerStatus === 'ERROR') {
+            throw new Error(`Threads container processing failed: ${statusData.error_message || 'unknown error'}`)
+        }
+    }
+    if (containerStatus !== 'FINISHED') {
+        throw new Error(`Threads container not ready after ${maxAttempts} attempts (status: ${containerStatus})`)
     }
 
     // Step 3: Publish container via /me
