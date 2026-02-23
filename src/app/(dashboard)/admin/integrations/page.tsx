@@ -541,6 +541,12 @@ export default function IntegrationsPage() {
                         clientSecret: '',
                     }
                 }
+                if (i.provider === 'gbp') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.gbpClientId || '',
+                        clientSecret: '',
+                    }
+                }
                 if (i.provider === 'canva') {
                     oauthConfigMap[i.id] = {
                         clientId: config.canvaClientId || '',
@@ -689,6 +695,15 @@ export default function IntegrationsPage() {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
                     body.config = { threadsClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // GBP OAuth config (uses shared GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)
+            if (integration.provider === 'gbp') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { gbpClientId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -1037,7 +1052,7 @@ function IntegrationCard({
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
     const isStripe = integration.provider === 'stripe'
-    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads'].includes(integration.provider)
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads', 'gbp'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -1424,6 +1439,7 @@ function IntegrationCard({
                                     linkedin: 'LinkedIn Client ID', x: 'X Client ID',
                                     pinterest: 'Pinterest App ID',
                                     threads: 'Threads App ID',
+                                    gbp: 'Google Client ID',
                                 }[integration.provider] || 'Client ID'}
                             </Label>
                             <Input
@@ -1442,6 +1458,7 @@ function IntegrationCard({
                                     linkedin: 'LinkedIn Client Secret', x: 'X Client Secret',
                                     pinterest: 'Pinterest App Secret',
                                     threads: 'Threads App Secret',
+                                    gbp: 'Google Client Secret',
                                 }[integration.provider] || 'Client Secret'}
                             </Label>
                             <div className="relative">
