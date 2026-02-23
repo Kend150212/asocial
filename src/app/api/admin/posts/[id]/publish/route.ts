@@ -1011,6 +1011,15 @@ async function publishToThreads(
     mediaItems: MediaInfo[],
 ): Promise<{ externalId: string }> {
     const base = 'https://graph.threads.net/v1.0'
+    const appBase = process.env.NEXTAUTH_URL || 'https://neeflow.com'
+
+    // Google Drive URLs can't be fetched directly by Meta's servers — proxy through our domain
+    function resolveMediaUrl(url: string): string {
+        if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
+            return `${appBase}/api/media/proxy?url=${encodeURIComponent(url)}`
+        }
+        return url
+    }
 
     // Threads API: 2-step flow — create container → publish
     const imageMedia = mediaItems.find(m => !isVideoMedia(m))
@@ -1022,7 +1031,7 @@ async function publishToThreads(
         // Video post
         containerBody = {
             media_type: 'VIDEO',
-            video_url: videoMedia.url,
+            video_url: resolveMediaUrl(videoMedia.url),
             text: content.slice(0, 500),
             access_token: accessToken,
         }
@@ -1030,7 +1039,7 @@ async function publishToThreads(
         // Image post
         containerBody = {
             media_type: 'IMAGE',
-            image_url: imageMedia.url,
+            image_url: resolveMediaUrl(imageMedia.url),
             text: content.slice(0, 500),
             access_token: accessToken,
         }
