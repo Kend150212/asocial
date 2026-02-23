@@ -650,6 +650,10 @@ export default function ComposePage() {
     const [pinSettingsOpen, setPinSettingsOpen] = useState(true)
     const [pinBoards, setPinBoards] = useState<{ id: string; name: string }[]>([])
     const [pinBoardsLoading, setPinBoardsLoading] = useState(false)
+    const [pinCreatingBoard, setPinCreatingBoard] = useState(false)
+    const [pinNewBoardName, setPinNewBoardName] = useState('')
+    const [pinNewBoardPrivacy, setPinNewBoardPrivacy] = useState('PUBLIC')
+    const [pinShowCreateBoard, setPinShowCreateBoard] = useState(false)
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
     const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
@@ -3395,20 +3399,87 @@ export default function ComposePage() {
                                 <CardContent className="px-3 pb-3 pt-0 space-y-2">
                                     {/* Board Selection */}
                                     <div>
-                                        <Label className="text-[10px] text-muted-foreground">Board</Label>
-                                        <Select value={pinBoardId} onValueChange={v => setPinBoardId(v)}>
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder={pinBoardsLoading ? 'Loading boards...' : 'Select a board'} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {pinBoards.map(b => (
-                                                    <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
-                                                ))}
-                                                {pinBoards.length === 0 && !pinBoardsLoading && (
-                                                    <SelectItem value="_none" disabled className="text-xs text-muted-foreground">No boards found</SelectItem>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <Label className="text-[10px] text-muted-foreground">Board</Label>
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-0.5 text-[10px] text-[#E60023] hover:opacity-80 transition-opacity cursor-pointer font-medium"
+                                                onClick={() => { setPinShowCreateBoard(v => !v); setPinNewBoardName('') }}
+                                            >
+                                                {pinShowCreateBoard ? '✕ Cancel' : '+ New Board'}
+                                            </button>
+                                        </div>
+
+                                        {pinShowCreateBoard ? (
+                                            <div className="space-y-2 p-2 rounded-md border border-[#E60023]/30 bg-[#E60023]/5">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Board name..."
+                                                    value={pinNewBoardName}
+                                                    onChange={e => setPinNewBoardName(e.target.value)}
+                                                    className="w-full h-7 px-2 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-[#E60023]/50"
+                                                    autoFocus
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        value={pinNewBoardPrivacy}
+                                                        onChange={e => setPinNewBoardPrivacy(e.target.value)}
+                                                        className="flex-1 h-7 px-2 text-xs rounded-md border bg-background focus:outline-none"
+                                                    >
+                                                        <option value="PUBLIC">🌐 Public</option>
+                                                        <option value="PROTECTED">🔒 Secret</option>
+                                                    </select>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!pinNewBoardName.trim() || pinCreatingBoard}
+                                                        className="h-7 px-3 text-xs rounded-md bg-[#E60023] text-white font-medium disabled:opacity-50 cursor-pointer hover:bg-[#c0001d] transition-colors"
+                                                        onClick={async () => {
+                                                            const pinterestPlatform = activePlatforms.find(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
+                                                            if (!pinterestPlatform || !selectedChannel) return
+                                                            setPinCreatingBoard(true)
+                                                            try {
+                                                                const res = await fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        accountId: pinterestPlatform.accountId,
+                                                                        name: pinNewBoardName.trim(),
+                                                                        privacy: pinNewBoardPrivacy,
+                                                                    }),
+                                                                })
+                                                                const data = await res.json()
+                                                                if (!res.ok) throw new Error(data.error || 'Failed')
+                                                                const newBoard = data.board
+                                                                setPinBoards(prev => [...prev, { id: newBoard.id, name: newBoard.name }])
+                                                                setPinBoardId(newBoard.id)
+                                                                setPinShowCreateBoard(false)
+                                                                setPinNewBoardName('')
+                                                            } catch (err) {
+                                                                alert('Failed to create board: ' + (err instanceof Error ? err.message : 'Unknown error'))
+                                                            } finally {
+                                                                setPinCreatingBoard(false)
+                                                            }
+                                                        }}
+                                                    >
+                                                        {pinCreatingBoard ? '...' : 'Create'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Select value={pinBoardId} onValueChange={v => setPinBoardId(v)}>
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue placeholder={pinBoardsLoading ? 'Loading boards...' : 'Select a board'} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {pinBoards.map(b => (
+                                                        <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                                                    ))}
+                                                    {pinBoards.length === 0 && !pinBoardsLoading && (
+                                                        <SelectItem value="_none" disabled className="text-xs text-muted-foreground">No boards found</SelectItem>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
                                     </div>
                                     {/* Pin Title + AI Button */}
                                     <div>
