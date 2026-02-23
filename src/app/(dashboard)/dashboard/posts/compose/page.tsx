@@ -654,6 +654,7 @@ export default function ComposePage() {
     const [pinNewBoardName, setPinNewBoardName] = useState('')
     const [pinNewBoardPrivacy, setPinNewBoardPrivacy] = useState('PUBLIC')
     const [pinShowCreateBoard, setPinShowCreateBoard] = useState(false)
+    const [pinNeedsReconnect, setPinNeedsReconnect] = useState(false)
     const [previewPlatform, setPreviewPlatform] = useState<string>('')
     const [mediaRatio, setMediaRatio] = useState<'16:9' | '9:16' | '1:1'>('1:1')
     const [showMediaLibrary, setShowMediaLibrary] = useState(false)
@@ -3380,7 +3381,10 @@ export default function ComposePage() {
                                             setPinBoardsLoading(true)
                                             fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards?accountId=${pinterestPlatform.accountId}`)
                                                 .then(r => r.json())
-                                                .then(data => { if (data.boards) setPinBoards(data.boards) })
+                                                .then(data => {
+                                                    if (data.needsReconnect) { setPinNeedsReconnect(true); return }
+                                                    if (data.boards) { setPinNeedsReconnect(false); setPinBoards(data.boards) }
+                                                })
                                                 .catch(() => { })
                                                 .finally(() => setPinBoardsLoading(false))
                                         }
@@ -3397,6 +3401,20 @@ export default function ComposePage() {
                             </CardHeader>
                             {pinSettingsOpen && (
                                 <CardContent className="px-3 pb-3 pt-0 space-y-2">
+                                    {/* Reconnect banner — shown when token is expired */}
+                                    {pinNeedsReconnect && (
+                                        <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs">
+                                            <span className="text-amber-600 flex-1">⚠️ Pinterest session expired.</span>
+                                            <a
+                                                href={selectedChannel ? `/dashboard/channels/${selectedChannel.id}?tab=platforms` : '#'}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[#E60023] font-medium underline hover:opacity-80 whitespace-nowrap"
+                                            >
+                                                Reconnect →
+                                            </a>
+                                        </div>
+                                    )}
                                     {/* Board Selection */}
                                     <div className="space-y-1.5">
                                         <Label className="text-[10px] text-muted-foreground">Board</Label>
@@ -3475,6 +3493,11 @@ export default function ComposePage() {
                                                                     }),
                                                                 })
                                                                 const data = await res.json()
+                                                                if (data.needsReconnect) {
+                                                                    setPinNeedsReconnect(true)
+                                                                    setPinShowCreateBoard(false)
+                                                                    return
+                                                                }
                                                                 if (!res.ok) throw new Error(data.error || 'Failed')
                                                                 const newBoard = data.board
                                                                 setPinBoards(prev => [...prev, { id: newBoard.id, name: newBoard.name }])
@@ -3482,7 +3505,8 @@ export default function ComposePage() {
                                                                 setPinShowCreateBoard(false)
                                                                 setPinNewBoardName('')
                                                             } catch (err) {
-                                                                alert('Failed to create board: ' + (err instanceof Error ? err.message : 'Unknown error'))
+                                                                const msg = err instanceof Error ? err.message : 'Unknown error'
+                                                                toast.error('Failed to create board: ' + msg)
                                                             } finally {
                                                                 setPinCreatingBoard(false)
                                                             }
