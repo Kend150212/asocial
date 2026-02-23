@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 
 // GET /api/media/proxy?url=... — Proxy remote media for platforms that can't fetch from Google Drive directly
-// Used internally by the Threads publisher (and potentially other platforms)
+// Also auto-converts PNG → JPEG for Threads API compliance (Threads only accepts JPEG)
 export async function GET(req: NextRequest) {
     const url = req.nextUrl.searchParams.get('url')
     if (!url) return new NextResponse('Missing url param', { status: 400 })
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     try {
         const res = await fetch(url, {
             headers: {
-                // Mimic browser to avoid Google's cookie warning on large files
+                // Mimic browser to avoid Google's virus-scan redirect for large files
                 'User-Agent': 'Mozilla/5.0 (compatible; NeeflowBot/1.0)',
             },
             redirect: 'follow',
@@ -43,7 +44,28 @@ export async function GET(req: NextRequest) {
             return new NextResponse('Not an image or video', { status: 415 })
         }
 
-        const buffer = await res.arrayBuffer()
+        const buffer = Buffer.from(await res.arrayBuffer())
+
+        // Threads (Meta) only accepts JPEG — convert PNG/WebP/etc → JPEG
+        if (contentType.startsWith('image/') && !contentType.includes('jpeg') && !contentType.includes('jpg')) {
+            try {
+                const jpegBuffer = await sharp(buffer)
+                    .flatten({ background: { r: 255, g: 255, b: 255 } }) // Replace transparency with white bg
+                    .jpeg({ quality: 90 })
+                    .toBuffer()
+
+                return new NextResponse(jpegBuffer, {
+                    headers: {
+                        'Content-Type': 'image/jpeg',
+                        'Content-Length': String(jpegBuffer.byteLength),
+                        'Cache-Control': 'public, max-age=3600',
+                    },
+                })
+            } catch (convErr) {
+                console.error('[MediaProxy] PNG→JPEG conversion failed, serving original:', convErr)
+                // Fall through and serve original if sharp conversion fails
+            }
+        }
 
         return new NextResponse(buffer, {
             headers: {
