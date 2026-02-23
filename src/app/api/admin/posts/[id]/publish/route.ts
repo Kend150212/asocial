@@ -1003,6 +1003,84 @@ async function publishToTikTok(
     throw new Error(`TikTok unsupported post type: ${postType}`)
 }
 
+// ─── Threads publisher ────────────────────────────────────────────────
+async function publishToThreads(
+    accessToken: string,
+    accountId: string,
+    content: string,
+    mediaItems: MediaInfo[],
+): Promise<{ externalId: string }> {
+    const base = 'https://graph.threads.net/v1.0'
+
+    // Threads API: 2-step flow — create container → publish
+    const imageMedia = mediaItems.find(m => !isVideoMedia(m))
+    const videoMedia = mediaItems.find(m => isVideoMedia(m))
+
+    let containerBody: Record<string, string>
+
+    if (videoMedia) {
+        // Video post
+        containerBody = {
+            media_type: 'VIDEO',
+            video_url: videoMedia.url,
+            text: content.slice(0, 500),
+            access_token: accessToken,
+        }
+    } else if (imageMedia) {
+        // Image post
+        containerBody = {
+            media_type: 'IMAGE',
+            image_url: imageMedia.url,
+            text: content.slice(0, 500),
+            access_token: accessToken,
+        }
+    } else {
+        // Text-only post
+        containerBody = {
+            media_type: 'TEXT',
+            text: content.slice(0, 500),
+            access_token: accessToken,
+        }
+    }
+
+    // Step 1: Create media container
+    const containerRes = await fetch(`${base}/${accountId}/threads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(containerBody),
+    })
+    const containerData = await containerRes.json()
+    console.log('[Threads] Create container response:', JSON.stringify(containerData))
+
+    if (!containerRes.ok || containerData.error) {
+        throw new Error(containerData.error?.message || `Threads container creation failed: ${JSON.stringify(containerData)}`)
+    }
+
+    const containerId = containerData.id
+    if (!containerId) throw new Error('Threads: no container ID returned')
+
+    // Step 2 (for video): wait for container to be ready
+    if (videoMedia) {
+        console.log('[Threads] Waiting 10s for video container to process...')
+        await new Promise(r => setTimeout(r, 10000))
+    }
+
+    // Step 3: Publish container
+    const publishRes = await fetch(`${base}/${accountId}/threads_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
+    })
+    const publishData = await publishRes.json()
+    console.log('[Threads] Publish response:', JSON.stringify(publishData))
+
+    if (!publishRes.ok || publishData.error) {
+        throw new Error(publishData.error?.message || `Threads publish failed: ${JSON.stringify(publishData)}`)
+    }
+
+    return { externalId: publishData.id || containerId }
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
     // TODO: Implement X publishing
@@ -1180,6 +1258,15 @@ export async function POST(
                         getContent('tiktok'),
                         mediaItems,
                         psConfig,
+                    )
+                    break
+
+                case 'threads':
+                    publishResult = await publishToThreads(
+                        platformConn.accessToken,
+                        platformConn.accountId,
+                        getContent('threads'),
+                        mediaItems,
                     )
                     break
 

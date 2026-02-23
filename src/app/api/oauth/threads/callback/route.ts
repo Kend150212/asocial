@@ -67,9 +67,13 @@ export async function GET(req: NextRequest) {
             `https://graph.threads.net/v1.0/${userId}?fields=id,username,name,threads_profile_picture_url,threads_biography&access_token=${accessToken}`
         )
         const profile = await profileRes.json()
+        if (!profileRes.ok || profile.error) {
+            console.error('[Threads OAuth] Profile fetch failed:', JSON.stringify(profile))
+        }
 
         const accountId = profile.id || String(userId)
-        const accountName = profile.username || profile.name || `threads_${accountId}`
+        // Use username first, then name, then bare numeric ID (no prefix)
+        const accountName = profile.username || profile.name || String(userId)
 
         // Step 4: Upsert into channelPlatform
         await prisma.channelPlatform.upsert({
