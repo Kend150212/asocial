@@ -62,9 +62,9 @@ export async function GET(req: NextRequest) {
         const longToken = await longTokenRes.json()
         const accessToken = longToken.access_token || shortAccessToken
 
-        // Step 3: Get user profile
+        // Step 3: Get user profile via /me (resolves correct Threads user ID from token)
         const profileRes = await fetch(
-            `https://graph.threads.net/v1.0/${userId}?fields=id,username,name,threads_profile_picture_url,threads_biography&access_token=${accessToken}`
+            `https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url,threads_biography&access_token=${accessToken}`
         )
         const profile = await profileRes.json()
         if (!profileRes.ok || profile.error) {

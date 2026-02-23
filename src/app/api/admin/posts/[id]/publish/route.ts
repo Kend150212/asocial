@@ -1043,8 +1043,8 @@ async function publishToThreads(
         }
     }
 
-    // Step 1: Create media container
-    const containerRes = await fetch(`${base}/${accountId}/threads`, {
+    // Step 1: Create media container via /me (token resolves correct Threads user)
+    const containerRes = await fetch(`${base}/me/threads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(containerBody),
@@ -1065,8 +1065,8 @@ async function publishToThreads(
         await new Promise(r => setTimeout(r, 10000))
     }
 
-    // Step 3: Publish container
-    const publishRes = await fetch(`${base}/${accountId}/threads_publish`, {
+    // Step 3: Publish container via /me
+    const publishRes = await fetch(`${base}/me/threads_publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
