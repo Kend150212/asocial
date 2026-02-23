@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getPinterestApiBase } from '@/lib/pinterest'
 import { sendPublishWebhooks } from '@/lib/webhook-notify'
+import crypto from 'crypto'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -1156,6 +1157,126 @@ async function publishToGBP(
     return { externalId: data.name || locationId }
 }
 
+// ─── X (Twitter) ───────────────────────────────────────────────
+// OAuth 1.0a signature for v1.1 Media Upload
+function xOAuthSign(
+    method: string,
+    url: string,
+    params: Record<string, string>,
+    consumerKey: string,
+    consumerSecret: string,
+    accessToken: string,
+    accessTokenSecret: string,
+): string {
+    const oauthParams: Record<string, string> = {
+        oauth_consumer_key: consumerKey,
+        oauth_nonce: crypto.randomBytes(16).toString('hex'),
+        oauth_signature_method: 'HMAC-SHA1',
+        oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+        oauth_token: accessToken,
+        oauth_version: '1.0',
+    }
+    const allParams = { ...params, ...oauthParams }
+    const sortedParams = Object.keys(allParams)
+        .sort()
+        .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(allParams[k])}`)
+        .join('&')
+    const baseString = [method.toUpperCase(), encodeURIComponent(url), encodeURIComponent(sortedParams)].join('&')
+    const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(accessTokenSecret)}`
+    const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64')
+    oauthParams['oauth_signature'] = signature
+    return (
+        'OAuth ' +
+        Object.keys(oauthParams)
+            .sort()
+            .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
+            .join(', ')
+    )
+}
+
+async function publishToX(
+    credentialJson: string,
+    content: string,
+    mediaItems: MediaInfo[],
+): Promise<{ externalId: string }> {
+    let creds: { apiKey: string; apiKeySecret: string; accessToken: string; accessTokenSecret: string }
+    try {
+        creds = JSON.parse(credentialJson)
+    } catch {
+        throw new Error('Invalid X credentials format. Please reconnect your X account.')
+    }
+    const { apiKey, apiKeySecret, accessToken, accessTokenSecret } = creds
+
+    const mediaIds: string[] = []
+
+    // Upload up to 4 images via v1.1 media/upload
+    const imageItems = mediaItems.filter(m => !isVideoMedia(m)).slice(0, 4)
+    for (const img of imageItems) {
+        try {
+            const imgRes = await fetch(img.url)
+            if (!imgRes.ok) continue
+            const imgBuf = Buffer.from(await imgRes.arrayBuffer())
+            const b64 = imgBuf.toString('base64')
+            const totalBytes = imgBuf.length
+            const mimeType = imgRes.headers.get('content-type') || 'image/jpeg'
+
+            // INIT
+            const initUrl = 'https://upload.twitter.com/1.1/media/upload.json'
+            const initParams = { command: 'INIT', total_bytes: totalBytes.toString(), media_type: mimeType, media_category: 'tweet_image' }
+            const initAuth = xOAuthSign('POST', initUrl, initParams, apiKey, apiKeySecret, accessToken, accessTokenSecret)
+            const initRes = await fetch(initUrl, {
+                method: 'POST',
+                headers: { Authorization: initAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(initParams),
+            })
+            if (!initRes.ok) continue
+            const initData = await initRes.json()
+            const mediaId = initData.media_id_string
+            if (!mediaId) continue
+
+            // APPEND
+            const appendParams = { command: 'APPEND', media_id: mediaId, media_data: b64, segment_index: '0' }
+            const appendAuth = xOAuthSign('POST', initUrl, {}, apiKey, apiKeySecret, accessToken, accessTokenSecret)
+            await fetch(initUrl, {
+                method: 'POST',
+                headers: { Authorization: appendAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(appendParams),
+            })
+
+            // FINALIZE
+            const finalParams = { command: 'FINALIZE', media_id: mediaId }
+            const finalAuth = xOAuthSign('POST', initUrl, finalParams, apiKey, apiKeySecret, accessToken, accessTokenSecret)
+            const finalRes = await fetch(initUrl, {
+                method: 'POST',
+                headers: { Authorization: finalAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(finalParams),
+            })
+            if (finalRes.ok) mediaIds.push(mediaId)
+        } catch { /* skip image */ }
+    }
+
+    // Post tweet via v2
+    const tweetUrl = 'https://api.twitter.com/2/tweets'
+    const body: Record<string, unknown> = { text: content.slice(0, 280) }
+    if (mediaIds.length > 0) body.media = { media_ids: mediaIds }
+
+    const tweetAuth = xOAuthSign('POST', tweetUrl, {}, apiKey, apiKeySecret, accessToken, accessTokenSecret)
+    const tweetRes = await fetch(tweetUrl, {
+        method: 'POST',
+        headers: { Authorization: tweetAuth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    })
+
+    if (!tweetRes.ok) {
+        const err = await tweetRes.json().catch(() => ({}))
+        const msg = err.detail || err.title || (err.errors as { message: string }[])?.[0]?.message || 'Failed to post tweet'
+        throw new Error(msg)
+    }
+
+    const tweetData = await tweetRes.json()
+    return { externalId: tweetData.data?.id || 'x-tweet' }
+}
+
 // ─── Bluesky ─────────────────────────────────────────────────────────
 async function publishToBluesky(
     accessToken: string,
@@ -1434,6 +1555,15 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.accountId,
                         getContent('gbp'),
+                        mediaItems,
+                    )
+                    break
+
+                case 'x':
+                case 'twitter':
+                    publishResult = await publishToX(
+                        platformConn.accessToken,
+                        getContent('x'),
                         mediaItems,
                     )
                     break

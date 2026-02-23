@@ -354,6 +354,12 @@ export default function ChannelDetailPage({
     const [blueskyHandle, setBlueskyHandle] = useState('')
     const [blueskyAppPassword, setBlueskyAppPassword] = useState('')
     const [blueskyConnecting, setBlueskyConnecting] = useState(false)
+    const [showXForm, setShowXForm] = useState(false)
+    const [xApiKey, setXApiKey] = useState('')
+    const [xApiKeySecret, setXApiKeySecret] = useState('')
+    const [xAccessToken, setXAccessToken] = useState('')
+    const [xAccessTokenSecret, setXAccessTokenSecret] = useState('')
+    const [xConnecting, setXConnecting] = useState(false)
 
     // Members state
     const [members, setMembers] = useState<any[]>([])
@@ -1810,7 +1816,6 @@ export default function ChannelDetailPage({
                                         { key: 'instagram', label: 'Instagram', border: 'border-pink-500/30', hover: 'hover:bg-pink-500/10' },
                                         { key: 'youtube', label: 'YouTube', border: 'border-red-500/30', hover: 'hover:bg-red-500/10' },
                                         { key: 'tiktok', label: 'TikTok', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
-                                        { key: 'x', label: 'X', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
                                         { key: 'linkedin', label: 'LinkedIn', border: 'border-blue-600/30', hover: 'hover:bg-blue-600/10' },
                                         { key: 'pinterest', label: 'Pinterest', border: 'border-red-600/30', hover: 'hover:bg-red-600/10' },
                                         { key: 'threads', label: 'Threads', border: 'border-neutral-600/30', hover: 'hover:bg-neutral-600/10' },
@@ -1847,6 +1852,16 @@ export default function ChannelDetailPage({
                                             <span>{label}</span>
                                         </Button>
                                     ))}
+                                    {/* X — credential-based (requires developer API keys) */}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5 h-7 text-xs border-neutral-500/30 hover:bg-neutral-500/10"
+                                        onClick={() => setShowXForm(f => !f)}
+                                    >
+                                        {platformIcons['x']}
+                                        <span>X</span>
+                                    </Button>
                                     {/* Bluesky — credential-based, not OAuth */}
                                     <Button
                                         variant="outline"
@@ -1903,6 +1918,87 @@ export default function ChannelDetailPage({
                                             }}
                                         >
                                             {blueskyConnecting ? 'Connecting...' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                )}
+                                {/* X (Twitter) — credential-based connect */}
+                                {showXForm && (
+                                    <div className="mt-3 border border-neutral-500/30 rounded-lg p-3 bg-muted/30 space-y-3">
+                                        <div>
+                                            <p className="text-xs font-semibold mb-0.5">Connect X (Twitter) Account</p>
+                                            <p className="text-[11px] text-muted-foreground">You need a <strong>Twitter Developer App</strong> with <strong>Read and Write</strong> permissions + <strong>User Authentication</strong> enabled.</p>
+                                        </div>
+
+                                        {/* Step-by-step guide */}
+                                        <div className="text-[11px] text-muted-foreground space-y-1 border rounded p-2 bg-background/50">
+                                            <p className="font-semibold text-foreground">📋 How to get API credentials:</p>
+                                            <p><span className="font-medium text-foreground">Step 1:</span> Go to <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">developer.x.com</a> → Sign in → Click <strong>+ Create Project</strong></p>
+                                            <p><span className="font-medium text-foreground">Step 2:</span> Create an App → In App Settings → enable <strong>OAuth 1.0a</strong> → set permissions to <strong>Read and Write</strong></p>
+                                            <p><span className="font-medium text-foreground">Step 3:</span> Set Callback URL to your app URL (e.g. <code className="bg-muted px-1 rounded">https://yourdomain.com</code>)</p>
+                                            <p><span className="font-medium text-foreground">Step 4:</span> Go to <strong>Keys and tokens</strong> tab → copy:</p>
+                                            <ul className="ml-3 space-y-0.5 list-disc">
+                                                <li><strong>API Key</strong> (Consumer Key)</li>
+                                                <li><strong>API Key Secret</strong> (Consumer Secret)</li>
+                                                <li><strong>Access Token</strong> — click Generate if not shown</li>
+                                                <li><strong>Access Token Secret</strong></li>
+                                            </ul>
+                                            <p className="text-amber-500">⚠️ Free tier = 1,500 tweets/month. Basic plan ($100/month) = 3M tweets/month</p>
+                                        </div>
+
+                                        <input
+                                            type="password"
+                                            placeholder="API Key (Consumer Key)"
+                                            value={xApiKey}
+                                            onChange={e => setXApiKey(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="API Key Secret (Consumer Secret)"
+                                            value={xApiKeySecret}
+                                            onChange={e => setXApiKeySecret(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Access Token"
+                                            value={xAccessToken}
+                                            onChange={e => setXAccessToken(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Access Token Secret"
+                                            value={xAccessTokenSecret}
+                                            onChange={e => setXAccessTokenSecret(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            className="h-7 text-xs w-full"
+                                            disabled={xConnecting || !xApiKey || !xApiKeySecret || !xAccessToken || !xAccessTokenSecret}
+                                            onClick={async () => {
+                                                setXConnecting(true)
+                                                try {
+                                                    const res = await fetch('/api/oauth/x/connect', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ apiKey: xApiKey, apiKeySecret: xApiKeySecret, accessToken: xAccessToken, accessTokenSecret: xAccessTokenSecret, channelId: id }),
+                                                    })
+                                                    const data = await res.json()
+                                                    if (!res.ok) throw new Error(data.error || 'Connection failed')
+                                                    toast.success(`X @${data.username || data.accountName} connected!`)
+                                                    setShowXForm(false)
+                                                    setXApiKey(''); setXApiKeySecret(''); setXAccessToken(''); setXAccessTokenSecret('')
+                                                    fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(d => setPlatforms(d)).catch(() => { })
+                                                } catch (err) {
+                                                    toast.error(err instanceof Error ? err.message : 'Failed to connect X')
+                                                } finally {
+                                                    setXConnecting(false)
+                                                }
+                                            }}
+                                        >
+                                            {xConnecting ? 'Verifying & Connecting...' : 'Connect X Account'}
                                         </Button>
                                     </div>
                                 )}
