@@ -546,18 +546,18 @@ export default function AdminGuidePage() {
                                         )}
 
                                         {/* Commands */}
-                                        {step.commands && step.commands.length > 0 && (
+                                        {(step as any).commands && (step as any).commands.length > 0 && (
                                             <div className="ml-6 space-y-2">
-                                                {step.commands.map((cmd, i) => (
+                                                {(step as any).commands.map((cmd: string, i: number) => (
                                                     <CommandBlock key={i} cmd={cmd} copiedCommand={copiedCommand} onCopy={copyCommand} />
                                                 ))}
                                             </div>
                                         )}
 
                                         {/* Links */}
-                                        {step.links && step.links.length > 0 && (
+                                        {(step as any).links && (step as any).links.length > 0 && (
                                             <div className="ml-6 flex flex-wrap gap-2">
-                                                {step.links.map((link, i) => (
+                                                {(step as any).links.map((link: { label: string; href: string }, i: number) => (
                                                     <a
                                                         key={i}
                                                         href={link.href}
