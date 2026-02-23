@@ -762,13 +762,18 @@ export default function ComposePage() {
     // ── Auto-fetch Pinterest boards when Pinterest is selected ──
     useEffect(() => {
         const hasPinterest = activePlatforms.some(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
-        if (!hasPinterest || !selectedChannel || pinBoards.length > 0 || pinBoardsLoading) return
+        if (!hasPinterest || !selectedChannel || pinBoardsLoading) return
+        // Skip if already fetched and no reconnect needed
+        if (pinBoards.length > 0 && !pinNeedsReconnect) return
         const pintPlatform = activePlatforms.find(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
         if (!pintPlatform) return
         setPinBoardsLoading(true)
         fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards?accountId=${pintPlatform.accountId}`)
             .then(r => r.json())
-            .then(data => { if (data.boards) setPinBoards(data.boards) })
+            .then(data => {
+                if (data.needsReconnect) { setPinNeedsReconnect(true); return }
+                if (data.boards) { setPinNeedsReconnect(false); setPinBoards(data.boards) }
+            })
             .catch(() => { })
             .finally(() => setPinBoardsLoading(false))
         // eslint-disable-next-line react-hooks/exhaustive-deps
