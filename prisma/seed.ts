@@ -114,6 +114,15 @@ async function main() {
             baseUrl: 'https://graph.threads.net/v1.0',
         },
         {
+            category: IntegrationCategory.SOCIAL,
+            provider: 'gbp',
+            name: 'Google Business Profile',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+            baseUrl: 'https://mybusiness.googleapis.com/v4',
+        },
+        {
             category: IntegrationCategory.AI,
             provider: 'openai',
             name: 'OpenAI',

@@ -1105,6 +1105,57 @@ async function publishToThreads(
     return { externalId: publishData.id || containerId }
 }
 
+// ─── Google Business Profile publisher ────────────────────────────────────────
+async function publishToGBP(
+    accessToken: string,
+    locationId: string,  // e.g. "locations/987654321"
+    content: string,
+    mediaItems: MediaInfo[],
+): Promise<{ externalId: string }> {
+    // GBP Local Posts API v4
+    // locationId is the full resource name: "locations/{locationId}"
+    const base = 'https://mybusiness.googleapis.com/v4'
+
+    const imageMedia = mediaItems.find(m => !isVideoMedia(m))
+    const videoMedia = mediaItems.find(m => isVideoMedia(m))
+
+    // Build the local post body
+    const postBody: Record<string, unknown> = {
+        summary: content.slice(0, 1500),  // GBP max 1500 chars
+        topicType: 'STANDARD',
+    }
+
+    if (videoMedia) {
+        postBody.media = [{
+            mediaFormat: 'VIDEO',
+            sourceUrl: videoMedia.url,
+        }]
+    } else if (imageMedia) {
+        postBody.media = [{
+            mediaFormat: 'PHOTO',
+            sourceUrl: imageMedia.url,
+        }]
+    }
+
+    const res = await fetch(`${base}/${locationId}/localPosts`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(postBody),
+    })
+
+    const data = await res.json()
+    console.log('[GBP] Create local post response:', JSON.stringify(data))
+
+    if (!res.ok || data.error) {
+        throw new Error(data.error?.message || `GBP post failed: ${JSON.stringify(data)}`)
+    }
+
+    return { externalId: data.name || locationId }
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
     // TODO: Implement X publishing
@@ -1290,6 +1341,15 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.accountId,
                         getContent('threads'),
+                        mediaItems,
+                    )
+                    break
+
+                case 'gbp':
+                    publishResult = await publishToGBP(
+                        platformConn.accessToken,
+                        platformConn.accountId,
+                        getContent('gbp'),
                         mediaItems,
                     )
                     break
