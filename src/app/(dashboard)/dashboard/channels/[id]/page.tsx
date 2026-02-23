@@ -1776,25 +1776,61 @@ export default function ChannelDetailPage({
                 {/* ─── Platforms Tab ───────────────── */}
                 <TabsContent value="platforms" className="space-y-4">
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <div>
                                 <CardTitle className="text-base">{t('channels.platforms.title')}</CardTitle>
                                 <CardDescription>{t('channels.platforms.desc')}</CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
-
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setAddingPlatform(!addingPlatform)}
-                                    className="gap-1.5"
-                                >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    {t('channels.platforms.addPlatform')}
-                                </Button>
-                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* OAuth Connect Strip — always visible */}
+                            <div className="border rounded-lg p-3 bg-muted/20">
+                                <p className="text-[11px] font-medium text-muted-foreground mb-2">Connect a platform</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        { key: 'facebook', label: 'Facebook', border: 'border-blue-500/30', hover: 'hover:bg-blue-500/10' },
+                                        { key: 'instagram', label: 'Instagram', border: 'border-pink-500/30', hover: 'hover:bg-pink-500/10' },
+                                        { key: 'youtube', label: 'YouTube', border: 'border-red-500/30', hover: 'hover:bg-red-500/10' },
+                                        { key: 'tiktok', label: 'TikTok', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
+                                        { key: 'x', label: 'X', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
+                                        { key: 'linkedin', label: 'LinkedIn', border: 'border-blue-600/30', hover: 'hover:bg-blue-600/10' },
+                                        { key: 'pinterest', label: 'Pinterest', border: 'border-red-600/30', hover: 'hover:bg-red-600/10' },
+                                        { key: 'threads', label: 'Threads', border: 'border-neutral-600/30', hover: 'hover:bg-neutral-600/10' },
+                                        { key: 'gbp', label: 'Google Business', border: 'border-blue-400/30', hover: 'hover:bg-blue-400/10' },
+                                    ].map(({ key, label, border, hover }) => (
+                                        <Button
+                                            key={key}
+                                            variant="outline"
+                                            size="sm"
+                                            className={`gap-1.5 h-7 text-xs ${border} ${hover}`}
+                                            onClick={() => {
+                                                const w = 500, h = 700
+                                                const left = window.screenX + (window.outerWidth - w) / 2
+                                                const top = window.screenY + (window.outerHeight - h) / 2
+                                                const popup = window.open(
+                                                    `/api/oauth/${key}?channelId=${id}`,
+                                                    `${key}-oauth`,
+                                                    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                )
+                                                const handler = (e: MessageEvent) => {
+                                                    if (e.data?.type === 'oauth-success' && e.data?.platform === key) {
+                                                        window.removeEventListener('message', handler)
+                                                        toast.success(`${label} connected successfully!`)
+                                                        fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                                    }
+                                                }
+                                                window.addEventListener('message', handler)
+                                                const check = setInterval(() => {
+                                                    if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
+                                                }, 1000)
+                                            }}
+                                        >
+                                            {platformIcons[key]}
+                                            <span>{label}</span>
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
                             {/* Search and Bulk Actions */}
                             {platforms.length > 0 && (
                                 <div className="flex items-center gap-3">
@@ -1840,65 +1876,7 @@ export default function ChannelDetailPage({
                                 </div>
                             )}
 
-                            {/* Add Platform — OAuth + Manual */}
-                            {addingPlatform && (
-                                <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
-                                    {/* OAuth Connect Buttons */}
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground mb-2">Connect via OAuth</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { key: 'facebook', label: 'Facebook', border: 'border-blue-500/30', hover: 'hover:bg-blue-500/10' },
-                                                { key: 'instagram', label: 'Instagram', border: 'border-pink-500/30', hover: 'hover:bg-pink-500/10' },
-                                                { key: 'youtube', label: 'YouTube', border: 'border-red-500/30', hover: 'hover:bg-red-500/10' },
-                                                { key: 'tiktok', label: 'TikTok', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
-                                                { key: 'x', label: 'X', border: 'border-neutral-500/30', hover: 'hover:bg-neutral-500/10' },
-                                                { key: 'linkedin', label: 'LinkedIn', border: 'border-blue-600/30', hover: 'hover:bg-blue-600/10' },
-                                                { key: 'pinterest', label: 'Pinterest', border: 'border-red-600/30', hover: 'hover:bg-red-600/10' },
-                                                { key: 'threads', label: 'Threads', border: 'border-neutral-600/30', hover: 'hover:bg-neutral-600/10' },
-                                                { key: 'gbp', label: 'Google Business', border: 'border-blue-400/30', hover: 'hover:bg-blue-400/10' },
-                                            ].map(({ key, label, border, hover }) => (
-                                                <Button
-                                                    key={key}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className={`gap-2 ${border} ${hover}`}
-                                                    onClick={() => {
-                                                        const w = 500, h = 700
-                                                        const left = window.screenX + (window.outerWidth - w) / 2
-                                                        const top = window.screenY + (window.outerHeight - h) / 2
-                                                        const popup = window.open(
-                                                            `/api/oauth/${key}?channelId=${id}`,
-                                                            `${key}-oauth`,
-                                                            `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
-                                                        )
-                                                        const handler = (e: MessageEvent) => {
-                                                            if (e.data?.type === 'oauth-success' && e.data?.platform === key) {
-                                                                window.removeEventListener('message', handler)
-                                                                toast.success(`${label} connected successfully!`)
-                                                                fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
-                                                            }
-                                                        }
-                                                        window.addEventListener('message', handler)
-                                                        const check = setInterval(() => {
-                                                            if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
-                                                        }, 1000)
-                                                    }}
-                                                >
-                                                    {platformIcons[key]}
-                                                    <span className="text-sm">{label}</span>
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    </div>
 
-                                    <div className="flex justify-end">
-                                        <Button variant="ghost" size="sm" onClick={() => setAddingPlatform(false)}>
-                                            {t('common.cancel')}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Platform List — grouped by platform type */}
                             {platforms.length === 0 ? (
@@ -1961,11 +1939,43 @@ export default function ChannelDetailPage({
                                                                     <p className="text-sm font-medium">{p.accountName}</p>
                                                                     <p className="text-xs text-muted-foreground font-mono">{p.accountId}</p>
                                                                 </div>
-                                                                <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-2">
                                                                     <Switch
                                                                         checked={p.isActive}
                                                                         onCheckedChange={(checked) => togglePlatformActive(p.id, checked)}
                                                                     />
+                                                                    {/* Reconnect button */}
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                                                        title="Reconnect to refresh token"
+                                                                        onClick={() => {
+                                                                            const key = p.platform
+                                                                            const w = 500, h = 700
+                                                                            const left = window.screenX + (window.outerWidth - w) / 2
+                                                                            const top = window.screenY + (window.outerHeight - h) / 2
+                                                                            const popup = window.open(
+                                                                                `/api/oauth/${key}?channelId=${id}`,
+                                                                                `${key}-oauth`,
+                                                                                `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                                            )
+                                                                            const handler = (e: MessageEvent) => {
+                                                                                if (e.data?.type === 'oauth-success' && e.data?.platform === key) {
+                                                                                    window.removeEventListener('message', handler)
+                                                                                    toast.success(`${p.accountName} reconnected!`)
+                                                                                    fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { })
+                                                                                }
+                                                                            }
+                                                                            window.addEventListener('message', handler)
+                                                                            const check = setInterval(() => {
+                                                                                if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(data => setPlatforms(data)).catch(() => { }) }
+                                                                            }, 1000)
+                                                                        }}
+                                                                    >
+                                                                        <RefreshCw className="h-3 w-3" />
+                                                                        Reconnect
+                                                                    </Button>
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
