@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getBrandingServer } from '@/lib/use-branding-server'
 
 export const metadata: Metadata = {
     title: 'Terms of Service — NeeFlow',
@@ -219,8 +220,9 @@ const sections = [
     },
 ]
 
-export default function TermsOfServicePage() {
+export default async function TermsOfServicePage() {
     const lastUpdated = 'February 22, 2025'
+    const branding = await getBrandingServer()
 
     return (
         <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -251,8 +253,8 @@ export default function TermsOfServicePage() {
             <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm border-b border-gray-100 dark:border-white/5 shadow-sm">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2">
-                        <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
-                        <span className="font-bold text-gray-900 dark:text-white text-lg">NeeFlow</span>
+                        <Image src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-lg object-contain" unoptimized />
+                        <span className="font-bold text-gray-900 dark:text-white text-lg">{branding.appName}</span>
                     </Link>
                     <nav className="flex items-center gap-6 text-sm">
                         <Link href="/privacy" className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">Privacy Policy</Link>

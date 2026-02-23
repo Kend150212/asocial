@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
+import { useBranding } from '@/lib/use-branding'
 import {
   Moon, Sun, ArrowRight, Zap, Calendar, BarChart3, Users,
   MessageSquare, CheckCircle, Menu, X, Sparkles, Globe,
@@ -175,6 +176,7 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
+  const branding = useBranding()
 
   useEffect(() => {
     setMounted(true)
@@ -285,8 +287,8 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
-            <span className="font-extrabold text-gray-900 dark:text-white text-lg tracking-tight">NeeFlow</span>
+            <Image src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-lg object-contain" unoptimized />
+            <span className="font-extrabold text-gray-900 dark:text-white text-lg tracking-tight">{branding.appName}</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -720,8 +722,8 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2.5 mb-4">
-                <Image src="/logo.png" alt="NeeFlow" width={32} height={32} className="rounded-lg object-contain" />
-                <span className="text-lg font-extrabold text-white">NeeFlow</span>
+                <Image src={branding.logoUrl} alt={branding.appName} width={32} height={32} className="rounded-lg object-contain" unoptimized />
+                <span className="text-lg font-extrabold text-white">{branding.appName}</span>
               </div>
               <p className="text-gray-500 text-sm leading-relaxed max-w-xs mb-5">
                 AI-powered social media management for modern agencies and brands. Post smarter, grow faster.
