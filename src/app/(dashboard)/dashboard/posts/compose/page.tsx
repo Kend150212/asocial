@@ -3398,25 +3398,45 @@ export default function ComposePage() {
                             {pinSettingsOpen && (
                                 <CardContent className="px-3 pb-3 pt-0 space-y-2">
                                     {/* Board Selection */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <Label className="text-[10px] text-muted-foreground">Board</Label>
-                                            <button
-                                                type="button"
-                                                className="flex items-center gap-0.5 text-[10px] text-[#E60023] hover:opacity-80 transition-opacity cursor-pointer font-medium"
-                                                onClick={() => { setPinShowCreateBoard(v => !v); setPinNewBoardName('') }}
-                                            >
-                                                {pinShowCreateBoard ? '✕ Cancel' : '+ New Board'}
-                                            </button>
-                                        </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-muted-foreground">Board</Label>
+                                        <Select
+                                            value={pinShowCreateBoard ? '__create__' : pinBoardId}
+                                            onValueChange={v => {
+                                                if (v === '__create__') {
+                                                    setPinShowCreateBoard(true)
+                                                    setPinNewBoardName('')
+                                                } else {
+                                                    setPinShowCreateBoard(false)
+                                                    setPinBoardId(v)
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue placeholder={pinBoardsLoading ? 'Loading boards...' : 'Select a board'} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {pinBoards.map(b => (
+                                                    <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+                                                ))}
+                                                {pinBoards.length === 0 && !pinBoardsLoading && (
+                                                    <SelectItem value="_none" disabled className="text-xs text-muted-foreground">No boards found</SelectItem>
+                                                )}
+                                                <SelectItem value="__create__" className="text-xs text-[#E60023] font-medium border-t mt-1 pt-1">
+                                                    ＋ Create new board...
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
 
-                                        {pinShowCreateBoard ? (
+                                        {/* Inline create form — shown when "Create new board" is selected */}
+                                        {pinShowCreateBoard && (
                                             <div className="space-y-2 p-2 rounded-md border border-[#E60023]/30 bg-[#E60023]/5">
                                                 <input
                                                     type="text"
                                                     placeholder="Board name..."
                                                     value={pinNewBoardName}
                                                     onChange={e => setPinNewBoardName(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Escape' && setPinShowCreateBoard(false)}
                                                     className="w-full h-7 px-2 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-[#E60023]/50"
                                                     autoFocus
                                                 />
@@ -3429,6 +3449,13 @@ export default function ComposePage() {
                                                         <option value="PUBLIC">🌐 Public</option>
                                                         <option value="PROTECTED">🔒 Secret</option>
                                                     </select>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setPinShowCreateBoard(false); setPinBoardId(pinBoards[0]?.id || '') }}
+                                                        className="h-7 px-2 text-xs rounded-md border text-muted-foreground hover:bg-muted cursor-pointer"
+                                                    >
+                                                        Cancel
+                                                    </button>
                                                     <button
                                                         type="button"
                                                         disabled={!pinNewBoardName.trim() || pinCreatingBoard}
@@ -3465,20 +3492,6 @@ export default function ComposePage() {
                                                     </button>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <Select value={pinBoardId} onValueChange={v => setPinBoardId(v)}>
-                                                <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder={pinBoardsLoading ? 'Loading boards...' : 'Select a board'} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {pinBoards.map(b => (
-                                                        <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
-                                                    ))}
-                                                    {pinBoards.length === 0 && !pinBoardsLoading && (
-                                                        <SelectItem value="_none" disabled className="text-xs text-muted-foreground">No boards found</SelectItem>
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
                                         )}
                                     </div>
                                     {/* Pin Title + AI Button */}
