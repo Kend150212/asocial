@@ -1156,9 +1156,93 @@ async function publishToGBP(
     return { externalId: data.name || locationId }
 }
 
+// ─── Bluesky ─────────────────────────────────────────────────────────
+async function publishToBluesky(
+    accessToken: string,
+    refreshToken: string | null,
+    platformId: string,
+    content: string,
+    mediaItems: MediaInfo[],
+): Promise<{ externalId: string }> {
+    // Auto-refresh session if token might be expired
+    let token = accessToken
+    try {
+        if (refreshToken) {
+            const refreshRes = await fetch('https://bsky.social/xrpc/com.atproto.server.refreshSession', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${refreshToken}` },
+            })
+            if (refreshRes.ok) {
+                const refreshData = await refreshRes.json()
+                if (refreshData.accessJwt) {
+                    token = refreshData.accessJwt
+                    await prisma.channelPlatform.update({
+                        where: { id: platformId },
+                        data: { accessToken: token, refreshToken: refreshData.refreshJwt, tokenExpiresAt: new Date(Date.now() + 90 * 60 * 1000) },
+                    })
+                }
+            }
+        }
+    } catch { /* use existing token */ }
+
+    // Get the DID from the token (it's a JWT — decode payload)
+    const parts = token.split('.')
+    if (parts.length < 2) throw new Error('Invalid Bluesky JWT')
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+    const did = payload.sub
+    if (!did) throw new Error('Could not determine DID from Bluesky token')
+
+    const record: Record<string, unknown> = {
+        $type: 'app.bsky.feed.post',
+        text: content.slice(0, 300), // Bluesky max 300 graphemes
+        createdAt: new Date().toISOString(),
+    }
+
+    // Attach images if present (max 4 images)
+    const imageItems = mediaItems.filter(m => !isVideoMedia(m)).slice(0, 4)
+    if (imageItems.length > 0) {
+        const blobs = []
+        for (const img of imageItems) {
+            // Download image and upload as blob
+            const imgRes = await fetch(img.url)
+            if (!imgRes.ok) continue
+            const imgBuffer = await imgRes.arrayBuffer()
+            const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+            const uploadRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.uploadBlob', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
+                body: imgBuffer,
+            })
+            if (!uploadRes.ok) continue
+            const uploadData = await uploadRes.json()
+            blobs.push({ image: uploadData.blob, alt: '' })
+        }
+        if (blobs.length > 0) {
+            record.embed = { $type: 'app.bsky.embed.images', images: blobs }
+        }
+    }
+
+    const res = await fetch('https://bsky.social/xrpc/com.atproto.repo.createRecord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+            repo: did,
+            collection: 'app.bsky.feed.post',
+            record,
+        }),
+    })
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || err.error || 'Failed to publish to Bluesky')
+    }
+
+    const data = await res.json()
+    return { externalId: data.uri || data.cid || 'bluesky-post' }
+}
+
 // Generic placeholder for other platforms (mark as pending-integration)
 async function publishPlaceholder(platform: string): Promise<{ externalId: string }> {
-    // TODO: Implement X publishing
     throw new Error(`${platform} publishing not yet integrated. Coming soon!`)
 }
 
@@ -1350,6 +1434,16 @@ export async function POST(
                         platformConn.accessToken,
                         platformConn.accountId,
                         getContent('gbp'),
+                        mediaItems,
+                    )
+                    break
+
+                case 'bluesky':
+                    publishResult = await publishToBluesky(
+                        platformConn.accessToken,
+                        platformConn.refreshToken || null,
+                        platformConn.id,
+                        getContent('bluesky'),
                         mediaItems,
                     )
                     break

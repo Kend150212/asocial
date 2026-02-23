@@ -152,16 +152,24 @@ const platformIcons: Record<string, React.ReactNode> = {
         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="#E60023"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 01.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12.017 24c6.624 0 11.99-5.367 11.99-11.988C24.007 5.367 18.641 0 12.017 0z" /></svg>
     ),
     gbp: (
-        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Google Business Profile — storefront building */}
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill="#0F9D58" />
-            <path d="M4 20h16v2H4z" fill="#0F9D58" opacity="0.5" />
+        <svg viewBox="0 0 24 24" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="4" fill="#4285F4" />
+            <path d="M19 9.5C19 7 16.5 5 12 5C7.5 5 5 7 5 9.5C5 11.3 6.2 12.9 8 13.7V17.5C8 17.8 8.2 18 8.5 18H15.5C15.8 18 16 17.8 16 17.5V13.7C17.8 12.9 19 11.3 19 9.5Z" fill="white" />
+            <rect x="9" y="14" width="6" height="1.5" rx="0.5" fill="#4285F4" />
+            <rect x="10.5" y="12.5" width="3" height="4" rx="0.5" fill="#4285F4" />
+            <path d="M6 19.5C6 19.2 6.2 19 6.5 19H17.5C17.8 19 18 19.2 18 19.5V20C18 20.3 17.8 20.5 17.5 20.5H6.5C6.2 20.5 6 20.3 6 20V19.5Z" fill="white" />
         </svg>
     ),
     threads: (
         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.56c-1.096-3.98-3.832-5.988-8.136-5.974h-.013c-2.806.02-4.929.926-6.31 2.694-1.296 1.66-1.974 4.074-2.013 7.169.039 3.094.717 5.508 2.014 7.168 1.382 1.77 3.505 2.674 6.31 2.694h.013c2.447-.017 4.33-.604 5.6-1.745 1.358-1.222 2.065-2.979 2.1-5.222l.008-.018c-.033-.632-.185-1.163-.452-1.578-.396-.615-.98-1.004-1.636-1.089-.508-.065-1.021.012-1.389.211-.182.098-.333.228-.424.396.182.32.321.676.414 1.065.14.587.147 1.266.02 1.916-.232 1.186-.899 2.183-1.881 2.81-.893.571-1.99.83-3.176.748-1.523-.105-2.862-.733-3.769-1.768-.823-.94-1.276-2.163-1.312-3.54-.036-1.392.353-2.647 1.126-3.636.87-1.113 2.193-1.82 3.829-2.046.776-.107 1.534-.113 2.249-.02-.022-1.123-.177-2.023-.489-2.755-.397-.932-1.05-1.461-1.941-1.574-.505-.064-1.037.02-1.449.23-.255.13-.471.312-.639.538l-1.596-1.297c.34-.417.77-.756 1.276-1.006.774-.384 1.655-.56 2.542-.51 1.48.084 2.652.72 3.482 1.89.764 1.076 1.162 2.522 1.182 4.298l.003.188c1.116.115 2.098.588 2.804 1.395.828.946 1.24 2.198 1.194 3.627-.037 2.656-.912 4.824-2.602 6.445-1.619 1.553-3.937 2.35-6.887 2.37zM9.206 14.633c.013.557.17 1.032.468 1.372.366.418.918.65 1.601.674.711.024 1.379-.135 1.876-.447.436-.273.74-.672.858-1.123.076-.294.087-.624.031-.954-.086-.51-.389-.91-.82-1.09-.314-.13-.72-.182-1.14-.145-1.235.108-2.469.65-2.874 1.713z" /></svg>
     ),
+    bluesky: (
+        <svg viewBox="0 0 600 530" className="w-4 h-4" fill="#0085ff" xmlns="http://www.w3.org/2000/svg">
+            <path d="M135.72 44.03C202.216 93.951 273.74 195.17 300 249.49c26.262-54.316 97.782-155.54 164.28-205.46C512.26 8.009 590 -17.88 590 68.825c0 17.712-10.155 148.79-16.111 170.07-20.703 73.984-96.144 92.854-163.25 81.433 117.3 19.964 147.14 86.092 82.697 152.19-122.39 125.59-175.91-31.511-189.63-71.766-2.514-7.38-3.69-10.832-3.708-7.896-.017-2.936-1.193.516-3.707 7.896-13.714 40.255-67.233 197.36-189.63 71.766-64.444-66.098-34.605-132.23 82.697-152.19-67.108 11.421-142.55-7.45-163.25-81.433C20.15 217.613 10 86.535 10 68.825c0-86.703 77.742-60.816 125.72-24.795z" />
+        </svg>
+    ),
 }
+
 
 const platformOptions = [
     { value: 'facebook', label: 'Facebook', color: '#1877F2' },
@@ -173,6 +181,7 @@ const platformOptions = [
     { value: 'pinterest', label: 'Pinterest', color: '#E60023' },
     { value: 'gbp', label: 'Google Business', color: '#4285F4' },
     { value: 'threads', label: 'Threads', color: '#000000' },
+    { value: 'bluesky', label: 'Bluesky', color: '#0085ff' },
 ]
 
 interface ChannelDetail {
@@ -336,6 +345,10 @@ export default function ChannelDetailPage({
 
     const [platformSearch, setPlatformSearch] = useState('')
     const [hideDisabled, setHideDisabled] = useState(false)
+    const [showBlueskyForm, setShowBlueskyForm] = useState(false)
+    const [blueskyHandle, setBlueskyHandle] = useState('')
+    const [blueskyAppPassword, setBlueskyAppPassword] = useState('')
+    const [blueskyConnecting, setBlueskyConnecting] = useState(false)
 
     // Members state
     const [members, setMembers] = useState<any[]>([])
@@ -1829,7 +1842,65 @@ export default function ChannelDetailPage({
                                             <span>{label}</span>
                                         </Button>
                                     ))}
+                                    {/* Bluesky — credential-based, not OAuth */}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5 h-7 text-xs border-sky-500/30 hover:bg-sky-500/10"
+                                        onClick={() => setShowBlueskyForm(f => !f)}
+                                    >
+                                        {platformIcons['bluesky']}
+                                        <span>Bluesky</span>
+                                    </Button>
                                 </div>
+                                {showBlueskyForm && (
+                                    <div className="mt-3 border rounded-lg p-3 bg-muted/30 space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground">{t('channels.blueskyConnectTitle') || 'Connect Bluesky Account'}</p>
+                                        <p className="text-[11px] text-muted-foreground">{t('channels.blueskyConnectHint') || 'Use an App Password from bsky.app → Settings → App Passwords'}</p>
+                                        <input
+                                            type="text"
+                                            placeholder="Handle (e.g. user.bsky.social)"
+                                            value={blueskyHandle}
+                                            onChange={e => setBlueskyHandle(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="App Password"
+                                            value={blueskyAppPassword}
+                                            onChange={e => setBlueskyAppPassword(e.target.value)}
+                                            className="w-full text-xs px-2 py-1.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            className="h-7 text-xs w-full"
+                                            disabled={blueskyConnecting || !blueskyHandle || !blueskyAppPassword}
+                                            onClick={async () => {
+                                                setBlueskyConnecting(true)
+                                                try {
+                                                    const res = await fetch('/api/oauth/bluesky', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ handle: blueskyHandle, appPassword: blueskyAppPassword, channelId: id }),
+                                                    })
+                                                    const data = await res.json()
+                                                    if (!res.ok) throw new Error(data.error || 'Connection failed')
+                                                    toast.success(`Bluesky @${data.handle || blueskyHandle} connected!`)
+                                                    setShowBlueskyForm(false)
+                                                    setBlueskyHandle('')
+                                                    setBlueskyAppPassword('')
+                                                    fetch(`/api/admin/channels/${id}/platforms`).then(r => r.ok ? r.json() : []).then(d => setPlatforms(d)).catch(() => { })
+                                                } catch (err) {
+                                                    toast.error(err instanceof Error ? err.message : 'Failed to connect Bluesky')
+                                                } finally {
+                                                    setBlueskyConnecting(false)
+                                                }
+                                            }}
+                                        >
+                                            {blueskyConnecting ? 'Connecting...' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                             {/* Search and Bulk Actions */}
                             {platforms.length > 0 && (
