@@ -105,6 +105,15 @@ async function main() {
             status: IntegrationStatus.INACTIVE,
         },
         {
+            category: IntegrationCategory.SOCIAL,
+            provider: 'threads',
+            name: 'Threads',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+            baseUrl: 'https://graph.threads.net/v1.0',
+        },
+        {
             category: IntegrationCategory.AI,
             provider: 'openai',
             name: 'OpenAI',

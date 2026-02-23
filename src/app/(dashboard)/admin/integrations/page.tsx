@@ -95,6 +95,7 @@ const providerColors: Record<string, string> = {
     linkedin: 'bg-sky-600/10 text-sky-600 border-sky-600/20',
     x: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
     pinterest: 'bg-red-600/10 text-red-600 border-red-600/20',
+    threads: 'bg-neutral-700/10 text-neutral-300 border-neutral-500/20',
     openai: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
     gemini: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
     runware: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
@@ -117,6 +118,7 @@ const providerGuideUrls: Record<string, string> = {
     linkedin: 'https://www.linkedin.com/developers/apps',
     x: 'https://developer.twitter.com/en/portal/dashboard',
     pinterest: 'https://developers.pinterest.com/apps/',
+    threads: 'https://developers.facebook.com/apps/',
     openai: 'https://platform.openai.com/api-keys',
     gemini: 'https://aistudio.google.com/apikey',
     runware: 'https://my.runware.ai/keys',
@@ -282,6 +284,29 @@ const platformGuides: Record<string, PlatformGuide> = {
         ],
         url: 'https://developers.pinterest.com/apps/',
         urlLabel: 'Open Pinterest Developer Portal',
+    },
+    threads: {
+        title: '🧵 Threads API Setup Guide',
+        description: 'Post content to Threads accounts directly from the platform.\nĐăng nội dung lên Threads trực tiếp từ nền tảng.',
+        steps: [
+            { title: 'Step 1: Go to Meta for Developers / Vào Meta for Developers', detail: 'Visit developers.facebook.com → click "My Apps" → "Create App".\n\nTruy cập developers.facebook.com → nhấn "My Apps" → "Create App".' },
+            { title: 'Step 2: Select App Type / Chọn loại App', detail: 'When asked "What do you want your app to do?", choose "Other" → "Business" type. Click "Next" → "Create App".\n\nKhi được hỏi muốn app làm gì, chọn "Other" → loại "Business". Nhấn "Next" → "Create App".' },
+            { title: 'Step 3: Add Threads Product / Thêm Threads Product', detail: 'In App Dashboard → left sidebar → "Add Product". Find "Threads API" and click "Set Up".\n\nTrong App Dashboard → menu bên trái → "Add Product". Tìm "Threads API" và nhấn "Set Up".' },
+            { title: 'Step 4: Configure Redirect URI / Cấu hình Redirect URI', detail: 'In Threads API Settings → add your Redirect URI:\n{YOUR_DOMAIN}/api/oauth/threads/callback\n\nTrong Threads API Settings → thêm Redirect URI:\n{YOUR_DOMAIN}/api/oauth/threads/callback' },
+            { title: 'Step 5: Get App ID & Secret / Lấy App ID & Secret', detail: 'Go to App Settings → Basic. Copy "App ID" and "App Secret". Paste them below.\n\nVào App Settings → Basic. Copy "App ID" và "App Secret". Dán vào các ô bên dưới.' },
+            { title: 'Step 6: Add Test Users / Thêm Test Users (Development mode)', detail: 'In App Roles → Roles → Add Testers. Invite any Threads account you want to test with.\nNote: In Development mode only added testers can connect.\n\nTrong App Roles → Roles → Add Testers. Mời tài khoản Threads muốn test.\nLưu ý: Ở Development mode chỉ testers mới kết nối được.' },
+            { title: 'Step 7: Submit for App Review / Gửi App Review (Production)', detail: 'Go to App Review → Permissions and Features. Request these permissions:\n✅ threads_basic\n✅ threads_content_publish\n✅ threads_manage_insights\n✅ threads_manage_replies\n✅ threads_read_replies\n\nVào App Review → Permissions and Features. Yêu cầu các quyền trên để chuyển sang Production.' },
+        ],
+        tips: [
+            '✅ Callback URI: {YOUR_DOMAIN}/api/oauth/threads/callback',
+            '✅ Required scopes: threads_basic, threads_content_publish, threads_manage_insights, threads_manage_replies, threads_read_replies',
+            '⚠️ In Development mode, only added testers can connect / Ở Development mode chỉ testers mới kết nối được',
+            '⚠️ Threads account must be a personal account — not possible with Pages / Tài khoản Threads phải là personal account',
+            '💡 Access tokens are long-lived (60 days) and auto-refresh / Token có hiệu lực 60 ngày và tự refresh',
+            '💡 Uses a SEPARATE Meta app from Facebook/Instagram / Dùng Meta app RIÊNG biệt với Facebook/Instagram',
+        ],
+        url: 'https://developers.facebook.com/apps/',
+        urlLabel: 'Open Meta Developer Portal',
     },
     canva: {
         title: '🎨 Canva Connect API Setup Guide',
@@ -510,6 +535,12 @@ export default function IntegrationsPage() {
                         sandbox: config.pinterestSandbox === 'true' || config.pinterestSandbox === '1' ? 'true' : '',
                     }
                 }
+                if (i.provider === 'threads') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.threadsClientId || '',
+                        clientSecret: '',
+                    }
+                }
                 if (i.provider === 'canva') {
                     oauthConfigMap[i.id] = {
                         clientId: config.canvaClientId || '',
@@ -649,6 +680,15 @@ export default function IntegrationsPage() {
                         pinterestClientId: oauth.clientId,
                         pinterestSandbox: oauth.sandbox === 'true' ? 'true' : 'false',
                     }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Threads OAuth config
+            if (integration.provider === 'threads') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { threadsClientId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
@@ -997,7 +1037,7 @@ function IntegrationCard({
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
     const isStripe = integration.provider === 'stripe'
-    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth'].includes(integration.provider)
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -1383,6 +1423,7 @@ function IntegrationCard({
                                     facebook: 'Facebook App ID', instagram: 'Instagram App ID',
                                     linkedin: 'LinkedIn Client ID', x: 'X Client ID',
                                     pinterest: 'Pinterest App ID',
+                                    threads: 'Threads App ID',
                                 }[integration.provider] || 'Client ID'}
                             </Label>
                             <Input
@@ -1400,6 +1441,7 @@ function IntegrationCard({
                                     facebook: 'Facebook App Secret', instagram: 'Instagram App Secret',
                                     linkedin: 'LinkedIn Client Secret', x: 'X Client Secret',
                                     pinterest: 'Pinterest App Secret',
+                                    threads: 'Threads App Secret',
                                 }[integration.provider] || 'Client Secret'}
                             </Label>
                             <div className="relative">
@@ -1430,6 +1472,7 @@ function IntegrationCard({
                                     linkedin: 'Go to linkedin.com/developers → Create App. Under Products tab, request "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect". Add your redirect URI under Auth settings.',
                                     x: 'Go to developer.x.com → Create Project & App. Set App permissions to "Read and Write". Enable OAuth 2.0, add your redirect URI. Note your Client ID and Client Secret from the "Keys and tokens" tab.',
                                     pinterest: 'Go to developers.pinterest.com → Create App. Request access to "pins:read", "pins:write", "boards:read", "boards:write" scopes. Add your redirect URI under App settings.',
+                                    threads: 'Go to developers.facebook.com → Create App (Business type) → Add "Threads API" product → In Threads API Settings add Redirect URI: {YOUR_DOMAIN}/api/oauth/threads/callback. Copy App ID and App Secret from App Settings → Basic.',
                                     canva: 'Configure OAuth credentials for this platform.',
                                 }[integration.provider] || 'Configure OAuth credentials for this platform.'}
                             </p>
