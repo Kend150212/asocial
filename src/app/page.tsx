@@ -745,11 +745,11 @@ export default function LandingPage() {
               },
               {
                 title: 'Company',
-                links: [['About', '#'], ['Blog', '#'], ['Careers', '#'], ['Contact', 'mailto:hello@neeflow.com']],
+                links: [['About', '/about'], ['Blog', '#'], ['Careers', '#'], ['Contact', 'mailto:hello@neeflow.com']],
               },
               {
                 title: 'Legal',
-                links: [['Privacy Policy', '/privacy'], ['Terms of Service', '/terms'], ['Cookie Policy', '#'], ['GDPR', '#']],
+                links: [['Privacy Policy', '/privacy'], ['Terms of Service', '/terms'], ['Cookie Policy', '/cookies'], ['GDPR', '/gdpr']],
               },
             ].map((col) => (
               <div key={col.title}>
@@ -770,8 +770,11 @@ export default function LandingPage() {
           <div className="border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-600">
             <span>© {new Date().getFullYear()} NeeFlow. All rights reserved. Built with ♥ in Richmond, VA.</span>
             <div className="flex gap-5">
-              <a href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</a>
-              <a href="/terms" className="hover:text-gray-400 transition-colors">Terms of Service</a>
+              <a href="/privacy" className="hover:text-gray-400 transition-colors">Privacy</a>
+              <a href="/terms" className="hover:text-gray-400 transition-colors">Terms</a>
+              <a href="/cookies" className="hover:text-gray-400 transition-colors">Cookies</a>
+              <a href="/gdpr" className="hover:text-gray-400 transition-colors">GDPR</a>
+              <a href="/about" className="hover:text-gray-400 transition-colors">About</a>
             </div>
           </div>
         </div>
