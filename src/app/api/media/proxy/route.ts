@@ -44,17 +44,17 @@ export async function GET(req: NextRequest) {
             return new NextResponse('Not an image or video', { status: 415 })
         }
 
-        const buffer = Buffer.from(await res.arrayBuffer())
+        const arrayBuf = await res.arrayBuffer()
 
         // Threads (Meta) only accepts JPEG — convert PNG/WebP/etc → JPEG
         if (contentType.startsWith('image/') && !contentType.includes('jpeg') && !contentType.includes('jpg')) {
             try {
-                const jpegBuffer = await sharp(buffer)
+                const jpegBuffer = await sharp(Buffer.from(arrayBuf))
                     .flatten({ background: { r: 255, g: 255, b: 255 } }) // Replace transparency with white bg
                     .jpeg({ quality: 90 })
                     .toBuffer()
 
-                return new NextResponse(jpegBuffer, {
+                return new NextResponse(jpegBuffer.buffer as ArrayBuffer, {
                     headers: {
                         'Content-Type': 'image/jpeg',
                         'Content-Length': String(jpegBuffer.byteLength),
@@ -67,10 +67,10 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        return new NextResponse(buffer, {
+        return new NextResponse(arrayBuf, {
             headers: {
                 'Content-Type': contentType,
-                'Content-Length': String(buffer.byteLength),
+                'Content-Length': String(arrayBuf.byteLength),
                 'Cache-Control': 'public, max-age=3600',
             },
         })
