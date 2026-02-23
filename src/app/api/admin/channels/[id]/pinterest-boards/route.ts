@@ -222,13 +222,28 @@ export async function POST(
                 body: JSON.stringify({ name: name.trim(), description, privacy }),
             })
             const retryData = await retry.json()
-            if (!retry.ok) return NextResponse.json({ error: retryData.message || 'Failed to create board' }, { status: 502 })
+            // If auth still fails after refresh → sandbox token incompatibility → must reconnect
+            if (!retry.ok) {
+                if (retry.status === 401 || retryData?.code === 2) {
+                    console.error('[Pinterest Boards] Auth failed even after token refresh — sandbox token incompatibility, reconnect required')
+                    return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
+                }
+                return NextResponse.json({ error: retryData.message || 'Failed to create board' }, { status: 502 })
+            }
             return NextResponse.json({ board: { id: retryData.id, name: retryData.name, description: retryData.description || '', privacy: retryData.privacy || 'PUBLIC' } })
+        }
+        // 401 but no refresh token OR other auth error on first try
+        if (res.status === 401) {
+            return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
         }
 
         const data = await res.json()
         if (!res.ok) {
             console.error('[Pinterest Boards] Create failed:', JSON.stringify(data))
+            // Pinterest auth error code 2 = Authentication failed → needsReconnect
+            if (data?.code === 2 || res.status === 401) {
+                return NextResponse.json({ error: 'Pinterest session expired. Please reconnect your account.', needsReconnect: true }, { status: 401 })
+            }
             return NextResponse.json({ error: data.message || 'Failed to create board' }, { status: 502 })
         }
 
