@@ -11,9 +11,39 @@ const inter = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandingServer()
+  const name = brand.appName || 'NeeFlow'
+  const tagline = brand.tagline || 'Social Media Management'
+  const description = `${name} — AI-powered Social Media & Email Marketing Management Platform. Schedule posts, generate content with AI, and manage all your social accounts in one place.`
+  const url = process.env.NEXTAUTH_URL || 'https://neeflow.com'
+
   return {
-    title: `${brand.appName} - ${brand.tagline}`,
-    description: `${brand.appName} — AI-powered Social Media & Email Marketing Management Platform`,
+    title: {
+      default: `${name} — ${tagline}`,
+      template: `%s | ${name}`,
+    },
+    description,
+    keywords: ['social media management', 'AI content generation', 'schedule posts', 'TikTok', 'Instagram', 'Facebook', 'YouTube', 'LinkedIn', 'marketing automation'],
+    authors: [{ name }],
+    creator: name,
+    metadataBase: new URL(url),
+    openGraph: {
+      type: 'website',
+      locale: 'en_US',
+      url,
+      siteName: name,
+      title: `${name} — ${tagline}`,
+      description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${name} — ${tagline}`,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true },
+    },
     icons: {
       icon: brand.faviconUrl || '/favicon.ico',
       apple: '/apple-touch-icon.png',
@@ -26,6 +56,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   }
 }
+
 
 export default function RootLayout({
   children,

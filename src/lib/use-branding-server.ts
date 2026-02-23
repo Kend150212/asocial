@@ -10,7 +10,12 @@ export async function getBrandingServer(): Promise<BrandingSettings> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const db = prisma as any
         const settings = await db.siteSettings.findUnique({ where: { id: 'default' } })
-        return settings ? { ...DEFAULT_BRANDING, ...settings } : DEFAULT_BRANDING
+        if (!settings) return DEFAULT_BRANDING
+        // Strip null/undefined so DEFAULT_BRANDING fallbacks are preserved
+        const clean = Object.fromEntries(
+            Object.entries(settings).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        )
+        return { ...DEFAULT_BRANDING, ...clean }
     } catch {
         return DEFAULT_BRANDING
     }
