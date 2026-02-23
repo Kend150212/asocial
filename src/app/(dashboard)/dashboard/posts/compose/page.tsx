@@ -3402,19 +3402,61 @@ export default function ComposePage() {
                             {pinSettingsOpen && (
                                 <CardContent className="px-3 pb-3 pt-0 space-y-2">
                                     {/* Reconnect banner — shown when token is expired */}
-                                    {pinNeedsReconnect && (
-                                        <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs">
-                                            <span className="text-amber-600 flex-1">⚠️ Pinterest session expired.</span>
-                                            <a
-                                                href={selectedChannel ? `/dashboard/channels/${selectedChannel.id}?tab=platforms` : '#'}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-[#E60023] font-medium underline hover:opacity-80 whitespace-nowrap"
-                                            >
-                                                Reconnect →
-                                            </a>
-                                        </div>
-                                    )}
+                                    {pinNeedsReconnect && (() => {
+                                        const pinterestPlatform = activePlatforms.find(p => selectedPlatformIds.has(p.id) && p.platform === 'pinterest')
+                                        const fetchBoards = () => {
+                                            if (!pinterestPlatform || !selectedChannel) return
+                                            setPinBoardsLoading(true)
+                                            fetch(`/api/admin/channels/${selectedChannel.id}/pinterest-boards?accountId=${pinterestPlatform.accountId}`)
+                                                .then(r => r.json())
+                                                .then(data => {
+                                                    if (data.needsReconnect) return
+                                                    if (data.boards) { setPinNeedsReconnect(false); setPinBoards(data.boards) }
+                                                })
+                                                .catch(() => { })
+                                                .finally(() => setPinBoardsLoading(false))
+                                        }
+                                        return (
+                                            <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs">
+                                                <span className="text-amber-600 flex-1">⚠️ Pinterest session expired.</span>
+                                                <button
+                                                    type="button"
+                                                    className="text-[10px] px-2 py-1 rounded border border-amber-500/40 text-amber-600 hover:bg-amber-500/10 cursor-pointer whitespace-nowrap"
+                                                    onClick={fetchBoards}
+                                                >
+                                                    ↺ Retry
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="text-[10px] px-2 py-1 rounded bg-[#E60023] text-white font-medium hover:bg-[#c0001d] cursor-pointer whitespace-nowrap"
+                                                    onClick={() => {
+                                                        if (!pinterestPlatform || !selectedChannel) return
+                                                        const w = 500, h = 700
+                                                        const left = window.screenX + (window.outerWidth - w) / 2
+                                                        const top = window.screenY + (window.outerHeight - h) / 2
+                                                        const popup = window.open(
+                                                            `/api/oauth/pinterest?channelId=${selectedChannel.id}`,
+                                                            'pinterest-oauth',
+                                                            `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+                                                        )
+                                                        const handler = (e: MessageEvent) => {
+                                                            if (e.data?.type === 'oauth-success' && e.data?.platform === 'pinterest') {
+                                                                window.removeEventListener('message', handler)
+                                                                setTimeout(fetchBoards, 800)
+                                                            }
+                                                        }
+                                                        window.addEventListener('message', handler)
+                                                        const check = setInterval(() => {
+                                                            if (popup?.closed) { clearInterval(check); window.removeEventListener('message', handler); setTimeout(fetchBoards, 800) }
+                                                        }, 1000)
+                                                    }}
+                                                >
+                                                    Reconnect
+                                                </button>
+                                            </div>
+                                        )
+                                    })()}
+
                                     {/* Board Selection */}
                                     <div className="space-y-1.5">
                                         <Label className="text-[10px] text-muted-foreground">Board</Label>
