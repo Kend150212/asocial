@@ -14,6 +14,7 @@ import {
     GripVertical,
     Undo2,
     Globe,
+    AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -679,11 +680,14 @@ export default function CalendarPage() {
     const [showFailed, setShowFailed] = useState(false)
 
     // Best times state
-    const [showBestTimes] = useState(true)
+    const [showBestTimes, setShowBestTimes] = useState(false)
     const [bestTimeSlots, setBestTimeSlots] = useState<BestTimeSlot[]>([])
     const [holidays, setHolidays] = useState<HolidayInfo[]>([])
     const [loadingBestTimes, setLoadingBestTimes] = useState(false)
     const [country, setCountry] = useState<string>('auto')
+    const [bestTimesMessage, setBestTimesMessage] = useState<string | null>(null)
+    const [bestTimesPublishedCount, setBestTimesPublishedCount] = useState<number>(0)
+    const [bestTimesMinRequired, setBestTimesMinRequired] = useState<number>(20)
 
     // DnD state
     const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -750,9 +754,10 @@ export default function CalendarPage() {
 
     // Fetch best times + holidays
     const fetchBestTimes = useCallback(async () => {
-        if (channelId === 'all') {
+        if (channelId === 'all' || !showBestTimes) {
             setBestTimeSlots([])
             setHolidays([])
+            setBestTimesMessage(null)
             return
         }
         setLoadingBestTimes(true)
@@ -773,10 +778,13 @@ export default function CalendarPage() {
             const data = await res.json()
             setBestTimeSlots(data.slots || [])
             setHolidays(data.holidays || [])
+            setBestTimesMessage(data.message || null)
+            setBestTimesPublishedCount(data.publishedCount ?? 0)
+            setBestTimesMinRequired(data.minRequired ?? 20)
         } catch { /* ignore */ } finally {
             setLoadingBestTimes(false)
         }
-    }, [channelId, from, to, activePlatforms, country])
+    }, [channelId, from, to, activePlatforms, country, showBestTimes])
 
     useEffect(() => {
         fetchBestTimes()
@@ -1071,19 +1079,49 @@ export default function CalendarPage() {
                             </SelectContent>
                         </Select>
 
-                        {/* Best Times indicator */}
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-500 text-white shadow-md">
+                        {/* Best Times toggle button */}
+                        <button
+                            onClick={() => setShowBestTimes(prev => !prev)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md transition-all ${showBestTimes
+                                ? 'bg-violet-500 text-white'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                                }`}
+                        >
                             {loadingBestTimes ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                                 <Sparkles className="h-3.5 w-3.5" />
                             )}
                             {L.bestTimes}
-                        </div>
+                        </button>
                     </div>
 
-                    {/* Row 3: Color legend (when best times is active) */}
-                    {channelId !== 'all' && (
+                    {/* Best Times notification: not enough posts */}
+                    {showBestTimes && bestTimesMessage && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            <span>
+                                {locale === 'vi'
+                                    ? `Cần ít nhất ${bestTimesMinRequired} bài đã đăng để phân tích giờ tốt nhất. Hiện tại: ${bestTimesPublishedCount} bài.`
+                                    : bestTimesMessage}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Best Times info: data-driven indicator */}
+                    {showBestTimes && !bestTimesMessage && bestTimeSlots.length > 0 && (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs">
+                            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                            <span>
+                                {locale === 'vi'
+                                    ? `Gợi ý dựa trên ${bestTimesPublishedCount} bài đã đăng của bạn`
+                                    : `Suggestions based on your ${bestTimesPublishedCount} published posts`}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Row 3: Color legend (when best times is active and has data) */}
+                    {showBestTimes && bestTimeSlots.length > 0 && channelId !== 'all' && (
                         <div className="flex items-center gap-4 text-[10px]">
                             <span className="text-muted-foreground font-medium uppercase tracking-wider">
                                 {locale === 'vi' ? 'Chú thích:' : 'Legend:'}

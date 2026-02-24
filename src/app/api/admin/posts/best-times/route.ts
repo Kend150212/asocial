@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
 
     const channel = await prisma.channel.findUnique({
         where: { id: channelId },
-        select: { timezone: true, holidayCountry: true },
+        select: { timezone: true },
     })
 
     if (!channel) {
@@ -149,7 +149,6 @@ export async function GET(req: NextRequest) {
     // ─── 2. Determine country for holidays ───────────────────
 
     const country = countryOverride
-        || channel.holidayCountry
         || TIMEZONE_COUNTRY[channel.timezone]
         || 'US'
 
@@ -179,6 +178,8 @@ export async function GET(req: NextRequest) {
 
     // ─── 4. Analyze channel posting history ──────────────────
 
+    const MIN_POSTS_REQUIRED = 20
+
     const pastPosts = await prisma.post.findMany({
         where: {
             channelId,
@@ -187,8 +188,27 @@ export async function GET(req: NextRequest) {
         },
         select: { publishedAt: true },
         orderBy: { publishedAt: 'desc' },
-        take: 100,
+        take: 200,
     })
+
+    const publishedCount = pastPosts.length
+
+    // If not enough data, return empty slots with informational message
+    if (publishedCount < MIN_POSTS_REQUIRED) {
+        return NextResponse.json({
+            slots: [],
+            holidays: Object.entries(holidayMap).map(([date, info]) => ({
+                date,
+                name: info.name,
+                type: info.type,
+                classification: info.classification,
+            })),
+            country,
+            publishedCount,
+            minRequired: MIN_POSTS_REQUIRED,
+            message: `Need at least ${MIN_POSTS_REQUIRED} published posts to generate best times. Currently: ${publishedCount} posts.`,
+        })
+    }
 
     // Build histogram: dayOfWeek (0-6) × hour (0-23) → count
     const histogram: Record<string, number> = {}
@@ -222,6 +242,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ─── 6. Calculate scores for each slot ───────────────────
+    // History-driven: 70% channel data, 30% platform peaks
 
     interface Slot {
         date: string
@@ -247,7 +268,15 @@ export async function GET(req: NextRequest) {
             // Skip if already has a scheduled post at this hour
             if (scheduledHours.has(slotKey)) continue
 
-            // Calculate platform score (best matching platform)
+            // Calculate history score (primary signal — 70%)
+            const histKey = `${dayOfWeek}_${hour}`
+            const histCount = histogram[histKey] || 0
+            const historyScore = Math.round((histCount / maxCount) * 100)
+
+            // Skip slots with no history data at all
+            if (historyScore === 0) continue
+
+            // Calculate platform score (secondary signal — 30%)
             let bestPlatformScore = 0
             const matchedPlatforms: string[] = []
             const reasons: string[] = []
@@ -271,13 +300,8 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // Calculate history score
-            const histKey = `${dayOfWeek}_${hour}`
-            const histCount = histogram[histKey] || 0
-            const historyScore = Math.round((histCount / maxCount) * 100)
-
-            // Combined score
-            let score = Math.round(bestPlatformScore * 0.5 + historyScore * 0.5)
+            // Combined score: 70% history, 30% platform
+            let score = Math.round(historyScore * 0.7 + bestPlatformScore * 0.3)
 
             // Holiday adjustments
             const holiday = holidayMap[dateStr]
@@ -300,21 +324,18 @@ export async function GET(req: NextRequest) {
             score = Math.min(100, Math.max(0, score))
 
             // Only include slots with score >= 40
-            if (score < 40 || matchedPlatforms.length === 0) continue
+            if (score < 40) continue
 
             const tier: 'best' | 'good' | 'fair' =
                 score >= 80 ? 'best' : score >= 60 ? 'good' : 'fair'
 
             const timeStr = `${String(hour).padStart(2, '0')}:00`
 
-            // Build reason
-            let reason = ''
+            // Build reason — emphasize data-driven nature
+            let reason = `Based on ${publishedCount} posts`
             if (matchedPlatforms.length > 0) {
                 const labels = matchedPlatforms.slice(0, 3).map(p => p.charAt(0).toUpperCase() + p.slice(1))
-                reason = `Peak for ${labels.join(', ')}`
-            }
-            if (historyScore > 50) {
-                reason += reason ? ' + channel pattern' : 'Channel pattern match'
+                reason += ` · Peak for ${labels.join(', ')}`
             }
             if (reasons.length > 0) {
                 reason += ` (${reasons.join(', ')})`
@@ -325,7 +346,7 @@ export async function GET(req: NextRequest) {
                 time: timeStr,
                 hour,
                 score,
-                platforms: matchedPlatforms,
+                platforms: matchedPlatforms.length > 0 ? matchedPlatforms : platforms,
                 reason,
                 tier,
             })
@@ -369,6 +390,9 @@ export async function GET(req: NextRequest) {
             classification: info.classification,
         })),
         country,
+        publishedCount,
+        minRequired: MIN_POSTS_REQUIRED,
+        message: null,
     })
 }
 
