@@ -348,8 +348,10 @@ async function publishToInstagram(
 
     const firstMedia = mediaItems[0]
     if (isVideoMedia(firstMedia)) {
-        containerBody.media_type = 'VIDEO'
+        // Instagram deprecated VIDEO type — all videos are now REELS (even for feed)
+        containerBody.media_type = 'REELS'
         containerBody.video_url = firstMedia.url
+        console.log(`[Instagram] Video detected in feed post — auto-switching to REELS media type`)
     } else {
         containerBody.image_url = firstMedia.url
     }
