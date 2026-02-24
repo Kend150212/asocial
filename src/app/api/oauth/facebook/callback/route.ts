@@ -215,25 +215,20 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // If no pages, store user profile
+        // If no pages were imported, show error — do NOT save personal profile
         if (imported === 0) {
-            const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${userAccessToken}`)
-            const me = await meRes.json()
-            await prisma.channelPlatform.upsert({
-                where: {
-                    channelId_platform_accountId: {
-                        channelId: state.channelId,
-                        platform: 'facebook',
-                        accountId: me.id,
-                    },
-                },
-                update: { accountName: me.name, accessToken: userAccessToken, connectedBy: state.userId || null, isActive: true },
-                create: {
-                    channelId: state.channelId, platform: 'facebook', accountId: me.id, accountName: me.name,
-                    accessToken: userAccessToken, connectedBy: state.userId || null, isActive: true, config: { source: 'oauth' },
-                },
-            })
-            imported = 1
+            console.log('[Facebook OAuth] ⚠️ No pages imported. User may not have granted page access during OAuth.')
+            const errorUrl = `${host}/dashboard/channels/${state.channelId}?tab=platforms&error=no_pages`
+            return new NextResponse(
+                `<!DOCTYPE html><html><head><title>No Pages Found</title></head><body>
+                <script>
+                    if (window.opener) { window.opener.postMessage({ type: 'oauth-error', platform: 'facebook', error: 'no_pages' }, '*'); window.close(); }
+                    else { window.location.href = '${errorUrl}'; }
+                </script>
+                <p>No Facebook Pages found. Please try again and make sure to select your pages when Facebook asks "What pages do you want to use?"</p>
+                </body></html>`,
+                { headers: { 'Content-Type': 'text/html' } }
+            )
         }
 
         const successUrl = `${host}/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
