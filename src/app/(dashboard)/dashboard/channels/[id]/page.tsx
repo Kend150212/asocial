@@ -3047,13 +3047,15 @@ export default function ChannelDetailPage({
                                                 <><LinkIcon className="h-3.5 w-3.5" /> Connect Zalo OA / Kết nối Zalo OA</>
                                             )}
                                         </Button>
-                                        <p className="text-xs text-muted-foreground">
-                                            Admin cần cấu hình Zalo App ID + Secret trong{' '}
-                                            <a href="/admin/integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                                Admin → Integrations
-                                            </a>{' '}
-                                            trước khi kết nối.
-                                        </p>
+                                        {isAdmin && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Admin cần cấu hình Zalo App ID + Secret trong{' '}
+                                                <a href="/admin/integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                    Admin → Integrations
+                                                </a>{' '}
+                                                trước khi kết nối.
+                                            </p>
+                                        )}
                                     </div>
                                 )}
                             </div>
