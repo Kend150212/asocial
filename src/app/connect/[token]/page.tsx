@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { platformIcons } from '@/components/platform-icons'
 import { OAUTH_PLATFORMS, CREDENTIAL_PLATFORMS } from '@/lib/platform-registry'
 
 interface LinkInfo {
@@ -15,7 +14,7 @@ interface LinkInfo {
 
 type ConnectState = 'loading' | 'password' | 'ready' | 'error'
 
-export default function ConnectPage() {
+function ConnectPageInner() {
     const { token } = useParams<{ token: string }>()
     const searchParams = useSearchParams()
 
@@ -29,7 +28,6 @@ export default function ConnectPage() {
     const [credValues, setCredValues] = useState<Record<string, string>>({})
     const [credLoading, setCredLoading] = useState(false)
 
-    // Handle ?connected=facebook from OAuth callback
     useEffect(() => {
         const connected = searchParams.get('connected')
         if (connected) {
@@ -37,265 +35,351 @@ export default function ConnectPage() {
         }
     }, [searchParams])
 
-    // Load link info
     useEffect(() => {
+        if (!token) return
         fetch(`/api/connect/${token}`)
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`)
+                return r.json()
+            })
             .then(data => {
                 if (data.error) { setErrorMsg(data.error); setState('error'); return }
                 setLinkInfo(data)
                 setState(data.hasPassword ? 'password' : 'ready')
             })
-            .catch(() => { setErrorMsg('Could not load link. Please try again.'); setState('error') })
+            .catch((err) => { setErrorMsg(err.message || 'Could not load link.'); setState('error') })
     }, [token])
 
     async function verifyPassword() {
         setVerifying(true)
-        const res = await fetch(`/api/connect/${token}/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password }),
-        })
-        const data = await res.json()
+        setErrorMsg('')
+        try {
+            const res = await fetch(`/api/connect/${token}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password }),
+            })
+            const data = await res.json()
+            if (data.ok) setState('ready')
+            else setErrorMsg(data.error || 'Incorrect password')
+        } catch {
+            setErrorMsg('Network error')
+        }
         setVerifying(false)
-        if (data.ok) setState('ready')
-        else setErrorMsg(data.error || 'Incorrect password')
     }
 
     function openOAuth(platform: string) {
-        const url = `/api/oauth/${platform}?channelId=${linkInfo!.channelId}&easyToken=${token}`
-        window.location.href = url
+        window.location.href = `/api/oauth/${platform}?channelId=${linkInfo!.channelId}&easyToken=${token}`
     }
 
     async function connectCredential(platform: string) {
         const credPlatform = CREDENTIAL_PLATFORMS.find(p => p.key === platform)
         if (!credPlatform) return
-
         setCredLoading(true)
         const body: Record<string, string> = { channelId: linkInfo!.channelId, easyToken: token }
-        for (const field of credPlatform.fields) {
-            body[field.id] = credValues[field.id] || ''
-        }
-
-        const res = await fetch(credPlatform.guide.connectUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        })
-        const data = await res.json()
+        for (const field of credPlatform.fields) body[field.id] = credValues[field.id] || ''
+        try {
+            const res = await fetch(credPlatform.guide.connectUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            const data = await res.json()
+            if (data.ok || res.ok) {
+                setConnectedPlatforms(prev => [...prev, platform])
+                setCredForm(null)
+                setCredValues({})
+            } else {
+                alert(data.error || 'Connection failed.')
+            }
+        } catch { alert('Network error') }
         setCredLoading(false)
-        if (data.ok || res.ok) {
-            setConnectedPlatforms(prev => [...prev, platform])
-            setCredForm(null)
-            setCredValues({})
-        } else {
-            alert(data.error || 'Connection failed. Please check your credentials.')
-        }
     }
 
+    /* ─── Platform icons (inline SVGs, no external dependency) ── */
+    const pIcon = (key: string) => {
+        const icons: Record<string, string> = {
+            facebook: '📘', instagram: '📸', youtube: '▶️', tiktok: '🎵',
+            linkedin: '💼', pinterest: '📌', threads: '🧵', gbp: '📍',
+            x: '𝕏', bluesky: '🦋',
+        }
+        return icons[key] || '🔗'
+    }
+
+    // ─── LOADING ──────────────────────────────────
     if (state === 'loading') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full" />
-            </div>
-        )
-    }
-
-    if (state === 'error') {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center">
-                    <div className="text-4xl mb-4">🔗</div>
-                    <h2 className="text-white text-xl font-semibold mb-2">Link Unavailable</h2>
-                    <p className="text-slate-400 text-sm">{errorMsg}</p>
+            <div className="ec-page">
+                <div className="ec-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                    <div className="ec-spinner" />
+                    <p style={{ color: '#94a3b8', marginTop: 16, fontSize: 14 }}>Loading secure link…</p>
                 </div>
             </div>
         )
     }
 
+    // ─── ERROR ──────────────────────────────────
+    if (state === 'error') {
+        return (
+            <div className="ec-page">
+                <div className="ec-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Link Unavailable</h2>
+                    <p style={{ color: '#64748b', fontSize: 14 }}>{errorMsg}</p>
+                </div>
+            </div>
+        )
+    }
+
+    // ─── PASSWORD ──────────────────────────────────
     if (state === 'password') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-8 max-w-sm w-full">
-                    <div className="text-center mb-6">
-                        <div className="text-3xl mb-3">🔒</div>
-                        <h2 className="text-white text-xl font-semibold">{linkInfo?.title}</h2>
-                        <p className="text-slate-400 text-sm mt-1">This link is password protected</p>
+            <div className="ec-page">
+                <div className="ec-card" style={{ maxWidth: 400, padding: '40px 32px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                        <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
+                        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1e293b' }}>{linkInfo?.title}</h2>
+                        <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>This link is password protected</p>
                     </div>
                     <input
                         type="password"
                         placeholder="Enter password"
-                        className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-400"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && verifyPassword()}
+                        style={{
+                            width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #e2e8f0',
+                            fontSize: 14, outline: 'none', background: '#f8fafc', boxSizing: 'border-box',
+                        }}
                     />
-                    {errorMsg && <p className="text-red-400 text-xs mt-2">{errorMsg}</p>}
-                    <button
-                        onClick={verifyPassword}
-                        disabled={verifying || !password}
-                        className="w-full mt-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
-                    >
-                        {verifying ? 'Verifying...' : 'Continue'}
+                    {errorMsg && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{errorMsg}</p>}
+                    <button onClick={verifyPassword} disabled={verifying || !password} className="ec-btn-primary" style={{ width: '100%', marginTop: 16 }}>
+                        {verifying ? 'Verifying…' : 'Continue'}
                     </button>
                 </div>
             </div>
         )
     }
 
+    // ─── READY ──────────────────────────────────
     const activePlatform = credForm ? CREDENTIAL_PLATFORMS.find(p => p.key === credForm) : null
+    const allPlatforms = [...OAUTH_PLATFORMS.map(p => ({ ...p, type: 'oauth' as const })), ...CREDENTIAL_PLATFORMS.map(p => ({ ...p, type: 'credential' as const }))]
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-xl">
+        <div className="ec-page">
+            <div style={{ width: '100%', maxWidth: 580 }}>
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs text-slate-300 font-medium mb-4">
-                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                        Secure Connection Link
+                <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                    <div className="ec-badge">
+                        <span className="ec-dot" />
+                        Secure Connection
                     </div>
-                    <h1 className="text-3xl font-bold text-white mb-1">{linkInfo?.channelName}</h1>
-                    <p className="text-slate-400 text-sm">
+                    <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+                        {linkInfo?.channelName}
+                    </h1>
+                    <p style={{ color: '#64748b', fontSize: 14 }}>
                         {linkInfo?.title} — Connect your social media accounts
                     </p>
                 </div>
 
                 {/* Main Card */}
-                <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl overflow-hidden">
-                    {/* Platform Grid */}
-                    <div className="p-6">
-                        <h2 className="text-white font-semibold mb-1">Choose a platform to connect</h2>
-                        <p className="text-slate-400 text-xs mb-5">Click a platform below and follow the steps to connect your account.</p>
+                <div className="ec-card" style={{ padding: 0 }}>
+                    <div style={{ padding: '24px 24px 20px' }}>
+                        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>Choose a platform</h2>
+                        <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 20 }}>Click a platform below to connect your account securely.</p>
 
-                        {/* OAuth platforms */}
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            {OAUTH_PLATFORMS.map(platform => {
-                                const isConnected = connectedPlatforms.includes(platform.key)
-                                return (
-                                    <button
-                                        key={platform.key}
-                                        onClick={() => !isConnected && openOAuth(platform.key)}
-                                        disabled={isConnected}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all group ${isConnected
-                                            ? 'border-green-500/40 bg-green-500/10 cursor-default'
-                                            : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 cursor-pointer'
-                                            }`}
-                                    >
-                                        <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                                            {platformIcons[platform.key] || <span className="text-xs text-slate-400">{platform.key[0].toUpperCase()}</span>}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-white text-sm font-medium truncate">{platform.label}</p>
-                                            <p className="text-slate-500 text-xs truncate">{platform.description}</p>
-                                        </div>
-                                        {isConnected && (
-                                            <span className="ml-auto text-green-400 flex-shrink-0">✓</span>
-                                        )}
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-                        {/* Credential platforms */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {CREDENTIAL_PLATFORMS.map(platform => {
+                        <div className="ec-grid">
+                            {allPlatforms.map(platform => {
                                 const isConnected = connectedPlatforms.includes(platform.key)
                                 const isOpen = credForm === platform.key
                                 return (
-                                    <div key={platform.key}>
-                                        <button
-                                            onClick={() => !isConnected && setCredForm(isOpen ? null : platform.key)}
-                                            disabled={isConnected}
-                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${isConnected
-                                                ? 'border-green-500/40 bg-green-500/10 cursor-default'
-                                                : isOpen
-                                                    ? 'border-purple-500/50 bg-purple-500/10'
-                                                    : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 cursor-pointer'
-                                                }`}
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                                                {platformIcons[platform.key] || <span className="text-xs text-slate-400">{platform.key[0].toUpperCase()}</span>}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-white text-sm font-medium truncate">{platform.label}</p>
-                                                <p className="text-slate-500 text-xs truncate">{platform.description}</p>
-                                            </div>
-                                            {isConnected && <span className="ml-auto text-green-400 flex-shrink-0">✓</span>}
-                                        </button>
-                                    </div>
+                                    <button
+                                        key={platform.key}
+                                        onClick={() => {
+                                            if (isConnected) return
+                                            if (platform.type === 'oauth') openOAuth(platform.key)
+                                            else setCredForm(isOpen ? null : platform.key)
+                                        }}
+                                        disabled={isConnected}
+                                        className={`ec-platform-btn ${isConnected ? 'ec-connected' : ''} ${isOpen ? 'ec-active' : ''}`}
+                                    >
+                                        <span className="ec-platform-icon" style={{ backgroundColor: `${platform.color}15`, color: platform.color }}>
+                                            {pIcon(platform.key)}
+                                        </span>
+                                        <span className="ec-platform-info">
+                                            <span className="ec-platform-name">{platform.label}</span>
+                                            <span className="ec-platform-desc">{platform.description}</span>
+                                        </span>
+                                        {isConnected && <span className="ec-check">✓</span>}
+                                    </button>
                                 )
                             })}
                         </div>
                     </div>
 
-                    {/* Credential Form Panel */}
+                    {/* Credential Form */}
                     {activePlatform && !connectedPlatforms.includes(activePlatform.key) && (
-                        <div className="border-t border-white/10 p-6 bg-black/20">
-                            <h3 className="text-white font-semibold mb-1">{activePlatform.guide.title}</h3>
-                            <ol className="space-y-1 mb-4">
+                        <div style={{ borderTop: '1px solid #f1f5f9', padding: '20px 24px', background: '#fafbfc' }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>{activePlatform.guide.title}</h3>
+                            <ol style={{ padding: 0, margin: '0 0 16px', listStyle: 'none' }}>
                                 {activePlatform.guide.steps.map((step, i) => (
-                                    <li key={i} className="flex gap-2 text-xs text-slate-400">
-                                        <span className="text-purple-400 font-bold flex-shrink-0">{i + 1}.</span>
+                                    <li key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: '#64748b', marginBottom: 4 }}>
+                                        <span style={{ color: '#3b82f6', fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
                                         <span>{step}</span>
                                     </li>
                                 ))}
                             </ol>
                             {activePlatform.guide.warning && (
-                                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2 text-yellow-300 text-xs mb-4">
+                                <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '8px 12px', color: '#92400e', fontSize: 12, marginBottom: 16 }}>
                                     ⚠️ {activePlatform.guide.warning}
                                 </div>
                             )}
-                            <div className="space-y-3">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 {activePlatform.fields.map(field => (
                                     <input
-                                        key={field.id}
-                                        type={field.type}
-                                        placeholder={field.placeholder}
-                                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-400"
+                                        key={field.id} type={field.type} placeholder={field.placeholder}
                                         value={credValues[field.id] || ''}
                                         onChange={e => setCredValues(v => ({ ...v, [field.id]: e.target.value }))}
+                                        style={{
+                                            width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0',
+                                            fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box',
+                                        }}
                                     />
                                 ))}
-                                <button
-                                    onClick={() => connectCredential(activePlatform.key)}
-                                    disabled={credLoading}
-                                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-medium transition-colors"
-                                >
-                                    {credLoading ? 'Connecting...' : `Connect ${activePlatform.label}`}
+                                <button onClick={() => connectCredential(activePlatform.key)} disabled={credLoading} className="ec-btn-primary">
+                                    {credLoading ? 'Connecting…' : `Connect ${activePlatform.label}`}
                                 </button>
                             </div>
                         </div>
                     )}
 
                     {/* Footer */}
-                    <div className="border-t border-white/10 px-6 py-4 flex items-center gap-2">
-                        <span className="text-xs text-slate-500">🔒 Your credentials are encrypted and never shared.</span>
+                    <div style={{ borderTop: '1px solid #f1f5f9', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>🔒 Your credentials are encrypted and never shared.</span>
                     </div>
                 </div>
 
                 {/* Instructions */}
-                <div className="mt-6 bg-white/5 border border-white/10 rounded-xl p-5">
-                    <h3 className="text-white text-sm font-semibold mb-3">📖 How to connect</h3>
-                    <ol className="space-y-2">
+                <div className="ec-card" style={{ marginTop: 20, padding: '20px 24px' }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 12 }}>📖 How to connect</h3>
+                    <ol style={{ padding: 0, margin: 0, listStyle: 'none' }}>
                         {[
-                            'Click the platform button above (e.g. Facebook, Instagram, YouTube)',
-                            'You\'ll be redirected to the platform\'s login page — log in with your account',
-                            'Authorize the permissions requested (post, read, publish)',
-                            'You\'ll be brought back here with your account connected ✅',
-                            'Repeat for each platform you\'d like to connect',
+                            'Click the platform button above (e.g. Facebook, YouTube)',
+                            "You'll be redirected to log in with your account",
+                            'Authorize the permissions requested',
+                            "You'll be brought back here with your account connected ✅",
+                            "Repeat for each platform you'd like to connect",
                         ].map((step, i) => (
-                            <li key={i} className="flex gap-2.5 text-sm text-slate-400">
-                                <span className="text-purple-400 font-bold flex-shrink-0">{i + 1}.</span>
+                            <li key={i} style={{ display: 'flex', gap: 8, fontSize: 13, color: '#475569', marginBottom: 6 }}>
+                                <span style={{ color: '#3b82f6', fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
                                 <span>{step}</span>
                             </li>
                         ))}
                     </ol>
                 </div>
 
-                <p className="text-center text-slate-600 text-xs mt-6">
-                    Powered by Neeflow · Secure social media management
+                <p style={{ textAlign: 'center', color: '#cbd5e1', fontSize: 12, marginTop: 24 }}>
+                    Powered by NeeFlow · Secure social media management
                 </p>
             </div>
+
+            {/* ─── Inline Styles ── */}
+            <style>{`
+                .ec-page {
+                    min-height: 100vh;
+                    background: linear-gradient(135deg, #f0f4ff 0%, #e8f4f8 50%, #f5f0ff 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 24px 16px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+                }
+                .ec-card {
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.04);
+                    border: 1px solid #f1f5f9;
+                    overflow: hidden;
+                }
+                .ec-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: #fff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 100px;
+                    padding: 6px 16px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #475569;
+                    margin-bottom: 16px;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+                }
+                .ec-dot {
+                    width: 8px; height: 8px; border-radius: 50%;
+                    background: #22c55e; animation: ec-pulse 2s infinite;
+                }
+                @keyframes ec-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+                .ec-spinner {
+                    width: 32px; height: 32px; border: 3px solid #e2e8f0;
+                    border-top-color: #3b82f6; border-radius: 50%;
+                    animation: ec-spin 0.8s linear infinite; margin: 0 auto;
+                }
+                @keyframes ec-spin { to { transform: rotate(360deg); } }
+                .ec-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 10px;
+                }
+                @media (max-width: 480px) { .ec-grid { grid-template-columns: 1fr; } }
+                .ec-platform-btn {
+                    display: flex; align-items: center; gap: 12px;
+                    padding: 12px 14px; border-radius: 12px;
+                    border: 1.5px solid #e2e8f0; background: #fff;
+                    text-align: left; cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .ec-platform-btn:hover:not(:disabled) {
+                    border-color: #3b82f6; background: #f8faff;
+                    box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+                    transform: translateY(-1px);
+                }
+                .ec-platform-btn.ec-connected {
+                    border-color: #86efac; background: #f0fdf4; cursor: default;
+                }
+                .ec-platform-btn.ec-active {
+                    border-color: #3b82f6; background: #eff6ff;
+                }
+                .ec-platform-icon {
+                    width: 36px; height: 36px; border-radius: 10px;
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 18px; flex-shrink: 0;
+                }
+                .ec-platform-info { display: flex; flex-direction: column; min-width: 0; }
+                .ec-platform-name { font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .ec-platform-desc { font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .ec-check { margin-left: auto; color: #22c55e; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+                .ec-btn-primary {
+                    padding: 10px 20px; border-radius: 10px; border: none;
+                    background: linear-gradient(135deg, #3b82f6, #2563eb);
+                    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+                    transition: all 0.15s ease; box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+                }
+                .ec-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37,99,235,0.35); }
+                .ec-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+            `}</style>
         </div>
+    )
+}
+
+export default function ConnectPage() {
+    return (
+        <Suspense fallback={
+            <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f4f8 50%, #f5f0ff 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            </div>
+        }>
+            <ConnectPageInner />
+        </Suspense>
     )
 }
