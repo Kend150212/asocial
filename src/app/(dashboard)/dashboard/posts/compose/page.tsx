@@ -2,7 +2,7 @@
 
 import { useBranding } from '@/lib/use-branding'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkspace } from '@/lib/workspace-context'
 import {
@@ -782,6 +782,49 @@ export default function ComposePage() {
 
     // Get active platforms from selected channel
     const activePlatforms = selectedChannel?.platforms || []
+
+    // ─── Instagram media validation ────────────────────────
+    const igValidation = useMemo(() => {
+        const isIgSelected = selectedChannel?.platforms?.some(p => p.platform === 'instagram' && selectedPlatformIds.has(p.id))
+        if (!isIgSelected) return { errors: [], warnings: [] }
+
+        const errors: string[] = []
+        const warnings: string[] = []
+        const unsupportedFormats = ['.webp', '.bmp', '.svg', '.tiff', '.tif', '.gif']
+
+        // Check if media is attached
+        if (attachedMedia.length === 0) {
+            errors.push('Instagram requires at least one image or video.')
+            return { errors, warnings }
+        }
+
+        const hasVideo = attachedMedia.some(m => isVideo(m))
+        const hasImage = attachedMedia.some(m => !isVideo(m))
+
+        // Check unsupported formats
+        for (const media of attachedMedia) {
+            const name = (media.originalName || media.url || '').toLowerCase()
+            const bad = unsupportedFormats.find(fmt => name.endsWith(fmt))
+            if (bad) {
+                errors.push(`"${media.originalName || 'File'}" is ${bad.replace('.', '').toUpperCase()} format — Instagram only supports JPEG and PNG.`)
+            }
+        }
+
+        // Post type specific checks
+        if (igPostType === 'reel') {
+            if (!hasVideo) errors.push('Reels require a video. Please attach a video file (MP4, MOV).')
+            if (attachedMedia.length > 1) warnings.push('Reels only use the first video — extra media will be ignored.')
+        } else if (igPostType === 'story') {
+            if (attachedMedia.length > 1) warnings.push('Story only uses the first media item.')
+        } else {
+            // Feed post
+            if (hasVideo && attachedMedia.length === 1) {
+                warnings.push('Single videos on feed are automatically posted as Reels.')
+            }
+        }
+
+        return { errors, warnings }
+    }, [attachedMedia, igPostType, selectedChannel, selectedPlatformIds])
 
     // Toggle platform by unique ID
     const togglePlatform = (platformId: string) => {
@@ -2903,12 +2946,41 @@ export default function ComposePage() {
                                     <CardTitle className="text-xs flex items-center gap-1.5">
                                         <PlatformIcon platform="instagram" size="sm" />
                                         Instagram Settings
+                                        {igValidation.errors.length > 0 && (
+                                            <Badge variant="destructive" className="ml-2 text-[9px] px-1.5 py-0">{igValidation.errors.length} error{igValidation.errors.length > 1 ? 's' : ''}</Badge>
+                                        )}
+                                        {igValidation.errors.length === 0 && igValidation.warnings.length > 0 && (
+                                            <Badge className="ml-2 text-[9px] px-1.5 py-0 bg-amber-500/20 text-amber-600 border-amber-500/30">{igValidation.warnings.length} warning{igValidation.warnings.length > 1 ? 's' : ''}</Badge>
+                                        )}
                                     </CardTitle>
                                     <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${igSettingsOpen ? '' : '-rotate-90'}`} />
                                 </button>
                             </CardHeader>
                             {igSettingsOpen && (
                                 <CardContent className="space-y-2 px-2.5 pb-2">
+                                    {/* Validation Errors */}
+                                    {igValidation.errors.length > 0 && (
+                                        <div className="space-y-1">
+                                            {igValidation.errors.map((err, i) => (
+                                                <div key={i} className="flex items-start gap-1.5 p-1.5 rounded-md bg-red-500/10 border border-red-500/20">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /></svg>
+                                                    <p className="text-[10px] text-red-600 dark:text-red-400">{err}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {/* Validation Warnings */}
+                                    {igValidation.warnings.length > 0 && (
+                                        <div className="space-y-1">
+                                            {igValidation.warnings.map((warn, i) => (
+                                                <div key={i} className="flex items-start gap-1.5 p-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0"><path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                                                    <p className="text-[10px] text-amber-600 dark:text-amber-400">{warn}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     {/* Post Type */}
                                     <div className="space-y-1">
                                         <Label className="text-[10px] text-muted-foreground">Post Type</Label>
