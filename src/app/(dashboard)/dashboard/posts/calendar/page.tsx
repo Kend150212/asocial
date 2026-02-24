@@ -435,6 +435,9 @@ function MonthView({
     locale,
     holidays,
     draggedId,
+    bestTimeSlots,
+    showBestTimes,
+    onSlotClick,
 }: {
     currentDate: Date
     postsByDate: Record<string, CalendarPost[]>
@@ -443,11 +446,20 @@ function MonthView({
     locale: 'en' | 'vi'
     holidays: HolidayInfo[]
     draggedId: string | null
+    bestTimeSlots: BestTimeSlot[]
+    showBestTimes: boolean
+    onSlotClick: (date: string, time: string) => void
 }) {
     const L = LABELS[locale]
     const today = toLocalDateStr(new Date())
     const holidayMap: Record<string, HolidayInfo> = {}
     holidays.forEach(h => { holidayMap[h.date] = h })
+
+    const slotsByDate: Record<string, BestTimeSlot[]> = {}
+    bestTimeSlots.forEach(s => {
+        if (!slotsByDate[s.date]) slotsByDate[s.date] = []
+        slotsByDate[s.date].push(s)
+    })
 
     // Build 6-week grid
     const monthStart = getMonthStart(currentDate)
@@ -498,6 +510,21 @@ function MonthView({
                                 </button>
                                 {holiday && <HolidayBadge holiday={holiday} compact />}
                             </div>
+                            {/* Best time slots (compact for month view) */}
+                            {showBestTimes && (slotsByDate[dateStr] || []).slice(0, 2).map((slot, si) => (
+                                <button
+                                    key={`slot-${si}`}
+                                    onClick={() => onSlotClick(slot.date, slot.time)}
+                                    className={cn(
+                                        'w-full flex items-center gap-1 px-1 py-0.5 rounded text-[9px] border border-dashed cursor-pointer truncate',
+                                        TIER_STYLES[slot.tier].bg, TIER_STYLES[slot.tier].border,
+                                    )}
+                                    title={slot.reason}
+                                >
+                                    <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', TIER_STYLES[slot.tier].dot)} />
+                                    <span className={cn('font-semibold', TIER_STYLES[slot.tier].text)}>{slot.time}</span>
+                                </button>
+                            ))}
                             {posts.slice(0, 3).map(post => (
                                 <DraggablePostCard
                                     key={post.id}
@@ -1127,6 +1154,9 @@ export default function CalendarPage() {
                             locale={(locale as 'en' | 'vi') || 'en'}
                             holidays={holidays}
                             draggedId={draggedId}
+                            bestTimeSlots={bestTimeSlots}
+                            showBestTimes={showBestTimes}
+                            onSlotClick={handleSlotClick}
                         />
                     ) : (
                         <WeekView
