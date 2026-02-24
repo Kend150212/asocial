@@ -361,6 +361,68 @@ export default function ChannelDetailPage({
     const [xAccessTokenSecret, setXAccessTokenSecret] = useState('')
     const [xConnecting, setXConnecting] = useState(false)
 
+    // EasyConnect state
+    interface EasyLink { id: string; title: string; token: string; isEnabled: boolean; expiresAt?: string | null; createdAt: string }
+    const [easyLinks, setEasyLinks] = useState<EasyLink[]>([])
+    const [easyLinksLoading, setEasyLinksLoading] = useState(false)
+    const [showCreateLink, setShowCreateLink] = useState(false)
+    const [newLinkTitle, setNewLinkTitle] = useState('')
+    const [newLinkPassword, setNewLinkPassword] = useState('')
+    const [creatingLink, setCreatingLink] = useState(false)
+    const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
+
+    const loadEasyLinks = async () => {
+        if (!id) return
+        setEasyLinksLoading(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/easy-connect`)
+            if (res.ok) setEasyLinks(await res.json())
+        } finally { setEasyLinksLoading(false) }
+    }
+
+    const createEasyLink = async () => {
+        if (!newLinkTitle.trim()) return
+        setCreatingLink(true)
+        try {
+            const res = await fetch(`/api/admin/channels/${id}/easy-connect`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newLinkTitle, password: newLinkPassword || undefined }),
+            })
+            if (res.ok) {
+                const link = await res.json()
+                setEasyLinks(prev => [link, ...prev])
+                setShowCreateLink(false)
+                setNewLinkTitle('')
+                setNewLinkPassword('')
+                toast.success('EasyConnect link created!')
+            }
+        } finally { setCreatingLink(false) }
+    }
+
+    const toggleEasyLink = async (linkId: string, isEnabled: boolean) => {
+        await fetch(`/api/admin/channels/${id}/easy-connect/${linkId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isEnabled }),
+        })
+        setEasyLinks(prev => prev.map(l => l.id === linkId ? { ...l, isEnabled } : l))
+    }
+
+    const deleteEasyLink = async (linkId: string) => {
+        if (!confirm('Delete this EasyConnect link? Clients will no longer be able to use it.')) return
+        await fetch(`/api/admin/channels/${id}/easy-connect/${linkId}`, { method: 'DELETE' })
+        setEasyLinks(prev => prev.filter(l => l.id !== linkId))
+        toast.success('Link deleted')
+    }
+
+    const copyEasyLink = (token: string, linkId: string) => {
+        const url = `${window.location.origin}/connect/${token}`
+        navigator.clipboard.writeText(url)
+        setCopiedLinkId(linkId)
+        setTimeout(() => setCopiedLinkId(null), 2000)
+    }
+
     // Members state
     const [members, setMembers] = useState<any[]>([])
     const [allUsers, setAllUsers] = useState<any[]>([])
@@ -2166,6 +2228,104 @@ export default function ChannelDetailPage({
                                     })()}
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ─── EasyConnect Links ───────────────── */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <span>🔗</span> EasyConnect Links
+                                    </CardTitle>
+                                    <CardDescription className="text-xs mt-1">
+                                        Share a secure link with clients — they connect their social accounts directly without sharing passwords.
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    className="gap-1.5 h-8 text-xs"
+                                    onClick={() => { if (!showCreateLink) loadEasyLinks(); setShowCreateLink(v => !v) }}
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    New Link
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-0">
+                            {/* Create Link Form */}
+                            {showCreateLink && (
+                                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                                    <p className="text-xs font-medium text-muted-foreground">New EasyConnect Link</p>
+                                    <Input
+                                        placeholder="Link title (e.g. \" For client Nike\")"
+                                    className="h-8 text-sm"
+                                    value={newLinkTitle}
+                                    onChange={e => setNewLinkTitle(e.target.value)}
+                                    />
+                                    <Input
+                                        type="password"
+                                        placeholder="Password (optional)"
+                                        className="h-8 text-sm"
+                                        value={newLinkPassword}
+                                        onChange={e => setNewLinkPassword(e.target.value)}
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button size="sm" className="h-8 text-xs" onClick={createEasyLink} disabled={creatingLink || !newLinkTitle.trim()}>
+                                            {creatingLink ? 'Creating...' : 'Create Link'}
+                                        </Button>
+                                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowCreateLink(false)}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Load links when tab is opened */}
+                            {easyLinksLoading && <p className="text-xs text-muted-foreground py-2">Loading links...</p>}
+
+                            {!easyLinksLoading && easyLinks.length === 0 && !showCreateLink && (
+                                <div className="text-center py-6">
+                                    <p className="text-sm text-muted-foreground">No EasyConnect links yet.</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Create a link to share with your clients.</p>
+                                </div>
+                            )}
+
+                            {/* Link List */}
+                            {easyLinks.map(link => (
+                                <div key={link.id} className="flex items-center gap-3 px-3 py-2.5 border rounded-lg hover:bg-muted/20 transition-colors">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{link.title}</p>
+                                        <p className="text-xs text-muted-foreground font-mono truncate">
+                                            {window.location.origin}/connect/{link.token.slice(0, 16)}...
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        <Switch
+                                            checked={link.isEnabled}
+                                            onCheckedChange={checked => toggleEasyLink(link.id, checked)}
+                                            title={link.isEnabled ? 'Disable link' : 'Enable link'}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs gap-1"
+                                            onClick={() => copyEasyLink(link.token, link.id)}
+                                        >
+                                            {copiedLinkId === link.id ? '✓ Copied' : 'Copy URL'}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                            onClick={() => deleteEasyLink(link.id)}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
                         </CardContent>
                     </Card>
                 </TabsContent>

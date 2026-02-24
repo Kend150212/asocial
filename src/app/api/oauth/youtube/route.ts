@@ -1,25 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { decrypt } from '@/lib/encryption'
 
 // GET /api/oauth/youtube — Initiate YouTube OAuth flow
+// Supports both authenticated (admin) and EasyConnect (easyToken) flows.
 export async function GET(req: NextRequest) {
-    const session = await auth()
-    if (!session?.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const channelId = req.nextUrl.searchParams.get('channelId')
-    if (!channelId) {
-        return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
+    const easyToken = req.nextUrl.searchParams.get('easyToken')
+
+    if (!channelId) return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
+
+    let userId = 'easyconnect'
+    if (easyToken) {
+        const link = await prisma.easyConnectLink.findUnique({ where: { token: easyToken } })
+        if (!link || !link.isEnabled || link.channelId !== channelId) {
+            return NextResponse.json({ error: 'Invalid EasyConnect link' }, { status: 403 })
+        }
+    } else {
+        const session = await auth()
+        if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        userId = session.user.id
     }
 
-    // Read credentials from database (API Hub)
-    const integration = await prisma.apiIntegration.findFirst({
-        where: { provider: 'youtube' },
-    })
-
+    const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'youtube' } })
     const config = (integration?.config || {}) as Record<string, string>
     const clientId = config.youtubeClientId || process.env.GOOGLE_CLIENT_ID
 
@@ -30,15 +33,12 @@ export async function GET(req: NextRequest) {
         )
     }
 
-    // Build the redirect URI based on the current host
     const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/youtube/callback`
 
-    // state encodes channelId + userId for the callback
-    const state = Buffer.from(JSON.stringify({
-        channelId,
-        userId: session.user.id,
-    })).toString('base64url')
+    const stateData: Record<string, string> = { channelId, userId }
+    if (easyToken) stateData.easyToken = easyToken
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 
     const scopes = [
         'https://www.googleapis.com/auth/youtube.readonly',

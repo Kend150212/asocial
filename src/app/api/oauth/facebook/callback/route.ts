@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
     if (!code || !stateParam) return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
 
-    let state: { channelId: string; userId: string }
+    let state: { channelId: string; userId: string; easyToken?: string }
     try { state = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) }
     catch { return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin)) }
 
@@ -224,11 +224,14 @@ export async function GET(req: NextRequest) {
             imported = 1
         }
 
-        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
+        const easyToken = state.easyToken
+        const successUrl = easyToken
+            ? `/connect/${easyToken}?connected=facebook`
+            : `/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
         return new NextResponse(
             `<!DOCTYPE html><html><head><title>Facebook Connected</title></head><body>
             <script>
-                if (window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'facebook' }, '*'); window.close(); }
+                if (!${'`' + '${easyToken}' + '`'} && window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'facebook' }, '*'); window.close(); }
                 else { window.location.href = '${successUrl}'; }
             </script><p>Facebook connected! Redirecting...</p></body></html>`,
             { headers: { 'Content-Type': 'text/html' } }

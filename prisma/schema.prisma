@@ -280,6 +280,7 @@ model Channel {
   conversations        Conversation[]
   socialComments       SocialComment[]
   botConfig            BotConfig?
+  easyConnectLinks     EasyConnectLink[]
 
   @@map("channels")
 }
@@ -494,6 +495,28 @@ model ChannelInvite {
 
   @@unique([channelId, email])
   @@map("channel_invites")
+}
+
+// ==========================================
+// EASY CONNECT LINKS
+// ==========================================
+
+model EasyConnectLink {
+  id           String    @id @default(cuid())
+  channelId    String    @map("channel_id")
+  title        String                          // e.g. "Link cho client ABC"
+  token        String    @unique               // random secure token
+  passwordHash String?   @map("password_hash") // optional bcrypt hash
+  isEnabled    Boolean   @default(true)        @map("is_enabled")
+  expiresAt    DateTime? @map("expires_at")    // null = never expires
+  createdBy    String    @map("created_by")
+  createdAt    DateTime  @default(now())       @map("created_at")
+  updatedAt    DateTime  @updatedAt            @map("updated_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+  @@map("easy_connect_links")
 }
 
 // ==========================================
