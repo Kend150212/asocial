@@ -102,8 +102,59 @@ export async function GET(req: NextRequest) {
             }
             pagesUrl = pagesData.paging?.next || null
         }
+        console.log(`[Instagram OAuth] Found ${pages.length} Facebook pages from me/accounts`)
 
-        console.log(`[Instagram OAuth] Found ${pages.length} Facebook pages, checking for Instagram accounts...`)
+        // FALLBACK: Fetch pages from Business Portfolios (may not appear in me/accounts)
+        const seenPageIds = new Set(pages.map(p => p.id))
+        try {
+            const bizRes: Response = await fetch(
+                `https://graph.facebook.com/v19.0/me/businesses?fields=id,name&access_token=${userAccessToken}`
+            )
+            const bizData: { data?: Array<{ id: string; name: string }>; error?: { message: string } } = await bizRes.json()
+
+            if (bizData.data && bizData.data.length > 0) {
+                console.log(`[Instagram OAuth] 🏢 Found ${bizData.data.length} Business Portfolio(s)`)
+
+                for (const biz of bizData.data) {
+                    try {
+                        let bizPagesUrl: string | null = `https://graph.facebook.com/v19.0/${biz.id}/owned_pages?fields=id,name,access_token,instagram_business_account&limit=100&access_token=${userAccessToken}`
+
+                        while (bizPagesUrl) {
+                            const bizPagesRes: Response = await fetch(bizPagesUrl)
+                            const bizPagesData: {
+                                data?: Array<{ id: string; name: string; access_token: string; instagram_business_account?: { id: string } }>;
+                                paging?: { next?: string };
+                                error?: { message: string }
+                            } = await bizPagesRes.json()
+
+                            if (bizPagesData.error) {
+                                console.log(`[Instagram OAuth] ⚠️ Cannot access ${biz.name} owned_pages: ${bizPagesData.error.message}`)
+                                break
+                            }
+
+                            if (bizPagesData.data) {
+                                for (const bp of bizPagesData.data) {
+                                    if (!seenPageIds.has(bp.id)) {
+                                        pages.push(bp)
+                                        seenPageIds.add(bp.id)
+                                        console.log(`[Instagram OAuth] 🏢 Added from ${biz.name}: "${bp.name}" (${bp.id}) | IG linked: ${bp.instagram_business_account ? `YES → ${bp.instagram_business_account.id}` : 'NO'}`)
+                                    }
+                                }
+                            }
+                            bizPagesUrl = bizPagesData.paging?.next || null
+                        }
+                    } catch (bizPageErr) {
+                        console.error(`[Instagram OAuth] ❌ Error fetching pages from ${biz.name}:`, bizPageErr)
+                    }
+                }
+            } else if (bizData.error) {
+                console.log(`[Instagram OAuth] ⚠️ Cannot access me/businesses: ${bizData.error.message}`)
+            }
+        } catch (bizErr) {
+            console.error(`[Instagram OAuth] ❌ Business Portfolio lookup failed:`, bizErr)
+        }
+
+        console.log(`[Instagram OAuth] Total pages (me/accounts + Business Portfolios): ${pages.length}, checking for Instagram accounts...`)
 
         // Step 3: For each page with an Instagram Business account, get IG details
         let imported = 0

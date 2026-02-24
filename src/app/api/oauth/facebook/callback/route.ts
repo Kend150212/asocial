@@ -87,16 +87,69 @@ export async function GET(req: NextRequest) {
         }
         console.log(`[Facebook OAuth] Total pages from me/accounts: ${pages.length}`)
 
-        // FALLBACK: me/accounts may not return all pages (Facebook API limitation)
-        // Try to access existing DB pages directly by ID
+        // FALLBACK 1: Fetch pages from Business Portfolios (me/businesses → owned_pages)
+        // Pages managed in Meta Business Suite may not appear in me/accounts
         const meAccountIds = new Set(pages.map(p => p.id))
+        try {
+            const bizRes: Response = await fetch(
+                `https://graph.facebook.com/v19.0/me/businesses?fields=id,name&access_token=${userAccessToken}`
+            )
+            const bizData: { data?: Array<{ id: string; name: string }>; error?: { message: string } } = await bizRes.json()
+
+            if (bizData.data && bizData.data.length > 0) {
+                console.log(`[Facebook OAuth] 🏢 Found ${bizData.data.length} Business Portfolio(s): ${bizData.data.map(b => `${b.name} (${b.id})`).join(', ')}`)
+
+                for (const biz of bizData.data) {
+                    try {
+                        let bizPagesUrl: string | null = `https://graph.facebook.com/v19.0/${biz.id}/owned_pages?fields=id,name,access_token&limit=100&access_token=${userAccessToken}`
+
+                        while (bizPagesUrl) {
+                            const bizPagesRes: Response = await fetch(bizPagesUrl)
+                            const bizPagesData: {
+                                data?: Array<{ id: string; name: string; access_token: string }>;
+                                paging?: { next?: string };
+                                error?: { message: string }
+                            } = await bizPagesRes.json()
+
+                            if (bizPagesData.error) {
+                                console.log(`[Facebook OAuth] ⚠️ Cannot access ${biz.name} owned_pages: ${bizPagesData.error.message}`)
+                                break
+                            }
+
+                            if (bizPagesData.data) {
+                                for (const bp of bizPagesData.data) {
+                                    if (!meAccountIds.has(bp.id)) {
+                                        pages.push(bp)
+                                        meAccountIds.add(bp.id)
+                                        console.log(`[Facebook OAuth] 🏢 Added from ${biz.name}: ${bp.name} (${bp.id})`)
+                                    }
+                                }
+                            }
+                            bizPagesUrl = bizPagesData.paging?.next || null
+                        }
+                    } catch (bizPageErr) {
+                        console.error(`[Facebook OAuth] ❌ Error fetching pages from ${biz.name}:`, bizPageErr)
+                    }
+                }
+            } else if (bizData.error) {
+                console.log(`[Facebook OAuth] ⚠️ Cannot access me/businesses: ${bizData.error.message}`)
+            } else {
+                console.log(`[Facebook OAuth] No Business Portfolios found`)
+            }
+        } catch (bizErr) {
+            console.error(`[Facebook OAuth] ❌ Business Portfolio lookup failed:`, bizErr)
+        }
+
+        console.log(`[Facebook OAuth] Total pages after Business Portfolio: ${pages.length}`)
+
+        // FALLBACK 2: Try to access existing DB pages directly by ID
         const existingDbPages = await prisma.channelPlatform.findMany({
             where: { channelId: state.channelId, platform: 'facebook' },
             select: { accountId: true, accountName: true },
         })
 
         for (const dbPage of existingDbPages) {
-            if (meAccountIds.has(dbPage.accountId)) continue // already in me/accounts
+            if (meAccountIds.has(dbPage.accountId)) continue
             try {
                 const directRes: Response = await fetch(
                     `https://graph.facebook.com/v19.0/${dbPage.accountId}?fields=id,name,access_token&access_token=${userAccessToken}`
@@ -104,6 +157,7 @@ export async function GET(req: NextRequest) {
                 const directData: { id?: string; name?: string; access_token?: string; error?: { message: string } } = await directRes.json()
                 if (directData.id && directData.access_token) {
                     pages.push({ id: directData.id, name: directData.name || dbPage.accountName, access_token: directData.access_token })
+                    meAccountIds.add(directData.id)
                     console.log(`[Facebook OAuth] 🔄 Recovered via direct access: ${directData.name} (${directData.id})`)
                 } else {
                     console.log(`[Facebook OAuth] ⚠️ Cannot access ${dbPage.accountName} (${dbPage.accountId}): ${directData.error?.message || 'no access_token'}`)
@@ -112,7 +166,7 @@ export async function GET(req: NextRequest) {
                 console.error(`[Facebook OAuth] ❌ Direct access failed for ${dbPage.accountId}:`, err)
             }
         }
-        console.log(`[Facebook OAuth] Total pages after fallback: ${pages.length}`)
+        console.log(`[Facebook OAuth] Total pages after all fallbacks: ${pages.length}`)
 
         let imported = 0
         const errors: string[] = []
