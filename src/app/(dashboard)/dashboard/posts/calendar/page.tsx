@@ -480,7 +480,7 @@ function MonthView({
                     <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">{d}</div>
                 ))}
             </div>
-            <div className="flex-1 grid grid-cols-7 grid-rows-6 overflow-hidden">
+            <div className="flex-1 grid grid-cols-7 grid-rows-6 overflow-y-auto">
                 {cells.map((date, idx) => {
                     const dateStr = toLocalDateStr(date)
                     const posts = postsByDate[dateStr] || []
@@ -492,7 +492,7 @@ function MonthView({
                             key={idx}
                             id={`day-${dateStr}`}
                             className={cn(
-                                'border-r border-b p-1 min-h-0 overflow-hidden flex flex-col gap-0.5',
+                                'border-r border-b p-1 min-h-[120px] overflow-hidden flex flex-col gap-0.5',
                                 !inMonth && 'bg-muted/20',
                                 isToday && 'bg-primary/5',
                             )}
@@ -679,7 +679,7 @@ export default function CalendarPage() {
     const [showFailed, setShowFailed] = useState(false)
 
     // Best times state
-    const [showBestTimes, setShowBestTimes] = useState(false)
+    const [showBestTimes] = useState(true)
     const [bestTimeSlots, setBestTimeSlots] = useState<BestTimeSlot[]>([])
     const [holidays, setHolidays] = useState<HolidayInfo[]>([])
     const [loadingBestTimes, setLoadingBestTimes] = useState(false)
@@ -779,25 +779,8 @@ export default function CalendarPage() {
     }, [channelId, from, to, activePlatforms, country])
 
     useEffect(() => {
-        if (showBestTimes) fetchBestTimes()
-    }, [showBestTimes, fetchBestTimes])
-
-    // Also fetch holidays even when best times is off
-    useEffect(() => {
-        if (!showBestTimes && channelId !== 'all') {
-            // Fetch just holidays
-            const params = new URLSearchParams({
-                channelId,
-                from: from.toISOString(),
-                to: to.toISOString(),
-            })
-            if (country !== 'auto') params.set('country', country)
-            fetch(`/api/admin/posts/best-times?${params}`)
-                .then(r => r.json())
-                .then(data => setHolidays(data.holidays || []))
-                .catch(() => { })
-        }
-    }, [channelId, from, to, country, showBestTimes])
+        fetchBestTimes()
+    }, [fetchBestTimes])
 
     // Filter posts by selected platforms
     const filteredPosts = useMemo(() => {
@@ -1088,33 +1071,19 @@ export default function CalendarPage() {
                             </SelectContent>
                         </Select>
 
-                        {/* Best Times toggle */}
-                        <button
-                            onClick={() => {
-                                if (channelId === 'all') {
-                                    toast.info(locale === 'vi' ? 'Chọn kênh cụ thể trước' : 'Select a specific channel first')
-                                    return
-                                }
-                                setShowBestTimes(v => !v)
-                            }}
-                            className={cn(
-                                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer',
-                                showBestTimes
-                                    ? 'bg-violet-500 text-white border-transparent shadow-md'
-                                    : 'bg-transparent text-violet-600 dark:text-violet-400 border-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30'
-                            )}
-                        >
+                        {/* Best Times indicator */}
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-500 text-white shadow-md">
                             {loadingBestTimes ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                                 <Sparkles className="h-3.5 w-3.5" />
                             )}
                             {L.bestTimes}
-                        </button>
+                        </div>
                     </div>
 
                     {/* Row 3: Color legend (when best times is active) */}
-                    {showBestTimes && (
+                    {channelId !== 'all' && (
                         <div className="flex items-center gap-4 text-[10px]">
                             <span className="text-muted-foreground font-medium uppercase tracking-wider">
                                 {locale === 'vi' ? 'Chú thích:' : 'Legend:'}
