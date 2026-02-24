@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import {
     CreditCard, TrendingUp, Users, AlertCircle, CheckCircle2,
     XCircle, Clock, Zap, ExternalLink, Download, Sparkles,
-    ArrowUpRight, Target,
+    ArrowUpRight, Target, RotateCcw,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,11 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { toast } from 'sonner'
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Textarea } from '@/components/ui/textarea'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SubRow {
@@ -85,6 +90,9 @@ export default function AdminBillingPage() {
     const [loading, setLoading] = useState(true)
     const [overridingId, setOverridingId] = useState<string | null>(null)
     const [overridePlanId, setOverridePlanId] = useState<Record<string, string>>({})
+    const [refundTarget, setRefundTarget] = useState<SubRow | null>(null)
+    const [refundReason, setRefundReason] = useState('')
+    const [refunding, setRefunding] = useState(false)
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -121,6 +129,31 @@ export default function AdminBillingPage() {
             }
         } finally {
             setOverridingId(null)
+        }
+    }
+
+    const handleRefund = async () => {
+        if (!refundTarget) return
+        setRefunding(true)
+        try {
+            const res = await fetch('/api/admin/billing/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscriptionId: refundTarget.id, reason: refundReason || undefined }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success(data.message || 'Refund processed successfully')
+                setRefundTarget(null)
+                setRefundReason('')
+                fetchData()
+            } else {
+                toast.error(data.error || 'Refund failed')
+            }
+        } catch {
+            toast.error('Failed to process refund')
+        } finally {
+            setRefunding(false)
         }
     }
 
@@ -365,6 +398,7 @@ export default function AdminBillingPage() {
                                     <TableHead>Renews</TableHead>
                                     <TableHead>Stripe</TableHead>
                                     <TableHead>Override</TableHead>
+                                    <TableHead>Refund</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -449,6 +483,19 @@ export default function AdminBillingPage() {
                                                 </Button>
                                             </div>
                                         </TableCell>
+                                        <TableCell>
+                                            {sub.status === 'active' && sub.stripeSubscriptionId && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 px-2 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300 cursor-pointer"
+                                                    onClick={() => setRefundTarget(sub)}
+                                                >
+                                                    <RotateCcw className="h-3 w-3 mr-1" />
+                                                    Refund
+                                                </Button>
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -456,6 +503,54 @@ export default function AdminBillingPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Refund Confirmation Dialog */}
+            <AlertDialog open={!!refundTarget} onOpenChange={(open) => { if (!open) { setRefundTarget(null); setRefundReason('') } }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-red-400">
+                            <RotateCcw className="h-5 w-5" /> Confirm Refund
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p>
+                                    This will refund the latest payment and cancel the subscription for:
+                                </p>
+                                {refundTarget && (
+                                    <div className="rounded-lg border p-3 space-y-1">
+                                        <p className="font-medium text-foreground">{refundTarget.user.name ?? refundTarget.user.email}</p>
+                                        <p className="text-xs">{refundTarget.user.email}</p>
+                                        <p className="text-xs">Plan: <span className="text-violet-400">{refundTarget.plan.name}</span> ({refundTarget.billingInterval})</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-medium text-foreground">Reason (optional)</p>
+                                    <Textarea
+                                        placeholder="e.g. Customer requested cancellation"
+                                        value={refundReason}
+                                        onChange={(e) => setRefundReason(e.target.value)}
+                                        rows={2}
+                                        className="resize-none text-sm"
+                                    />
+                                </div>
+                                <p className="text-xs text-red-400">
+                                    ⚠️ This action cannot be undone. The user will be downgraded to the Free plan.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={refunding}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleRefund}
+                            disabled={refunding}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {refunding ? 'Processing...' : 'Confirm Refund'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
