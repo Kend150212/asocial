@@ -192,6 +192,14 @@ async function main() {
             isDefault: true,
             status: IntegrationStatus.INACTIVE,
         },
+        {
+            category: IntegrationCategory.AUTH,
+            provider: 'recaptcha',
+            name: 'Google reCAPTCHA v3',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+        },
     ]
 
     for (const integration of integrations) {

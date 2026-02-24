@@ -107,6 +107,7 @@ const providerColors: Record<string, string> = {
     canva: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
     stripe: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
     google_oauth: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    recaptcha: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
 }
 
 const providerGuideUrls: Record<string, string> = {
@@ -130,6 +131,7 @@ const providerGuideUrls: Record<string, string> = {
     canva: 'https://www.canva.com/developers/',
     stripe: 'https://dashboard.stripe.com/apikeys',
     google_oauth: 'https://console.cloud.google.com/apis/credentials',
+    recaptcha: 'https://www.google.com/recaptcha/admin',
 }
 
 interface PlatformGuide {
@@ -435,6 +437,7 @@ export default function IntegrationsPage() {
     const [folderName, setFolderName] = useState('')
     const [creatingFolder, setCreatingFolder] = useState(false)
     const [stripeConfigs, setStripeConfigs] = useState<Record<string, StripeConfig>>({})
+    const [recaptchaSiteKeys, setRecaptchaSiteKeys] = useState<Record<string, string>>({})
 
     // Handle Google Drive OAuth callback
     useEffect(() => {
@@ -565,6 +568,15 @@ export default function IntegrationsPage() {
             setGdriveConfigs(gdriveConfigMap)
             setOauthConfigs(oauthConfigMap)
             setStripeConfigs(stripeConfigMap)
+
+            // Init reCAPTCHA site keys
+            const rKeys: Record<string, string> = {}
+            for (const i of data) {
+                if (i.provider === 'recaptcha') {
+                    rKeys[i.id] = ((i.config || {}) as Record<string, string>).siteKey || ''
+                }
+            }
+            setRecaptchaSiteKeys(rKeys)
         } catch {
             toast.error('Failed to load integrations')
         } finally {
@@ -735,6 +747,14 @@ export default function IntegrationsPage() {
                         ...(sc.webhookSecret ? { webhookSecret: sc.webhookSecret } : {}),
                     }
                     // secret key is stored as apiKey (encrypted)
+                }
+            }
+
+            // reCAPTCHA config
+            if (integration.provider === 'recaptcha') {
+                const sk = recaptchaSiteKeys[integration.id]
+                if (sk) {
+                    body.config = { siteKey: sk }
                 }
             }
 
@@ -941,6 +961,13 @@ export default function IntegrationsPage() {
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
                                 }
+                                recaptchaSiteKey={recaptchaSiteKeys[integration.id] || ''}
+                                onRecaptchaSiteKeyChange={(val: string) =>
+                                    setRecaptchaSiteKeys((s) => ({
+                                        ...s,
+                                        [integration.id]: val,
+                                    }))
+                                }
                                 folderName={folderName}
                                 onFolderNameChange={(val: string) => setFolderName(val)}
                                 onCreateFolder={handleCreateFolder}
@@ -1009,6 +1036,8 @@ function IntegrationCard({
     onOauthChange,
     stripeConfig,
     onStripeChange,
+    recaptchaSiteKey,
+    onRecaptchaSiteKeyChange,
     folderName,
     onFolderNameChange,
     onCreateFolder,
@@ -1041,6 +1070,8 @@ function IntegrationCard({
     onOauthChange: (field: string, value: string) => void
     stripeConfig?: StripeConfig
     onStripeChange: (field: string, value: string) => void
+    recaptchaSiteKey: string
+    onRecaptchaSiteKeyChange: (value: string) => void
     folderName: string
     onFolderNameChange: (value: string) => void
     onCreateFolder: () => void
@@ -1609,6 +1640,23 @@ function IntegrationCard({
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* reCAPTCHA Site Key */}
+                {integration.provider === 'recaptcha' && (
+                    <div className="space-y-2">
+                        <Label className="text-xs font-medium">Site Key (Public)</Label>
+                        <Input
+                            type="text"
+                            value={recaptchaSiteKey}
+                            onChange={(e) => onRecaptchaSiteKeyChange(e.target.value)}
+                            placeholder="6Lc..."
+                            className="text-xs h-9 font-mono"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                            From Google reCAPTCHA Admin → Settings → Site Key. The Secret Key goes in the API Key field above.
+                        </p>
                     </div>
                 )}
 
