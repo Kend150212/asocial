@@ -48,6 +48,7 @@ import {
     Lightbulb,
     Bot,
     MessageSquareDot,
+    Pencil,
 } from 'lucide-react'
 import ChatBotTab from './ChatBotTab'
 import { toast } from 'sonner'
@@ -370,6 +371,9 @@ export default function ChannelDetailPage({
     const [newLinkPassword, setNewLinkPassword] = useState('')
     const [creatingLink, setCreatingLink] = useState(false)
     const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
+    const [editingLinkId, setEditingLinkId] = useState<string | null>(null)
+    const [editingLinkTitle, setEditingLinkTitle] = useState('')
+    const [easyLinksLoaded, setEasyLinksLoaded] = useState(false)
 
     const loadEasyLinks = async () => {
         if (!id) return
@@ -377,8 +381,16 @@ export default function ChannelDetailPage({
         try {
             const res = await fetch(`/api/admin/channels/${id}/easy-connect`)
             if (res.ok) setEasyLinks(await res.json())
-        } finally { setEasyLinksLoading(false) }
+        } finally { setEasyLinksLoading(false); setEasyLinksLoaded(true) }
     }
+
+    // Auto-load links when platforms tab is active
+    useEffect(() => {
+        if (activeTab === 'platforms' && !easyLinksLoaded && id) {
+            loadEasyLinks()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, id])
 
     const createEasyLink = async () => {
         if (!newLinkTitle.trim()) return
@@ -407,6 +419,18 @@ export default function ChannelDetailPage({
             body: JSON.stringify({ isEnabled }),
         })
         setEasyLinks(prev => prev.map(l => l.id === linkId ? { ...l, isEnabled } : l))
+    }
+
+    const renameEasyLink = async (linkId: string) => {
+        if (!editingLinkTitle.trim()) { setEditingLinkId(null); return }
+        await fetch(`/api/admin/channels/${id}/easy-connect/${linkId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: editingLinkTitle.trim() }),
+        })
+        setEasyLinks(prev => prev.map(l => l.id === linkId ? { ...l, title: editingLinkTitle.trim() } : l))
+        setEditingLinkId(null)
+        toast.success('Link renamed')
     }
 
     const deleteEasyLink = async (linkId: string) => {
@@ -2246,7 +2270,7 @@ export default function ChannelDetailPage({
                                 <Button
                                     size="sm"
                                     className="gap-1.5 h-8 text-xs"
-                                    onClick={() => { if (!showCreateLink) loadEasyLinks(); setShowCreateLink(v => !v) }}
+                                    onClick={() => setShowCreateLink(v => !v)}
                                 >
                                     <Plus className="h-3.5 w-3.5" />
                                     New Link
@@ -2296,9 +2320,23 @@ export default function ChannelDetailPage({
                             {easyLinks.map(link => (
                                 <div key={link.id} className="flex items-center gap-3 px-3 py-2.5 border rounded-lg hover:bg-muted/20 transition-colors">
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{link.title}</p>
+                                        {editingLinkId === link.id ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <Input
+                                                    className="h-7 text-sm"
+                                                    value={editingLinkTitle}
+                                                    onChange={e => setEditingLinkTitle(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') renameEasyLink(link.id); if (e.key === 'Escape') setEditingLinkId(null) }}
+                                                    autoFocus
+                                                />
+                                                <Button size="sm" className="h-7 px-2 text-xs" onClick={() => renameEasyLink(link.id)}>Save</Button>
+                                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingLinkId(null)}>✕</Button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm font-medium truncate">{link.title}</p>
+                                        )}
                                         <p className="text-xs text-muted-foreground font-mono truncate">
-                                            {window.location.origin}/connect/{link.token.slice(0, 16)}...
+                                            {typeof window !== 'undefined' ? window.location.origin : ''}/connect/{link.token.slice(0, 16)}...
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2314,6 +2352,15 @@ export default function ChannelDetailPage({
                                             onClick={() => copyEasyLink(link.token, link.id)}
                                         >
                                             {copiedLinkId === link.id ? '✓ Copied' : 'Copy URL'}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-muted-foreground"
+                                            title="Rename link"
+                                            onClick={() => { setEditingLinkId(link.id); setEditingLinkTitle(link.title) }}
+                                        >
+                                            <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                         <Button
                                             variant="ghost"

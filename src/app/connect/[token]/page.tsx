@@ -51,12 +51,22 @@ function ConnectPageInner() {
     const [linkInfo, setLinkInfo] = useState<LinkInfo | null>(null)
     const [errorMsg, setErrorMsg] = useState('')
     const [password, setPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
     const [verifying, setVerifying] = useState(false)
     const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
     const [credForm, setCredForm] = useState<string | null>(null)
     const [credValues, setCredValues] = useState<Record<string, string>>({})
     const [credLoading, setCredLoading] = useState(false)
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null)
+    const [branding, setBranding] = useState<{ logoUrl: string; appName: string }>({ logoUrl: '/logo.png', appName: 'NeeFlow' })
+
+    // Fetch branding
+    useEffect(() => {
+        fetch('/api/admin/branding')
+            .then(r => r.json())
+            .then(d => setBranding({ logoUrl: d.logoUrl || '/logo.png', appName: d.appName || 'NeeFlow' }))
+            .catch(() => { })
+    }, [])
 
     // Check query string for ?connected=platform
     useEffect(() => {
@@ -167,6 +177,13 @@ function ConnectPageInner() {
                 <div className="ec-spinner" />
                 <p className="ec-muted" style={{ marginTop: 16 }}>Loading…</p>
             </div>
+            <style>{`
+                .ec-page { min-height:100vh; background:linear-gradient(160deg,#f8fafc 0%,#eef2ff 40%,#f0f9ff 100%); display:flex; align-items:center; justify-content:center; padding:32px 16px; font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; color:#1e293b; }
+                .ec-center-card { background:#fff; border-radius:20px; padding:48px 32px; box-shadow:0 4px 24px rgba(0,0,0,0.06); border:1px solid #e2e8f0; text-align:center; max-width:420px; width:100%; }
+                .ec-muted { color:#64748b; font-size:14px; line-height:1.5; }
+                .ec-spinner { width:32px; height:32px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; animation:spin .7s linear infinite; margin:0 auto; }
+                @keyframes spin { to { transform:rotate(360deg) } }
+            `}</style>
         </div>
     )
 
@@ -174,30 +191,166 @@ function ConnectPageInner() {
     if (state === 'error') return (
         <div className="ec-page">
             <div className="ec-center-card">
-                <div className="ec-logo-wrap"><Image src="/logo.png" alt="NeeFlow" width={48} height={48} /></div>
+                <div className="ec-logo-wrap"><Image src={branding.logoUrl} alt={branding.appName} width={48} height={48} /></div>
                 <h2 className="ec-title">Link Unavailable</h2>
                 <p className="ec-muted">{errorMsg}</p>
             </div>
+            <style>{`
+                .ec-page { min-height:100vh; background:linear-gradient(160deg,#f8fafc 0%,#eef2ff 40%,#f0f9ff 100%); display:flex; align-items:center; justify-content:center; padding:32px 16px; font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; color:#1e293b; }
+                .ec-center-card { background:#fff; border-radius:20px; padding:48px 32px; box-shadow:0 4px 24px rgba(0,0,0,0.06); border:1px solid #e2e8f0; text-align:center; max-width:420px; width:100%; display:flex; flex-direction:column; align-items:center; }
+                .ec-logo-wrap { width:56px; height:56px; border-radius:14px; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,0.08); border:1px solid #e2e8f0; display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px; overflow:hidden; }
+                .ec-title { font-size:20px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+                .ec-muted { color:#64748b; font-size:14px; line-height:1.5; }
+            `}</style>
         </div>
     )
 
     // ─── PASSWORD ──
     if (state === 'password') return (
         <div className="ec-page">
-            <div className="ec-center-card" style={{ maxWidth: 400 }}>
-                <div className="ec-logo-wrap"><Image src="/logo.png" alt="NeeFlow" width={48} height={48} /></div>
-                <h2 className="ec-title">{linkInfo?.title || 'NeeFlow'}</h2>
-                <p className="ec-muted">This link is password protected</p>
-                <div style={{ width: '100%', marginTop: 20 }}>
-                    <input type="password" placeholder="Enter password" value={password}
-                        onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && verifyPassword()}
-                        className="ec-input" />
-                    {errorMsg && <p className="ec-error">{errorMsg}</p>}
-                    <button onClick={verifyPassword} disabled={verifying || !password} className="ec-btn">
-                        {verifying ? 'Verifying…' : 'Continue'}
+            <div className="ec-pw-card">
+                {/* Logo */}
+                <div className="ec-pw-logo">
+                    <Image src={branding.logoUrl} alt={branding.appName} width={44} height={44} />
+                </div>
+
+                {/* Lock icon */}
+                <div className="ec-pw-lock">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28, color: '#3b82f6' }}>
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0110 0v4" />
+                    </svg>
+                </div>
+
+                <h2 className="ec-pw-title">{linkInfo?.title || branding.appName}</h2>
+                <p className="ec-pw-subtitle">This link is password protected.<br />Enter the password to continue.</p>
+
+                <div className="ec-pw-form">
+                    <div className="ec-pw-input-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18, color: '#94a3b8', flexShrink: 0 }}>
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Enter password"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && verifyPassword()}
+                            className="ec-pw-input"
+                            autoFocus
+                        />
+                        <button type="button" className="ec-pw-eye" onClick={() => setShowPassword(v => !v)}>
+                            {showPassword ? (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
+                                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            )}
+                        </button>
+                    </div>
+
+                    {errorMsg && (
+                        <div className="ec-pw-error">
+                            <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: 14, height: 14, flexShrink: 0 }}>
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errorMsg}
+                        </div>
+                    )}
+
+                    <button onClick={verifyPassword} disabled={verifying || !password} className="ec-pw-btn">
+                        {verifying ? (
+                            <><span className="ec-pw-btn-spinner" /> Verifying…</>
+                        ) : (
+                            <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 16, height: 16 }}><path d="M5 12h14M12 5l7 7-7 7" /></svg> Continue</>
+                        )}
                     </button>
                 </div>
+
+                <p className="ec-pw-footer">Powered by <strong>{branding.appName}</strong> · Secure connection</p>
             </div>
+
+            <style>{`
+                .ec-page {
+                    min-height: 100vh;
+                    background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 40%, #f0f9ff 100%);
+                    display: flex; align-items: center; justify-content: center;
+                    padding: 32px 16px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+                    color: #1e293b;
+                }
+                .ec-pw-card {
+                    background: #fff; border-radius: 24px; padding: 40px 36px 32px;
+                    box-shadow: 0 4px 32px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.03);
+                    border: 1px solid #e2e8f0;
+                    max-width: 400px; width: 100%;
+                    display: flex; flex-direction: column; align-items: center;
+                    text-align: center;
+                }
+                .ec-pw-logo {
+                    width: 56px; height: 56px; border-radius: 16px; background: #fff;
+                    box-shadow: 0 2px 16px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;
+                    display: flex; align-items: center; justify-content: center;
+                    margin-bottom: 20px; overflow: hidden;
+                }
+                .ec-pw-lock {
+                    width: 52px; height: 52px; border-radius: 50%;
+                    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+                    display: flex; align-items: center; justify-content: center;
+                    margin-bottom: 18px;
+                }
+                .ec-pw-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 6px; letter-spacing: -0.3px; }
+                .ec-pw-subtitle { color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
+                .ec-pw-form { width: 100%; }
+                .ec-pw-input-wrap {
+                    display: flex; align-items: center; gap: 10px;
+                    padding: 0 14px; border-radius: 12px;
+                    border: 1.5px solid #e2e8f0; background: #f8fafc;
+                    transition: all 0.2s;
+                }
+                .ec-pw-input-wrap:focus-within { border-color: #60a5fa; background: #fff; box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+                .ec-pw-input {
+                    flex: 1; padding: 13px 0; border: none; background: transparent;
+                    font-size: 14px; outline: none; color: #1e293b;
+                }
+                .ec-pw-input::placeholder { color: #94a3b8; }
+                .ec-pw-eye {
+                    background: none; border: none; cursor: pointer; padding: 4px;
+                    color: #94a3b8; display: flex; transition: color 0.2s;
+                }
+                .ec-pw-eye:hover { color: #64748b; }
+                .ec-pw-error {
+                    display: flex; align-items: center; gap: 6px;
+                    color: #dc2626; font-size: 13px; font-weight: 500;
+                    margin-top: 10px; text-align: left;
+                }
+                .ec-pw-btn {
+                    width: 100%; padding: 13px 20px; border-radius: 12px; border: none;
+                    background: linear-gradient(135deg, #3b82f6, #2563eb);
+                    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+                    transition: all 0.2s; margin-top: 16px;
+                    box-shadow: 0 2px 12px rgba(37,99,235,0.3);
+                    display: flex; align-items: center; justify-content: center; gap: 8px;
+                }
+                .ec-pw-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,0.4); }
+                .ec-pw-btn:active:not(:disabled) { transform: translateY(0); }
+                .ec-pw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                .ec-pw-btn-spinner {
+                    width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.3);
+                    border-top-color: #fff; border-radius: 50%;
+                    animation: spin 0.6s linear infinite;
+                }
+                .ec-pw-footer { color: #cbd5e1; font-size: 12px; margin-top: 24px; }
+                .ec-pw-footer strong { color: #94a3b8; }
+                @keyframes spin { to { transform: rotate(360deg) } }
+            `}</style>
         </div>
     )
 
@@ -213,7 +366,7 @@ function ConnectPageInner() {
             <div className="ec-container">
                 {/* Header */}
                 <div className="ec-header">
-                    <div className="ec-logo-wrap"><Image src="/logo.png" alt="NeeFlow" width={44} height={44} /></div>
+                    <div className="ec-logo-wrap"><Image src={branding.logoUrl} alt={branding.appName} width={44} height={44} /></div>
                     <div className="ec-secure-badge"><span className="ec-dot" /> Secure Connection</div>
                     <h1 className="ec-channel-name">{linkInfo?.channelName}</h1>
                     <p className="ec-muted">{linkInfo?.title} — Connect your social media accounts</p>
@@ -330,7 +483,7 @@ function ConnectPageInner() {
                     </ol>
                 </div>
 
-                <p className="ec-footer-text">Powered by <strong>NeeFlow</strong> · Secure social media management</p>
+                <p className="ec-footer-text">Powered by <strong>{branding.appName}</strong> · Secure social media management</p>
             </div>
 
             {/* ─── STYLES ── */}
@@ -350,7 +503,7 @@ function ConnectPageInner() {
                     box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;
                     text-align: center; max-width: 420px; width: 100%;
                 }
-                .ec-header { text-align: center; margin-bottom: 24px; }
+                .ec-header { text-align: center; margin-bottom: 24px; display: flex; flex-direction: column; align-items: center; }
                 .ec-logo-wrap {
                     width: 56px; height: 56px; border-radius: 14px; background: #fff;
                     box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;
