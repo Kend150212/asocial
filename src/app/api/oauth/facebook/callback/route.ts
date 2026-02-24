@@ -2,18 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+// Helper: return HTML that tries postMessage (popup) then fallback redirect
+function popupOrRedirect(url: string, platform: string, success: boolean) {
+    return new NextResponse(
+        `<!DOCTYPE html><html><head><title>${success ? 'Connected' : 'Error'}</title></head><body>
+        <script>
+            if (window.opener) { window.opener.postMessage({ type: '${success ? 'oauth-success' : 'oauth-error'}', platform: '${platform}' }, '*'); window.close(); }
+            else { window.location.href = '${url}'; }
+        </script><p>${success ? 'Connected!' : 'Error occurred.'} Redirecting...</p></body></html>`,
+        { headers: { 'Content-Type': 'text/html' } }
+    )
+}
+
 // GET /api/oauth/facebook/callback
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
 
-    if (error) return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
-    if (!code || !stateParam) return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
+    if (error) return popupOrRedirect(`${host}/dashboard`, 'facebook', false)
+    if (!code || !stateParam) return popupOrRedirect(`${host}/dashboard?error=missing_params`, 'facebook', false)
 
     let state: { channelId: string; userId: string; easyToken?: string }
     try { state = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) }
-    catch { return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin)) }
+    catch { return popupOrRedirect(`${host}/dashboard?error=invalid_state`, 'facebook', false) }
 
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'facebook' } })
     const config = (integration?.config || {}) as Record<string, string>
@@ -22,9 +35,8 @@ export async function GET(req: NextRequest) {
     if (integration?.apiKeyEncrypted) {
         try { clientSecret = decrypt(integration.apiKeyEncrypted) } catch { clientSecret = integration.apiKeyEncrypted }
     }
-    if (!clientId || !clientSecret) return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+    if (!clientId || !clientSecret) return popupOrRedirect(`${host}/dashboard?error=not_configured`, 'facebook', false)
 
-    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/facebook/callback`
 
     try {
@@ -38,7 +50,7 @@ export async function GET(req: NextRequest) {
         const tokenRes = await fetch(tokenUrl.toString())
         if (!tokenRes.ok) {
             console.error('Facebook token exchange failed:', await tokenRes.text())
-            return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin))
+            return popupOrRedirect(`${host}/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, 'facebook', false)
         }
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
@@ -224,18 +236,10 @@ export async function GET(req: NextRequest) {
             imported = 1
         }
 
-        const easyToken = state.easyToken
-        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
-        return new NextResponse(
-            `<!DOCTYPE html><html><head><title>Facebook Connected</title></head><body>
-            <script>
-                if (window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'facebook' }, '*'); window.close(); }
-                else { window.location.href = '${successUrl}'; }
-            </script><p>Facebook connected! Redirecting...</p></body></html>`,
-            { headers: { 'Content-Type': 'text/html' } }
-        )
+        const successUrl = `${host}/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
+        return popupOrRedirect(successUrl, 'facebook', true)
     } catch (err) {
         console.error('Facebook OAuth callback error:', err)
-        return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin))
+        return popupOrRedirect(`${host}/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, 'facebook', false)
     }
 }

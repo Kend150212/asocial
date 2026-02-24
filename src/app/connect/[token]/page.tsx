@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { OAUTH_PLATFORMS, CREDENTIAL_PLATFORMS } from '@/lib/platform-registry'
 
-/* ─── Platform SVG Icons (inline, same as dashboard) ── */
+/* ─── Platform SVG Icons ── */
 const ICONS: Record<string, React.ReactNode> = {
     facebook: <svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>,
     instagram: <svg viewBox="0 0 24 24" fill="#E4405F"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405a1.441 1.441 0 11-2.882 0 1.441 1.441 0 012.882 0z" /></svg>,
@@ -19,12 +19,26 @@ const ICONS: Record<string, React.ReactNode> = {
     bluesky: <svg viewBox="0 0 600 530" fill="#0085ff"><path d="M135.72 44.03C202.216 93.951 273.74 195.17 300 249.49c26.262-54.316 97.782-155.54 164.28-205.46C512.26 8.009 590-17.88 590 68.825c0 17.712-10.155 148.79-16.111 170.07-20.703 73.984-96.144 92.854-163.25 81.433 117.3 19.964 147.14 86.092 82.697 152.19-122.39 125.59-175.91-31.511-189.63-71.766-2.514-7.38-3.69-10.832-3.708-7.896-.017-2.936-1.193.516-3.707 7.896-13.714 40.255-67.233 197.36-189.63 71.766-64.444-66.098-34.605-132.23 82.697-152.19-67.108 11.421-142.55-7.45-163.25-81.433C20.15 217.613 10 86.535 10 68.825c0-86.703 77.742-60.816 125.72-24.795z" /></svg>,
 }
 
+const PLATFORM_LABELS: Record<string, string> = {
+    facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', tiktok: 'TikTok',
+    linkedin: 'LinkedIn', pinterest: 'Pinterest', threads: 'Threads', gbp: 'Google Business',
+    x: 'X (Twitter)', bluesky: 'Bluesky',
+}
+
 interface LinkInfo {
     channelId: string
     channelName: string
     channelDescription: string | null
     title: string
     hasPassword: boolean
+}
+
+interface ConnectedAccount {
+    id: string
+    platform: string
+    accountName: string
+    accountId: string
+    isActive: boolean
 }
 
 type ConnectState = 'loading' | 'password' | 'ready' | 'error'
@@ -38,17 +52,19 @@ function ConnectPageInner() {
     const [errorMsg, setErrorMsg] = useState('')
     const [password, setPassword] = useState('')
     const [verifying, setVerifying] = useState(false)
-    const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([])
+    const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([])
     const [credForm, setCredForm] = useState<string | null>(null)
     const [credValues, setCredValues] = useState<Record<string, string>>({})
     const [credLoading, setCredLoading] = useState(false)
     const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null)
 
+    // Check query string for ?connected=platform
     useEffect(() => {
         const connected = searchParams.get('connected')
-        if (connected) setConnectedPlatforms(prev => prev.includes(connected) ? prev : [...prev, connected])
+        if (connected) refreshPlatforms()
     }, [searchParams])
 
+    // Load link info
     useEffect(() => {
         if (!token) return
         fetch(`/api/connect/${token}`)
@@ -60,6 +76,18 @@ function ConnectPageInner() {
             })
             .catch(err => { setErrorMsg(err.message || 'Could not load link.'); setState('error') })
     }, [token])
+
+    // Load connected platforms when ready
+    useEffect(() => {
+        if (state === 'ready') refreshPlatforms()
+    }, [state])
+
+    function refreshPlatforms() {
+        fetch(`/api/connect/${token}/platforms`)
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data)) setConnectedAccounts(data) })
+            .catch(() => { })
+    }
 
     async function verifyPassword() {
         setVerifying(true); setErrorMsg('')
@@ -75,7 +103,7 @@ function ConnectPageInner() {
         setVerifying(false)
     }
 
-    /* ─── Popup-based OAuth ── */
+    /* ─── Popup OAuth ── */
     const openOAuthPopup = useCallback((platform: string) => {
         if (!linkInfo) return
         setConnectingPlatform(platform)
@@ -86,10 +114,10 @@ function ConnectPageInner() {
         const popup = window.open(url, `${platform}-oauth`, `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`)
 
         const handler = (e: MessageEvent) => {
-            if (e.data?.type === 'oauth-success') {
+            if (e.data?.type === 'oauth-success' || e.data?.type === 'oauth-error') {
                 window.removeEventListener('message', handler)
-                setConnectedPlatforms(prev => prev.includes(e.data.platform) ? prev : [...prev, e.data.platform])
                 setConnectingPlatform(null)
+                if (e.data.type === 'oauth-success') refreshPlatforms()
             }
         }
         window.addEventListener('message', handler)
@@ -99,10 +127,7 @@ function ConnectPageInner() {
                 clearInterval(check)
                 window.removeEventListener('message', handler)
                 setConnectingPlatform(null)
-                // Refresh platforms list in case connection was made
-                fetch(`/api/connect/${token}`)
-                    .then(r => r.json())
-                    .catch(() => { })
+                refreshPlatforms()
             }
         }, 1000)
     }, [linkInfo, token])
@@ -120,12 +145,20 @@ function ConnectPageInner() {
             })
             const data = await res.json()
             if (data.ok || res.ok) {
-                setConnectedPlatforms(prev => [...prev, platform])
                 setCredForm(null); setCredValues({})
+                refreshPlatforms()
             } else alert(data.error || 'Connection failed.')
         } catch { alert('Network error') }
         setCredLoading(false)
     }
+
+    // Group connected accounts by platform
+    const grouped = connectedAccounts.reduce<Record<string, ConnectedAccount[]>>((acc, a) => {
+        if (!acc[a.platform]) acc[a.platform] = []
+        acc[a.platform].push(a)
+        return acc
+    }, {})
+    const connectedPlatformKeys = new Set(connectedAccounts.map(a => a.platform))
 
     // ─── LOADING ──
     if (state === 'loading') return (
@@ -157,8 +190,7 @@ function ConnectPageInner() {
                 <p className="ec-muted">This link is password protected</p>
                 <div style={{ width: '100%', marginTop: 20 }}>
                     <input type="password" placeholder="Enter password" value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && verifyPassword()}
+                        onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && verifyPassword()}
                         className="ec-input" />
                     {errorMsg && <p className="ec-error">{errorMsg}</p>}
                     <button onClick={verifyPassword} disabled={verifying || !password} className="ec-btn">
@@ -179,45 +211,78 @@ function ConnectPageInner() {
     return (
         <div className="ec-page">
             <div className="ec-container">
-                {/* ─── Header ── */}
+                {/* Header */}
                 <div className="ec-header">
                     <div className="ec-logo-wrap"><Image src="/logo.png" alt="NeeFlow" width={44} height={44} /></div>
-                    <div className="ec-secure-badge">
-                        <span className="ec-dot" /> Secure Connection
-                    </div>
+                    <div className="ec-secure-badge"><span className="ec-dot" /> Secure Connection</div>
                     <h1 className="ec-channel-name">{linkInfo?.channelName}</h1>
                     <p className="ec-muted">{linkInfo?.title} — Connect your social media accounts</p>
                 </div>
 
+                {/* ─── Connected Accounts (like Dashboard) ── */}
+                {connectedAccounts.length > 0 && (
+                    <div className="ec-card" style={{ marginBottom: 16 }}>
+                        <div style={{ padding: '18px 24px 0' }}>
+                            <h2 className="ec-card-title">
+                                <svg viewBox="0 0 20 20" fill="#22c55e" style={{ width: 18, height: 18, verticalAlign: -3, marginRight: 8 }}><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                Connected Accounts
+                            </h2>
+                            <p className="ec-muted" style={{ fontSize: 12 }}>{connectedAccounts.length} account{connectedAccounts.length !== 1 ? 's' : ''} connected</p>
+                        </div>
+                        <div style={{ padding: '12px 24px 20px' }}>
+                            {Object.entries(grouped).map(([platform, accounts]) => (
+                                <div key={platform} className="ec-connected-group">
+                                    <div className="ec-connected-header">
+                                        <span className="ec-connected-icon">{ICONS[platform]}</span>
+                                        <span className="ec-connected-platform">{PLATFORM_LABELS[platform] || platform}</span>
+                                        <span className="ec-connected-count">{accounts.length}</span>
+                                    </div>
+                                    {accounts.map(a => (
+                                        <div key={a.id} className="ec-connected-item">
+                                            <div>
+                                                <div className="ec-connected-name">{a.accountName}</div>
+                                                <div className="ec-connected-id">{a.accountId}</div>
+                                            </div>
+                                            <span className={`ec-status ${a.isActive ? 'ec-active-status' : ''}`}>
+                                                {a.isActive ? 'Active' : 'Disabled'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* ─── Platform Grid ── */}
                 <div className="ec-card">
                     <div className="ec-card-header">
-                        <h2 className="ec-card-title">Choose a platform</h2>
-                        <p className="ec-muted" style={{ fontSize: 12 }}>Click to connect your account securely via popup.</p>
+                        <h2 className="ec-card-title">Connect a Platform</h2>
+                        <p className="ec-muted" style={{ fontSize: 12 }}>Click to open a secure popup and connect your account.</p>
                     </div>
-
                     <div className="ec-grid">
                         {allPlatforms.map(p => {
-                            const connected = connectedPlatforms.includes(p.key)
+                            const hasAccounts = connectedPlatformKeys.has(p.key)
                             const connecting = connectingPlatform === p.key
                             const isCredOpen = credForm === p.key
                             return (
                                 <button key={p.key}
                                     onClick={() => {
-                                        if (connected || connecting) return
+                                        if (connecting) return
                                         if (p.type === 'oauth') openOAuthPopup(p.key)
                                         else setCredForm(isCredOpen ? null : p.key)
                                     }}
-                                    disabled={connected}
-                                    className={`ec-platform ${connected ? 'ec-connected' : ''} ${isCredOpen ? 'ec-active' : ''} ${connecting ? 'ec-connecting' : ''}`}
+                                    className={`ec-platform ${hasAccounts ? 'ec-has-accounts' : ''} ${isCredOpen ? 'ec-active' : ''} ${connecting ? 'ec-connecting' : ''}`}
                                 >
                                     <span className="ec-platform-icon">{ICONS[p.key]}</span>
                                     <span className="ec-platform-info">
                                         <span className="ec-platform-name">{p.label}</span>
-                                        <span className="ec-platform-desc">{connecting ? 'Connecting…' : p.description}</span>
+                                        <span className="ec-platform-desc">
+                                            {connecting ? 'Connecting…' : hasAccounts ? `${grouped[p.key]?.length || 0} connected` : p.description}
+                                        </span>
                                     </span>
-                                    {connected && <span className="ec-check">
-                                        <svg viewBox="0 0 20 20" fill="#22c55e" style={{ width: 18, height: 18 }}><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                    {hasAccounts && <span className="ec-check">
+                                        <svg viewBox="0 0 20 20" fill="#22c55e" style={{ width: 16, height: 16 }}><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                                     </span>}
                                 </button>
                             )
@@ -225,7 +290,7 @@ function ConnectPageInner() {
                     </div>
 
                     {/* Credential Form */}
-                    {activePlatform && !connectedPlatforms.includes(activePlatform.key) && (
+                    {activePlatform && (
                         <div className="ec-cred-form">
                             <h3 className="ec-cred-title">{activePlatform.guide.title}</h3>
                             <ol className="ec-cred-steps">
@@ -233,14 +298,11 @@ function ConnectPageInner() {
                                     <li key={i}><span className="ec-step-num">{i + 1}.</span> {s}</li>
                                 ))}
                             </ol>
-                            {activePlatform.guide.warning && (
-                                <div className="ec-warning">⚠️ {activePlatform.guide.warning}</div>
-                            )}
+                            {activePlatform.guide.warning && <div className="ec-warning">⚠️ {activePlatform.guide.warning}</div>}
                             <div className="ec-cred-fields">
                                 {activePlatform.fields.map(f => (
                                     <input key={f.id} type={f.type} placeholder={f.placeholder}
-                                        value={credValues[f.id] || ''}
-                                        onChange={e => setCredValues(v => ({ ...v, [f.id]: e.target.value }))}
+                                        value={credValues[f.id] || ''} onChange={e => setCredValues(v => ({ ...v, [f.id]: e.target.value }))}
                                         className="ec-input" />
                                 ))}
                                 <button onClick={() => connectCredential(activePlatform.key)} disabled={credLoading} className="ec-btn">
@@ -256,14 +318,14 @@ function ConnectPageInner() {
                     </div>
                 </div>
 
-                {/* ─── How-to ── */}
+                {/* How-to */}
                 <div className="ec-card ec-howto">
                     <h3 className="ec-card-title" style={{ marginBottom: 12 }}>How to connect</h3>
                     <ol className="ec-howto-list">
-                        <li>Click a platform above — a popup window will open</li>
+                        <li>Click a platform above — a secure popup will open</li>
                         <li>Log in to your account on the platform</li>
                         <li>Authorize the requested permissions</li>
-                        <li>The popup will close automatically & your account appears here ✅</li>
+                        <li>The popup closes & your account appears above ✅</li>
                         <li>Repeat for each platform you want to connect</li>
                     </ol>
                 </div>
@@ -271,7 +333,7 @@ function ConnectPageInner() {
                 <p className="ec-footer-text">Powered by <strong>NeeFlow</strong> · Secure social media management</p>
             </div>
 
-            {/* ─── Styles ── */}
+            {/* ─── STYLES ── */}
             <style>{`
                 * { box-sizing: border-box; margin: 0; padding: 0; }
                 .ec-page {
@@ -282,18 +344,18 @@ function ConnectPageInner() {
                     font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
                     color: #1e293b;
                 }
-                .ec-container { width: 100%; max-width: 540px; }
+                .ec-container { width: 100%; max-width: 560px; }
                 .ec-center-card {
                     background: #fff; border-radius: 20px; padding: 48px 32px;
                     box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;
                     text-align: center; max-width: 420px; width: 100%;
                 }
-                .ec-header { text-align: center; margin-bottom: 28px; }
+                .ec-header { text-align: center; margin-bottom: 24px; }
                 .ec-logo-wrap {
                     width: 56px; height: 56px; border-radius: 14px; background: #fff;
                     box-shadow: 0 2px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;
                     display: inline-flex; align-items: center; justify-content: center;
-                    margin-bottom: 16px; overflow: hidden;
+                    margin-bottom: 12px; overflow: hidden;
                 }
                 .ec-secure-badge {
                     display: inline-flex; align-items: center; gap: 8px;
@@ -313,39 +375,65 @@ function ConnectPageInner() {
                     box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
                     border: 1px solid #e2e8f0; margin-bottom: 16px;
                 }
-                .ec-card-header { padding: 20px 24px 0; }
-                .ec-card-title { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 2px; }
+                .ec-card-header { padding: 18px 24px 0; }
+                .ec-card-title { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 2px; }
                 .ec-card-footer {
                     display: flex; align-items: center; gap: 8px;
                     padding: 14px 24px; border-top: 1px solid #f1f5f9;
                     font-size: 12px; color: #94a3b8;
                 }
 
-                .ec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 24px; }
+                /* ─── Connected Accounts ── */
+                .ec-connected-group { margin-bottom: 8px; }
+                .ec-connected-group:last-child { margin-bottom: 0; }
+                .ec-connected-header {
+                    display: flex; align-items: center; gap: 10px;
+                    padding: 8px 12px; border-radius: 10px;
+                    background: #f8fafc; margin-bottom: 4px;
+                }
+                .ec-connected-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; }
+                .ec-connected-icon svg { width: 100%; height: 100%; }
+                .ec-connected-platform { font-size: 13px; font-weight: 700; color: #0f172a; flex: 1; }
+                .ec-connected-count {
+                    background: #3b82f6; color: #fff; border-radius: 10px;
+                    font-size: 11px; font-weight: 700; padding: 2px 8px; min-width: 20px; text-align: center;
+                }
+                .ec-connected-item {
+                    display: flex; align-items: center; justify-content: space-between;
+                    padding: 8px 12px 8px 42px; border-bottom: 1px solid #f1f5f9;
+                }
+                .ec-connected-item:last-child { border-bottom: none; }
+                .ec-connected-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+                .ec-connected-id { font-size: 11px; color: #94a3b8; font-family: monospace; }
+                .ec-status {
+                    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+                    background: #fef2f2; color: #dc2626;
+                }
+                .ec-active-status { background: #f0fdf4; color: #16a34a; }
+
+                /* ─── Platform Grid ── */
+                .ec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 24px; }
                 @media (max-width: 480px) { .ec-grid { grid-template-columns: 1fr; } }
 
                 .ec-platform {
                     display: flex; align-items: center; gap: 12px;
-                    padding: 14px 16px; border-radius: 12px;
+                    padding: 14px 14px; border-radius: 12px;
                     border: 1.5px solid #e2e8f0; background: #fff;
                     cursor: pointer; text-align: left; transition: all 0.2s ease;
-                    position: relative;
                 }
-                .ec-platform:hover:not(:disabled):not(.ec-connected) {
-                    border-color: #93c5fd; background: #f8faff;
-                    box-shadow: 0 2px 12px rgba(59,130,246,0.1);
-                    transform: translateY(-2px);
-                }
-                .ec-platform.ec-connected { border-color: #86efac; background: #f0fdf4; cursor: default; }
+                .ec-platform:hover { border-color: #93c5fd; background: #f8faff; box-shadow: 0 2px 12px rgba(59,130,246,0.1); transform: translateY(-1px); }
+                .ec-platform.ec-has-accounts { border-color: #86efac; background: #fafff9; }
+                .ec-platform.ec-has-accounts:hover { border-color: #4ade80; background: #f0fdf4; }
                 .ec-platform.ec-active { border-color: #60a5fa; background: #eff6ff; }
-                .ec-platform.ec-connecting { border-color: #fbbf24; background: #fffbeb; }
-                .ec-platform-icon { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+                .ec-platform.ec-connecting { border-color: #fbbf24; background: #fffbeb; pointer-events: none; }
+                .ec-platform-icon { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
                 .ec-platform-icon svg { width: 100%; height: 100%; }
                 .ec-platform-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
                 .ec-platform-name { font-size: 13px; font-weight: 600; color: #1e293b; }
                 .ec-platform-desc { font-size: 11px; color: #94a3b8; margin-top: 1px; }
                 .ec-check { flex-shrink: 0; margin-left: auto; }
 
+                /* ─── Credential Form ── */
                 .ec-cred-form { border-top: 1px solid #f1f5f9; padding: 20px 24px; background: #fafbfc; }
                 .ec-cred-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px; }
                 .ec-cred-steps { list-style: none; padding: 0; margin: 0 0 16px; }
@@ -374,25 +462,16 @@ function ConnectPageInner() {
 
                 .ec-howto { padding: 20px 24px; }
                 .ec-howto-list { list-style: none; padding: 0; margin: 0; counter-reset: step; }
-                .ec-howto-list li {
-                    counter-increment: step; font-size: 13px; color: #475569;
-                    margin-bottom: 8px; padding-left: 28px; position: relative;
-                }
+                .ec-howto-list li { counter-increment: step; font-size: 13px; color: #475569; margin-bottom: 8px; padding-left: 28px; position: relative; }
                 .ec-howto-list li::before {
-                    content: counter(step);
-                    position: absolute; left: 0; top: 0;
+                    content: counter(step); position: absolute; left: 0; top: 0;
                     width: 20px; height: 20px; border-radius: 50%;
                     background: #eff6ff; color: #3b82f6; font-weight: 700; font-size: 11px;
                     display: flex; align-items: center; justify-content: center;
                 }
                 .ec-footer-text { text-align: center; color: #cbd5e1; font-size: 12px; margin-top: 20px; }
                 .ec-footer-text strong { color: #94a3b8; }
-
-                .ec-spinner {
-                    width: 32px; height: 32px; border: 3px solid #e2e8f0;
-                    border-top-color: #3b82f6; border-radius: 50%;
-                    animation: spin .7s linear infinite; margin: 0 auto;
-                }
+                .ec-spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
                 @keyframes spin { to { transform: rotate(360deg) } }
             `}</style>
         </div>
