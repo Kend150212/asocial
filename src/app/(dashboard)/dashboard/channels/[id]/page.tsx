@@ -324,6 +324,9 @@ export default function ChannelDetailPage({
     const [webhookZaloSecretKey, setWebhookZaloSecretKey] = useState('')
     const [webhookZaloRefreshToken, setWebhookZaloRefreshToken] = useState('')
     const [webhookZaloUserId, setWebhookZaloUserId] = useState('')
+    const [webhookZaloOaName, setWebhookZaloOaName] = useState('')
+    const [webhookZaloConnectedAt, setWebhookZaloConnectedAt] = useState('')
+    const [zaloConnecting, setZaloConnecting] = useState(false)
     const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
 
     // Business Info state
@@ -490,6 +493,8 @@ export default function ChannelDetailPage({
                 setWebhookZaloSecretKey(data.webhookZalo?.secretKey || '')
                 setWebhookZaloRefreshToken(data.webhookZalo?.refreshToken || '')
                 setWebhookZaloUserId(data.webhookZalo?.userId || '')
+                setWebhookZaloOaName(data.webhookZalo?.oaName || '')
+                setWebhookZaloConnectedAt(data.webhookZalo?.connectedAt || '')
                 setWebhookCustomUrl(data.webhookCustom?.url || '')
                 // Business Info
                 const biz = data.businessInfo || {}
@@ -555,7 +560,20 @@ export default function ChannelDetailPage({
             toast.error(`OAuth error: ${oauthError}`)
             router.replace(`/dashboard/channels/${id}`, { scroll: false })
         }
-    }, [searchParams, id, router])
+
+        // Handle Zalo OAuth callback
+        const zaloStatus = searchParams.get('zalo')
+        if (zaloStatus === 'connected') {
+            toast.success('Zalo OA connected successfully! / Kết nối Zalo OA thành công!')
+            fetchChannel()
+            setActiveTab('webhooks')
+            router.replace(`/dashboard/channels/${id}`, { scroll: false })
+        } else if (zaloStatus === 'error') {
+            const zaloMsg = searchParams.get('message') || 'Zalo OAuth failed'
+            toast.error(zaloMsg)
+            router.replace(`/dashboard/channels/${id}`, { scroll: false })
+        }
+    }, [searchParams, id, router, fetchChannel])
 
     // Fetch AI providers from API Hub + user's configured keys
     useEffect(() => {
@@ -669,7 +687,14 @@ export default function ChannelDetailPage({
                     webhookDiscord: webhookDiscordUrl ? { url: webhookDiscordUrl } : {},
                     webhookTelegram: webhookTelegramToken ? { botToken: webhookTelegramToken, chatId: webhookTelegramChatId } : {},
                     webhookSlack: webhookSlackUrl ? { url: webhookSlackUrl } : {},
-                    webhookZalo: webhookZaloRefreshToken ? { appId: webhookZaloAppId, secretKey: webhookZaloSecretKey, refreshToken: webhookZaloRefreshToken, userId: webhookZaloUserId } : {},
+                    webhookZalo: (webhookZaloRefreshToken || webhookZaloOaName) ? {
+                        appId: webhookZaloAppId,
+                        secretKey: webhookZaloSecretKey,
+                        refreshToken: webhookZaloRefreshToken,
+                        userId: webhookZaloUserId,
+                        oaName: webhookZaloOaName,
+                        connectedAt: webhookZaloConnectedAt,
+                    } : {},
                     webhookCustom: webhookCustomUrl ? { url: webhookCustomUrl } : {},
                     brandProfile: {
                         targetAudience: brandTargetAudience || undefined,
@@ -2932,58 +2957,105 @@ export default function ChannelDetailPage({
                                     <span className="h-4 w-4 rounded-full bg-[#0068FF] inline-block" />
                                     Zalo OA
                                 </Label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">App ID</Label>
-                                        <Input
-                                            placeholder="Your Zalo App ID"
-                                            value={webhookZaloAppId}
-                                            onChange={(e) => setWebhookZaloAppId(e.target.value)}
-                                        />
+
+                                {webhookZaloOaName ? (
+                                    /* Connected state */
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
+                                            <div className="h-8 w-8 rounded-full bg-[#0068FF] flex items-center justify-center">
+                                                <Check className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">{webhookZaloOaName}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {t('channels.webhooks.connectedAt') || 'Connected'}{' '}
+                                                    {webhookZaloConnectedAt ? new Date(webhookZaloConnectedAt).toLocaleDateString() : ''}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-destructive hover:text-destructive gap-1.5 shrink-0"
+                                                onClick={() => {
+                                                    setWebhookZaloAppId('')
+                                                    setWebhookZaloSecretKey('')
+                                                    setWebhookZaloRefreshToken('')
+                                                    setWebhookZaloOaName('')
+                                                    setWebhookZaloConnectedAt('')
+                                                    toast.info('Zalo OA disconnected. Click Save to confirm. / Đã ngắt kết nối Zalo OA. Nhấn Lưu để xác nhận.')
+                                                }}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                                {t('common.disconnect') || 'Disconnect'}
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">User ID ({t('channels.webhooks.recipientId') || 'Recipient'})</Label>
+                                            <Input
+                                                placeholder="Recipient user ID on Zalo (người nhận thông báo)"
+                                                value={webhookZaloUserId}
+                                                onChange={(e) => setWebhookZaloUserId(e.target.value)}
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleWebhookTest('zalo')}
+                                            disabled={!webhookZaloUserId || testingWebhook === 'zalo'}
+                                            className="gap-1.5"
+                                        >
+                                            {testingWebhook === 'zalo' ? (
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
+                                            ) : (
+                                                <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
+                                            )}
+                                        </Button>
                                     </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Secret Key</Label>
-                                        <Input
-                                            type="password"
-                                            placeholder="Your Zalo app secret key"
-                                            value={webhookZaloSecretKey}
-                                            onChange={(e) => setWebhookZaloSecretKey(e.target.value)}
-                                        />
+                                ) : (
+                                    /* Not connected state */
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-muted-foreground/30">
+                                            <div className="h-8 w-8 rounded-full bg-[#0068FF]/10 flex items-center justify-center">
+                                                <LinkIcon className="h-4 w-4 text-[#0068FF]" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-muted-foreground">
+                                                    {t('channels.webhooks.zaloNotConnected') || 'Chưa kết nối Zalo OA. Nhấn nút bên dưới để kết nối qua OAuth.'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">User ID ({t('channels.webhooks.recipientId') || 'Recipient'})</Label>
+                                            <Input
+                                                placeholder="Recipient user ID on Zalo (người nhận thông báo)"
+                                                value={webhookZaloUserId}
+                                                onChange={(e) => setWebhookZaloUserId(e.target.value)}
+                                            />
+                                        </div>
+                                        <Button
+                                            className="gap-1.5 bg-[#0068FF] hover:bg-[#0068FF]/90 text-white"
+                                            size="sm"
+                                            disabled={zaloConnecting}
+                                            onClick={() => {
+                                                setZaloConnecting(true)
+                                                window.location.href = `/api/oauth/zalo?channelId=${id}`
+                                            }}
+                                        >
+                                            {zaloConnecting ? (
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang kết nối...</>
+                                            ) : (
+                                                <><LinkIcon className="h-3.5 w-3.5" /> Connect Zalo OA / Kết nối Zalo OA</>
+                                            )}
+                                        </Button>
+                                        <p className="text-xs text-muted-foreground">
+                                            Admin cần cấu hình Zalo App ID + Secret trong{' '}
+                                            <a href="/admin/integrations" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                Admin → Integrations
+                                            </a>{' '}
+                                            trước khi kết nối.
+                                        </p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Refresh Token</Label>
-                                        <Input
-                                            type="password"
-                                            placeholder="OA refresh token (valid 3 months)"
-                                            value={webhookZaloRefreshToken}
-                                            onChange={(e) => setWebhookZaloRefreshToken(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">User ID</Label>
-                                        <Input
-                                            placeholder="Recipient user ID on Zalo"
-                                            value={webhookZaloUserId}
-                                            onChange={(e) => setWebhookZaloUserId(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleWebhookTest('zalo')}
-                                    disabled={!webhookZaloRefreshToken || !webhookZaloAppId || !webhookZaloSecretKey || !webhookZaloUserId || testingWebhook === 'zalo'}
-                                    className="gap-1.5"
-                                >
-                                    {testingWebhook === 'zalo' ? (
-                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('channels.webhooks.testing')}</>
-                                    ) : (
-                                        <><Send className="h-3.5 w-3.5" /> {t('channels.webhooks.test')}</>
-                                    )}
-                                </Button>
-                                <p className="text-xs text-muted-foreground">
-                                    Lấy thông tin từ <a href="https://developers.zalo.me" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">developers.zalo.me</a>. Access token sẽ tự động refresh.
-                                </p>
+                                )}
                             </div>
 
                             <Separator />

@@ -200,6 +200,14 @@ async function main() {
             isDefault: false,
             status: IntegrationStatus.INACTIVE,
         },
+        {
+            category: IntegrationCategory.WEBHOOK,
+            provider: 'zalo',
+            name: 'Zalo OA',
+            isActive: false,
+            isDefault: false,
+            status: IntegrationStatus.INACTIVE,
+        },
     ]
 
     for (const integration of integrations) {

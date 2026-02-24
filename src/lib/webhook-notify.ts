@@ -3,6 +3,7 @@
 
 import { getBrandingServer } from '@/lib/use-branding-server'
 import { prisma } from '@/lib/prisma'
+import { decrypt } from '@/lib/encryption'
 
 // Cached app name for webhook payloads
 let _cachedAppName: string | null = null
@@ -203,18 +204,39 @@ async function getZaloAccessToken(zaloConfig: Record<string, string>): Promise<s
     }
 
     // Token expired or missing — try refreshing
-    if (!zaloConfig.refreshToken || !zaloConfig.appId || !zaloConfig.secretKey) {
-        console.warn('[Webhook] Zalo: Missing refresh credentials')
+    if (!zaloConfig.refreshToken) {
+        console.warn('[Webhook] Zalo: Missing refresh token')
+        return null
+    }
+
+    // Fetch App ID + Secret Key from admin ApiIntegration (central config)
+    let appId = zaloConfig.appId || ''
+    let secretKey = zaloConfig.secretKey || ''
+    try {
+        const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'zalo' } })
+        if (integration) {
+            const config = (integration.config || {}) as Record<string, string>
+            appId = config.zaloAppId || appId
+            if (integration.apiKeyEncrypted) {
+                secretKey = decrypt(integration.apiKeyEncrypted)
+            }
+        }
+    } catch (err) {
+        console.warn('[Webhook] Zalo: Failed to fetch integration config:', err)
+    }
+
+    if (!appId || !secretKey) {
+        console.warn('[Webhook] Zalo: Missing appId or secretKey (configure in Admin → Integrations)')
         return null
     }
 
     try {
         const res = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', secret_key: zaloConfig.secretKey },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', secret_key: secretKey },
             body: new URLSearchParams({
                 refresh_token: zaloConfig.refreshToken,
-                app_id: zaloConfig.appId,
+                app_id: appId,
                 grant_type: 'refresh_token',
             }),
         })

@@ -411,6 +411,25 @@ const platformGuides: Record<string, PlatformGuide> = {
         url: 'https://console.cloud.google.com/apis/credentials',
         urlLabel: 'Open Google Cloud Console',
     },
+    zalo: {
+        title: '💬 Zalo OA API Setup Guide / Hướng Dẫn Cài Đặt Zalo OA',
+        description: 'Connect Zalo Official Account for webhook notifications via OAuth login.\nKết nối Zalo Official Account để gửi thông báo webhook qua đăng nhập OAuth.',
+        steps: [
+            { title: 'Step 1: Go to Zalo Developers / Vào Zalo Developers', detail: 'Visit developers.zalo.me → sign in with your Zalo account → create a new application.\n\nTruy cập developers.zalo.me → đăng nhập bằng tài khoản Zalo → tạo ứng dụng mới.' },
+            { title: 'Step 2: Get App ID / Lấy App ID', detail: 'In your app settings, copy the "App ID" and paste it in the field below.\n\nTrong cài đặt ứng dụng, copy "App ID" và dán vào ô bên dưới.' },
+            { title: 'Step 3: Get Secret Key / Lấy Secret Key', detail: 'Find the "Application\'s private key" (Secret Key) in your app settings. Copy and paste it below.\n\nTìm "Application\'s private key" (Secret Key) trong cài đặt ứng dụng. Copy và dán bên dưới.' },
+            { title: 'Step 4: Configure Callback URL / Cấu hình Callback URL', detail: 'In your Zalo app settings, add the callback URL:\n{YOUR_DOMAIN}/api/oauth/zalo/callback\n\nTrong cài đặt Zalo app, thêm callback URL:\n{YOUR_DOMAIN}/api/oauth/zalo/callback' },
+            { title: 'Step 5: Link OA / Liên kết OA', detail: 'Go to Channel Settings → Zalo OA section → click "Connect Zalo OA".\nYou will be redirected to log in via Zalo and authorize your OA.\n\nVào Channel Settings → phần Zalo OA → nhấn "Connect Zalo OA".\nBạn sẽ được chuyển sang đăng nhập Zalo và cấp quyền cho OA.' },
+        ],
+        tips: [
+            '✅ Callback URL: {YOUR_DOMAIN}/api/oauth/zalo/callback',
+            '⚠️ Access tokens expire after ~25 hours — the system auto-refreshes them',
+            '⚠️ Refresh tokens are valid for 3 months — reconnect before expiry',
+            '💡 After saving App ID + Secret here, go to each Channel to connect the OA',
+        ],
+        url: 'https://developers.zalo.me/',
+        urlLabel: 'Open Zalo Developer Portal',
+    },
 }
 
 
@@ -553,6 +572,12 @@ export default function IntegrationsPage() {
                 if (i.provider === 'canva') {
                     oauthConfigMap[i.id] = {
                         clientId: config.canvaClientId || '',
+                        clientSecret: '',
+                    }
+                }
+                if (i.provider === 'zalo') {
+                    oauthConfigMap[i.id] = {
+                        clientId: config.zaloAppId || '',
                         clientSecret: '',
                     }
                 }
@@ -734,6 +759,15 @@ export default function IntegrationsPage() {
                 const oauth = oauthConfigs[integration.id]
                 if (oauth) {
                     body.config = { canvaClientId: oauth.clientId }
+                    if (oauth.clientSecret) body.apiKey = oauth.clientSecret
+                }
+            }
+
+            // Zalo OA OAuth config
+            if (integration.provider === 'zalo') {
+                const oauth = oauthConfigs[integration.id]
+                if (oauth) {
+                    body.config = { zaloAppId: oauth.clientId }
                     if (oauth.clientSecret) body.apiKey = oauth.clientSecret
                 }
             }
