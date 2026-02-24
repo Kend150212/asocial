@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getGDriveAccessToken } from '@/lib/gdrive'
+import { getUserGDriveAccessToken } from '@/lib/gdrive'
 
 /**
  * GET /api/media/serve/[id]
@@ -21,7 +21,14 @@ export async function GET(
     try {
         const media = await prisma.mediaItem.findUnique({
             where: { id },
-            select: { url: true, storageFileId: true, mimeType: true, type: true, originalName: true },
+            select: {
+                url: true,
+                storageFileId: true,
+                mimeType: true,
+                type: true,
+                originalName: true,
+                channelId: true,
+            },
         })
 
         if (!media) {
@@ -29,18 +36,29 @@ export async function GET(
         }
 
         let sourceUrl = media.url
-        const headers: Record<string, string> = {}
+        const fetchHeaders: Record<string, string> = {}
 
         if (media.storageFileId) {
-            // Use Google Drive API (authenticated) — bypasses virus scan and redirects
+            // Try to get a user-level GDrive access token via the channel owner
             try {
-                const gdriveToken = await getGDriveAccessToken()
-                sourceUrl = `https://www.googleapis.com/drive/v3/files/${media.storageFileId}?alt=media`
-                headers['Authorization'] = `Bearer ${gdriveToken}`
-                console.log(`[Media Proxy] Using Google Drive API for ${media.originalName || id}`)
+                // Find the channel owner (first member with OWNER/ADMIN role)
+                const channelMember = await prisma.channelMember.findFirst({
+                    where: { channelId: media.channelId },
+                    orderBy: { role: 'asc' }, // OWNER comes first alphabetically
+                    select: { userId: true },
+                })
+
+                if (channelMember) {
+                    const gdriveToken = await getUserGDriveAccessToken(channelMember.userId)
+                    sourceUrl = `https://www.googleapis.com/drive/v3/files/${media.storageFileId}?alt=media`
+                    fetchHeaders['Authorization'] = `Bearer ${gdriveToken}`
+                    console.log(`[Media Proxy] Using Google Drive API (user token) for ${media.originalName || id}`)
+                } else {
+                    throw new Error('No channel member found')
+                }
             } catch (err) {
                 // Fallback to public URL if GDrive auth fails
-                console.error(`[Media Proxy] GDrive auth failed, falling back to public URL:`, err)
+                console.warn(`[Media Proxy] GDrive user auth failed, using public URL:`, (err as Error).message)
                 sourceUrl = `https://drive.google.com/uc?export=download&id=${media.storageFileId}`
             }
         }
@@ -49,13 +67,13 @@ export async function GET(
         const response = await fetch(sourceUrl, {
             redirect: 'follow',
             headers: {
-                ...headers,
+                ...fetchHeaders,
                 'User-Agent': 'NeeFlow/1.0',
             },
         })
 
         if (!response.ok) {
-            console.error(`[Media Proxy] Failed to download: ${response.status} ${response.statusText} from ${sourceUrl.substring(0, 80)}`)
+            console.error(`[Media Proxy] Failed to download: ${response.status} ${response.statusText}`)
             return NextResponse.json({ error: 'Failed to download media' }, { status: 502 })
         }
 
@@ -73,11 +91,10 @@ export async function GET(
         // Set appropriate headers
         const respHeaders = new Headers()
         respHeaders.set('Content-Type', contentType)
-        respHeaders.set('Cache-Control', 'public, max-age=3600') // Cache for 1 hour
+        respHeaders.set('Cache-Control', 'public, max-age=3600')
         if (response.headers.get('content-length')) {
             respHeaders.set('Content-Length', response.headers.get('content-length')!)
         }
-        // Set filename for downloads
         const ext = contentType.includes('video') ? 'mp4' : contentType.includes('png') ? 'png' : 'jpg'
         respHeaders.set('Content-Disposition', `inline; filename="${media.originalName || `media.${ext}`}"`)
 

@@ -808,11 +808,19 @@ export default function ComposePage() {
             if (bad) {
                 errors.push(`"${media.originalName || 'File'}" is ${bad.replace('.', '').toUpperCase()} format — Instagram only supports JPEG and PNG.`)
             }
+            // Warn about non-MP4 video formats
+            if (isVideo(media)) {
+                const nonMp4Formats = ['.mov', '.avi', '.mkv', '.wmv', '.webm', '.flv', '.3gp']
+                const videoFmt = nonMp4Formats.find(fmt => name.endsWith(fmt))
+                if (videoFmt) {
+                    warnings.push(`"${media.originalName || 'Video'}" is ${videoFmt.replace('.', '').toUpperCase()} format — Instagram recommends MP4 (H.264). This may cause upload failures.`)
+                }
+            }
         }
 
         // Post type specific checks
         if (igPostType === 'reel') {
-            if (!hasVideo) errors.push('Reels require a video. Please attach a video file (MP4, MOV).')
+            if (!hasVideo) errors.push('Reels require a video. Please attach an MP4 video file.')
             if (attachedMedia.length > 1) warnings.push('Reels only use the first video — extra media will be ignored.')
         } else if (igPostType === 'story') {
             if (attachedMedia.length > 1) warnings.push('Story only uses the first media item.')
