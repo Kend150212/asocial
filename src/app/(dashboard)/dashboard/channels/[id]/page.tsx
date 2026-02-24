@@ -327,6 +327,8 @@ export default function ChannelDetailPage({
     const [webhookZaloOaName, setWebhookZaloOaName] = useState('')
     const [webhookZaloConnectedAt, setWebhookZaloConnectedAt] = useState('')
     const [zaloConnecting, setZaloConnecting] = useState(false)
+    const [zaloFollowers, setZaloFollowers] = useState<{ userId: string; displayName: string; avatar: string }[]>([])
+    const [zaloLoadingFollowers, setZaloLoadingFollowers] = useState(false)
     const [testingWebhook, setTestingWebhook] = useState<string | null>(null)
 
     // Business Info state
@@ -2989,13 +2991,59 @@ export default function ChannelDetailPage({
                                                 {t('common.disconnect') || 'Disconnect'}
                                             </Button>
                                         </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">User ID ({t('channels.webhooks.recipientId') || 'Recipient'})</Label>
-                                            <Input
-                                                placeholder="Recipient user ID on Zalo (người nhận thông báo)"
-                                                value={webhookZaloUserId}
-                                                onChange={(e) => setWebhookZaloUserId(e.target.value)}
-                                            />
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Người nhận thông báo (Follower)</Label>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                                    value={webhookZaloUserId}
+                                                    onChange={(e) => setWebhookZaloUserId(e.target.value)}
+                                                >
+                                                    <option value="">{zaloFollowers.length > 0 ? '-- Chọn follower --' : '-- Nhấn Load để tải danh sách --'}</option>
+                                                    {zaloFollowers.map((f) => (
+                                                        <option key={f.userId} value={f.userId}>
+                                                            {f.displayName} ({f.userId})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-1.5 shrink-0"
+                                                    disabled={zaloLoadingFollowers}
+                                                    onClick={async () => {
+                                                        setZaloLoadingFollowers(true)
+                                                        try {
+                                                            const res = await fetch(`/api/admin/channels/${id}/zalo-followers`)
+                                                            const data = await res.json()
+                                                            if (res.ok && data.followers) {
+                                                                setZaloFollowers(data.followers)
+                                                                if (data.followers.length === 0) {
+                                                                    toast.info('Không có follower nào. Hãy follow OA trước.')
+                                                                } else {
+                                                                    toast.success(`Đã tải ${data.followers.length} follower`)
+                                                                }
+                                                            } else {
+                                                                toast.error(data.error || 'Không thể tải followers')
+                                                            }
+                                                        } catch {
+                                                            toast.error('Lỗi kết nối')
+                                                        } finally {
+                                                            setZaloLoadingFollowers(false)
+                                                        }
+                                                    }}
+                                                >
+                                                    {zaloLoadingFollowers ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                        <RefreshCw className="h-3.5 w-3.5" />
+                                                    )}
+                                                    Load
+                                                </Button>
+                                            </div>
+                                            {webhookZaloUserId && (
+                                                <p className="text-xs text-muted-foreground">ID: {webhookZaloUserId}</p>
+                                            )}
                                         </div>
                                         <Button
                                             variant="outline"
@@ -3023,14 +3071,6 @@ export default function ChannelDetailPage({
                                                     {t('channels.webhooks.zaloNotConnected') || 'Chưa kết nối Zalo OA. Nhấn nút bên dưới để kết nối qua OAuth.'}
                                                 </p>
                                             </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">User ID ({t('channels.webhooks.recipientId') || 'Recipient'})</Label>
-                                            <Input
-                                                placeholder="Recipient user ID on Zalo (người nhận thông báo)"
-                                                value={webhookZaloUserId}
-                                                onChange={(e) => setWebhookZaloUserId(e.target.value)}
-                                            />
                                         </div>
                                         <Button
                                             className="gap-1.5 bg-[#0068FF] hover:bg-[#0068FF]/90 text-white"
