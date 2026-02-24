@@ -93,7 +93,13 @@ export async function GET(req: NextRequest) {
                 console.error('[Instagram OAuth] API error:', pagesData.error.message)
                 break
             }
-            if (pagesData.data) pages = pages.concat(pagesData.data)
+            if (pagesData.data) {
+                // Debug: log each page's raw data
+                for (const p of pagesData.data) {
+                    console.log(`[Instagram OAuth] 📄 Page: "${p.name}" (${p.id}) | IG linked: ${p.instagram_business_account ? `YES → ${p.instagram_business_account.id}` : 'NO'}`)
+                }
+                pages = pages.concat(pagesData.data)
+            }
             pagesUrl = pagesData.paging?.next || null
         }
 
@@ -106,7 +112,7 @@ export async function GET(req: NextRequest) {
         for (const page of pages) {
             const igAccount = page.instagram_business_account
             if (!igAccount) {
-                console.log(`[Instagram OAuth]   ⏭️ ${page.name} — no Instagram account linked`)
+                console.log(`[Instagram OAuth]   ⏭️ ${page.name} (${page.id}) — no Instagram account linked. Ensure IG is Business/Creator AND linked via FB Page → Settings → Instagram.`)
                 continue
             }
 
