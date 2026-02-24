@@ -1591,9 +1591,11 @@ export async function POST(
                 },
             })
 
+            console.log(`[Publish] ✅ ${ps.platform} (${ps.accountId}): published successfully → ${publishResult.externalId}`)
             results.push({ platform: ps.platform, accountId: ps.accountId, success: true, externalId: publishResult.externalId })
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+            console.error(`[Publish] ❌ ${ps.platform} (${ps.accountId}): ${errorMsg}`)
             await prisma.postPlatformStatus.update({
                 where: { id: ps.id },
                 data: { status: 'failed', errorMsg },
