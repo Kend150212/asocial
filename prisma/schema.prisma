@@ -659,6 +659,7 @@ model Plan {
   sortOrder   Int     @default(0) @map("sort_order")
 
   // Stripe
+  stripeProductId          String? @map("stripe_product_id")
   stripePriceIdMonthly String? @map("stripe_price_id_monthly")
   stripePriceIdAnnual  String? @map("stripe_price_id_annual")
 
