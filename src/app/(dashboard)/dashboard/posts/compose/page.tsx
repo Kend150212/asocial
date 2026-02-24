@@ -2018,6 +2018,7 @@ export default function ComposePage() {
                                                     channelId: selectedChannel.id,
                                                     platforms,
                                                     content: content.slice(0, 200),
+                                                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                                                 }),
                                             })
                                             const data = await res.json()
@@ -2039,7 +2040,7 @@ export default function ComposePage() {
                                 </Button>
                                 {aiScheduleSuggestions.length > 0 && (
                                     <div className="grid grid-cols-1 gap-1.5 mt-2">
-                                        {aiScheduleSuggestions.map((s: { date: string; time: string; label: string; reason: string }, i: number) => {
+                                        {aiScheduleSuggestions.map((s: { date: string; time: string; label: string; reason: string; score?: number }, i: number) => {
                                             const isSelected = scheduleDate === s.date && scheduleTime === s.time
                                             return (
                                                 <button
@@ -2055,7 +2056,14 @@ export default function ComposePage() {
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-medium">{s.label}</span>
-                                                        <span className="opacity-70">{s.date} {s.time}</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            {s.score && (
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${isSelected ? 'bg-primary-foreground/20' : s.score >= 90 ? 'bg-green-100 text-green-700' : s.score >= 75 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                                    {s.score}%
+                                                                </span>
+                                                            )}
+                                                            <span className="opacity-70">{s.date} {s.time}</span>
+                                                        </div>
                                                     </div>
                                                     <p className="opacity-60 mt-0.5 text-[10px]">{s.reason}</p>
                                                 </button>
