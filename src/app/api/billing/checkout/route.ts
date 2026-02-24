@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type Stripe from 'stripe'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 
 const APP_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
@@ -11,6 +11,7 @@ const APP_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || '
  * Body: { planId, interval: 'monthly' | 'annual', couponCode? }
  *
  * Creates a Stripe Checkout session and returns the URL to redirect user.
+ * Supports: Card (incl. Apple Pay & Google Pay), PayPal, Link (1-click).
  */
 export async function POST(req: NextRequest) {
     const session = await auth()
@@ -41,6 +42,8 @@ export async function POST(req: NextRequest) {
             { status: 400 }
         )
     }
+
+    const stripe = await getStripe()
 
     // Get or create Stripe customer
     let stripeCustomerId: string | undefined
@@ -77,6 +80,8 @@ export async function POST(req: NextRequest) {
         mode: 'subscription',
         customer: stripeCustomerId,
         line_items: [{ price: priceId, quantity: 1 }],
+        // ─── Payment methods: Card (Apple/Google Pay auto), PayPal, Link ───
+        payment_method_types: ['card', 'paypal', 'link'],
         ...(discounts ? { discounts } : {}),
         success_url: `${APP_URL}/dashboard/billing?success=1`,
         cancel_url: `${APP_URL}/pricing?canceled=1`,
@@ -92,3 +97,4 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url })
 }
+
