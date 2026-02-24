@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nProvider } from '@/lib/i18n'
 import { BrandingProvider } from '@/lib/use-branding'
+import { RecaptchaProvider } from '@/lib/use-recaptcha'
 import { Session } from 'next-auth'
 import { useState } from 'react'
 
@@ -34,7 +35,9 @@ export function Providers({ children, session }: { children: React.ReactNode; se
                     <I18nProvider>
                         <BrandingProvider>
                             <TooltipProvider delayDuration={0}>
-                                {children}
+                                <RecaptchaProvider>
+                                    {children}
+                                </RecaptchaProvider>
                             </TooltipProvider>
                         </BrandingProvider>
                     </I18nProvider>

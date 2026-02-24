@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, ArrowRight, ArrowLeft, ShieldCheck, UserPlus } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { useTranslation } from '@/lib/i18n'
+import { useRecaptcha } from '@/lib/use-recaptcha'
 
 type Step = 'details' | 'otp'
 
@@ -21,6 +22,7 @@ export default function RegisterPage() {
     const branding = useBranding()
     const t = useTranslation()
     const router = useRouter()
+    const { getToken: getRecaptchaToken } = useRecaptcha()
     const [step, setStep] = useState<Step>('details')
 
     // Form state
@@ -55,10 +57,11 @@ export default function RegisterPage() {
         setError('')
         setLoading(true)
         try {
+            const recaptchaToken = await getRecaptchaToken('register')
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ firstName, lastName, email, password, confirmPassword, termsAccepted, locale: getLocale() }),
+                body: JSON.stringify({ firstName, lastName, email, password, confirmPassword, termsAccepted, locale: getLocale(), recaptchaToken }),
             })
             const data = await res.json()
             if (!res.ok) {

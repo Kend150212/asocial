@@ -4,6 +4,8 @@ import { getBrandingServer } from '@/lib/use-branding-server'
 import { sendEmail } from '@/lib/email'
 import bcrypt from 'bcryptjs'
 import { randomInt } from 'crypto'
+import { authLimiter } from '@/lib/rate-limit'
+import { verifyRecaptcha } from '@/lib/recaptcha'
 
 function validatePassword(password: string): string | null {
     if (password.length < 8) return 'Password must be at least 8 characters'
@@ -12,8 +14,21 @@ function validatePassword(password: string): string | null {
 
 // POST /api/auth/register — Step 1: validate + send OTP
 export async function POST(req: NextRequest) {
+    // Rate limiting
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const { success: allowed } = authLimiter.check(ip)
+    if (!allowed) {
+        return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     try {
-        const { firstName, lastName, email, password, confirmPassword, termsAccepted, locale } = await req.json()
+        const { firstName, lastName, email, password, confirmPassword, termsAccepted, locale, recaptchaToken } = await req.json()
+
+        // reCAPTCHA verification
+        const isHuman = await verifyRecaptcha(recaptchaToken)
+        if (!isHuman) {
+            return NextResponse.json({ error: 'reCAPTCHA verification failed. Please try again.' }, { status: 403 })
+        }
 
         const isVi = locale === 'vi'
 
