@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
     }
 
     // EasyConnect flow: validate token instead of session
-    let userId = 'easyconnect'
+    let userId: string | null = null
     if (easyToken) {
         const link = await prisma.easyConnectLink.findUnique({ where: { token: easyToken } })
         if (!link || !link.isEnabled || link.channelId !== channelId) {
             return NextResponse.json({ error: 'Invalid or expired EasyConnect link' }, { status: 403 })
         }
+        userId = link.createdBy // Use the admin who created the link
     } else {
         const session = await auth()
         if (!session?.user) {
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
     const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const redirectUri = `${host}/api/oauth/facebook/callback`
 
-    const stateData: Record<string, string> = { channelId, userId }
+    const stateData: Record<string, string> = { channelId, userId: userId || '' }
     if (easyToken) stateData.easyToken = easyToken
     const state = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 

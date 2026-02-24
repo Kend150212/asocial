@@ -12,12 +12,13 @@ export async function GET(req: NextRequest) {
 
     if (!channelId) return NextResponse.json({ error: 'channelId is required' }, { status: 400 })
 
-    let userId = 'easyconnect'
+    let userId: string | null = null
     if (easyToken) {
         const link = await prisma.easyConnectLink.findUnique({ where: { token: easyToken } })
         if (!link || !link.isEnabled || link.channelId !== channelId) {
             return NextResponse.json({ error: 'Invalid EasyConnect link' }, { status: 403 })
         }
+        userId = link.createdBy // Use admin who created the link
     } else {
         const session = await auth()
         if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

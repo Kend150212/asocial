@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+// Helper: tries postMessage (popup flow) then fallback redirect
+function popupOrRedirect(url: string, platform: string, success: boolean) {
+    return new NextResponse(
+        `<!DOCTYPE html><html><head><title>${success ? 'Connected' : 'Error'}</title></head><body>
+        <script>
+            if (window.opener) { window.opener.postMessage({ type: '${success ? 'oauth-success' : 'oauth-error'}', platform: '${platform}' }, '*'); window.close(); }
+            else { window.location.href = '${url}'; }
+        </script><p>${success ? 'Connected!' : 'Error occurred.'} Redirecting...</p></body></html>`,
+        { headers: { 'Content-Type': 'text/html' } }
+    )
+}
+
+
 // GET /api/oauth/instagram/callback
 // Instagram Business accounts are linked to Facebook Pages
 // Flow: User token → me/accounts → check each page for instagram_business_account → get IG details
@@ -10,12 +23,12 @@ export async function GET(req: NextRequest) {
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
 
-    if (error) return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
-    if (!code || !stateParam) return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
+    if (error) return popupOrRedirect('/dashboard', 'instagram', false)
+    if (!code || !stateParam) return popupOrRedirect('/dashboard?error=missing_params', 'instagram', false)
 
     let state: { channelId: string; userId: string }
     try { state = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) }
-    catch { return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin)) }
+    catch { return popupOrRedirect('/dashboard?error=invalid_state', 'instagram', false) }
 
     // Get client credentials — try instagram integration first, then fallback to facebook
     let clientId = ''
@@ -42,10 +55,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+        return popupOrRedirect('/dashboard?error=not_configured', 'instagram', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/instagram/callback`
 
     try {
@@ -59,7 +72,7 @@ export async function GET(req: NextRequest) {
         const tokenRes = await fetch(tokenUrl.toString())
         if (!tokenRes.ok) {
             console.error('[Instagram OAuth] Token exchange failed:', await tokenRes.text())
-            return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin))
+            return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, 'instagram', false)
         }
         const tokens = await tokenRes.json()
         const userAccessToken = tokens.access_token
@@ -123,7 +136,7 @@ export async function GET(req: NextRequest) {
                     update: {
                         accountName,
                         accessToken: page.access_token,
-                        connectedBy: state.userId,
+                        connectedBy: state.userId || null,
                         isActive: true,
                         config: { source: 'oauth', pageId: page.id, pageName: page.name },
                     },
@@ -133,7 +146,7 @@ export async function GET(req: NextRequest) {
                         accountId: igData.id || igAccount.id,
                         accountName,
                         accessToken: page.access_token,
-                        connectedBy: state.userId,
+                        connectedBy: state.userId || null,
                         isActive: true,
                         config: { source: 'oauth', pageId: page.id, pageName: page.name },
                     },
@@ -217,6 +230,6 @@ export async function GET(req: NextRequest) {
         )
     } catch (err) {
         console.error('[Instagram OAuth] Callback error:', err)
-        return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin))
+        return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, 'instagram', false)
     }
 }

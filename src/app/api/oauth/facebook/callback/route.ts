@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
                     update: {
                         accountName: page.name,
                         accessToken: page.access_token,
-                        connectedBy: state.userId,
+                        connectedBy: state.userId || null,
                         isActive: true,
                         config: { source: 'oauth' },
                     },
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
                         accountId: page.id,
                         accountName: page.name,
                         accessToken: page.access_token,
-                        connectedBy: state.userId,
+                        connectedBy: state.userId || null,
                         isActive: true,
                         config: { source: 'oauth' },
                     },
@@ -227,10 +227,10 @@ export async function GET(req: NextRequest) {
                         accountId: me.id,
                     },
                 },
-                update: { accountName: me.name, accessToken: userAccessToken, connectedBy: state.userId, isActive: true },
+                update: { accountName: me.name, accessToken: userAccessToken, connectedBy: state.userId || null, isActive: true },
                 create: {
                     channelId: state.channelId, platform: 'facebook', accountId: me.id, accountName: me.name,
-                    accessToken: userAccessToken, connectedBy: state.userId, isActive: true, config: { source: 'oauth' },
+                    accessToken: userAccessToken, connectedBy: state.userId || null, isActive: true, config: { source: 'oauth' },
                 },
             })
             imported = 1

@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+// Helper: tries postMessage (popup flow) then fallback redirect
+function popupOrRedirect(url: string, platform: string, success: boolean) {
+    return new NextResponse(
+        `<!DOCTYPE html><html><head><title>${success ? 'Connected' : 'Error'}</title></head><body>
+        <script>
+            if (window.opener) { window.opener.postMessage({ type: '${success ? 'oauth-success' : 'oauth-error'}', platform: '${platform}' }, '*'); window.close(); }
+            else { window.location.href = '${url}'; }
+        </script><p>${success ? 'Connected!' : 'Error occurred.'} Redirecting...</p></body></html>`,
+        { headers: { 'Content-Type': 'text/html' } }
+    )
+}
+
+
 // GET /api/oauth/youtube/callback — Handle Google OAuth callback
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
@@ -9,11 +22,11 @@ export async function GET(req: NextRequest) {
     const error = req.nextUrl.searchParams.get('error')
 
     if (error) {
-        return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
+        return popupOrRedirect('/dashboard', 'youtube', true)
     }
 
     if (!code || !stateParam) {
-        return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
+        return popupOrRedirect('/dashboard?error=missing_params', 'youtube', false)
     }
 
     // Decode state
@@ -21,7 +34,7 @@ export async function GET(req: NextRequest) {
     try {
         state = JSON.parse(Buffer.from(stateParam, 'base64url').toString())
     } catch {
-        return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin))
+        return popupOrRedirect('/dashboard?error=invalid_state', 'youtube', false)
     }
 
     // Read credentials from database (API Hub)
@@ -43,10 +56,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+        return popupOrRedirect('/dashboard?error=not_configured', 'youtube', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/youtube/callback`
 
     try {
@@ -67,7 +80,7 @@ export async function GET(req: NextRequest) {
             const err = await tokenRes.text()
             console.error('YouTube token exchange failed:', err)
             return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin)
+                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, host)
             )
         }
 
@@ -109,7 +122,7 @@ export async function GET(req: NextRequest) {
 
         if (channelMap.size === 0) {
             return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_youtube_channels`, req.nextUrl.origin)
+                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_youtube_channels`, host)
             )
         }
 
@@ -135,7 +148,7 @@ export async function GET(req: NextRequest) {
                     tokenExpiresAt: expiresIn
                         ? new Date(Date.now() + expiresIn * 1000)
                         : null,
-                    connectedBy: state.userId,
+                    connectedBy: state.userId || null,
                     isActive: true,
                 },
                 create: {
@@ -148,7 +161,7 @@ export async function GET(req: NextRequest) {
                     tokenExpiresAt: expiresIn
                         ? new Date(Date.now() + expiresIn * 1000)
                         : null,
-                    connectedBy: state.userId,
+                    connectedBy: state.userId || null,
                     isActive: true,
                     config: { source: 'oauth' },
                 },
@@ -178,7 +191,7 @@ export async function GET(req: NextRequest) {
     } catch (err) {
         console.error('YouTube OAuth callback error:', err)
         return NextResponse.redirect(
-            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin)
+            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, host)
         )
     }
 }

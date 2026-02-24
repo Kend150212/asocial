@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decrypt } from '@/lib/encryption'
 
+// Helper: tries postMessage (popup flow) then fallback redirect
+function popupOrRedirect(url: string, platform: string, success: boolean) {
+    return new NextResponse(
+        `<!DOCTYPE html><html><head><title>${success ? 'Connected' : 'Error'}</title></head><body>
+        <script>
+            if (window.opener) { window.opener.postMessage({ type: '${success ? 'oauth-success' : 'oauth-error'}', platform: '${platform}' }, '*'); window.close(); }
+            else { window.location.href = '${url}'; }
+        </script><p>${success ? 'Connected!' : 'Error occurred.'} Redirecting...</p></body></html>`,
+        { headers: { 'Content-Type': 'text/html' } }
+    )
+}
+
+
 /** Auto-generate LinkedIn API version (YYYYMM) — uses 1 month behind current date for safety */
 function getLinkedInVersion(): string {
     const now = new Date()
@@ -17,12 +30,12 @@ export async function GET(req: NextRequest) {
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
 
-    if (error) return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin))
-    if (!code || !stateParam) return NextResponse.redirect(new URL('/dashboard?error=missing_params', req.nextUrl.origin))
+    if (error) return popupOrRedirect('/dashboard', 'linkedin', false)
+    if (!code || !stateParam) return popupOrRedirect('/dashboard?error=missing_params', 'linkedin', false)
 
     let state: { channelId: string; userId: string }
     try { state = JSON.parse(Buffer.from(stateParam, 'base64url').toString()) }
-    catch { return NextResponse.redirect(new URL('/dashboard?error=invalid_state', req.nextUrl.origin)) }
+    catch { return popupOrRedirect('/dashboard?error=invalid_state', 'linkedin', false) }
 
     const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'linkedin' } })
     const config = (integration?.config || {}) as Record<string, string>
@@ -31,9 +44,9 @@ export async function GET(req: NextRequest) {
     if (integration?.apiKeyEncrypted) {
         try { clientSecret = decrypt(integration.apiKeyEncrypted) } catch { clientSecret = integration.apiKeyEncrypted }
     }
-    if (!clientId || !clientSecret) return NextResponse.redirect(new URL('/dashboard?error=not_configured', req.nextUrl.origin))
+    if (!clientId || !clientSecret) return popupOrRedirect('/dashboard?error=not_configured', 'linkedin', false)
 
-    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
+    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/linkedin/callback`
 
     try {
@@ -50,7 +63,7 @@ export async function GET(req: NextRequest) {
         })
         if (!tokenRes.ok) {
             console.error('LinkedIn token exchange failed:', await tokenRes.text())
-            return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, req.nextUrl.origin))
+            return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, 'linkedin', false)
         }
         const tokens = await tokenRes.json()
         const accessToken = tokens.access_token
@@ -77,11 +90,11 @@ export async function GET(req: NextRequest) {
                     accountId: profileId,
                 },
             },
-            update: { accountName: `👤 ${profileName}`, accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null, connectedBy: state.userId, isActive: true },
+            update: { accountName: `👤 ${profileName}`, accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null, connectedBy: state.userId || null, isActive: true },
             create: {
                 channelId: state.channelId, platform: 'linkedin', accountId: profileId, accountName: `👤 ${profileName}`,
                 accessToken, tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-                connectedBy: state.userId, isActive: true, config: { source: 'oauth', type: 'person' },
+                connectedBy: state.userId || null, isActive: true, config: { source: 'oauth', type: 'person' },
             },
         })
 
@@ -120,7 +133,7 @@ export async function GET(req: NextRequest) {
                             accountName: `🏢 ${orgName}`,
                             accessToken,
                             tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-                            connectedBy: state.userId,
+                            connectedBy: state.userId || null,
                             isActive: true,
                         },
                         create: {
@@ -130,7 +143,7 @@ export async function GET(req: NextRequest) {
                             accountName: `🏢 ${orgName}`,
                             accessToken,
                             tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-                            connectedBy: state.userId,
+                            connectedBy: state.userId || null,
                             isActive: true,
                             config: { source: 'oauth', type: 'organization', orgId },
                         },
@@ -156,6 +169,6 @@ export async function GET(req: NextRequest) {
         )
     } catch (err) {
         console.error('LinkedIn OAuth callback error:', err)
-        return NextResponse.redirect(new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, req.nextUrl.origin))
+        return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, 'linkedin', false)
     }
 }
