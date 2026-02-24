@@ -7,13 +7,29 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 function createPrismaClient() {
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-  })
+  const connStr = process.env.DATABASE_URL
+  if (!connStr) {
+    throw new Error('[Prisma] DATABASE_URL is not set — check your .env file')
+  }
+  const pool = new pg.Pool({ connectionString: connStr })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
 }
 
-// Cache in both dev and production
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
-globalForPrisma.prisma = prisma
+/**
+ * Lazy-initialized Prisma client.
+ * Uses a getter so `pg.Pool` reads DATABASE_URL at first access,
+ * not at module import time (fixes worker process where dotenv
+ * may not have loaded yet due to ES module import hoisting).
+ */
+let _prisma: PrismaClient | undefined = globalForPrisma.prisma
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop: string | symbol) {
+    if (!_prisma) {
+      _prisma = createPrismaClient()
+      globalForPrisma.prisma = _prisma
+    }
+    return (_prisma as any)[prop]
+  },
+})
