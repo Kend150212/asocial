@@ -76,14 +76,29 @@ function fmtDate(d: string | null) {
 export default function DashboardPage() {
     const [data, setData] = useState<DashboardData | null>(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const t = useTranslation()
     const { data: session } = useSession()
 
     useEffect(() => {
         fetch('/api/dashboard')
-            .then(r => r.json())
-            .then(d => { setData(d); setLoading(false) })
-            .catch(() => setLoading(false))
+            .then(r => {
+                if (!r.ok) throw new Error(`API error: ${r.status}`)
+                return r.json()
+            })
+            .then(d => {
+                if (d?.stats && d?.plan) {
+                    setData(d)
+                } else {
+                    throw new Error('Invalid dashboard data')
+                }
+                setLoading(false)
+            })
+            .catch((err) => {
+                console.error('[Dashboard] Load error:', err)
+                setError(err.message || 'Failed to load dashboard')
+                setLoading(false)
+            })
     }, [])
 
     if (loading) {
@@ -98,7 +113,27 @@ export default function DashboardPage() {
         )
     }
 
-    if (!data) return null
+    if (error || !data) {
+        return (
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
+                <div className="rounded-full bg-red-500/10 p-4">
+                    <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                </div>
+                <h2 className="text-xl font-bold">{t('dashboard.errorTitle') || 'Unable to load dashboard'}</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                    {error || t('dashboard.errorDesc') || 'There was a problem loading your dashboard data.'}
+                </p>
+                <button
+                    onClick={() => { setError(null); setLoading(true); window.location.reload() }}
+                    className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                    {t('common.retry') || 'Retry'}
+                </button>
+            </div>
+        )
+    }
 
     const { stats, recentPosts, upcoming, dailyChart, plan } = data
 
