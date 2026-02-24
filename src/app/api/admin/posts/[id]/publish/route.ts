@@ -202,6 +202,19 @@ async function publishToInstagram(
         throw new Error('Instagram requires at least one image or video')
     }
 
+    // Validate media formats — Instagram rejects WebP, BMP, SVG, TIFF
+    const unsupportedFormats = ['.webp', '.bmp', '.svg', '.tiff', '.tif', '.gif']
+    for (const media of mediaItems) {
+        const urlLower = (media.originalName || media.url || '').toLowerCase()
+        const unsupported = unsupportedFormats.find(fmt => urlLower.includes(fmt))
+        if (unsupported) {
+            throw new Error(`Instagram does not support ${unsupported.toUpperCase().replace('.', '')} images. Please use JPEG or PNG format.`)
+        }
+    }
+
+    console.log(`[Instagram] Publishing to ${accountId} with ${mediaItems.length} media item(s):`)
+    mediaItems.forEach((m, i) => console.log(`[Instagram]   Media ${i + 1}: type=${m.type}, url=${m.url.substring(0, 120)}...`))
+
     const postType = (config?.postType as string) || 'feed'
     const collaborators = (config?.collaborators as string) || ''
     const collaboratorUsernames = collaborators
