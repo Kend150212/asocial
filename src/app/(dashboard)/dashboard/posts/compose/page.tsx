@@ -1667,16 +1667,20 @@ export default function ComposePage() {
                 const time = scheduleTime || '09:00'
                 // Interpret date+time in channel's timezone, convert to UTC
                 const channelTz = (selectedChannel as any)?.timezone || 'UTC'
-                // Build a date string and use Intl to find the UTC offset
-                const localStr = `${scheduleDate}T${time}:00`
-                const naive = new Date(localStr)
-                // Get the offset between UTC and channel timezone at that moment
-                const utcStr = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(naive)
-                const tzStr = new Intl.DateTimeFormat('en-US', { timeZone: channelTz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(naive)
-                const utcDate = new Date(utcStr)
-                const tzDate = new Date(tzStr)
-                const offsetMs = tzDate.getTime() - utcDate.getTime()
-                scheduledAt = new Date(naive.getTime() - offsetMs).toISOString()
+                // Parse the date/time parts directly (no browser timezone interference)
+                const [year, month, day] = scheduleDate.split('-').map(Number)
+                const [hour, minute] = time.split(':').map(Number)
+                // Create a UTC date with the same wall-clock values
+                const asUTC = new Date(Date.UTC(year, month - 1, day, hour, minute, 0))
+                // Find the offset of channelTz at this approximate moment
+                // by formatting asUTC in both UTC and channelTz, then computing the difference
+                const fmtOpts: Intl.DateTimeFormatOptions = { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+                const utcStr = new Intl.DateTimeFormat('en-US', fmtOpts).format(asUTC)
+                const tzStr = new Intl.DateTimeFormat('en-US', { ...fmtOpts, timeZone: channelTz }).format(asUTC)
+                const parseMDYHMS = (s: string) => { const [d, t] = s.split(', '); const [m2, d2, y2] = d.split('/').map(Number); const [h2, mm2, s2] = t.split(':').map(Number); return Date.UTC(y2, m2 - 1, d2, h2, mm2, s2) }
+                const offsetMs = parseMDYHMS(tzStr) - parseMDYHMS(utcStr)
+                // Subtract the offset: if channelTz is UTC-5, offset is -5h, so we ADD 5h to get UTC
+                scheduledAt = new Date(asUTC.getTime() - offsetMs).toISOString()
             }
 
             const existingId = editPostId || postIdRef.current
