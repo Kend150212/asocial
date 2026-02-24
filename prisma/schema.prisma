@@ -755,6 +755,7 @@ model SiteSettings {
   footerLinks    Json     @default("[]") @map("footer_links")
   termsContent   String   @default("") @map("terms_content") @db.Text
   privacyContent String   @default("") @map("privacy_content") @db.Text
+  siteMode       String   @default("live") @map("site_mode") // live | coming_soon | maintenance
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("site_settings")

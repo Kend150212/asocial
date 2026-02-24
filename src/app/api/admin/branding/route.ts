@@ -50,6 +50,7 @@ export async function PUT(req: NextRequest) {
     const {
         appName, tagline, logoUrl, faviconUrl,
         primaryColor, supportEmail, copyrightText, footerLinks,
+        siteMode,
     } = body
 
     try {
@@ -64,6 +65,7 @@ export async function PUT(req: NextRequest) {
                 ...(supportEmail !== undefined && { supportEmail }),
                 ...(copyrightText !== undefined && { copyrightText }),
                 ...(footerLinks !== undefined && { footerLinks }),
+                ...(siteMode !== undefined && { siteMode }),
             },
             create: {
                 id: 'default',

@@ -15,8 +15,32 @@ function isSetupComplete(): boolean {
     return true
 }
 
+// ── Site Mode cache ──────────────────────────────────────────────
+let cachedSiteMode: string = 'live'
+let cacheTs = 0
+const CACHE_TTL = 10_000 // 10 seconds
+
+async function getSiteMode(origin: string): Promise<string> {
+    const now = Date.now()
+    if (now - cacheTs < CACHE_TTL) return cachedSiteMode
+    try {
+        const res = await fetch(`${origin}/api/site-mode`, {
+            cache: 'no-store',
+        })
+        if (res.ok) {
+            const data = await res.json()
+            cachedSiteMode = data.mode || 'live'
+            cacheTs = now
+        }
+    } catch {
+        // If fetch fails, default to live to avoid locking users out
+    }
+    return cachedSiteMode
+}
+
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl
+    const origin = req.nextUrl.origin
 
     // ── Setup wizard redirect — if not configured yet ─────────────
     const isSetupRoute = pathname.startsWith('/setup') || pathname.startsWith('/api/setup')
@@ -24,6 +48,34 @@ export async function middleware(req: NextRequest) {
 
     if (!isSetupRoute && !setupComplete) {
         return NextResponse.redirect(new URL('/setup', req.url))
+    }
+
+    // ── Site Mode check ───────────────────────────────────────────
+    // Allow these paths regardless of site mode
+    const isAllowedPath =
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/login') ||
+        pathname.startsWith('/setup') ||
+        pathname.startsWith('/coming-soon') ||
+        pathname.startsWith('/maintenance') ||
+        pathname.startsWith('/_next') ||
+        pathname === '/favicon.ico'
+
+    if (!isAllowedPath && setupComplete) {
+        const siteMode = await getSiteMode(origin)
+
+        if (siteMode !== 'live') {
+            // Check if user has admin session — admins bypass site mode
+            const hasSession =
+                req.cookies.has('__Secure-authjs.session-token') ||
+                req.cookies.has('authjs.session-token') ||
+                req.cookies.has('next-auth.session-token')
+
+            if (!hasSession) {
+                const target = siteMode === 'coming_soon' ? '/coming-soon' : '/maintenance'
+                return NextResponse.redirect(new URL(target, req.url))
+            }
+        }
     }
 
     const hasSession =
@@ -70,4 +122,3 @@ export async function middleware(req: NextRequest) {
 export const config = {
     matcher: ['/((?!_next/static|_next/image|favicon.ico|public|api).*)'],
 }
-

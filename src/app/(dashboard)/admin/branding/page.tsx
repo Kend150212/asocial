@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Paintbrush, Save, Upload, Loader2, CheckCircle2, Copy, Check, ChevronDown, ChevronUp, ExternalLink, Globe } from 'lucide-react'
+import { Paintbrush, Save, Upload, Loader2, CheckCircle2, Copy, Check, ChevronDown, ChevronUp, ExternalLink, Globe, Rocket, Wrench, Radio } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ interface Settings {
     primaryColor: string
     supportEmail: string
     copyrightText: string
+    siteMode: string
 }
 
 export default function AdminBrandingPage() {
@@ -27,6 +28,7 @@ export default function AdminBrandingPage() {
         primaryColor: '#7c3aed',
         supportEmail: '',
         copyrightText: '',
+        siteMode: 'live',
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -303,6 +305,96 @@ export default function AdminBrandingPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Site Mode */}
+            <Card className="border-2 border-dashed">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Radio className="h-4 w-4 text-blue-400" />
+                        Site Mode
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                        Control public access to your site. Admins always have full access.
+                    </p>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        {/* Live */}
+                        <button
+                            type="button"
+                            onClick={() => setSettings(s => ({ ...s, siteMode: 'live' }))}
+                            className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.siteMode === 'live'
+                                    ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
+                                    : 'border-border hover:border-emerald-500/40 hover:bg-emerald-500/5'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.siteMode === 'live' ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'
+                                }`}>
+                                <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <span className="text-sm font-semibold">Live</span>
+                            <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                                Site is fully accessible to everyone
+                            </span>
+                            {settings.siteMode === 'live' && (
+                                <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                            )}
+                        </button>
+
+                        {/* Coming Soon */}
+                        <button
+                            type="button"
+                            onClick={() => setSettings(s => ({ ...s, siteMode: 'coming_soon' }))}
+                            className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.siteMode === 'coming_soon'
+                                    ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10'
+                                    : 'border-border hover:border-violet-500/40 hover:bg-violet-500/5'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.siteMode === 'coming_soon' ? 'bg-violet-500 text-white' : 'bg-muted text-muted-foreground'
+                                }`}>
+                                <Rocket className="h-5 w-5" />
+                            </div>
+                            <span className="text-sm font-semibold">Coming Soon</span>
+                            <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                                Public sees a &quot;Coming Soon&quot; page
+                            </span>
+                            {settings.siteMode === 'coming_soon' && (
+                                <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse" />
+                            )}
+                        </button>
+
+                        {/* Maintenance */}
+                        <button
+                            type="button"
+                            onClick={() => setSettings(s => ({ ...s, siteMode: 'maintenance' }))}
+                            className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${settings.siteMode === 'maintenance'
+                                    ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10'
+                                    : 'border-border hover:border-amber-500/40 hover:bg-amber-500/5'
+                                }`}
+                        >
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${settings.siteMode === 'maintenance' ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'
+                                }`}>
+                                <Wrench className="h-5 w-5" />
+                            </div>
+                            <span className="text-sm font-semibold">Maintenance</span>
+                            <span className="text-[10px] text-muted-foreground text-center leading-tight">
+                                Public sees a maintenance notice
+                            </span>
+                            {settings.siteMode === 'maintenance' && (
+                                <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                            )}
+                        </button>
+                    </div>
+
+                    {settings.siteMode !== 'live' && (
+                        <div className="mt-3 text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5">
+                            ⚠️ <strong>Warning:</strong> Your site is currently set to <strong>{settings.siteMode === 'coming_soon' ? 'Coming Soon' : 'Maintenance'}</strong> mode.
+                            Public visitors will be redirected. Admins can still access all pages.
+                            Click &quot;Save Changes&quot; to apply.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* OAuth Callback URLs Reference */}
             <CallbackUrlsSection />
