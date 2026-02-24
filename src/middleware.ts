@@ -24,15 +24,28 @@ async function getSiteMode(origin: string): Promise<string> {
     const now = Date.now()
     if (now - cacheTs < CACHE_TTL) return cachedSiteMode
     try {
-        const res = await fetch(`${origin}/api/site-mode`, {
+        // Use localhost for self-referential calls to avoid DNS/proxy issues
+        const port = process.env.PORT || '3000'
+        const localUrl = `http://127.0.0.1:${port}/api/site-mode`
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 3000)
+
+        const res = await fetch(localUrl, {
             cache: 'no-store',
+            signal: controller.signal,
         })
+        clearTimeout(timeout)
+
         if (res.ok) {
             const data = await res.json()
             cachedSiteMode = data.mode || 'live'
             cacheTs = now
+            console.log('[Middleware] Site mode fetched:', cachedSiteMode)
+        } else {
+            console.warn('[Middleware] Site mode fetch status:', res.status)
         }
-    } catch {
+    } catch (err) {
+        console.error('[Middleware] Site mode fetch failed:', err instanceof Error ? err.message : err)
         // If fetch fails, default to live to avoid locking users out
     }
     return cachedSiteMode
