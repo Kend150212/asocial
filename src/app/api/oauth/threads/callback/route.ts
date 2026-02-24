@@ -18,6 +18,7 @@ function popupOrRedirect(url: string, platform: string, success: boolean) {
 // GET /api/oauth/threads/callback — Threads OAuth Callback
 // Exchanges code for access token and stores Threads account info
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
@@ -42,7 +43,6 @@ export async function GET(req: NextRequest) {
         return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=not_configured`, 'threads', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/threads/callback`
 
     try {

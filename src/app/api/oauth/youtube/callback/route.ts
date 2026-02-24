@@ -17,6 +17,7 @@ function popupOrRedirect(url: string, platform: string, success: boolean) {
 
 // GET /api/oauth/youtube/callback — Handle Google OAuth callback
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
@@ -59,7 +60,6 @@ export async function GET(req: NextRequest) {
         return popupOrRedirect('/dashboard?error=not_configured', 'youtube', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/youtube/callback`
 
     try {
@@ -79,9 +79,7 @@ export async function GET(req: NextRequest) {
         if (!tokenRes.ok) {
             const err = await tokenRes.text()
             console.error('YouTube token exchange failed:', err)
-            return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, host)
-            )
+            return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, 'youtube', false)
         }
 
         const tokens = await tokenRes.json()
@@ -121,9 +119,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (channelMap.size === 0) {
-            return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_youtube_channels`, host)
-            )
+            return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=no_youtube_channels`, 'youtube', false)
         }
 
         const channels = Array.from(channelMap.values())
@@ -190,8 +186,6 @@ export async function GET(req: NextRequest) {
         )
     } catch (err) {
         console.error('YouTube OAuth callback error:', err)
-        return NextResponse.redirect(
-            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, host)
-        )
+        return popupOrRedirect(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, 'youtube', false)
     }
 }

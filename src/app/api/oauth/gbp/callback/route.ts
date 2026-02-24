@@ -17,6 +17,7 @@ function popupOrRedirect(url: string, platform: string, success: boolean) {
 
 // GET /api/oauth/gbp/callback — Handle Google Business Profile OAuth callback
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
@@ -47,12 +48,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(
-            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=gbp_not_configured`, host)
-        )
+        return popupOrRedirect(`${host}/dashboard/channels/${state.channelId}?tab=platforms&error=gbp_not_configured`, 'gbp', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/gbp/callback`
 
     try {
@@ -71,9 +69,7 @@ export async function GET(req: NextRequest) {
 
         if (!tokenRes.ok) {
             console.error('[GBP OAuth] Token exchange failed:', await tokenRes.text())
-            return NextResponse.redirect(
-                new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, host)
-            )
+            return popupOrRedirect(`${host}/dashboard/channels/${state.channelId}?tab=platforms&error=token_failed`, 'gbp', false)
         }
 
         const tokens = await tokenRes.json()
@@ -245,8 +241,6 @@ export async function GET(req: NextRequest) {
         )
     } catch (err) {
         console.error('[GBP OAuth] callback error:', err)
-        return NextResponse.redirect(
-            new URL(`/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, host)
-        )
+        return popupOrRedirect(`${host}/dashboard/channels/${state.channelId}?tab=platforms&error=oauth_failed`, 'gbp', false)
     }
 }

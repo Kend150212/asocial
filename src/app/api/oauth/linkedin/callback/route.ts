@@ -26,6 +26,7 @@ function getLinkedInVersion(): string {
 
 // GET /api/oauth/linkedin/callback
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
@@ -46,7 +47,6 @@ export async function GET(req: NextRequest) {
     }
     if (!clientId || !clientSecret) return popupOrRedirect('/dashboard?error=not_configured', 'linkedin', false)
 
-    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/linkedin/callback`
 
     try {

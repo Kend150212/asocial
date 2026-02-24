@@ -19,6 +19,7 @@ function popupOrRedirect(url: string, platform: string, success: boolean) {
 // Instagram Business accounts are linked to Facebook Pages
 // Flow: User token → me/accounts → check each page for instagram_business_account → get IG details
 export async function GET(req: NextRequest) {
+    const host = process.env.NEXTAUTH_URL || req.nextUrl.origin
     const code = req.nextUrl.searchParams.get('code')
     const stateParam = req.nextUrl.searchParams.get('state')
     const error = req.nextUrl.searchParams.get('error')
@@ -58,7 +59,6 @@ export async function GET(req: NextRequest) {
         return popupOrRedirect('/dashboard?error=not_configured', 'instagram', false)
     }
 
-    const host = process.env.NEXTAUTH_URL || host
     const redirectUri = `${host}/api/oauth/instagram/callback`
 
     try {
