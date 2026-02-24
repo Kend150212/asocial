@@ -225,13 +225,11 @@ export async function GET(req: NextRequest) {
         }
 
         const easyToken = state.easyToken
-        const successUrl = easyToken
-            ? `/connect/${easyToken}?connected=facebook`
-            : `/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
+        const successUrl = `/dashboard/channels/${state.channelId}?tab=platforms&oauth=facebook&imported=${imported}`
         return new NextResponse(
             `<!DOCTYPE html><html><head><title>Facebook Connected</title></head><body>
             <script>
-                if (!${'`' + '${easyToken}' + '`'} && window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'facebook' }, '*'); window.close(); }
+                if (window.opener) { window.opener.postMessage({ type: 'oauth-success', platform: 'facebook' }, '*'); window.close(); }
                 else { window.location.href = '${successUrl}'; }
             </script><p>Facebook connected! Redirecting...</p></body></html>`,
             { headers: { 'Content-Type': 'text/html' } }
