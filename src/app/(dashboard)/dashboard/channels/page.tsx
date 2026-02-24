@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
     Plus, Search, Megaphone, Globe, Users, FileText, MoreHorizontal,
-    Pencil, Trash2, Check, Sparkles, Palette, ChevronRight, ChevronLeft,
+    Pencil, Trash2, Check, Clock,
     LayoutGrid, List, Crown, ShieldCheck, Mail,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -53,14 +53,8 @@ interface Channel {
     _count: { members: number; posts: number; knowledgeBase: number; platforms: number }
 }
 
-const vibePresets = [
-    { id: 'professional', label: '💼 Professional', tone: 'formal, authoritative, polished' },
-    { id: 'casual', label: '😊 Casual', tone: 'friendly, approachable, conversational' },
-    { id: 'fun', label: '🎉 Fun & Playful', tone: 'witty, humorous, entertaining' },
-    { id: 'educational', label: '📚 Educational', tone: 'informative, clear, helpful' },
-    { id: 'luxury', label: '✨ Luxury', tone: 'elegant, sophisticated, premium' },
-    { id: 'bold', label: '🔥 Bold & Edgy', tone: 'provocative, daring, attention-grabbing' },
-]
+
+
 
 function getOwner(members: ChannelMember[]) {
     // Prefer OWNER role first, then ADMIN
@@ -80,16 +74,13 @@ export default function AdminChannelsPage() {
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<Channel | null>(null)
 
-    // Wizard state
-    const [wizardStep, setWizardStep] = useState(1)
+    // Create form state
     const [newName, setNewName] = useState('')
     const [newDisplayName, setNewDisplayName] = useState('')
     const [newLanguage, setNewLanguage] = useState('en')
+    const [newTimezone, setNewTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
     const [newDescription, setNewDescription] = useState('')
-    const [newAiProvider, setNewAiProvider] = useState('')
-    const [newVibe, setNewVibe] = useState('')
     const [creating, setCreating] = useState(false)
-    const [userProviders, setUserProviders] = useState<{ provider: string; name: string }[]>([])
 
     // Debounced fetch with search
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -117,53 +108,30 @@ export default function AdminChannelsPage() {
         return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
     }, [search, fetchChannels])
 
-    // Fetch AI providers when wizard opens
-    useEffect(() => {
-        if (!showCreateDialog) return
-        const fetchProviders = async () => {
-            try {
-                const keysRes = await fetch('/api/user/api-keys')
-                if (keysRes.ok) {
-                    const keys = await keysRes.json()
-                    const providerNames: Record<string, string> = {
-                        openai: 'OpenAI', gemini: 'Google Gemini', anthropic: 'Anthropic',
-                        openrouter: 'OpenRouter', runware: 'Runware', synthetic: 'Synthetic',
-                    }
-                    setUserProviders(keys.map((k: { provider: string }) => ({
-                        provider: k.provider,
-                        name: providerNames[k.provider] || k.provider,
-                    })))
-                }
-            } catch { /* ignore */ }
-        }
-        fetchProviders()
-    }, [showCreateDialog])
-
-    const resetWizard = () => {
-        setWizardStep(1); setNewName(''); setNewDisplayName(''); setNewLanguage('en')
-        setNewDescription(''); setNewAiProvider(''); setNewVibe('')
+    const resetForm = () => {
+        setNewName(''); setNewDisplayName(''); setNewLanguage('en')
+        setNewTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+        setNewDescription('')
     }
 
     const handleCreate = async () => {
         if (!newName || !newDisplayName) return
         setCreating(true)
         try {
-            const vibeData = newVibe ? vibePresets.find(v => v.id === newVibe) : null
             const res = await fetch('/api/admin/channels', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: newName, displayName: newDisplayName, language: newLanguage,
+                    name: newName, displayName: newDisplayName,
+                    language: newLanguage, timezone: newTimezone,
                     description: newDescription || null,
-                    defaultAiProvider: newAiProvider || null,
-                    vibeTone: vibeData ? { style: vibeData.id, tone: vibeData.tone } : null,
                 }),
             })
             if (res.ok) {
                 const channel = await res.json()
                 toast.success(t('channels.created'))
                 setShowCreateDialog(false)
-                resetWizard()
+                resetForm()
                 router.push(`/dashboard/channels/${channel.id}`)
             } else {
                 const err = await res.json()
@@ -441,156 +409,87 @@ export default function AdminChannelsPage() {
                 </div>
             )}
 
-            <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetWizard() }}>
-                <DialogContent className="sm:max-w-[520px]">
+            <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetForm() }}>
+                <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
-                        <DialogDescription>
-                            Step {wizardStep} of 2 — {wizardStep === 1 ? 'Basic Info' : 'AI & Style (Optional)'}
-                        </DialogDescription>
+                        <DialogDescription>Set up your new channel with a name, language, and timezone.</DialogDescription>
                     </DialogHeader>
 
-                    {/* Wizard — visible to all users, backend enforces plan limits */}
-                    {(<>
-
-                        {/* Step Indicator */}
-                        <div className="flex items-center gap-2 py-2">
-                            {[1, 2].map((step) => (
-                                <div key={step} className="flex items-center gap-2 flex-1">
-                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${step < wizardStep ? 'bg-primary text-primary-foreground' : step === wizardStep ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted text-muted-foreground'}`}>
-                                        {step < wizardStep ? <Check className="h-4 w-4" /> : step}
-                                    </div>
-                                    {step < 2 && <div className={`h-0.5 flex-1 rounded ${step < wizardStep ? 'bg-primary' : 'bg-muted'}`} />}
-                                </div>
-                            ))}
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>{t('channels.displayName')}</Label>
+                            <Input
+                                placeholder="e.g. My Brand"
+                                value={newDisplayName}
+                                onChange={(e) => {
+                                    setNewDisplayName(e.target.value)
+                                    setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
+                                }}
+                                autoFocus
+                            />
+                            {newName && (
+                                <p className="text-xs text-muted-foreground font-mono">/{newName}</p>
+                            )}
                         </div>
-
-                        {/* Step 1: Basics */}
-                        {wizardStep === 1 && (
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>{t('channels.displayName')}</Label>
-                                    <Input
-                                        placeholder="e.g. My Brand"
-                                        value={newDisplayName}
-                                        onChange={(e) => {
-                                            setNewDisplayName(e.target.value)
-                                            setNewName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))
-                                        }}
-                                        autoFocus
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>{t('channels.slug')}</Label>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground text-sm">/</span>
-                                        <Input placeholder="my-brand" value={newName} readOnly className="font-mono text-sm bg-muted/50" />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Description</Label>
-                                    <Textarea placeholder="What is this channel about? (optional)" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={2} className="resize-none" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>{t('channels.language')}</Label>
-                                    <Select value={newLanguage} onValueChange={setNewLanguage}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="en">English</SelectItem>
-                                            <SelectItem value="vi">Vietnamese</SelectItem>
-                                            <SelectItem value="fr">French</SelectItem>
-                                            <SelectItem value="de">German</SelectItem>
-                                            <SelectItem value="ja">Japanese</SelectItem>
-                                            <SelectItem value="ko">Korean</SelectItem>
-                                            <SelectItem value="zh">Chinese</SelectItem>
-                                            <SelectItem value="es">Spanish</SelectItem>
-                                            <SelectItem value="pt">Portuguese</SelectItem>
-                                            <SelectItem value="th">Thai</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea placeholder="What is this channel about? (optional)" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={2} className="resize-none" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> {t('channels.language')}</Label>
+                                <Select value={newLanguage} onValueChange={setNewLanguage}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="en">English</SelectItem>
+                                        <SelectItem value="vi">Vietnamese</SelectItem>
+                                        <SelectItem value="fr">French</SelectItem>
+                                        <SelectItem value="de">German</SelectItem>
+                                        <SelectItem value="ja">Japanese</SelectItem>
+                                        <SelectItem value="ko">Korean</SelectItem>
+                                        <SelectItem value="zh">Chinese</SelectItem>
+                                        <SelectItem value="es">Spanish</SelectItem>
+                                        <SelectItem value="pt">Portuguese</SelectItem>
+                                        <SelectItem value="th">Thai</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        )}
-
-                        {/* Step 2: AI Provider + Vibe (combined, optional) */}
-                        {wizardStep === 2 && (
-                            <div className="space-y-5">
-                                {/* AI Provider Section */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="h-4 w-4 text-primary" />
-                                        <p className="text-sm font-medium">Default AI Provider</p>
-                                    </div>
-                                    {userProviders.length === 0 ? (
-                                        <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-3 text-center space-y-1">
-                                            <p className="text-sm text-orange-400">No AI providers configured yet</p>
-                                            <p className="text-xs text-muted-foreground">You can set up API keys later in Settings → AI API Keys</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {userProviders.map((p) => (
-                                                <button key={p.provider} type="button" onClick={() => setNewAiProvider(newAiProvider === p.provider ? '' : p.provider)}
-                                                    className={`p-2.5 rounded-lg border text-left text-sm transition-all cursor-pointer ${newAiProvider === p.provider ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
-                                                    <p className="font-medium">{p.name}</p>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">{p.provider}</p>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="border-t" />
-
-                                {/* Vibe Section */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <Palette className="h-4 w-4 text-primary" />
-                                        <p className="text-sm font-medium">Content Style</p>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {vibePresets.map((vibe) => (
-                                            <button key={vibe.id} type="button" onClick={() => setNewVibe(newVibe === vibe.id ? '' : vibe.id)}
-                                                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${newVibe === vibe.id ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
-                                                <p className="text-sm font-medium">{vibe.label}</p>
-                                                <p className="text-xs text-muted-foreground mt-0.5">{vibe.tone}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <p className="text-xs text-muted-foreground">Both are optional — you can configure these later in channel settings.</p>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Timezone</Label>
+                                <Select value={newTimezone} onValueChange={setNewTimezone}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="America/New_York">🇺🇸 Eastern (ET)</SelectItem>
+                                        <SelectItem value="America/Chicago">🇺🇸 Central (CT)</SelectItem>
+                                        <SelectItem value="America/Denver">🇺🇸 Mountain (MT)</SelectItem>
+                                        <SelectItem value="America/Los_Angeles">🇺🇸 Pacific (PT)</SelectItem>
+                                        <SelectItem value="Europe/London">🇬🇧 London (GMT)</SelectItem>
+                                        <SelectItem value="Europe/Paris">🇫🇷 Paris (CET)</SelectItem>
+                                        <SelectItem value="Europe/Berlin">🇩🇪 Berlin (CET)</SelectItem>
+                                        <SelectItem value="Asia/Tokyo">🇯🇵 Tokyo (JST)</SelectItem>
+                                        <SelectItem value="Asia/Seoul">🇰🇷 Seoul (KST)</SelectItem>
+                                        <SelectItem value="Asia/Shanghai">🇨🇳 Shanghai (CST)</SelectItem>
+                                        <SelectItem value="Asia/Ho_Chi_Minh">🇻🇳 Ho Chi Minh (ICT)</SelectItem>
+                                        <SelectItem value="Asia/Bangkok">🇹🇭 Bangkok (ICT)</SelectItem>
+                                        <SelectItem value="Asia/Singapore">🇸🇬 Singapore (SGT)</SelectItem>
+                                        <SelectItem value="Australia/Sydney">🇦🇺 Sydney (AEST)</SelectItem>
+                                        <SelectItem value="Pacific/Auckland">🇳🇿 Auckland (NZST)</SelectItem>
+                                        <SelectItem value="America/Sao_Paulo">🇧🇷 São Paulo (BRT)</SelectItem>
+                                        <SelectItem value="Asia/Dubai">🇦🇪 Dubai (GST)</SelectItem>
+                                        <SelectItem value="Asia/Kolkata">🇮🇳 Mumbai (IST)</SelectItem>
+                                        <SelectItem value="UTC">🌐 UTC</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        )}
+                        </div>
+                    </div>
 
-                        <DialogFooter className="flex !justify-between">
-                            <div>
-                                {wizardStep > 1 && (
-                                    <Button variant="ghost" onClick={() => setWizardStep(wizardStep - 1)} className="gap-1 cursor-pointer">
-                                        <ChevronLeft className="h-4 w-4" /> Back
-                                    </Button>
-                                )}
-                            </div>
-                            <div className="flex gap-2">
-                                {wizardStep === 1 ? (
-                                    <Button onClick={() => setWizardStep(2)} disabled={!newName || !newDisplayName} className="gap-1 cursor-pointer">
-                                        Next <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <>
-                                        {/* Skip & Create — creates without AI/vibe */}
-                                        {!newAiProvider && !newVibe && (
-                                            <Button variant="outline" onClick={() => { setNewAiProvider(''); setNewVibe(''); handleCreate() }} disabled={creating} className="gap-1 cursor-pointer">
-                                                {creating ? 'Creating...' : 'Skip & Create'}
-                                            </Button>
-                                        )}
-                                        <Button onClick={handleCreate} disabled={creating} className="gap-1 cursor-pointer">
-                                            {creating ? 'Creating...' : <><Check className="h-4 w-4" /> Create Channel</>}
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </DialogFooter>
-                    </>)}
+                    <DialogFooter>
+                        <Button onClick={handleCreate} disabled={creating || !newName || !newDisplayName} className="gap-1 cursor-pointer w-full">
+                            {creating ? 'Creating...' : <><Check className="h-4 w-4" /> Create Channel</>}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

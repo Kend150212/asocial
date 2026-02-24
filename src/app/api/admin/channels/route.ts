@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, displayName, language, description, defaultAiProvider, vibeTone } = body
+    const { name, displayName, language, timezone, description, defaultAiProvider, vibeTone } = body
 
     // ─── Permission check: any user with a plan can create channels ──────────
     // Admin users bypass plan check. Others must have an active subscription
@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
             name: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
             displayName,
             language: language || 'en',
+            timezone: timezone || 'UTC',
             ...(description && { description }),
             ...(defaultAiProvider && { defaultAiProvider }),
             ...(vibeTone && { vibeTone }),
