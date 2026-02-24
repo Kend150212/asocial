@@ -31,10 +31,12 @@ export function RecaptchaProvider({ children }: { children: React.ReactNode }) {
     const [ready, setReady] = useState(false)
 
     useEffect(() => {
-        // Fetch site key from branding/settings
+        // Fetch site key from API
+        console.log('[reCAPTCHA] Fetching site key...')
         fetch('/api/recaptcha-key')
             .then(r => r.json())
             .then(d => {
+                console.log('[reCAPTCHA] Response:', d)
                 if (d.siteKey) {
                     setSiteKey(d.siteKey)
                     // Load reCAPTCHA script
@@ -42,21 +44,38 @@ export function RecaptchaProvider({ children }: { children: React.ReactNode }) {
                     script.src = `https://www.google.com/recaptcha/api.js?render=${d.siteKey}`
                     script.async = true
                     script.onload = () => {
-                        // Wait for grecaptcha to be ready
-                        ; (window as any).grecaptcha?.ready(() => setReady(true))
+                        console.log('[reCAPTCHA] Script loaded, waiting for grecaptcha.ready...')
+                            // Wait for grecaptcha to be ready
+                            ; (window as any).grecaptcha?.ready(() => {
+                                console.log('[reCAPTCHA] Ready!')
+                                setReady(true)
+                            })
+                    }
+                    script.onerror = (err) => {
+                        console.error('[reCAPTCHA] Script load error:', err)
                     }
                     document.head.appendChild(script)
+                } else {
+                    console.log('[reCAPTCHA] No site key configured, skipping')
                 }
             })
-            .catch(() => { })
+            .catch((err) => {
+                console.error('[reCAPTCHA] Fetch error:', err)
+            })
     }, [])
 
     const getToken = useCallback(async (action: string): Promise<string | null> => {
-        if (!siteKey || !ready) return null
+        console.log('[reCAPTCHA] getToken called:', { action, siteKey: !!siteKey, ready })
+        if (!siteKey || !ready) {
+            console.warn('[reCAPTCHA] Not ready, returning null token')
+            return null
+        }
         try {
             const token = await (window as any).grecaptcha.execute(siteKey, { action })
+            console.log('[reCAPTCHA] Token obtained:', token?.substring(0, 20) + '...')
             return token
-        } catch {
+        } catch (err) {
+            console.error('[reCAPTCHA] Execute error:', err)
             return null
         }
     }, [siteKey, ready])
