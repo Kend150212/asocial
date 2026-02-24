@@ -389,6 +389,30 @@ async function publishToInstagram(
     return { externalId: publishData.id }
 }
 
+/** Instagram error code descriptions */
+const igErrorCodes: Record<string, string> = {
+    '2207001': 'Unknown Instagram error. Please try again.',
+    '2207002': 'The media could not be saved. Please try again.',
+    '2207003': 'Instagram rate limit reached. Please wait a few minutes and try again.',
+    '2207009': 'Instagram server error. Please try again later.',
+    '2207026': 'Instagram session expired. Please reconnect your Instagram account.',
+    '2207050': 'Video aspect ratio is not supported for this post type. Reels require 9:16 (vertical).',
+    '2207051': 'Video duration is invalid. Reels: 3s-90s. Stories: max 60s.',
+    '2207076': 'Media download failed — Instagram could not fetch your file. The URL may be inaccessible.',
+    '2207082': 'Media upload timed out — the file is too large or download was too slow.',
+    '2207085': 'Unsupported video format or aspect ratio. Use MP4 (H.264) with 9:16 for Reels, or 1:1/4:5/16:9 for Feed.',
+}
+
+/** Extract error code from Instagram error message */
+function getIgErrorDescription(statusMessage: string): string {
+    const codeMatch = statusMessage.match(/(\d{7})/)
+    if (codeMatch) {
+        const description = igErrorCodes[codeMatch[1]]
+        if (description) return description
+    }
+    return statusMessage
+}
+
 /** Wait for Instagram media container to finish processing (videos especially) */
 async function waitForIgContainer(accessToken: string, containerId: string, maxAttempts = 30) {
     for (let i = 0; i < maxAttempts; i++) {
@@ -397,13 +421,15 @@ async function waitForIgContainer(accessToken: string, containerId: string, maxA
         console.log(`[Instagram] Container ${containerId} status: ${data.status_code || 'IN_PROGRESS'} (attempt ${i + 1}/${maxAttempts})`)
         if (data.status_code === 'FINISHED') return
         if (data.status_code === 'ERROR') {
-            const detail = data.status || 'Unknown error'
-            console.error(`[Instagram] Container processing ERROR: ${detail}`)
-            throw new Error(`Instagram processing failed: ${detail}`)
+            const rawDetail = data.status || 'Unknown error'
+            const friendlyDetail = getIgErrorDescription(rawDetail)
+            console.error(`[Instagram] Container processing ERROR: ${rawDetail}`)
+            console.error(`[Instagram] → ${friendlyDetail}`)
+            throw new Error(`Instagram: ${friendlyDetail}`)
         }
         await new Promise(resolve => setTimeout(resolve, 2000)) // wait 2s
     }
-    throw new Error('Instagram container processing timed out (60s). Video may be too large or in unsupported format.')
+    throw new Error('Instagram: Video processing timed out (60s). Your video may be too large or in an unsupported format. Try using MP4 (H.264) under 100MB.')
 }
 
 // ─── YouTube token refresh ──────────────────────────────────────────

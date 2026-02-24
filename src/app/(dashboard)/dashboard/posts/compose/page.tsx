@@ -818,21 +818,44 @@ export default function ComposePage() {
             }
         }
 
-        // Post type specific checks
+        // ─── Aspect ratio validation ─────────────────────────
         if (igPostType === 'reel') {
-            if (!hasVideo) errors.push('Reels require a video. Please attach an MP4 video file.')
-            if (attachedMedia.length > 1) warnings.push('Reels only use the first video — extra media will be ignored.')
+            if (!hasVideo) {
+                errors.push('Reels require a video. Please attach an MP4 video file.')
+            }
+            if (mediaRatio === '16:9') {
+                errors.push('Reels require vertical video (9:16). Your video is 16:9 (landscape) — please change aspect ratio to 9:16 or switch to Feed post type.')
+            }
+            if (mediaRatio === '1:1') {
+                warnings.push('Reels work best with 9:16 (vertical). Square (1:1) is supported but not ideal.')
+            }
+            if (attachedMedia.length > 1) {
+                warnings.push('Reels only use the first video — extra media will be ignored.')
+            }
         } else if (igPostType === 'story') {
-            if (attachedMedia.length > 1) warnings.push('Story only uses the first media item.')
+            if (mediaRatio === '16:9') {
+                errors.push('Stories require vertical media (9:16). Your media is 16:9 (landscape) — please change aspect ratio to 9:16.')
+            }
+            if (mediaRatio === '1:1') {
+                warnings.push('Stories work best with 9:16 (vertical). Square (1:1) will have black bars.')
+            }
+            if (attachedMedia.length > 1) {
+                warnings.push('Story only uses the first media item.')
+            }
         } else {
             // Feed post
             if (hasVideo && attachedMedia.length === 1) {
-                warnings.push('Single videos on feed are automatically posted as Reels.')
+                if (mediaRatio === '16:9') {
+                    errors.push('Instagram feed videos are posted as Reels, which require vertical (9:16) or square (1:1). Your video is 16:9 (landscape) — this will be rejected. Please change aspect ratio or use a different video.')
+                } else {
+                    warnings.push('Single videos on feed are automatically posted as Reels.')
+                }
             }
+            // Feed images support 1:1, 4:5, 1.91:1 (16:9-ish)
         }
 
         return { errors, warnings }
-    }, [attachedMedia, igPostType, selectedChannel, selectedPlatformIds])
+    }, [attachedMedia, igPostType, mediaRatio, selectedChannel, selectedPlatformIds])
 
     // Toggle platform by unique ID
     const togglePlatform = (platformId: string) => {
