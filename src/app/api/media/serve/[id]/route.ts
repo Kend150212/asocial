@@ -29,7 +29,7 @@ export async function GET(
 
         // Determine the source URL to download from
         let sourceUrl = media.url
-        if (media.storageFileId && sourceUrl.includes('googleusercontent.com')) {
+        if (media.storageFileId) {
             sourceUrl = `https://drive.google.com/uc?export=download&id=${media.storageFileId}`
         }
 

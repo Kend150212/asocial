@@ -1446,9 +1446,9 @@ export async function POST(
     const mediaItems: MediaInfo[] = post.media.map((m) => {
         let url = m.mediaItem.url
         if (url.startsWith('http://') || url.startsWith('https://')) {
-            // For Google Drive: use our proxy endpoint instead of direct Drive URLs
+            // For Google Drive files: use our proxy endpoint instead of direct Drive URLs
             // Instagram/Facebook APIs cannot download from Google Drive (redirects, virus scan, etc.)
-            if (m.mediaItem.storageFileId && url.includes('googleusercontent.com')) {
+            if (m.mediaItem.storageFileId) {
                 url = `${baseUrl}/api/media/serve/${m.mediaItem.id}`
                 console.log(`[Publish] 🔄 Using proxy URL for ${m.mediaItem.originalName || m.mediaItem.id} (Google Drive → Neeflow proxy)`)
             }
