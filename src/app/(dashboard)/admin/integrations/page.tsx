@@ -1117,7 +1117,7 @@ function IntegrationCard({
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
     const isStripe = integration.provider === 'stripe'
-    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads', 'gbp'].includes(integration.provider)
+    const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads', 'gbp', 'zalo'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
     const imageModels = providerModels.filter((m) => m.type === 'image')
     const videoModels = providerModels.filter((m) => m.type === 'video')
@@ -1505,6 +1505,7 @@ function IntegrationCard({
                                     pinterest: 'Pinterest App ID',
                                     threads: 'Threads App ID',
                                     gbp: 'Google Client ID',
+                                    zalo: 'Zalo App ID',
                                 }[integration.provider] || 'Client ID'}
                             </Label>
                             <Input
@@ -1524,6 +1525,7 @@ function IntegrationCard({
                                     pinterest: 'Pinterest App Secret',
                                     threads: 'Threads App Secret',
                                     gbp: 'Google Client Secret',
+                                    zalo: 'Zalo Secret Key',
                                 }[integration.provider] || 'Client Secret'}
                             </Label>
                             <div className="relative">
@@ -1556,6 +1558,7 @@ function IntegrationCard({
                                     pinterest: 'Go to developers.pinterest.com → Create App. Request access to "pins:read", "pins:write", "boards:read", "boards:write" scopes. Add your redirect URI under App settings.',
                                     threads: 'Go to developers.facebook.com → Create App (Business type) → Add "Threads API" product → In Threads API Settings add Redirect URI: {YOUR_DOMAIN}/api/oauth/threads/callback. Copy App ID and App Secret from App Settings → Basic.',
                                     canva: 'Configure OAuth credentials for this platform.',
+                                    zalo: 'Vào developers.zalo.me → tạo ứng dụng → copy App ID và Secret Key. Thêm callback URL: {YOUR_DOMAIN}/api/oauth/zalo/callback. Sau đó vào Channel Settings để kết nối OA.',
                                 }[integration.provider] || 'Configure OAuth credentials for this platform.'}
                             </p>
                         </div>
