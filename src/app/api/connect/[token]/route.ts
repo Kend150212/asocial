@@ -5,10 +5,12 @@ import { prisma } from '@/lib/prisma'
 // Public endpoint — no auth required. Returns link+channel info for the connect page.
 export async function GET(
     req: NextRequest,
-    { params }: { params: { token: string } }
+    { params }: { params: Promise<{ token: string }> }
 ) {
+    const { token } = await params
+
     const link = await prisma.easyConnectLink.findUnique({
-        where: { token: params.token },
+        where: { token },
         include: {
             channel: {
                 select: { id: true, displayName: true, description: true },

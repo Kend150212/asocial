@@ -5,12 +5,14 @@ import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 
 // GET /api/admin/channels/[id]/easy-connect
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const { id } = await params
+
     const links = await prisma.easyConnectLink.findMany({
-        where: { channelId: params.id },
+        where: { channelId: id },
         orderBy: { createdAt: 'desc' },
         select: {
             id: true,
@@ -27,10 +29,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // POST /api/admin/channels/[id]/easy-connect
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const { id } = await params
     const { title, password, expiresAt } = await req.json()
     if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
@@ -39,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const link = await prisma.easyConnectLink.create({
         data: {
-            channelId: params.id,
+            channelId: id,
             title: title.trim(),
             token,
             passwordHash,

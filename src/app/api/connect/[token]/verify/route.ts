@@ -6,12 +6,13 @@ import bcrypt from 'bcryptjs'
 // Verifies the password for a password-protected EasyConnect link.
 export async function POST(
     req: NextRequest,
-    { params }: { params: { token: string } }
+    { params }: { params: Promise<{ token: string }> }
 ) {
+    const { token } = await params
     const { password } = await req.json()
 
     const link = await prisma.easyConnectLink.findUnique({
-        where: { token: params.token },
+        where: { token },
     })
 
     if (!link || !link.isEnabled) {
@@ -19,7 +20,6 @@ export async function POST(
     }
 
     if (!link.passwordHash) {
-        // No password set — always passes
         return NextResponse.json({ ok: true })
     }
 
