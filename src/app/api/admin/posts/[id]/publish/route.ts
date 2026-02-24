@@ -1442,17 +1442,18 @@ export async function POST(
     const pendingStatuses = post.platformStatuses.filter((ps) => ps.status === 'pending')
 
     // Build media info objects (URL + type) for platform APIs
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const mediaItems: MediaInfo[] = post.media.map((m) => {
         let url = m.mediaItem.url
-        // If URL is already absolute (starts with http), use as-is
         if (url.startsWith('http://') || url.startsWith('https://')) {
-            // For Google Drive: use drive.google.com/uc URL that external APIs can fetch
+            // For Google Drive: use our proxy endpoint instead of direct Drive URLs
+            // Instagram/Facebook APIs cannot download from Google Drive (redirects, virus scan, etc.)
             if (m.mediaItem.storageFileId && url.includes('googleusercontent.com')) {
-                url = `https://drive.google.com/uc?export=download&id=${m.mediaItem.storageFileId}`
+                url = `${baseUrl}/api/media/serve/${m.mediaItem.id}`
+                console.log(`[Publish] 🔄 Using proxy URL for ${m.mediaItem.originalName || m.mediaItem.id} (Google Drive → Neeflow proxy)`)
             }
         } else {
             // Legacy/local media — prefix with base URL
-            const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
             url = `${baseUrl}${url}`
         }
         return {
