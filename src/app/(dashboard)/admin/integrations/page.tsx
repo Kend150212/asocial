@@ -1587,8 +1587,8 @@ function IntegrationCard({
                             )
                         })()}
                     </div>
-                ) : (
-                    /* Standard API Key Input */
+                ) : isStripe ? null : (
+                    /* Standard API Key Input — hidden for Stripe (uses dedicated Secret Key above) */
                     <div className="space-y-2">
                         <Label className="text-xs font-medium">{t('integrations.apiKey')}</Label>
                         <div className="flex gap-1.5">
