@@ -166,7 +166,7 @@ export async function DELETE(
     })
 
     // 3. Delete the platform record itself
-    await prisma.channelPlatform.delete({ where: { id: platformId } })
+    await prisma.channelPlatform.deleteMany({ where: { id: platformId } })
 
     console.log(`[Platform Disconnect] ✅ Fully disconnected: ${platform.accountName} (${platform.platform})`)
     return NextResponse.json({ success: true })
