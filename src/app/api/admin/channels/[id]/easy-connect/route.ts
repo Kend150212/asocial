@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 
 // GET /api/admin/channels/[id]/easy-connect
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const links = await prisma.easyConnectLink.findMany({
@@ -20,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             isEnabled: true,
             expiresAt: true,
             createdAt: true,
-            passwordHash: false, // never expose
+            passwordHash: false,
         },
     })
 
@@ -29,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // POST /api/admin/channels/[id]/easy-connect
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { title, password, expiresAt } = await req.json()

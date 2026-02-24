@@ -2259,10 +2259,10 @@ export default function ChannelDetailPage({
                                 <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground">New EasyConnect Link</p>
                                     <Input
-                                        placeholder="Link title (e.g. \" For client Nike\")"
-                                    className="h-8 text-sm"
-                                    value={newLinkTitle}
-                                    onChange={e => setNewLinkTitle(e.target.value)}
+                                        placeholder='Link title (e.g. "For client Nike")'
+                                        className="h-8 text-sm"
+                                        value={newLinkTitle}
+                                        onChange={e => setNewLinkTitle(e.target.value)}
                                     />
                                     <Input
                                         type="password"
