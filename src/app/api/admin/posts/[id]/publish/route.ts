@@ -392,13 +392,18 @@ async function publishToInstagram(
 /** Wait for Instagram media container to finish processing (videos especially) */
 async function waitForIgContainer(accessToken: string, containerId: string, maxAttempts = 30) {
     for (let i = 0; i < maxAttempts; i++) {
-        const res = await fetch(`https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${accessToken}`)
+        const res = await fetch(`https://graph.facebook.com/v21.0/${containerId}?fields=status_code,status&access_token=${accessToken}`)
         const data = await res.json()
+        console.log(`[Instagram] Container ${containerId} status: ${data.status_code || 'IN_PROGRESS'} (attempt ${i + 1}/${maxAttempts})`)
         if (data.status_code === 'FINISHED') return
-        if (data.status_code === 'ERROR') throw new Error('Instagram container processing failed')
+        if (data.status_code === 'ERROR') {
+            const detail = data.status || 'Unknown error'
+            console.error(`[Instagram] Container processing ERROR: ${detail}`)
+            throw new Error(`Instagram processing failed: ${detail}`)
+        }
         await new Promise(resolve => setTimeout(resolve, 2000)) // wait 2s
     }
-    throw new Error('Instagram container processing timed out')
+    throw new Error('Instagram container processing timed out (60s). Video may be too large or in unsupported format.')
 }
 
 // ─── YouTube token refresh ──────────────────────────────────────────
