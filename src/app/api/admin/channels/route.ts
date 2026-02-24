@@ -122,30 +122,28 @@ export async function POST(req: NextRequest) {
             ...(defaultAiProvider && { defaultAiProvider }),
             ...(vibeTone && { vibeTone }),
             // Creator always becomes OWNER of the channel they create
-            ...(!isAdmin ? {
-                members: {
-                    create: {
-                        userId: session.user.id,
-                        role: 'OWNER',
-                        permission: {
-                            create: {
-                                canCreatePost: true,
-                                canEditPost: true,
-                                canDeletePost: true,
-                                canApprovePost: true,
-                                canSchedulePost: true,
-                                canUploadMedia: true,
-                                canDeleteMedia: true,
-                                canViewMedia: true,
-                                canCreateEmail: true,
-                                canManageContacts: true,
-                                canViewReports: true,
-                                canEditSettings: true,
-                            },
+            members: {
+                create: {
+                    userId: session.user.id,
+                    role: 'OWNER',
+                    permission: {
+                        create: {
+                            canCreatePost: true,
+                            canEditPost: true,
+                            canDeletePost: true,
+                            canApprovePost: true,
+                            canSchedulePost: true,
+                            canUploadMedia: true,
+                            canDeleteMedia: true,
+                            canViewMedia: true,
+                            canCreateEmail: true,
+                            canManageContacts: true,
+                            canViewReports: true,
+                            canEditSettings: true,
                         },
                     },
                 },
-            } : {}),
+            },
         },
         include: {
             _count: { select: { members: true, posts: true, knowledgeBase: true, platforms: true } },
