@@ -107,10 +107,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Name and display name are required' }, { status: 400 })
     }
 
-    // Check unique name
-    const existing = await prisma.channel.findUnique({ where: { name } })
-    if (existing) {
-        return NextResponse.json({ error: 'A channel with this name already exists' }, { status: 409 })
+    // Check unique name PER USER (different users can have same channel slug)
+    const existingOwned = await prisma.channel.findFirst({
+        where: {
+            name,
+            members: { some: { userId: session.user.id, role: 'OWNER' } },
+        },
+    })
+    if (existingOwned) {
+        return NextResponse.json({ error: 'You already have a channel with this name' }, { status: 409 })
     }
 
     const channel = await prisma.channel.create({

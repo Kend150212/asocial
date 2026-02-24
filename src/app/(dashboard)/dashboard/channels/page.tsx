@@ -441,13 +441,12 @@ export default function AdminChannelsPage() {
                 </div>
             )}
 
-            {/* Create Channel Dialog */}
             <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetWizard() }}>
                 <DialogContent className="sm:max-w-[520px]">
                     <DialogHeader>
                         <DialogTitle>{t('channels.addChannel')}</DialogTitle>
                         <DialogDescription>
-                            Step {wizardStep} of 3 — {wizardStep === 1 ? 'Basic Info' : wizardStep === 2 ? 'AI Configuration' : 'Vibe & Tone'}
+                            Step {wizardStep} of 2 — {wizardStep === 1 ? 'Basic Info' : 'AI & Style (Optional)'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -456,12 +455,12 @@ export default function AdminChannelsPage() {
 
                         {/* Step Indicator */}
                         <div className="flex items-center gap-2 py-2">
-                            {[1, 2, 3].map((step) => (
+                            {[1, 2].map((step) => (
                                 <div key={step} className="flex items-center gap-2 flex-1">
                                     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${step < wizardStep ? 'bg-primary text-primary-foreground' : step === wizardStep ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted text-muted-foreground'}`}>
                                         {step < wizardStep ? <Check className="h-4 w-4" /> : step}
                                     </div>
-                                    {step < 3 && <div className={`h-0.5 flex-1 rounded ${step < wizardStep ? 'bg-primary' : 'bg-muted'}`} />}
+                                    {step < 2 && <div className={`h-0.5 flex-1 rounded ${step < wizardStep ? 'bg-primary' : 'bg-muted'}`} />}
                                 </div>
                             ))}
                         </div>
@@ -513,50 +512,53 @@ export default function AdminChannelsPage() {
                             </div>
                         )}
 
-                        {/* Step 2: AI Configuration */}
+                        {/* Step 2: AI Provider + Vibe (combined, optional) */}
                         {wizardStep === 2 && (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium">Default AI Provider for this channel</p>
-                                </div>
-                                {userProviders.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-4 text-center space-y-2">
-                                        <p className="text-sm text-orange-400">No AI providers configured yet</p>
-                                        <p className="text-xs text-muted-foreground">You can set up API keys later in AI API Keys</p>
+                            <div className="space-y-5">
+                                {/* AI Provider Section */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4 text-primary" />
+                                        <p className="text-sm font-medium">Default AI Provider</p>
                                     </div>
-                                ) : (
+                                    {userProviders.length === 0 ? (
+                                        <div className="rounded-lg border border-dashed border-orange-500/30 bg-orange-500/5 p-3 text-center space-y-1">
+                                            <p className="text-sm text-orange-400">No AI providers configured yet</p>
+                                            <p className="text-xs text-muted-foreground">You can set up API keys later in Settings → AI API Keys</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {userProviders.map((p) => (
+                                                <button key={p.provider} type="button" onClick={() => setNewAiProvider(newAiProvider === p.provider ? '' : p.provider)}
+                                                    className={`p-2.5 rounded-lg border text-left text-sm transition-all cursor-pointer ${newAiProvider === p.provider ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+                                                    <p className="font-medium">{p.name}</p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">{p.provider}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="border-t" />
+
+                                {/* Vibe Section */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Palette className="h-4 w-4 text-primary" />
+                                        <p className="text-sm font-medium">Content Style</p>
+                                    </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {userProviders.map((p) => (
-                                            <button key={p.provider} type="button" onClick={() => setNewAiProvider(newAiProvider === p.provider ? '' : p.provider)}
-                                                className={`p-3 rounded-lg border text-left text-sm transition-all cursor-pointer ${newAiProvider === p.provider ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
-                                                <p className="font-medium">{p.name}</p>
-                                                <p className="text-xs text-muted-foreground mt-0.5">{p.provider}</p>
+                                        {vibePresets.map((vibe) => (
+                                            <button key={vibe.id} type="button" onClick={() => setNewVibe(newVibe === vibe.id ? '' : vibe.id)}
+                                                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${newVibe === vibe.id ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
+                                                <p className="text-sm font-medium">{vibe.label}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">{vibe.tone}</p>
                                             </button>
                                         ))}
                                     </div>
-                                )}
-                                <p className="text-xs text-muted-foreground">Optional — you can change this later in channel settings</p>
-                            </div>
-                        )}
+                                </div>
 
-                        {/* Step 3: Vibe & Tone */}
-                        {wizardStep === 3 && (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2">
-                                    <Palette className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium">Choose a content style</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {vibePresets.map((vibe) => (
-                                        <button key={vibe.id} type="button" onClick={() => setNewVibe(newVibe === vibe.id ? '' : vibe.id)}
-                                            className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${newVibe === vibe.id ? 'border-primary bg-primary/10 ring-1 ring-primary/30' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}>
-                                            <p className="text-sm font-medium">{vibe.label}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{vibe.tone}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-muted-foreground">Optional — defines AI writing style for this channel</p>
+                                <p className="text-xs text-muted-foreground">Both are optional — you can configure these later in channel settings.</p>
                             </div>
                         )}
 
@@ -569,14 +571,22 @@ export default function AdminChannelsPage() {
                                 )}
                             </div>
                             <div className="flex gap-2">
-                                {wizardStep < 3 ? (
-                                    <Button onClick={() => setWizardStep(wizardStep + 1)} disabled={wizardStep === 1 && (!newName || !newDisplayName)} className="gap-1 cursor-pointer">
+                                {wizardStep === 1 ? (
+                                    <Button onClick={() => setWizardStep(2)} disabled={!newName || !newDisplayName} className="gap-1 cursor-pointer">
                                         Next <ChevronRight className="h-4 w-4" />
                                     </Button>
                                 ) : (
-                                    <Button onClick={handleCreate} disabled={creating} className="gap-1 cursor-pointer">
-                                        {creating ? 'Creating...' : <><Check className="h-4 w-4" /> Create Channel</>}
-                                    </Button>
+                                    <>
+                                        {/* Skip & Create — creates without AI/vibe */}
+                                        {!newAiProvider && !newVibe && (
+                                            <Button variant="outline" onClick={() => { setNewAiProvider(''); setNewVibe(''); handleCreate() }} disabled={creating} className="gap-1 cursor-pointer">
+                                                {creating ? 'Creating...' : 'Skip & Create'}
+                                            </Button>
+                                        )}
+                                        <Button onClick={handleCreate} disabled={creating} className="gap-1 cursor-pointer">
+                                            {creating ? 'Creating...' : <><Check className="h-4 w-4" /> Create Channel</>}
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </DialogFooter>
