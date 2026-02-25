@@ -400,7 +400,7 @@ const igErrorCodes: Record<string, string> = {
     '2207051': 'Video duration is invalid. Reels: 3s-90s. Stories: max 60s.',
     '2207076': 'Media download failed — Instagram could not fetch your file. The URL may be inaccessible.',
     '2207082': 'Media upload timed out — the file is too large or download was too slow.',
-    '2207085': 'Unsupported video format or aspect ratio. Use MP4 (H.264) with 9:16 for Reels, or 1:1/4:5/16:9 for Feed.',
+    '2207085': 'Unsupported video format or aspect ratio. Use MP4/MOV (H.264) with 9:16 for Reels, or 1:1/4:5/16:9 for Feed.',
 }
 
 /** Extract error code from Instagram error message */

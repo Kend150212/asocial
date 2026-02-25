@@ -808,12 +808,12 @@ export default function ComposePage() {
             if (bad) {
                 errors.push(`"${media.originalName || 'File'}" is ${bad.replace('.', '').toUpperCase()} format — Instagram only supports JPEG and PNG.`)
             }
-            // Warn about non-MP4 video formats
+            // Warn about unsupported video formats (Instagram supports MP4 and MOV with H.264)
             if (isVideo(media)) {
-                const nonMp4Formats = ['.mov', '.avi', '.mkv', '.wmv', '.webm', '.flv', '.3gp']
-                const videoFmt = nonMp4Formats.find(fmt => name.endsWith(fmt))
+                const unsupportedVideoFmts = ['.avi', '.mkv', '.wmv', '.webm', '.flv', '.3gp']
+                const videoFmt = unsupportedVideoFmts.find(fmt => name.endsWith(fmt))
                 if (videoFmt) {
-                    warnings.push(`"${media.originalName || 'Video'}" is ${videoFmt.replace('.', '').toUpperCase()} format — Instagram recommends MP4 (H.264). This may cause upload failures.`)
+                    warnings.push(`"${media.originalName || 'Video'}" is ${videoFmt.replace('.', '').toUpperCase()} format — Instagram only supports MP4 or MOV (H.264). This may cause upload failures.`)
                 }
             }
         }
