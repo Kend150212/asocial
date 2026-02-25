@@ -750,7 +750,7 @@ export default function UserApiKeysPage() {
                 </Badge>
             </div>
 
-            {/* ─── Google Drive Storage Section ─── */}
+            {/* ─── Google Drive (Import) Section ─── */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <HardDrive className="h-5 w-5" />
@@ -817,7 +817,7 @@ export default function UserApiKeysPage() {
                                     </Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Media files are auto-organized into monthly folders (e.g. 2026-02/) inside your Drive.
+                                    Connect Google Drive to import files from your Drive. All new uploads are stored on Cloudflare R2.
                                 </p>
                             </div>
                         ) : (

@@ -52,7 +52,7 @@ import {
     Maximize2,
     ChevronLeft,
 } from 'lucide-react'
-import { GDriveGuard } from '@/components/gdrive-guard'
+
 
 /* ─── Types ─── */
 interface MediaItem {
@@ -525,8 +525,7 @@ export default function MediaLibraryPage() {
                 </div>
             )}
 
-            {/* ─── GDrive Guard — shown if Google Drive is not set up ─── */}
-            <GDriveGuard />
+
             {/* ─── Header ─── */}
             <div className="border-b bg-card px-6 py-4">
                 <div className="flex items-center justify-between mb-3">
