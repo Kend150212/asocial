@@ -42,9 +42,9 @@ async function getR2Config(): Promise<R2Config> {
     }
 
     const config = (integration.config || {}) as Record<string, string>
-    const accountId = config.r2AccountId
-    const bucketName = config.r2BucketName
-    let publicUrl = config.r2PublicUrl || ''
+    const accountId = (config.r2AccountId || '').trim()
+    const bucketName = (config.r2BucketName || '').trim()
+    let publicUrl = (config.r2PublicUrl || '').trim()
 
     // Ensure public URL has protocol
     if (publicUrl && !publicUrl.startsWith('http')) {
