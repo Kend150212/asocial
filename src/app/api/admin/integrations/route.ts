@@ -61,10 +61,15 @@ export async function PUT(req: NextRequest) {
 
     // Merge config — never overwrite existing config, always merge
     if (config !== undefined) {
-        updateData.config = {
+        const mergedConfig = {
             ...existingConfig,
             ...config,
         }
+        // Encrypt R2 Secret Access Key if present
+        if (config.r2SecretAccessKey) {
+            mergedConfig.r2SecretAccessKey = encrypt(config.r2SecretAccessKey)
+        }
+        updateData.config = mergedConfig
     }
 
     // Store default models in config (merge with existing)

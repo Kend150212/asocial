@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getGDriveAccessToken, getUserGDriveAccessToken, uploadFile, makeFilePublic, getOrCreateChannelFolder, getOrCreateMonthlyFolder } from '@/lib/gdrive'
+import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
 import { randomUUID } from 'crypto'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -17,16 +18,20 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Generate a video thumbnail using ffmpeg.
- * Extracts a frame at 1s, uploads to Google Drive, returns public URL.
- * Falls back to Drive thumbnail URL if ffmpeg is not available.
+ * Extracts a frame at 1s and uploads to R2 or Google Drive.
  */
 async function generateVideoThumbnail(
     videoBuffer: Buffer,
-    accessToken: string,
-    parentFolderId: string,
-    videoFileId: string,
+    channelId: string,
+    videoKey: string,
+    useR2: boolean,
+    accessToken?: string,
+    parentFolderId?: string,
+    videoFileId?: string,
 ): Promise<string> {
-    const fallbackUrl = `https://drive.google.com/thumbnail?id=${videoFileId}&sz=w400`
+    const fallbackUrl = videoFileId
+        ? `https://drive.google.com/thumbnail?id=${videoFileId}&sz=w400`
+        : ''
 
     try {
         const id = randomUUID().slice(0, 8)
@@ -49,19 +54,26 @@ async function generateVideoThumbnail(
         await unlink(tmpVideo).catch(() => { })
         await unlink(tmpThumb).catch(() => { })
 
-        // Upload thumbnail to Google Drive
-        const thumbName = `thumb_${videoFileId}.jpg`
-        const thumbFile = await uploadFile(
-            accessToken,
-            thumbName,
-            'image/jpeg',
-            thumbBuffer,
-            parentFolderId,
-        )
+        if (useR2) {
+            // Upload thumbnail to R2
+            const thumbKey = videoKey.replace(/\.[^.]+$/, '_thumb.jpg')
+            const thumbUrl = await uploadToR2(thumbBuffer, thumbKey, 'image/jpeg')
+            return thumbUrl
+        } else if (accessToken && parentFolderId) {
+            // Upload thumbnail to Google Drive (legacy)
+            const thumbName = `thumb_${videoFileId}.jpg`
+            const thumbFile = await uploadFile(
+                accessToken,
+                thumbName,
+                'image/jpeg',
+                thumbBuffer,
+                parentFolderId,
+            )
+            const publicUrl = await makeFilePublic(accessToken, thumbFile.id, 'image/jpeg')
+            return publicUrl
+        }
 
-        // Make thumbnail public
-        const publicUrl = await makeFilePublic(accessToken, thumbFile.id, 'image/jpeg')
-        return publicUrl
+        return fallbackUrl
     } catch (err) {
         console.warn('ffmpeg thumbnail generation failed, using fallback:', err)
         return fallbackUrl
@@ -126,7 +138,7 @@ export async function GET(req: NextRequest) {
     })
 }
 
-// POST /api/admin/media — upload image/video to Google Drive
+// POST /api/admin/media — upload image/video to R2 (falls back to Google Drive)
 export async function POST(req: NextRequest) {
     const session = await auth()
     if (!session?.user) {
@@ -169,78 +181,107 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'File too large (max 50MB)' }, { status: 400 })
     }
 
+    // Read file into buffer
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    const fileType = file.type.startsWith('video/') ? 'video' : 'image'
+
+    // ─── Try R2 first ────────────────────────────────────────────────
+    const useR2 = await isR2Configured()
+
+    if (useR2) {
+        try {
+            // Generate R2 key: media/{channelId}/{YYYY-MM}/{uniqueId}.{ext}
+            const r2Key = generateR2Key(channelId, file.name)
+            const publicUrl = await uploadToR2(buffer, r2Key, file.type)
+
+            // Generate thumbnail
+            let thumbnailUrl = ''
+            if (fileType === 'image') {
+                thumbnailUrl = publicUrl // Images are their own thumbnail
+            } else {
+                thumbnailUrl = await generateVideoThumbnail(
+                    buffer, channelId, r2Key, true,
+                )
+            }
+
+            // Save to database
+            const mediaItem = await prisma.mediaItem.create({
+                data: {
+                    channelId,
+                    url: publicUrl,
+                    thumbnailUrl: thumbnailUrl || publicUrl,
+                    storageFileId: r2Key, // R2 object key
+                    type: fileType,
+                    source: 'upload',
+                    originalName: file.name,
+                    fileSize: file.size,
+                    mimeType: file.type,
+                    ...(mediaFolderId ? { folderId: mediaFolderId } : {}),
+                    aiMetadata: {
+                        storage: 'r2',
+                        r2Key,
+                    },
+                },
+            })
+
+            return NextResponse.json(mediaItem, { status: 201 })
+        } catch (error) {
+            console.error('R2 upload failed:', error)
+            return NextResponse.json(
+                { error: error instanceof Error ? error.message : 'R2 upload failed' },
+                { status: 500 }
+            )
+        }
+    }
+
+    // ─── Fallback: Google Drive ──────────────────────────────────────
     try {
         let accessToken: string
         let targetFolderId: string
 
-        // Check if user has their own Google Drive connected
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
             select: { gdriveRefreshToken: true, gdriveFolderId: true, role: true },
         })
 
         if (user?.gdriveRefreshToken && user?.gdriveFolderId) {
-            // ─── User's own Google Drive — NO quota limit ──────────────────────
             accessToken = await getUserGDriveAccessToken(session.user.id)
-
-            // Get channel name for subfolder
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
                 select: { name: true, displayName: true },
             })
             const channelName = channel?.displayName || channel?.name || 'General'
-
-            // Folder structure: App - User → Channel Name → YYYY-MM
             const channelFolder = await getOrCreateChannelFolder(accessToken, user.gdriveFolderId, channelName)
             const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, channelFolder.id)
             targetFolderId = monthlyFolder.id
-            console.log('Media upload: using USER GDrive, root:', user.gdriveFolderId, '→ channel:', channelFolder.id, '→ monthly:', monthlyFolder.id)
         } else if (user?.role === 'ADMIN') {
-            // ─── Admin fallback: use shared GDrive if admin hasn't set up own ──
             accessToken = await getGDriveAccessToken()
-
-            const integration = await prisma.apiIntegration.findFirst({
-                where: { provider: 'gdrive' },
-            })
-
+            const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'gdrive' } })
             const gdriveConfig = (integration?.config || {}) as Record<string, string>
             const parentFolderId = gdriveConfig.parentFolderId
-
             if (!parentFolderId) {
                 return NextResponse.json(
-                    { error: 'Google Drive parent folder not configured. Go to API Hub → Google Drive → Create Folder first.' },
+                    { error: 'No storage configured. Set up Cloudflare R2 (recommended) or Google Drive in API Hub.' },
                     { status: 400 }
                 )
             }
-
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
                 select: { name: true, displayName: true },
             })
-
             if (!channel) {
                 return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
             }
-
-            const channelFolder = await getOrCreateChannelFolder(
-                accessToken,
-                parentFolderId,
-                channel.displayName || channel.name,
-            )
+            const channelFolder = await getOrCreateChannelFolder(accessToken, parentFolderId, channel.displayName || channel.name)
             targetFolderId = channelFolder.id
-            console.log('Media upload: ADMIN using shared GDrive, folder:', parentFolderId, '→ channel:', channelFolder.id)
         } else {
-            // ─── Regular user without own GDrive — block ──────────────────────
             return NextResponse.json(
-                {
-                    error: 'You need to connect your Google Drive before uploading media. Set it up at /dashboard/api-keys.',
-                    code: 'GDRIVE_NOT_CONNECTED',
-                },
+                { error: 'No storage configured. Ask your admin to set up Cloudflare R2 in API Hub.', code: 'STORAGE_NOT_CONFIGURED' },
                 { status: 403 }
             )
         }
 
-        // Generate filename with date suffix: "image 1 - 02-17-2026.jpg"
         const ext = file.name.split('.').pop() || 'jpg'
         const now = new Date()
         const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
@@ -248,37 +289,18 @@ export async function POST(req: NextRequest) {
         const shortId = randomUUID().slice(0, 6)
         const uniqueName = `${prefix} ${shortId} - ${dateStr}.${ext}`
 
-        // Read file into buffer
-        const bytes = await file.arrayBuffer()
-        const buffer = Buffer.from(bytes)
-
-        // Upload to Google Drive
-        const driveFile = await uploadFile(
-            accessToken,
-            uniqueName,
-            file.type,
-            buffer,
-            targetFolderId,
-        )
-
-        // Make file publicly accessible (needed for platform publishing)
+        const driveFile = await uploadFile(accessToken, uniqueName, file.type, buffer, targetFolderId)
         const publicUrl = await makeFilePublic(accessToken, driveFile.id, file.type)
 
-        // Determine type
-        const fileType = file.type.startsWith('video/') ? 'video' : 'image'
-
-        // Build thumbnail URL
         let thumbnailUrl: string
         if (fileType === 'image') {
             thumbnailUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
         } else {
-            // For videos: try to generate thumbnail with ffmpeg
             thumbnailUrl = await generateVideoThumbnail(
-                buffer, accessToken, targetFolderId, driveFile.id
+                buffer, channelId, '', false, accessToken, targetFolderId, driveFile.id,
             )
         }
 
-        // Save to database with Google Drive URL
         const mediaItem = await prisma.mediaItem.create({
             data: {
                 channelId,
@@ -292,6 +314,7 @@ export async function POST(req: NextRequest) {
                 mimeType: file.type,
                 ...(mediaFolderId ? { folderId: mediaFolderId } : {}),
                 aiMetadata: {
+                    storage: 'gdrive',
                     gdriveFolderId: targetFolderId,
                     webViewLink: driveFile.webViewLink,
                 },
@@ -301,15 +324,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(mediaItem, { status: 201 })
     } catch (error) {
         const errMsg = error instanceof Error ? error.message : 'Upload failed'
-
-        // If Google Drive is not connected, provide helpful message
         if (errMsg.includes('not found') || errMsg.includes('not connected')) {
             return NextResponse.json(
-                { error: 'Google Drive not connected. Go to API Hub → Google Drive to set up.' },
+                { error: 'No storage configured. Set up Cloudflare R2 (recommended) or Google Drive in API Hub.' },
                 { status: 400 }
             )
         }
-
         return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 }

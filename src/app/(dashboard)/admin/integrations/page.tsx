@@ -103,6 +103,7 @@ const providerColors: Record<string, string> = {
     synthetic: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     robolly: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
     gdrive: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    r2: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     smtp: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     canva: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
     stripe: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
@@ -127,6 +128,7 @@ const providerGuideUrls: Record<string, string> = {
     synthetic: 'https://synthetic.new/api-keys',
     robolly: 'https://robolly.com/dashboard/',
     gdrive: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
+    r2: 'https://dash.cloudflare.com/?to=/:account/r2/overview',
     smtp: 'https://myaccount.google.com/apppasswords',
     canva: 'https://www.canva.com/developers/',
     stripe: 'https://dashboard.stripe.com/apikeys',
@@ -430,6 +432,28 @@ const platformGuides: Record<string, PlatformGuide> = {
         url: 'https://developers.zalo.me/',
         urlLabel: 'Open Zalo Developer Portal',
     },
+    r2: {
+        title: '☁️ Cloudflare R2 Storage Setup Guide / Hướng Dẫn Cài Đặt Cloudflare R2',
+        description: 'Store media files on Cloudflare R2 for fast, direct access. No proxy needed — platforms download directly.\nLưu trữ media trên Cloudflare R2, tải trực tiếp và nhanh. Không cần proxy.',
+        steps: [
+            { title: 'Step 1: Create Cloudflare Account / Tạo tài khoản Cloudflare', detail: 'Go to dash.cloudflare.com → Sign up (free) or sign in.\n\nVào dash.cloudflare.com → Đăng ký (miễn phí) hoặc đăng nhập.' },
+            { title: 'Step 2: Create R2 Bucket / Tạo R2 Bucket', detail: 'In sidebar → R2 Object Storage → "Create bucket".\nBucket name: e.g. `neeflow-media` (lowercase, no spaces).\nLocation: Auto or choose nearest region.\n\nMenu bên trái → R2 Object Storage → "Create bucket".\nTên bucket: ví dụ `neeflow-media` (chữ thường, không dấu cách).\nVị trí: Auto hoặc chọn vùng gần nhất.' },
+            { title: 'Step 3: Enable Public Access / Bật Public Access', detail: 'In your bucket → Settings → "Public Access".\nOption A: Enable "R2.dev subdomain" → you get a URL like `pub-xxxx.r2.dev`\nOption B: Add "Custom Domain" (e.g. `media.yoursite.com`) → recommended for production.\n\nTrong bucket → Settings → "Public Access".\nCách A: Bật "R2.dev subdomain" → URL dạng `pub-xxxx.r2.dev`\nCách B: Thêm "Custom Domain" (ví dụ `media.yoursite.com`) → khuyến nghị cho production.' },
+            { title: 'Step 4: Create API Token / Tạo API Token', detail: 'Go to R2 Overview → "Manage R2 API Tokens" → "Create API Token".\nPermissions: "Object Read & Write" → select your bucket.\nCopy "Access Key ID" and "Secret Access Key".\n\nVào R2 Overview → "Manage R2 API Tokens" → "Create API Token".\nQuyền: "Object Read & Write" → chọn bucket.\nCopy "Access Key ID" và "Secret Access Key".' },
+            { title: 'Step 5: Get Account ID / Lấy Account ID', detail: 'In Cloudflare Dashboard → right sidebar or URL bar → copy your Account ID (32-char hex).\n\nTrong Cloudflare Dashboard → thanh bên phải hoặc URL → copy Account ID (32 ký tự hex).' },
+            { title: 'Step 6: Fill in Below / Điền vào bên dưới', detail: 'Paste all 5 values into the fields below:\n• Account ID\n• Bucket Name\n• Public URL (from Step 3)\n• Access Key ID\n• Secret Access Key\nClick Save.\n\nDán 5 giá trị vào các ô bên dưới:\n• Account ID\n• Bucket Name\n• Public URL (từ Bước 3)\n• Access Key ID\n• Secret Access Key\nNhấn Save.' },
+        ],
+        tips: [
+            '✅ Free tier: 10GB storage + 10 million requests/month',
+            '✅ Egress (bandwidth) is FREE — no download fees / Bandwidth tải xuống MIỄN PHÍ',
+            '✅ S3-compatible — works like AWS S3 / Tương thích S3',
+            '💡 Custom domain recommended for production — better than r2.dev subdomain',
+            '💡 CORS: Add your domain in bucket Settings → CORS if needed',
+            '⚠️ Keep your Secret Access Key safe — it grants full bucket access / Giữ Secret Key an toàn',
+        ],
+        url: 'https://dash.cloudflare.com/?to=/:account/r2/overview',
+        urlLabel: 'Open Cloudflare R2 Dashboard',
+    },
 }
 
 
@@ -450,6 +474,7 @@ export default function IntegrationsPage() {
     const [selectedModels, setSelectedModels] = useState<Record<string, Record<string, string>>>({})
     const [smtpConfigs, setSmtpConfigs] = useState<Record<string, SmtpConfig>>({})
     const [gdriveConfigs, setGdriveConfigs] = useState<Record<string, GDriveConfig>>({})
+    const [r2Configs, setR2Configs] = useState<Record<string, R2Config>>({})
     const [oauthConfigs, setOauthConfigs] = useState<Record<string, OAuthConfig>>({})
     const [testEmails, setTestEmails] = useState<Record<string, string>>({})
     const [showGuide, setShowGuide] = useState<Record<string, boolean>>({})
@@ -482,6 +507,7 @@ export default function IntegrationsPage() {
             const modelSelections: Record<string, Record<string, string>> = {}
             const smtpConfigMap: Record<string, SmtpConfig> = {}
             const gdriveConfigMap: Record<string, GDriveConfig> = {}
+            const r2ConfigMap: Record<string, R2Config> = {}
             const oauthConfigMap: Record<string, OAuthConfig> = {}
             const stripeConfigMap: Record<string, StripeConfig> = {}
             for (const i of data) {
@@ -511,6 +537,15 @@ export default function IntegrationsPage() {
                     gdriveConfigMap[i.id] = {
                         clientId: config.gdriveClientId || '',
                         clientSecret: '',
+                    }
+                }
+                if (i.provider === 'r2') {
+                    r2ConfigMap[i.id] = {
+                        accountId: config.r2AccountId || '',
+                        bucketName: config.r2BucketName || '',
+                        publicUrl: config.r2PublicUrl || '',
+                        accessKeyId: '',
+                        secretAccessKey: '',
                     }
                 }
                 if (i.provider === 'youtube') {
@@ -591,6 +626,7 @@ export default function IntegrationsPage() {
             setSelectedModels(modelSelections)
             setSmtpConfigs(smtpConfigMap)
             setGdriveConfigs(gdriveConfigMap)
+            setR2Configs(r2ConfigMap)
             setOauthConfigs(oauthConfigMap)
             setStripeConfigs(stripeConfigMap)
 
@@ -650,6 +686,23 @@ export default function IntegrationsPage() {
                     // Store Client Secret encrypted as the "API key"
                     if (gdrive.clientSecret) {
                         body.apiKey = gdrive.clientSecret
+                    }
+                }
+            }
+
+            // Cloudflare R2 config
+            if (integration.provider === 'r2') {
+                const r2 = r2Configs[integration.id]
+                if (r2) {
+                    body.config = {
+                        r2AccountId: r2.accountId,
+                        r2BucketName: r2.bucketName,
+                        r2PublicUrl: r2.publicUrl,
+                        ...(r2.secretAccessKey ? { r2SecretAccessKey: r2.secretAccessKey } : {}),
+                    }
+                    // Access Key ID stored encrypted as the "API key"
+                    if (r2.accessKeyId) {
+                        body.apiKey = r2.accessKeyId
                     }
                 }
             }
@@ -981,6 +1034,13 @@ export default function IntegrationsPage() {
                                         [integration.id]: { ...s[integration.id], [field]: value },
                                     }))
                                 }
+                                r2Config={r2Configs[integration.id]}
+                                onR2Change={(field: string, value: string) =>
+                                    setR2Configs((s) => ({
+                                        ...s,
+                                        [integration.id]: { ...s[integration.id], [field]: value },
+                                    }))
+                                }
                                 oauthConfig={oauthConfigs[integration.id]}
                                 onOauthChange={(field: string, value: string) =>
                                     setOauthConfigs((s) => ({
@@ -1032,6 +1092,14 @@ interface GDriveConfig {
     clientSecret: string
 }
 
+interface R2Config {
+    accountId: string
+    bucketName: string
+    publicUrl: string
+    accessKeyId: string
+    secretAccessKey: string
+}
+
 interface OAuthConfig {
     clientId: string
     clientSecret: string
@@ -1066,6 +1134,8 @@ function IntegrationCard({
     onModelSelect,
     onSmtpChange,
     onGdriveChange,
+    r2Config,
+    onR2Change,
     oauthConfig,
     onOauthChange,
     stripeConfig,
@@ -1100,6 +1170,8 @@ function IntegrationCard({
     onModelSelect: (type: string, modelId: string) => void
     onSmtpChange: (field: string, value: string) => void
     onGdriveChange: (field: string, value: string) => void
+    r2Config?: R2Config
+    onR2Change: (field: string, value: string) => void
     oauthConfig?: OAuthConfig
     onOauthChange: (field: string, value: string) => void
     stripeConfig?: StripeConfig
@@ -1116,6 +1188,7 @@ function IntegrationCard({
     const isAI = integration.category === 'AI'
     const isSMTP = integration.provider === 'smtp'
     const isGDrive = integration.provider === 'gdrive'
+    const isR2 = integration.provider === 'r2'
     const isStripe = integration.provider === 'stripe'
     const isOAuth = ['youtube', 'tiktok', 'facebook', 'instagram', 'linkedin', 'x', 'pinterest', 'canva', 'google_oauth', 'threads', 'gbp', 'zalo'].includes(integration.provider)
     const textModels = providerModels.filter((m) => m.type === 'text')
@@ -1489,6 +1562,103 @@ function IntegrationCard({
                                             )}
                                         </div>
                                     )}
+                                </div>
+                            )
+                        })()}
+                    </div>
+                ) : isR2 && r2Config ? (
+                    /* Cloudflare R2 Config */
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Account ID</Label>
+                            <Input
+                                value={r2Config.accountId}
+                                onChange={(e) => onR2Change('accountId', e.target.value)}
+                                placeholder="e.g. a1b2c3d4e5f6..."
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Bucket Name</Label>
+                            <Input
+                                value={r2Config.bucketName}
+                                onChange={(e) => onR2Change('bucketName', e.target.value)}
+                                placeholder="e.g. neeflow-media"
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Public URL</Label>
+                            <Input
+                                value={r2Config.publicUrl}
+                                onChange={(e) => onR2Change('publicUrl', e.target.value)}
+                                placeholder="e.g. https://pub-xxxx.r2.dev or https://media.yoursite.com"
+                                className="h-8 text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Access Key ID</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={r2Config.accessKeyId || (showKey ? '' : (integration.apiKeyMasked || ''))}
+                                    onChange={(e) => onR2Change('accessKeyId', e.target.value)}
+                                    placeholder={integration.hasApiKey ? '' : 'Access Key ID from R2 API Token'}
+                                    className="pr-8 h-8 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label className="text-[11px]">Secret Access Key</Label>
+                            <div className="relative">
+                                <Input
+                                    type={showKey ? 'text' : 'password'}
+                                    value={r2Config.secretAccessKey}
+                                    onChange={(e) => onR2Change('secretAccessKey', e.target.value)}
+                                    placeholder="Secret Access Key from R2 API Token"
+                                    className="pr-8 h-8 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={onToggleShow}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Status indicator */}
+                        {(() => {
+                            const config = integration.config as Record<string, string> | null
+                            const isConfigured = !!config?.r2AccountId && !!config?.r2BucketName && !!config?.r2PublicUrl && integration.hasApiKey
+                            return isConfigured ? (
+                                <div className="flex items-center gap-2 text-xs pt-2 border-t border-dashed">
+                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span className="text-emerald-600 font-medium">
+                                        R2 Connected
+                                    </span>
+                                    <span className="text-muted-foreground truncate">
+                                        ({config?.r2BucketName})
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-xs pt-2 border-t border-dashed">
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                        Fill all fields above and click Save
+                                    </span>
                                 </div>
                             )
                         })()}

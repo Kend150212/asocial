@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getUserGDriveAccessToken, getGDriveAccessToken, getOrCreateMonthlyFolder, getOrCreateChannelFolder } from '@/lib/gdrive'
+import { getR2PresignedUrl, generateR2Key, getR2PublicUrl, isR2Configured } from '@/lib/r2'
 import { randomUUID } from 'crypto'
 
 /**
  * POST /api/admin/media/init-upload
- * Creates a resumable upload session on Google Drive and returns the upload URI.
- * 
- * Priority:
- * 1. Use user's own Google Drive if connected (per-user tokens + monthly folders)
- * 2. Fall back to admin's Google Drive (legacy: channel-based folders)
+ * For R2: Returns a presigned PUT URL for direct client-side upload.
+ * For GDrive (fallback): Creates a resumable upload session and returns the upload URI.
  */
 export async function POST(req: NextRequest) {
     const session = await auth()
@@ -29,49 +27,59 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'File too large (max 100MB)' }, { status: 400 })
     }
 
+    // ─── Try R2 first ────────────────────────────────────────────────
+    const useR2 = await isR2Configured()
+
+    if (useR2) {
+        try {
+            const r2Key = generateR2Key(channelId, fileName)
+            const presignedUrl = await getR2PresignedUrl(r2Key, mimeType, fileSize)
+            const publicUrl = getR2PublicUrl(r2Key)
+
+            return NextResponse.json({
+                uploadUri: presignedUrl,
+                r2Key,
+                publicUrl,
+                originalName: fileName,
+                storage: 'r2',
+            })
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'R2 presigned URL generation failed'
+            return NextResponse.json({ error: msg }, { status: 500 })
+        }
+    }
+
+    // ─── Fallback: Google Drive ──────────────────────────────────────
     try {
         let accessToken: string
         let targetFolderId: string
 
-        // Check if user has their own Google Drive connected
         const user = await prisma.user.findUnique({
             where: { id: session.user.id },
             select: { gdriveRefreshToken: true, gdriveFolderId: true },
         })
 
         if (user?.gdriveRefreshToken && user?.gdriveFolderId) {
-            // ─── User's own Google Drive ───
             accessToken = await getUserGDriveAccessToken(session.user.id)
-
-            // Get channel name for subfolder
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
                 select: { name: true, displayName: true },
             })
             const channelName = channel?.displayName || channel?.name || 'General'
-
-            // Folder structure: App - User → Channel Name → YYYY-MM
             const channelFolder = await getOrCreateChannelFolder(accessToken, user.gdriveFolderId, channelName)
             const monthlyFolder = await getOrCreateMonthlyFolder(accessToken, channelFolder.id)
             targetFolderId = monthlyFolder.id
         } else {
-            // ─── Fallback: Admin's Google Drive (legacy) ───
             accessToken = await getGDriveAccessToken()
-
-            const integration = await prisma.apiIntegration.findFirst({
-                where: { provider: 'gdrive' },
-            })
+            const integration = await prisma.apiIntegration.findFirst({ where: { provider: 'gdrive' } })
             const gdriveConfig = (integration?.config || {}) as Record<string, string>
             const parentFolderId = gdriveConfig.parentFolderId
-
             if (!parentFolderId) {
                 return NextResponse.json(
-                    { error: 'Google Drive not connected. Go to AI API Keys page to connect your Google Drive.' },
+                    { error: 'No storage configured. Set up Cloudflare R2 (recommended) or Google Drive in API Hub.' },
                     { status: 400 }
                 )
             }
-
-            // Get channel info for subfolder
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
                 select: { name: true, displayName: true },
@@ -79,16 +87,10 @@ export async function POST(req: NextRequest) {
             if (!channel) {
                 return NextResponse.json({ error: 'Channel not found' }, { status: 404 })
             }
-
-            const channelFolder = await getOrCreateChannelFolder(
-                accessToken,
-                parentFolderId,
-                channel.displayName || channel.name,
-            )
+            const channelFolder = await getOrCreateChannelFolder(accessToken, parentFolderId, channel.displayName || channel.name)
             targetFolderId = channelFolder.id
         }
 
-        // Generate unique filename with date
         const ext = fileName.split('.').pop() || 'mp4'
         const now = new Date()
         const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
@@ -96,7 +98,6 @@ export async function POST(req: NextRequest) {
         const shortId = randomUUID().slice(0, 6)
         const uniqueName = `${prefix} ${shortId} - ${dateStr}.${ext}`
 
-        // Initiate resumable upload on Google Drive
         const metadata = {
             name: uniqueName,
             mimeType,
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
             channelFolderId: targetFolderId,
             uniqueName,
             originalName: fileName,
+            storage: 'gdrive',
         })
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Init upload failed'
