@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getUserPlan, getCurrentMonth } from '@/lib/plans'
+import { getEffectiveLimits, getUserActiveAddons } from '@/lib/addon-resolver'
 
 /**
  * GET /api/billing — current user's plan, subscription, usage
@@ -60,6 +61,20 @@ export async function GET(_req: NextRequest) {
         apiCallsThisMonth = usageRecord?.apiCalls ?? 0
     }
 
+    // Get active add-ons and effective limits
+    let activeAddons: { addon: { id: string; displayName: string; displayNameVi: string; category: string; quotaField: string | null; quotaAmount: number; featureField: string | null; icon: string; priceMonthly: number }; quantity: number }[] = []
+    let effectiveLimits = null
+    try {
+        const [addons, limits] = await Promise.all([
+            getUserActiveAddons(userId),
+            getEffectiveLimits(userId),
+        ])
+        activeAddons = addons
+        effectiveLimits = limits
+    } catch {
+        // Add-on tables may not exist yet
+    }
+
     return NextResponse.json({
         plan,
         subscription: sub
@@ -82,7 +97,20 @@ export async function GET(_req: NextRequest) {
         aiImage: {
             hasByokKey: !!byokKey,
             byokProvider: byokKey?.provider ?? null,
-            maxPerMonth: sub?.plan?.maxAiImagesPerMonth ?? 0,
+            maxPerMonth: effectiveLimits?.maxAiImagesPerMonth ?? sub?.plan?.maxAiImagesPerMonth ?? 0,
         },
+        activeAddons: activeAddons.map((sa: { addon: { id: string; displayName: string; displayNameVi: string; category: string; quotaField: string | null; quotaAmount: number; featureField: string | null; icon: string; priceMonthly: number }; quantity: number }) => ({
+            id: sa.addon.id,
+            displayName: sa.addon.displayName,
+            displayNameVi: sa.addon.displayNameVi,
+            category: sa.addon.category,
+            quotaField: sa.addon.quotaField,
+            quotaAmount: sa.addon.quotaAmount,
+            featureField: sa.addon.featureField,
+            icon: sa.addon.icon,
+            priceMonthly: sa.addon.priceMonthly,
+            quantity: sa.quantity,
+        })),
+        effectiveLimits,
     })
 }

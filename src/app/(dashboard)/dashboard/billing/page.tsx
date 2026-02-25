@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
     CreditCard, Zap, Calendar, AlertCircle, CheckCircle2,
-    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot, Code2
+    ExternalLink, ArrowUpRight, Clock, Check, X, ImageIcon, KeyRound, HardDrive, Bot, Code2, Plus
 } from 'lucide-react'
 import { UpgradeModal } from '@/components/billing/UpgradeModal'
+import { AddonModal } from '@/components/billing/AddonModal'
 import { useTranslation } from '@/lib/i18n'
 
 type BillingInfo = {
@@ -56,6 +57,19 @@ type BillingInfo = {
         byokProvider: string | null
         maxPerMonth: number
     }
+    activeAddons: {
+        id: string
+        displayName: string
+        displayNameVi: string
+        category: string
+        quotaField: string | null
+        quotaAmount: number
+        featureField: string | null
+        icon: string
+        priceMonthly: number
+        quantity: number
+    }[]
+    effectiveLimits: Record<string, number | boolean> | null
 }
 
 function fmtStorage(mb: number, unlimited: string): string {
@@ -68,6 +82,7 @@ export default function BillingPage() {
     const [info, setInfo] = useState<BillingInfo | null>(null)
     const [loading, setLoading] = useState(true)
     const [upgradeOpen, setUpgradeOpen] = useState(false)
+    const [addonOpen, setAddonOpen] = useState(false)
     const [portalLoading, setPortalLoading] = useState(false)
 
     // Use the shared app i18n system — syncs with user's language choice
@@ -79,6 +94,12 @@ export default function BillingPage() {
             .then(data => { setInfo(data); setLoading(false) })
             .catch(() => setLoading(false))
     }, [])
+
+    const refreshBilling = () => {
+        fetch('/api/billing')
+            .then(r => r.json())
+            .then(data => setInfo(data))
+    }
 
     const openPortal = async () => {
         setPortalLoading(true)
@@ -305,6 +326,42 @@ export default function BillingPage() {
                 </Card>
             )}
 
+            {/* Active Add-ons */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add-ons
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {(info.activeAddons ?? []).length > 0 ? (
+                        <div className="space-y-2">
+                            {info.activeAddons.map(addon => (
+                                <div key={addon.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                                            {addon.category === 'quota' ? 'Quota' : 'Feature'}
+                                        </Badge>
+                                        <span className="text-sm">{addon.displayName}</span>
+                                        {addon.quantity > 1 && <span className="text-xs text-muted-foreground">×{addon.quantity}</span>}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">${addon.priceMonthly}/mo</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            {t('lang') === 'vi' ? 'Chưa có add-on nào. Thêm add-on để mở rộng plan của bạn.' : 'No add-ons yet. Browse add-ons to expand your plan.'}
+                        </p>
+                    )}
+                    <Button variant="outline" className="gap-2 w-full" onClick={() => setAddonOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                        {t('lang') === 'vi' ? 'Xem Add-ons' : 'Browse Add-ons'}
+                    </Button>
+                </CardContent>
+            </Card>
+
             {/* Plan Features */}
             <Card>
                 <CardHeader>
@@ -346,6 +403,7 @@ export default function BillingPage() {
             </Card>
 
             <UpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
+            <AddonModal open={addonOpen} onClose={() => setAddonOpen(false)} onPurchased={refreshBilling} />
         </div>
     )
 }

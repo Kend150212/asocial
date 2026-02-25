@@ -719,6 +719,7 @@ model Subscription {
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan   Plan    @relation(fields: [planId], references: [id])
   usages Usage[]
+  addons SubscriptionAddon[]
 
   @@map("subscriptions")
 }
@@ -738,6 +739,67 @@ model Usage {
 
   @@unique([subscriptionId, month])
   @@map("usages")
+}
+
+// ==========================================
+// ADD-ONS (purchasable extras on top of plan)
+// ==========================================
+
+model Addon {
+  id            String  @id @default(cuid())
+  name          String  @unique                // "extra_storage_5gb"
+  displayName   String  @map("display_name")   // "Extra Storage 5 GB"
+  displayNameVi String  @default("") @map("display_name_vi")
+  description   String? @db.Text
+  descriptionVi String? @map("description_vi") @db.Text
+  category      String  @default("quota")      // "quota" | "feature"
+
+  // What this add-on modifies
+  quotaField    String? @map("quota_field")    // e.g. "maxStorageMB", "maxChannels"
+  quotaAmount   Int     @default(0) @map("quota_amount") // e.g. 5120 (5GB in MB)
+  featureField  String? @map("feature_field")  // e.g. "hasAutoSchedule"
+
+  // Pricing
+  priceMonthly  Float   @default(0) @map("price_monthly")
+  priceAnnual   Float   @default(0) @map("price_annual")
+
+  // Stripe
+  stripeProductId      String? @map("stripe_product_id")
+  stripePriceIdMonthly String? @map("stripe_price_id_monthly")
+  stripePriceIdAnnual  String? @map("stripe_price_id_annual")
+
+  // Display
+  icon      String  @default("plus")
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  // Relations
+  subscriptionAddons SubscriptionAddon[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("addons")
+}
+
+model SubscriptionAddon {
+  id             String @id @default(cuid())
+  subscriptionId String @map("subscription_id")
+  addonId        String @map("addon_id")
+  quantity       Int    @default(1)
+
+  // Stripe
+  stripeSubscriptionItemId String? @map("stripe_subscription_item_id")
+
+  status    String   @default("active") // active | canceled
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  addon        Addon        @relation(fields: [addonId], references: [id])
+
+  @@unique([subscriptionId, addonId])
+  @@map("subscription_addons")
 }
 
 // ==========================================

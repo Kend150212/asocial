@@ -1,5 +1,6 @@
 import { getCurrentMonth } from '@/lib/plans'
 import { prisma } from '@/lib/prisma'
+import { getEffectiveLimits } from '@/lib/addon-resolver'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -33,14 +34,9 @@ export async function checkImageQuota(
         return { allowed: true, used: 0, limit: -1, usingByok: true }
     }
 
-    // Get user's plan
-    const sub = await db.subscription.findUnique({
-        where: { userId },
-        include: { plan: true, usages: { where: { month: getCurrentMonth() } } },
-    })
-
-    const plan = sub?.plan ?? null
-    const limit: number = plan?.maxAiImagesPerMonth ?? 0
+    // Get effective limits (plan + add-ons)
+    const limits = await getEffectiveLimits(userId)
+    const limit = limits.maxAiImagesPerMonth
 
     // Free plan or no plan → 0 quota
     if (limit === 0) {
@@ -53,6 +49,11 @@ export async function checkImageQuota(
         }
     }
 
+    // Get current month usage
+    const sub = await db.subscription.findUnique({
+        where: { userId },
+        include: { usages: { where: { month: getCurrentMonth() } } },
+    })
     const usage = sub?.usages?.[0] ?? null
     const used: number = usage?.imagesGenerated ?? 0
 
@@ -67,7 +68,7 @@ export async function checkImageQuota(
             used,
             limit,
             usingByok: false,
-            reason: `Monthly AI image quota reached (${used}/${limit}). Upgrade your plan or add your own API key.`,
+            reason: `Monthly AI image quota reached (${used}/${limit}). Upgrade your plan, purchase an add-on, or add your own API key.`,
         }
     }
 
@@ -131,15 +132,9 @@ export async function checkTextQuota(
     }
 
     try {
-        const sub = await db.subscription.findUnique({
-            where: { userId },
-            include: { plan: true, usages: { where: { month: getCurrentMonth() } } },
-        })
-
-        const plan = sub?.plan ?? null
-        // AI text generation counts against the monthly POST quota
-        // (same limit users see on their billing page — no extra quota to learn)
-        const limit: number = plan?.maxPostsPerMonth ?? 50
+        // Get effective limits (plan + add-ons)
+        const limits = await getEffectiveLimits(userId)
+        const limit = limits.maxPostsPerMonth
 
         if (limit === 0) {
             return {
@@ -151,6 +146,11 @@ export async function checkTextQuota(
             }
         }
 
+        // Get current month usage
+        const sub = await db.subscription.findUnique({
+            where: { userId },
+            include: { usages: { where: { month: getCurrentMonth() } } },
+        })
         const usage = sub?.usages?.[0] ?? null
         const used: number = usage?.postsCreated ?? 0
 
@@ -160,7 +160,7 @@ export async function checkTextQuota(
                 used,
                 limit,
                 usingByok: false,
-                reason: `Monthly quota reached (${used}/${limit} posts/generations used). Upgrade your plan or add your own API key at /dashboard/api-keys.`,
+                reason: `Monthly quota reached (${used}/${limit} posts/generations used). Upgrade your plan, purchase an add-on, or add your own API key.`,
             }
         }
 

@@ -1,15 +1,12 @@
 /**
  * Storage quota management for user media uploads.
- * Storage is on Cloudflare R2 — quotas are enforced per subscription plan.
+ * Storage is on Cloudflare R2 — quotas are enforced per subscription plan + add-ons.
  *
  * Storage is measured by summing MediaItem.fileSize for channels the user owns.
- * Plan limit: Plan.maxStorageMB (-1 = unlimited)
+ * Effective limit: Plan.maxStorageMB + Σ(storage add-ons) (-1 = unlimited)
  */
 import { prisma } from '@/lib/prisma'
-import { getCurrentMonth } from '@/lib/plans'
-
-// suppress unused import warning
-void getCurrentMonth
+import { getEffectiveLimits } from '@/lib/addon-resolver'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -46,22 +43,15 @@ export async function getUserStorageUsedBytes(userId: string): Promise<number> {
 
 /**
  * Check if user has enough storage quota to upload a file of `fileSizeBytes`.
- *
- * Returns allowed=true if:
- *   - Plan limit is -1 (unlimited)
- *   - Used + new file size is within plan limit
+ * Uses effective limits (plan + add-ons).
  */
 export async function checkStorageQuota(
     userId: string,
     fileSizeBytes: number,
 ): Promise<StorageQuotaResult> {
     try {
-        const sub = await db.subscription.findUnique({
-            where: { userId },
-            include: { plan: true },
-        })
-
-        const limitMB: number = sub?.plan?.maxStorageMB ?? 512 // free default
+        const limits = await getEffectiveLimits(userId)
+        const limitMB = limits.maxStorageMB
         const limitBytes = limitMB === -1 ? -1 : limitMB * 1024 * 1024
 
         const usedBytes = await getUserStorageUsedBytes(userId)
@@ -79,7 +69,7 @@ export async function checkStorageQuota(
                 limitBytes,
                 usedMB,
                 limitMB,
-                reason: `Storage limit reached: ${usedMB} MB used of ${limitMB} MB. This file is ${newFileMB} MB. Upgrade your plan or free up space.`,
+                reason: `Storage limit reached: ${usedMB} MB used of ${limitMB} MB. This file is ${newFileMB} MB. Upgrade your plan or purchase an add-on.`,
             }
         }
 
@@ -92,6 +82,7 @@ export async function checkStorageQuota(
 
 /**
  * Get storage usage summary for display on billing / media page.
+ * Uses effective limits (plan + add-ons).
  */
 export async function getUserStorageSummary(userId: string): Promise<{
     usedBytes: number
@@ -101,12 +92,8 @@ export async function getUserStorageSummary(userId: string): Promise<{
     percentUsed: number
 }> {
     try {
-        const sub = await db.subscription.findUnique({
-            where: { userId },
-            include: { plan: true },
-        })
-
-        const limitMB: number = sub?.plan?.maxStorageMB ?? 512
+        const limits = await getEffectiveLimits(userId)
+        const limitMB = limits.maxStorageMB
         const limitBytes = limitMB === -1 ? -1 : limitMB * 1024 * 1024
         const usedBytes = await getUserStorageUsedBytes(userId)
         const usedMB = Math.round(usedBytes / (1024 * 1024) * 10) / 10
