@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getGDriveAccessToken, getUserGDriveAccessToken, uploadFile, makeFilePublic, getOrCreateChannelFolder, getOrCreateMonthlyFolder } from '@/lib/gdrive'
 import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
+import { checkStorageQuota } from '@/lib/storage-quota'
 import { randomUUID } from 'crypto'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -185,6 +186,15 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const fileType = file.type.startsWith('video/') ? 'video' : 'image'
+
+    // ─── Check storage quota ─────────────────────────────────────────
+    const quota = await checkStorageQuota(session.user.id, file.size)
+    if (!quota.allowed) {
+        return NextResponse.json(
+            { error: quota.reason, code: 'STORAGE_LIMIT_REACHED', usedMB: quota.usedMB, limitMB: quota.limitMB },
+            { status: 429 }
+        )
+    }
 
     // ─── Try R2 first ────────────────────────────────────────────────
     const useR2 = await isR2Configured()

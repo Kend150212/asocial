@@ -10,6 +10,7 @@ import {
     getOrCreateMonthlyFolder,
 } from '@/lib/gdrive'
 import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
+import { checkStorageQuota } from '@/lib/storage-quota'
 import { randomUUID } from 'crypto'
 
 export const maxDuration = 30
@@ -62,6 +63,15 @@ export async function POST(req: NextRequest) {
         // Max 10MB for URL downloads
         if (fileSize > 10 * 1024 * 1024) {
             return NextResponse.json({ error: 'Image too large (max 10MB)' }, { status: 400 })
+        }
+
+        // ─── Check storage quota ───────────────────────────────────
+        const quota = await checkStorageQuota(session.user.id, fileSize)
+        if (!quota.allowed) {
+            return NextResponse.json(
+                { error: quota.reason, code: 'STORAGE_LIMIT_REACHED', usedMB: quota.usedMB, limitMB: quota.limitMB },
+                { status: 429 }
+            )
         }
 
         // ─── Try R2 first ──────────────────────────────────────────

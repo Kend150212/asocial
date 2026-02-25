@@ -1,6 +1,6 @@
 /**
  * Storage quota management for user media uploads.
- * All users must connect their own Google Drive — there is no admin fallback.
+ * Storage is on Cloudflare R2 — quotas are enforced per subscription plan.
  *
  * Storage is measured by summing MediaItem.fileSize for channels the user owns.
  * Plan limit: Plan.maxStorageMB (-1 = unlimited)

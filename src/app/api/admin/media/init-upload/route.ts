@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getUserGDriveAccessToken, getGDriveAccessToken, getOrCreateMonthlyFolder, getOrCreateChannelFolder } from '@/lib/gdrive'
 import { getR2PresignedUrl, generateR2Key, getR2PublicUrl, isR2Configured } from '@/lib/r2'
+import { checkStorageQuota } from '@/lib/storage-quota'
 import { randomUUID } from 'crypto'
 
 /**
@@ -25,6 +26,17 @@ export async function POST(req: NextRequest) {
     // Max 100MB
     if (fileSize && fileSize > 100 * 1024 * 1024) {
         return NextResponse.json({ error: 'File too large (max 100MB)' }, { status: 400 })
+    }
+
+    // ─── Check storage quota ─────────────────────────────────────────
+    if (fileSize) {
+        const quota = await checkStorageQuota(session.user.id, fileSize)
+        if (!quota.allowed) {
+            return NextResponse.json(
+                { error: quota.reason, code: 'STORAGE_LIMIT_REACHED', usedMB: quota.usedMB, limitMB: quota.limitMB },
+                { status: 429 }
+            )
+        }
     }
 
     // ─── Try R2 first ────────────────────────────────────────────────

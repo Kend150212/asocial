@@ -48,6 +48,7 @@ import {
     X,
     FolderInput,
     FileVideo,
+    HardDrive,
     File,
     Maximize2,
     ChevronLeft,
@@ -162,6 +163,20 @@ export default function MediaLibraryPage() {
 
     // Lightbox
     const [lightboxItem, setLightboxItem] = useState<MediaItem | null>(null)
+
+    // Storage usage
+    const [storageUsage, setStorageUsage] = useState<{
+        usedMB: number; limitMB: number; percentUsed: number; unlimited: boolean
+    } | null>(null)
+
+    const fetchStorageUsage = useCallback(async () => {
+        try {
+            const res = await fetch('/api/user/storage-usage')
+            if (res.ok) setStorageUsage(await res.json())
+        } catch { /* ignore */ }
+    }, [])
+
+    useEffect(() => { fetchStorageUsage() }, [fetchStorageUsage])
 
     /* ─── channels come from workspace context — no local fetch needed ─── */
 
@@ -553,6 +568,32 @@ export default function MediaLibraryPage() {
                         </Select>
                     </div>
                 </div>
+
+                {/* Storage usage bar */}
+                {storageUsage && !storageUsage.unlimited && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                        <HardDrive className="h-3.5 w-3.5 shrink-0" />
+                        <div className="w-[120px] h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(100, storageUsage.percentUsed)}%`,
+                                    backgroundColor: storageUsage.percentUsed > 90 ? '#ef4444'
+                                        : storageUsage.percentUsed > 70 ? '#f59e0b' : '#22c55e',
+                                }}
+                            />
+                        </div>
+                        <span>
+                            {storageUsage.usedMB >= 1024
+                                ? `${(storageUsage.usedMB / 1024).toFixed(1)} GB`
+                                : `${storageUsage.usedMB} MB`}
+                            {' / '}
+                            {storageUsage.limitMB >= 1024
+                                ? `${(storageUsage.limitMB / 1024).toFixed(0)} GB`
+                                : `${storageUsage.limitMB} MB`}
+                        </span>
+                    </div>
+                )}
 
                 {/* Toolbar */}
                 <div className="flex items-center gap-2 flex-wrap">

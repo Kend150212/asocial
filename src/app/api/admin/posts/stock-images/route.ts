@@ -12,6 +12,7 @@ import {
     makeFilePublic,
 } from '@/lib/gdrive'
 import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
+import { checkStorageQuota } from '@/lib/storage-quota'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import * as fs from 'fs'
@@ -152,6 +153,15 @@ async function handleDownload(
         const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
         const shortId = randomUUID().slice(0, 6)
         const uniqueName = `stock ${shortId} - ${dateStr}.jpg`
+
+        // ─── Check storage quota ──────────────────────────
+        const quota = await checkStorageQuota(userId, fileSize)
+        if (!quota.allowed) {
+            return NextResponse.json(
+                { error: quota.reason, code: 'STORAGE_LIMIT_REACHED', usedMB: quota.usedMB, limitMB: quota.limitMB },
+                { status: 429 }
+            )
+        }
 
         // ─── Try R2 first ────────────────────────────────
         const useR2 = await isR2Configured()
