@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getUserGDriveAccessToken } from '@/lib/gdrive'
 
 // Simple in-memory cache to avoid re-downloading during Instagram's multiple fetch attempts
-const fileCache = new Map<string, { data: Uint8Array; contentType: string; size: number; cachedAt: number }>()
+const fileCache = new Map<string, { arrayBuffer: ArrayBuffer; contentType: string; cachedAt: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 // Clean up stale cache entries periodically
@@ -40,12 +40,12 @@ export async function GET(
         cleanCache()
         const cached = fileCache.get(id)
         if (cached) {
-            console.log(`[Media Proxy] Cache hit for ${id} (${(cached.size / 1024 / 1024).toFixed(1)}MB)`)
-            return new NextResponse(new Blob([cached.data], { type: cached.contentType }), {
+            console.log(`[Media Proxy] Cache hit for ${id} (${(cached.arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)`)
+            return new Response(cached.arrayBuffer, {
                 status: 200,
                 headers: {
                     'Content-Type': cached.contentType,
-                    'Content-Length': String(cached.size),
+                    'Content-Length': String(cached.arrayBuffer.byteLength),
                     'Cache-Control': 'public, max-age=300',
                 },
             })
@@ -104,23 +104,22 @@ export async function GET(
         }
 
         const arrayBuffer = await response.arrayBuffer()
-        const data = new Uint8Array(arrayBuffer)
 
         const contentType = media.mimeType
             || response.headers.get('content-type')
             || (media.type === 'video' ? 'video/mp4' : 'image/jpeg')
 
-        console.log(`[Media Proxy] Downloaded ${media.originalName || id} (${contentType}, ${(data.length / 1024 / 1024).toFixed(1)}MB) — caching for 5min`)
+        console.log(`[Media Proxy] Downloaded ${media.originalName || id} (${contentType}, ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB) — caching for 5min`)
 
         // Cache the file
-        fileCache.set(id, { data, contentType, size: data.length, cachedAt: Date.now() })
+        fileCache.set(id, { arrayBuffer, contentType, cachedAt: Date.now() })
 
         // Serve instantly
-        return new NextResponse(new Blob([data], { type: contentType }), {
+        return new Response(arrayBuffer, {
             status: 200,
             headers: {
                 'Content-Type': contentType,
-                'Content-Length': String(buffer.length),
+                'Content-Length': String(arrayBuffer.byteLength),
                 'Cache-Control': 'public, max-age=300',
             },
         })
