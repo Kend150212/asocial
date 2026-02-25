@@ -41,7 +41,7 @@ export async function GET(
         const cached = fileCache.get(id)
         if (cached) {
             console.log(`[Media Proxy] Cache hit for ${id} (${(cached.size / 1024 / 1024).toFixed(1)}MB)`)
-            return new NextResponse(cached.data, {
+            return new NextResponse(new Blob([cached.data], { type: cached.contentType }), {
                 status: 200,
                 headers: {
                     'Content-Type': cached.contentType,
@@ -116,7 +116,7 @@ export async function GET(
         fileCache.set(id, { data, contentType, size: data.length, cachedAt: Date.now() })
 
         // Serve instantly
-        return new NextResponse(data, {
+        return new NextResponse(new Blob([data], { type: contentType }), {
             status: 200,
             headers: {
                 'Content-Type': contentType,
