@@ -9,13 +9,14 @@ import {
     getOrCreateChannelFolder,
     getOrCreateMonthlyFolder,
 } from '@/lib/gdrive'
+import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
 import { randomUUID } from 'crypto'
 
 export const maxDuration = 30
 
 /**
  * POST /api/admin/media/from-url
- * Downloads an image from a URL and uploads it to Google Drive,
+ * Downloads an image from a URL and uploads it to R2 (or Google Drive fallback),
  * then creates a MediaItem record.
  *
  * Body: { url: string, channelId: string }
@@ -63,7 +64,38 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Image too large (max 10MB)' }, { status: 400 })
         }
 
-        // ─── Resolve Google Drive folder ───────────────────────────
+        // ─── Try R2 first ──────────────────────────────────────────
+        const useR2 = await isR2Configured()
+
+        if (useR2) {
+            const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
+            const originalName = url.split('/').pop()?.split('?')[0] || `article-image.${ext}`
+            const r2Key = generateR2Key(channelId, originalName)
+            const publicUrl = await uploadToR2(buffer, r2Key, contentType)
+
+            const mediaItem = await prisma.mediaItem.create({
+                data: {
+                    channelId,
+                    url: publicUrl,
+                    thumbnailUrl: publicUrl,
+                    storageFileId: r2Key,
+                    type: 'image',
+                    source: 'url',
+                    originalName,
+                    fileSize,
+                    mimeType: contentType,
+                    aiMetadata: {
+                        storage: 'r2',
+                        r2Key,
+                        sourceUrl: url,
+                    },
+                },
+            })
+
+            return NextResponse.json(mediaItem, { status: 201 })
+        }
+
+        // ─── Fallback: Google Drive ────────────────────────────────
         let accessToken: string
         let targetFolderId: string
 
@@ -90,7 +122,7 @@ export async function POST(req: NextRequest) {
             const gdriveConfig = (integration?.config || {}) as Record<string, string>
             const parentFolderId = gdriveConfig.parentFolderId
             if (!parentFolderId) {
-                return NextResponse.json({ error: 'Google Drive not configured.' }, { status: 400 })
+                return NextResponse.json({ error: 'No storage configured. Set up Cloudflare R2 or Google Drive in API Hub.' }, { status: 400 })
             }
             const channel = await prisma.channel.findUnique({
                 where: { id: channelId },
@@ -103,12 +135,12 @@ export async function POST(req: NextRequest) {
             targetFolderId = channelFolder.id
         } else {
             return NextResponse.json(
-                { error: 'Google Drive not connected. Set it up at /dashboard/api-keys.', code: 'GDRIVE_NOT_CONNECTED' },
+                { error: 'No storage configured. Set up Cloudflare R2 in API Hub.', code: 'STORAGE_NOT_CONFIGURED' },
                 { status: 403 }
             )
         }
 
-        // ─── Upload to Google Drive ────────────────────────────────
+        // Upload to Google Drive
         const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg'
         const now = new Date()
         const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
@@ -119,7 +151,6 @@ export async function POST(req: NextRequest) {
         const publicUrl = await makeFilePublic(accessToken, driveFile.id, contentType)
         const thumbnailUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
 
-        // ─── Save to database ──────────────────────────────────────
         const mediaItem = await prisma.mediaItem.create({
             data: {
                 channelId,
@@ -132,6 +163,7 @@ export async function POST(req: NextRequest) {
                 fileSize,
                 mimeType: contentType,
                 aiMetadata: {
+                    storage: 'gdrive',
                     gdriveFolderId: targetFolderId,
                     sourceUrl: url,
                     webViewLink: driveFile.webViewLink,

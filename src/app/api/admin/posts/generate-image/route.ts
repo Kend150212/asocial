@@ -12,6 +12,7 @@ import {
     uploadFile,
     makeFilePublic,
 } from '@/lib/gdrive'
+import { uploadToR2, generateR2Key, isR2Configured } from '@/lib/r2'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import * as fs from 'fs'
@@ -21,7 +22,7 @@ import * as path from 'path'
 /**
  * POST /api/admin/posts/generate-image
  * AI-generates an image from a prompt using the channel's configured image provider.
- * Downloads to disk (streaming), uploads to Google Drive, cleans up.
+ * Downloads to disk (streaming), uploads to R2 (or Google Drive fallback), cleans up.
  *
  * Body: { channelId, prompt, width?, height? }
  * Returns: { mediaItem, provider }
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-    // ─── Download / decode to disk → upload to GDrive → cleanup ───
+    // ─── Download / decode to disk → upload to R2 (or GDrive) → cleanup ───
     const tmpPath = path.join(os.tmpdir(), `asoc_img_${randomUUID()}.png`)
     try {
         if (imageUrl.startsWith('data:')) {
@@ -145,8 +146,45 @@ export async function POST(req: NextRequest) {
         // Read file for upload
         const fileBuffer = fs.readFileSync(tmpPath)
         const fileSize = fs.statSync(tmpPath).size
+        const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png'
+        const shortId = randomUUID().slice(0, 6)
+        const now = new Date()
+        const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
+        const uniqueName = `ai-image ${shortId} - ${dateStr}.${ext}`
+        const usedModel = imageModel || (resolvedProvider === 'gemini' ? 'gemini-2.0-flash-exp' : resolvedProvider === 'openai' ? 'dall-e-3' : 'runware:100@1')
 
-        // Get Google Drive access
+        // ─── Try R2 first ────────────────────────────────
+        const useR2 = await isR2Configured()
+
+        if (useR2) {
+            const r2Key = generateR2Key(channelId, uniqueName)
+            const publicUrl = await uploadToR2(fileBuffer, r2Key, mimeType)
+
+            const mediaItem = await prisma.mediaItem.create({
+                data: {
+                    channelId,
+                    url: publicUrl,
+                    thumbnailUrl: publicUrl,
+                    storageFileId: r2Key,
+                    type: 'image',
+                    source: 'ai_generated',
+                    originalName: uniqueName,
+                    fileSize,
+                    mimeType,
+                    aiMetadata: {
+                        storage: 'r2',
+                        r2Key,
+                        provider: resolvedProvider,
+                        model: usedModel,
+                        prompt,
+                    },
+                },
+            })
+
+            return NextResponse.json({ mediaItem, provider: resolvedProvider, model: usedModel })
+        }
+
+        // ─── Fallback: Google Drive ──────────────────────
         let accessToken: string
         let targetFolderId: string
 
@@ -168,26 +206,17 @@ export async function POST(req: NextRequest) {
             })
             const gdriveConfig = (integration?.config || {}) as Record<string, string>
             if (!gdriveConfig.parentFolderId) {
-                throw new Error('Google Drive not configured. Set up Google Drive in API Hub first.')
+                throw new Error('No storage configured. Set up Cloudflare R2 or Google Drive in API Hub.')
             }
             const channelName = channel.displayName || channel.name || 'General'
             const channelFolder = await getOrCreateChannelFolder(accessToken, gdriveConfig.parentFolderId, channelName)
             targetFolderId = channelFolder.id
         }
 
-        // Upload to Google Drive
-        const now = new Date()
-        const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${now.getFullYear()}`
-        const shortId = randomUUID().slice(0, 6)
-        const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : 'png'
-        const uniqueName = `ai-image ${shortId} - ${dateStr}.${ext}`
-        const usedModel = imageModel || (resolvedProvider === 'gemini' ? 'gemini-2.0-flash-exp' : resolvedProvider === 'openai' ? 'dall-e-3' : 'runware:100@1')
-
         const driveFile = await uploadFile(accessToken, uniqueName, mimeType, fileBuffer, targetFolderId)
         const publicUrl = await makeFilePublic(accessToken, driveFile.id, mimeType)
         const thumbnailUrl = `https://lh3.googleusercontent.com/d/${driveFile.id}=s400`
 
-        // Create MediaItem in database
         const mediaItem = await prisma.mediaItem.create({
             data: {
                 channelId,
@@ -197,9 +226,10 @@ export async function POST(req: NextRequest) {
                 type: 'image',
                 source: 'ai_generated',
                 originalName: uniqueName,
-                fileSize: fileSize,
+                fileSize,
                 mimeType,
                 aiMetadata: {
+                    storage: 'gdrive',
                     provider: resolvedProvider,
                     model: usedModel,
                     prompt,

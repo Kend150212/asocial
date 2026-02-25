@@ -19,10 +19,11 @@ function cleanCache() {
 /**
  * GET /api/media/serve/[id]
  *
- * Public proxy endpoint for media files stored on Google Drive.
- * Instagram/Facebook APIs cannot download from Google Drive URLs directly.
+ * Public proxy endpoint for media files.
+ * - R2 media: redirect to the public URL directly (no proxy needed)
+ * - Google Drive media: download and serve (Instagram/FB can't access GDrive URLs)
  *
- * Strategy: Download the ENTIRE file into memory first, then serve it
+ * Strategy for GDrive: Download the ENTIRE file into memory first, then serve it
  * instantly to Instagram. This avoids the double-latency issue where
  * streaming GDrive → Neeflow → Instagram causes Instagram to timeout.
  *
@@ -36,7 +37,7 @@ export async function GET(
     const { id } = await params
 
     try {
-        // Check cache first
+        // Check cache first (for GDrive files)
         cleanCache()
         const cached = fileCache.get(id)
         if (cached) {
@@ -60,6 +61,7 @@ export async function GET(
                 type: true,
                 originalName: true,
                 channelId: true,
+                aiMetadata: true,
             },
         })
 
@@ -67,6 +69,14 @@ export async function GET(
             return NextResponse.json({ error: 'Media not found' }, { status: 404 })
         }
 
+        // ─── R2 media: redirect to public URL ───────────
+        const metadata = (media.aiMetadata || {}) as Record<string, string>
+        if (metadata.storage === 'r2') {
+            console.log(`[Media Proxy] ☁️ Redirecting R2 media: ${media.originalName || id}`)
+            return NextResponse.redirect(media.url, 302)
+        }
+
+        // ─── Google Drive media: download and serve ─────
         let sourceUrl = media.url
         const fetchHeaders: Record<string, string> = {}
 

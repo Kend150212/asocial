@@ -1566,10 +1566,16 @@ export async function POST(
     const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const mediaItems: MediaInfo[] = post.media.map((m) => {
         let url = m.mediaItem.url
+        const metadata = (m.mediaItem.aiMetadata || {}) as Record<string, string>
+        const isR2 = metadata.storage === 'r2'
+
         if (url.startsWith('http://') || url.startsWith('https://')) {
-            // For Google Drive files: use our proxy endpoint instead of direct Drive URLs
-            // Instagram/Facebook APIs cannot download from Google Drive (redirects, virus scan, etc.)
-            if (m.mediaItem.storageFileId) {
+            if (isR2) {
+                // R2 URLs are publicly accessible — use directly, no proxy needed
+                console.log(`[Publish] ☁️ Using R2 URL directly for ${m.mediaItem.originalName || m.mediaItem.id}`)
+            } else if (m.mediaItem.storageFileId) {
+                // Google Drive files: use our proxy endpoint instead of direct Drive URLs
+                // Instagram/Facebook APIs cannot download from Google Drive (redirects, virus scan, etc.)
                 url = `${baseUrl}/api/media/serve/${m.mediaItem.id}`
                 console.log(`[Publish] 🔄 Using proxy URL for ${m.mediaItem.originalName || m.mediaItem.id} (Google Drive → Neeflow proxy)`)
             }

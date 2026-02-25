@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getGDriveAccessToken } from '@/lib/gdrive'
+import { deleteFromR2 } from '@/lib/r2'
 
 // POST /api/admin/media/bulk — bulk operations (delete, move)
 export async function POST(req: NextRequest) {
@@ -22,26 +23,50 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'delete') {
-        // Get all media items to delete from Drive
+        // Get all media items to delete
         const mediaItems = await prisma.mediaItem.findMany({
             where: { id: { in: ids } },
         })
 
-        // Delete from Google Drive
-        try {
-            const accessToken = await getGDriveAccessToken()
+        // Separate R2 and GDrive items
+        const r2Items = mediaItems.filter((m) => {
+            const meta = (m.aiMetadata || {}) as Record<string, string>
+            return meta.storage === 'r2' && m.storageFileId
+        })
+        const gdriveItems = mediaItems.filter((m) => {
+            const meta = (m.aiMetadata || {}) as Record<string, string>
+            return meta.storage !== 'r2' && m.storageFileId
+        })
+
+        // Delete from R2
+        if (r2Items.length > 0) {
             await Promise.allSettled(
-                mediaItems
-                    .filter((m) => m.storageFileId)
-                    .map((m) =>
+                r2Items.map(async (m) => {
+                    await deleteFromR2(m.storageFileId!)
+                    // Also delete thumbnail if separate
+                    if (m.thumbnailUrl && m.thumbnailUrl !== m.url) {
+                        const thumbKey = m.storageFileId!.replace(/\.[^.]+$/, '_thumb.jpg')
+                        await deleteFromR2(thumbKey).catch(() => { })
+                    }
+                })
+            )
+        }
+
+        // Delete from Google Drive (legacy)
+        if (gdriveItems.length > 0) {
+            try {
+                const accessToken = await getGDriveAccessToken()
+                await Promise.allSettled(
+                    gdriveItems.map((m) =>
                         fetch(`https://www.googleapis.com/drive/v3/files/${m.storageFileId}`, {
                             method: 'DELETE',
                             headers: { Authorization: `Bearer ${accessToken}` },
                         })
                     )
-            )
-        } catch (err) {
-            console.warn('Bulk Drive delete partial failure:', err)
+                )
+            } catch (err) {
+                console.warn('Bulk GDrive delete partial failure:', err)
+            }
         }
 
         // Delete post_media references first
