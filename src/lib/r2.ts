@@ -44,7 +44,12 @@ async function getR2Config(): Promise<R2Config> {
     const config = (integration.config || {}) as Record<string, string>
     const accountId = config.r2AccountId
     const bucketName = config.r2BucketName
-    const publicUrl = config.r2PublicUrl
+    let publicUrl = config.r2PublicUrl || ''
+
+    // Ensure public URL has protocol
+    if (publicUrl && !publicUrl.startsWith('http')) {
+        publicUrl = `https://${publicUrl}`
+    }
 
     if (!accountId || !bucketName || !publicUrl) {
         throw new Error('Cloudflare R2 configuration incomplete. Please fill in all fields in API Hub.')
@@ -62,6 +67,8 @@ async function getR2Config(): Promise<R2Config> {
         throw new Error('R2 Secret Access Key not configured')
     }
     const secretAccessKey = decrypt(secretEncrypted)
+
+    console.log(`[R2] Config loaded — account: ${accountId.slice(0, 8)}…, bucket: ${bucketName}, endpoint: https://${accountId}.r2.cloudflarestorage.com, accessKeyId: ${accessKeyId.slice(0, 6)}…, secretKey: ${secretAccessKey ? 'present' : 'MISSING'} (${secretAccessKey.length} chars), publicUrl: ${publicUrl}`)
 
     cachedConfig = { accountId, bucketName, publicUrl, accessKeyId, secretAccessKey }
     cachedAt = now
