@@ -225,25 +225,24 @@ async function publishToInstagram(
 
     // ── Story: use STORIES media type ──
     if (postType === 'story') {
-        const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
         const firstMedia = mediaItems[0]
+        if (isVideoMedia(firstMedia)) {
+            // Use resumable upload for video stories
+            return await igResumablePublish(accessToken, accountId, '', firstMedia, 'STORIES')
+        }
+        // Image story — use video_url/image_url as before
         const containerBody: Record<string, string> = {
             media_type: 'STORIES',
+            image_url: firstMedia.url,
             access_token: accessToken,
         }
-        if (isVideoMedia(firstMedia)) {
-            containerBody.video_url = firstMedia.url
-        } else {
-            containerBody.image_url = firstMedia.url
-        }
-        const containerRes = await fetch(containerUrl, {
+        const containerRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(containerBody),
         })
         const containerData = await containerRes.json()
         if (containerData.error) throw new Error(containerData.error.message || 'Instagram Story creation failed')
-        // Wait for container to be ready
         await waitForIgContainer(accessToken, containerData.id)
         const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
             method: 'POST',
@@ -255,62 +254,37 @@ async function publishToInstagram(
         return { externalId: publishData.id }
     }
 
-    // ── Reel: use REELS media type ──
+    // ── Reel: use REELS media type with resumable upload ──
     if (postType === 'reel') {
         const videoMedia = mediaItems.find(m => isVideoMedia(m))
         if (!videoMedia) throw new Error('Reels require a video attachment')
-        const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
-        const containerBody: Record<string, unknown> = {
-            media_type: 'REELS',
-            video_url: videoMedia.url,
-            caption: content,
-            access_token: accessToken,
-        }
-        if (collaboratorUsernames.length > 0) {
-            containerBody.collaborators = collaboratorUsernames
-        }
-        const containerRes = await fetch(containerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(containerBody),
-        })
-        const containerData = await containerRes.json()
-        if (containerData.error) throw new Error(containerData.error.message || 'Instagram Reel creation failed')
-        await waitForIgContainer(accessToken, containerData.id)
-        const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
-        })
-        const publishData = await publishRes.json()
-        if (publishData.error) throw new Error(publishData.error.message || 'Instagram Reel publish failed')
-        return { externalId: publishData.id }
+        return await igResumablePublish(accessToken, accountId, content, videoMedia, 'REELS', collaboratorUsernames)
     }
 
     // ── Carousel: multiple images/videos ──
     if (mediaItems.length > 1) {
         const childIds: string[] = []
         for (const media of mediaItems) {
-            const childUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
-            const childBody: Record<string, string> = {
-                is_carousel_item: 'true',
-                access_token: accessToken,
-            }
             if (isVideoMedia(media)) {
-                childBody.media_type = 'VIDEO'
-                childBody.video_url = media.url
+                // Use resumable upload for carousel videos
+                const result = await igResumableCreateChild(accessToken, accountId, media)
+                childIds.push(result.containerId)
             } else {
-                childBody.image_url = media.url
+                const childBody: Record<string, string> = {
+                    is_carousel_item: 'true',
+                    image_url: media.url,
+                    access_token: accessToken,
+                }
+                const childRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(childBody),
+                })
+                const childData = await childRes.json()
+                if (childData.error) throw new Error(childData.error.message || 'Instagram carousel item creation failed')
+                await waitForIgContainer(accessToken, childData.id)
+                childIds.push(childData.id)
             }
-            const childRes = await fetch(childUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(childBody),
-            })
-            const childData = await childRes.json()
-            if (childData.error) throw new Error(childData.error.message || 'Instagram carousel item creation failed')
-            await waitForIgContainer(accessToken, childData.id)
-            childIds.push(childData.id)
         }
         const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
         const containerBody: Record<string, unknown> = {
@@ -340,20 +314,18 @@ async function publishToInstagram(
     }
 
     // ── Single image/video feed post ──
-    const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
-    const containerBody: Record<string, unknown> = {
-        caption: content,
-        access_token: accessToken,
-    }
-
     const firstMedia = mediaItems[0]
     if (isVideoMedia(firstMedia)) {
         // Instagram deprecated VIDEO type — all videos are now REELS (even for feed)
-        containerBody.media_type = 'REELS'
-        containerBody.video_url = firstMedia.url
         console.log(`[Instagram] Video detected in feed post — auto-switching to REELS media type`)
-    } else {
-        containerBody.image_url = firstMedia.url
+        return await igResumablePublish(accessToken, accountId, content, firstMedia, 'REELS', collaboratorUsernames)
+    }
+
+    const containerUrl = `https://graph.facebook.com/v21.0/${accountId}/media`
+    const containerBody: Record<string, unknown> = {
+        caption: content,
+        image_url: firstMedia.url,
+        access_token: accessToken,
     }
     if (collaboratorUsernames.length > 0) {
         containerBody.collaborators = collaboratorUsernames
@@ -429,7 +401,130 @@ async function waitForIgContainer(accessToken: string, containerId: string, maxA
         }
         await new Promise(resolve => setTimeout(resolve, 2000)) // wait 2s
     }
-    throw new Error('Instagram: Video processing timed out (60s). Your video may be too large or in an unsupported format. Try using MP4 (H.264) under 100MB.')
+    throw new Error('Instagram: Video processing timed out (60s). Your video may be too large or in an unsupported format. Try using MP4/MOV (H.264) under 100MB.')
+}
+
+/**
+ * Instagram Resumable Upload — upload video bytes directly to IG servers.
+ * Same pattern as YouTube: download video → upload bytes → publish.
+ *
+ * Steps:
+ * 1. Download video from URL (proxy or direct)
+ * 2. Create media container with upload_type=resumable
+ * 3. Upload video bytes to rupload.facebook.com
+ * 4. Wait for container processing
+ * 5. Publish
+ */
+async function igResumablePublish(
+    accessToken: string,
+    accountId: string,
+    caption: string,
+    videoMedia: MediaInfo,
+    mediaType: 'REELS' | 'STORIES',
+    collaboratorUsernames?: string[],
+): Promise<{ externalId: string }> {
+    // Step 1: Download video bytes
+    console.log(`[Instagram] Resumable upload: downloading video from ${videoMedia.url.substring(0, 80)}...`)
+    const videoRes = await fetch(videoMedia.url)
+    if (!videoRes.ok) throw new Error(`Failed to download video: ${videoRes.statusText}`)
+    const videoBuffer = await videoRes.arrayBuffer()
+    const fileSize = videoBuffer.byteLength
+    console.log(`[Instagram] Resumable upload: downloaded ${(fileSize / 1024 / 1024).toFixed(1)}MB`)
+
+    // Step 2: Create container with upload_type=resumable
+    const containerBody: Record<string, unknown> = {
+        media_type: mediaType,
+        upload_type: 'resumable',
+        access_token: accessToken,
+    }
+    if (caption) containerBody.caption = caption
+    if (collaboratorUsernames && collaboratorUsernames.length > 0) {
+        containerBody.collaborators = collaboratorUsernames
+    }
+    const containerRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(containerBody),
+    })
+    const containerData = await containerRes.json()
+    if (containerData.error) throw new Error(containerData.error.message || 'Instagram container creation failed')
+    const containerId = containerData.id
+    console.log(`[Instagram] Resumable upload: container ${containerId} created`)
+
+    // Step 3: Upload video bytes to rupload.facebook.com
+    console.log(`[Instagram] Resumable upload: uploading ${(fileSize / 1024 / 1024).toFixed(1)}MB to rupload.facebook.com...`)
+    const uploadRes = await fetch(`https://rupload.facebook.com/ig-api-upload/${containerId}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `OAuth ${accessToken}`,
+            'offset': '0',
+            'file_size': String(fileSize),
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': String(fileSize),
+        },
+        body: videoBuffer,
+    })
+    if (!uploadRes.ok) {
+        const errText = await uploadRes.text()
+        console.error(`[Instagram] Resumable upload failed: ${uploadRes.status} ${errText}`)
+        throw new Error(`Instagram video upload failed: ${uploadRes.status}`)
+    }
+    console.log(`[Instagram] Resumable upload: upload complete`)
+
+    // Step 4: Wait for container processing
+    await waitForIgContainer(accessToken, containerId)
+
+    // Step 5: Publish
+    const publishRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: containerId, access_token: accessToken }),
+    })
+    const publishData = await publishRes.json()
+    if (publishData.error) throw new Error(publishData.error.message || 'Instagram publish failed')
+    console.log(`[Instagram] ✅ Resumable upload published successfully: ${publishData.id}`)
+    return { externalId: publishData.id }
+}
+
+/** Create a carousel child video using resumable upload */
+async function igResumableCreateChild(
+    accessToken: string,
+    accountId: string,
+    videoMedia: MediaInfo,
+): Promise<{ containerId: string }> {
+    const videoRes = await fetch(videoMedia.url)
+    if (!videoRes.ok) throw new Error(`Failed to download carousel video: ${videoRes.statusText}`)
+    const videoBuffer = await videoRes.arrayBuffer()
+    const fileSize = videoBuffer.byteLength
+
+    const containerRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            is_carousel_item: 'true',
+            media_type: 'VIDEO',
+            upload_type: 'resumable',
+            access_token: accessToken,
+        }),
+    })
+    const containerData = await containerRes.json()
+    if (containerData.error) throw new Error(containerData.error.message || 'Instagram carousel video creation failed')
+
+    const uploadRes = await fetch(`https://rupload.facebook.com/ig-api-upload/${containerData.id}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `OAuth ${accessToken}`,
+            'offset': '0',
+            'file_size': String(fileSize),
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': String(fileSize),
+        },
+        body: videoBuffer,
+    })
+    if (!uploadRes.ok) throw new Error(`Instagram carousel video upload failed: ${uploadRes.status}`)
+
+    await waitForIgContainer(accessToken, containerData.id)
+    return { containerId: containerData.id }
 }
 
 // ─── YouTube token refresh ──────────────────────────────────────────
