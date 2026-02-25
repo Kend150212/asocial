@@ -1626,7 +1626,7 @@ function IntegrationCard({
                                     type={showKey ? 'text' : 'password'}
                                     value={r2Config.secretAccessKey}
                                     onChange={(e) => onR2Change('secretAccessKey', e.target.value)}
-                                    placeholder="Secret Access Key from R2 API Token"
+                                    placeholder={integration.config?.r2HasSecret ? '••• configured — leave empty to keep •••' : 'Secret Access Key from R2 API Token'}
                                     className="pr-8 h-8 text-xs"
                                 />
                                 <button

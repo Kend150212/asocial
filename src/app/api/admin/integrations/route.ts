@@ -15,12 +15,22 @@ export async function GET() {
     })
 
     // Mask API keys for display
-    const safe = integrations.map((i) => ({
-        ...i,
-        apiKeyEncrypted: undefined,
-        hasApiKey: !!i.apiKeyEncrypted,
-        apiKeyMasked: i.apiKeyEncrypted ? maskApiKey(decrypt(i.apiKeyEncrypted)) : null,
-    }))
+    const safe = integrations.map((i) => {
+        const config = (i.config as Record<string, unknown>) || {}
+        // Mask R2 secret key in config for display
+        const safeConfig = { ...config }
+        if (safeConfig.r2SecretAccessKey && typeof safeConfig.r2SecretAccessKey === 'string') {
+            safeConfig.r2HasSecret = true
+            safeConfig.r2SecretAccessKey = undefined // Don't expose encrypted value
+        }
+        return {
+            ...i,
+            config: safeConfig,
+            apiKeyEncrypted: undefined,
+            hasApiKey: !!i.apiKeyEncrypted,
+            apiKeyMasked: i.apiKeyEncrypted ? maskApiKey(decrypt(i.apiKeyEncrypted)) : null,
+        }
+    })
 
     return NextResponse.json(safe)
 }
@@ -65,9 +75,14 @@ export async function PUT(req: NextRequest) {
             ...existingConfig,
             ...config,
         }
-        // Encrypt R2 Secret Access Key if present
-        if (config.r2SecretAccessKey) {
+        // Encrypt R2 Secret Access Key if present and non-empty
+        if (config.r2SecretAccessKey && config.r2SecretAccessKey.trim() !== '') {
             mergedConfig.r2SecretAccessKey = encrypt(config.r2SecretAccessKey)
+        } else {
+            // Preserve existing encrypted secret if not provided
+            if (existingConfig.r2SecretAccessKey) {
+                mergedConfig.r2SecretAccessKey = existingConfig.r2SecretAccessKey
+            }
         }
         updateData.config = mergedConfig
     }
