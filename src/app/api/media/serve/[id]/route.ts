@@ -2,15 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserGDriveAccessToken } from '@/lib/gdrive'
 
+// Simple in-memory cache to avoid re-downloading during Instagram's multiple fetch attempts
+const fileCache = new Map<string, { buffer: Buffer; contentType: string; cachedAt: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+// Clean up stale cache entries periodically
+function cleanCache() {
+    const now = Date.now()
+    for (const [key, entry] of fileCache) {
+        if (now - entry.cachedAt > CACHE_TTL) {
+            fileCache.delete(key)
+        }
+    }
+}
+
 /**
  * GET /api/media/serve/[id]
  *
  * Public proxy endpoint for media files stored on Google Drive.
- * Instagram/Facebook APIs cannot download from Google Drive URLs directly,
- * so this endpoint uses the Google Drive API to download and stream the file.
+ * Instagram/Facebook APIs cannot download from Google Drive URLs directly.
  *
- * NOTE: This is intentionally public (no auth) so that Instagram's servers
- * can fetch media via this URL during the publish process.
+ * Strategy: Download the ENTIRE file into memory first, then serve it
+ * instantly to Instagram. This avoids the double-latency issue where
+ * streaming GDrive → Neeflow → Instagram causes Instagram to timeout.
+ *
+ * Files are cached in memory for 5 minutes so Instagram's multiple
+ * fetch attempts (container checks) don't re-download from GDrive.
  */
 export async function GET(
     _req: NextRequest,
@@ -19,6 +36,21 @@ export async function GET(
     const { id } = await params
 
     try {
+        // Check cache first
+        cleanCache()
+        const cached = fileCache.get(id)
+        if (cached) {
+            console.log(`[Media Proxy] Cache hit for ${id} (${(cached.buffer.length / 1024 / 1024).toFixed(1)}MB)`)
+            return new NextResponse(cached.buffer, {
+                status: 200,
+                headers: {
+                    'Content-Type': cached.contentType,
+                    'Content-Length': String(cached.buffer.length),
+                    'Cache-Control': 'public, max-age=300',
+                },
+            })
+        }
+
         const media = await prisma.mediaItem.findUnique({
             where: { id },
             select: {
@@ -39,12 +71,10 @@ export async function GET(
         const fetchHeaders: Record<string, string> = {}
 
         if (media.storageFileId) {
-            // Try to get a user-level GDrive access token via the channel owner
             try {
-                // Find the channel owner (first member with OWNER/ADMIN role)
                 const channelMember = await prisma.channelMember.findFirst({
                     where: { channelId: media.channelId },
-                    orderBy: { role: 'asc' }, // OWNER comes first alphabetically
+                    orderBy: { role: 'asc' },
                     select: { userId: true },
                 })
 
@@ -52,57 +82,47 @@ export async function GET(
                     const gdriveToken = await getUserGDriveAccessToken(channelMember.userId)
                     sourceUrl = `https://www.googleapis.com/drive/v3/files/${media.storageFileId}?alt=media`
                     fetchHeaders['Authorization'] = `Bearer ${gdriveToken}`
-                    console.log(`[Media Proxy] Using Google Drive API (user token) for ${media.originalName || id}`)
+                    console.log(`[Media Proxy] Downloading from Google Drive API: ${media.originalName || id}`)
                 } else {
                     throw new Error('No channel member found')
                 }
             } catch (err) {
-                // Fallback to public URL if GDrive auth fails
-                console.warn(`[Media Proxy] GDrive user auth failed, using public URL:`, (err as Error).message)
+                console.warn(`[Media Proxy] GDrive auth failed, using public URL:`, (err as Error).message)
                 sourceUrl = `https://drive.google.com/uc?export=download&id=${media.storageFileId}`
             }
         }
 
-        // Download the file from source
+        // Download the ENTIRE file into memory
         const response = await fetch(sourceUrl, {
             redirect: 'follow',
-            headers: {
-                ...fetchHeaders,
-                'User-Agent': 'NeeFlow/1.0',
-            },
+            headers: { ...fetchHeaders, 'User-Agent': 'NeeFlow/1.0' },
         })
 
         if (!response.ok) {
-            console.error(`[Media Proxy] Failed to download: ${response.status} ${response.statusText}`)
+            console.error(`[Media Proxy] Download failed: ${response.status} ${response.statusText}`)
             return NextResponse.json({ error: 'Failed to download media' }, { status: 502 })
         }
 
-        // Get the actual content type
+        const arrayBuffer = await response.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+
         const contentType = media.mimeType
             || response.headers.get('content-type')
             || (media.type === 'video' ? 'video/mp4' : 'image/jpeg')
 
-        // Stream the response
-        const body = response.body
-        if (!body) {
-            return NextResponse.json({ error: 'Empty response from source' }, { status: 502 })
-        }
+        console.log(`[Media Proxy] Downloaded ${media.originalName || id} (${contentType}, ${(buffer.length / 1024 / 1024).toFixed(1)}MB) — caching for 5min`)
 
-        // Set appropriate headers
-        const respHeaders = new Headers()
-        respHeaders.set('Content-Type', contentType)
-        respHeaders.set('Cache-Control', 'public, max-age=3600')
-        if (response.headers.get('content-length')) {
-            respHeaders.set('Content-Length', response.headers.get('content-length')!)
-        }
-        const ext = contentType.includes('video') ? 'mp4' : contentType.includes('png') ? 'png' : 'jpg'
-        respHeaders.set('Content-Disposition', `inline; filename="${media.originalName || `media.${ext}`}"`)
+        // Cache the file
+        fileCache.set(id, { buffer, contentType, cachedAt: Date.now() })
 
-        console.log(`[Media Proxy] Streaming ${media.originalName || id} (${contentType}, ${response.headers.get('content-length') || 'unknown'} bytes)`)
-
-        return new NextResponse(body as unknown as ReadableStream, {
+        // Serve instantly
+        return new NextResponse(buffer, {
             status: 200,
-            headers: respHeaders,
+            headers: {
+                'Content-Type': contentType,
+                'Content-Length': String(buffer.length),
+                'Cache-Control': 'public, max-age=300',
+            },
         })
     } catch (err) {
         console.error('[Media Proxy] Error:', err)
