@@ -34,26 +34,44 @@ async function publishToFacebook(
     // Facebook Graph API — Post to Page
     const carousel = config?.carousel === true
 
-    // ── Reel: use /video_reels endpoint ──
+    // ── Reel: use /video_reels endpoint (2-phase: start → finish) ──
     if (postType === 'reel') {
         const videoMedia = mediaItems.find(m => isVideoMedia(m))
         if (!videoMedia) throw new Error('Reels require a video attachment')
         const reelUrl = `https://graph.facebook.com/v21.0/${accountId}/video_reels`
-        const reelBody: Record<string, string> = {
-            upload_phase: 'finish',
-            video_url: videoMedia.url,
-            description: content,
-            access_token: accessToken,
-        }
-        const res = await fetch(reelUrl, {
+
+        // Phase 1: START — get a video_id
+        const startRes = await fetch(reelUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reelBody),
+            body: JSON.stringify({
+                upload_phase: 'start',
+                access_token: accessToken,
+            }),
         })
-        const data = await res.json()
-        if (data.error) throw new Error(data.error.message || 'Facebook Reel upload error')
-        const postId = data.id || data.post_id
-        return { externalId: postId }
+        const startData = await startRes.json()
+        if (startData.error) throw new Error(startData.error.message || 'Facebook Reel start error')
+        const videoId = startData.video_id
+        if (!videoId) throw new Error('Facebook Reel start did not return video_id')
+        console.log(`[Facebook] Reel start: video_id=${videoId}`)
+
+        // Phase 2: FINISH — provide video_url + video_id + description
+        const finishRes = await fetch(reelUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                upload_phase: 'finish',
+                video_id: videoId,
+                video_url: videoMedia.url,
+                description: content,
+                access_token: accessToken,
+            }),
+        })
+        const finishData = await finishRes.json()
+        if (finishData.error) throw new Error(finishData.error.message || 'Facebook Reel finish error')
+        const postId = finishData.id || finishData.post_id || finishData.success?.toString()
+        console.log(`[Facebook] ✅ Reel published successfully: ${postId}`)
+        return { externalId: postId || videoId }
     }
 
     if (mediaItems.length > 0 && postType !== 'story') {
